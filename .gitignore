@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+.turbo/
+out/
+*.tsbuildinfo
+
+# Go
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Python (Phase 7)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.python-version
+*.egg-info/
+
+# Generated types from JSON Schema (Go / Python のみ build 時生成)
+packages/shared-types/generated/go/
+packages/shared-types/generated/python/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+
+# IDE / Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+!*.tfvars.example
+
+# Docker
+.docker/
+
+# Misc
+.cache/
+tmp/

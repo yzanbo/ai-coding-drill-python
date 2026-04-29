@@ -1,0 +1,49 @@
+# 0007. Redis ホスティングに Upstash を採用（ElastiCache 不採用）
+
+- **Status**: Accepted
+- **Date**: 2026-04-25
+- **Decision-makers**: 神保 陽平
+
+## Context（背景・課題）
+
+[ADR 0002](./0002-aws-single-cloud.md) で AWS 単独に決めたが、Redis のホスティングを検討した結果、**Redis だけは外部 SaaS の方が合理的**と判断する局面が出た。
+
+- Redis の用途：キャッシュ・セッション・レート制限（[ADR 0006](./0006-redis-not-for-job-queue.md)）
+- 「消えても再取得可」な性質
+- 想定トラフィック：数百ユーザー × 数十リクエスト/日
+- コスト目標：Redis 部分で月 $0〜3
+
+## Decision（決定内容）
+
+**Upstash Redis** を採用。AWS 単独の方針からは一部外れるが、ホスティングのコスト効率を優先する。
+
+## Alternatives Considered（検討した代替案）
+
+| 候補 | 概要 | 採用しなかった理由 |
+|---|---|---|
+| Upstash Redis | サーバレス、リクエスト課金、無料枠 | （採用） |
+| ElastiCache Redis（cache.t4g.micro） | AWS 純正、AWS 単一クラウド方針に沿う | 無料枠なし、最小 ~$10/月、用途的に高耐久性は過剰 |
+| EC2 上に自前 Redis | 安い | 運用負荷あり、ワーカー VM と同居させると障害分離の観点で弱い |
+| Redis を使わない（Postgres で代替） | サービス削減 | キャッシュ・レート制限で Postgres は速度・TTL 機能で不利 |
+
+## Consequences（結果・トレードオフ）
+
+### 得られるもの
+- 月 $0〜3 で運用可能、無料枠で本プロジェクトのトラフィックを十分カバー
+- サーバレスで運用負荷ゼロ（パッチ・スケール・バックアップ不要）
+- 「AWS 一本」を維持しつつ、コスト効率の合理的判断として一部 SaaS を採用、と README で説明可能
+
+### 失うもの・受容するリスク
+- 厳密には「AWS 一本」の方針に例外を作っている
+- VPC 外の SaaS なので、ネットワーク経路は public（HTTPS over TLS、ただし Upstash REST API or TLS 接続なので安全）
+- マネージド SaaS のベンダーロックインがある
+
+### 将来の見直しトリガー
+- トラフィックが増えて Upstash 無料枠を超過した場合は ElastiCache へ移行
+- VPC 内に閉じ込めたいセキュリティ要件が出た場合
+
+## References
+
+- [04_architecture.md: キャッシュ](../requirements/base/04_architecture.md#インフラの論理配置)
+- [07_tech_stack.md: キャッシュ / セッション](../requirements/base/07_tech_stack.md#キャッシュ--セッション)
+- [ADR 0002](./0002-aws-single-cloud.md)、[ADR 0006](./0006-redis-not-for-job-queue.md)
