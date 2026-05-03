@@ -16,7 +16,7 @@ API 層のフレームワークを 1 つに決める必要がある。
 
 ## Decision（決定内容）
 
-**NestJS** を採用。Module 構成は `AuthModule` / `ProblemsModule` / `GenerationModule` / `GradingModule` / `ObservabilityModule`。設計スタイルは機能別モジュール + シンプルレイヤード（Controller / Service / Repository）で統一。
+**NestJS** を採用。Module 構成は `AuthModule` / `ProblemsModule` / `GenerationModule` / `GradingModule` / `ObservabilityModule`。設計スタイルは機能別モジュール + シンプルレイヤード（Controller / Service）で統一し、データアクセスは Service から Drizzle ORM を直接呼び出す（Repository レイヤは設けない）。
 
 ## Alternatives Considered（検討した代替案）
 

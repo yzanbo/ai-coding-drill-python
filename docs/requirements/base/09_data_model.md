@@ -189,13 +189,31 @@ erDiagram
 
 ジョブの中身は JSON Schema で管理し、TS（NestJS）と Go 両方の型を自動生成する。
 
+### 共通フィールド：`traceContext`
+
+すべてのジョブ種別で **`traceContext` を必須**とする。これは NestJS（Producer）から Go ワーカー（Consumer）へ **OTel Context をプロセス境界をまたいで伝播**するために使う。仕組みの詳細は [06_observability.md: プロセス境界をまたぐトレース連携](./06_observability.md#プロセス境界をまたぐトレース連携phase-1-で必須) を、設計判断・代替案は [ADR 0017](../../adr/0017-w3c-trace-context-in-job-payload.md) を参照。
+
+```json
+{
+  "traceContext": {
+    "type": "object",
+    "required": ["traceparent"],
+    "properties": {
+      "traceparent": { "type": "string", "description": "W3C Trace Context、例: 00-<trace_id>-<span_id>-<flags>" },
+      "tracestate":  { "type": "string", "description": "ベンダ固有コンテキスト（任意）" }
+    }
+  }
+}
+```
+
 ### 採点ジョブ（`type='grade'`）
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["submissionId", "problemId", "code", "language"],
+  "required": ["traceContext", "submissionId", "problemId", "code", "language"],
   "properties": {
+    "traceContext": { "$ref": "#/definitions/traceContext" },
     "submissionId": { "type": "string", "format": "uuid" },
     "problemId":    { "type": "string", "format": "uuid" },
     "userId":       { "type": "string", "format": "uuid" },
@@ -211,8 +229,9 @@ erDiagram
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["requestId", "category", "difficulty"],
+  "required": ["traceContext", "requestId", "category", "difficulty"],
   "properties": {
+    "traceContext": { "$ref": "#/definitions/traceContext" },
     "requestId":   { "type": "string", "format": "uuid" },
     "userId":      { "type": "string", "format": "uuid" },
     "category":    { "type": "string" },
@@ -255,7 +274,7 @@ erDiagram
 
 ## マイグレーション運用
 
-- マイグレーションは Prisma または Drizzle で管理（→ [07_tech_stack.md](./07_tech_stack.md#データベース)）
+- マイグレーションは Drizzle で管理（→ [07_tech_stack.md](./07_tech_stack.md#データベース)）
 - 1 マイグレーション = 1 つの論理変更
 - 後方互換性を保つ順序で書く（カラム追加 → 書き込みコード更新 → 旧カラム削除）
 - 本番マイグレーションは GitHub Actions の手動承認ジョブで実行

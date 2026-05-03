@@ -4,27 +4,28 @@
 
 ### F-01 ユーザー認証
 - **GitHub OAuth のみ**を実装（プログラミング学習者がターゲットのため、複数プロバイダは過剰）
-- セッション管理：Cookie ベース（HttpOnly + Secure + SameSite=Lax）、ストレージは Redis（Upstash）、TTL 7 日
+- セッション管理：Cookie ベース（HttpOnly + Secure + SameSite=Lax）、ストレージは Redis、TTL 7 日
 - **設計原則**：将来的に Google / Email-Password 等を追加できるよう、以下を遵守する（→ [ADR 0015](../../adr/0015-github-oauth-with-extensible-design.md)）：
-  - Passport の Strategy パターンに沿う（NestJS 標準）
+  - Strategy パターンに沿った拡張可能な認証実装（→ [07: バックエンド API](./07_tech_stack.md#バックエンド-api-nestjs--typescript)）
   - DB スキーマで `users` と `auth_providers` を分離（プロバイダ ID をユーザーに直接持たせない、→ [09_data_model.md](./09_data_model.md)）
   - AuthService をプロバイダ非依存に実装
 - 拡張時の追加コスト：新規 Strategy ファイル + Module 登録 + ログインボタン追加（1〜2 時間想定）
 
 ### F-02 問題生成リクエスト
 - カテゴリ（例：文字列処理、配列操作、再帰、非同期処理、型パズル）と難易度を指定
-- LLM が問題文・入出力例・テストケース（Vitest 形式）・模範解答（TypeScript）を生成
+- LLM が問題文・入出力例・テストケース（採用テストランナー形式、→ [07: サンドボックス](./07_tech_stack.md#サンドボックス)）・模範解答（TypeScript）を生成
 - サンドボックス検証に通った問題のみ DB 保存
 
 ### F-03 問題表示・解答
 - 問題文・入出力例を表示
-- コードエディタ（CodeMirror 6）で TypeScript コードを入力（インライン型診断・補完対応）
+- コードエディタで TypeScript コードを入力（インライン型診断・補完対応、→ [07: フロントエンド](./07_tech_stack.md#フロントエンド)）
 - 「実行」でサンドボックスに送信 → 結果表示
 
 ### F-04 自動採点
-- ユーザー解答をサンドボックスで実行（`tsx` または `esbuild` でトランスパイル後、Node.js で実行）
-- Vitest でテストケース全通過を検証
-- 型パズル系カテゴリは `tsc --noEmit` の型エラー有無で判定
+- ユーザー解答をサンドボックスで実行（TypeScript をトランスパイル後、Node.js で実行）
+- テストランナーでテストケース全通過を検証
+- 型パズル系カテゴリは型チェックの型エラー有無で判定
+- 採用するトランスパイラ・テストランナー・型チェッカーは [07: サンドボックス](./07_tech_stack.md#サンドボックス) を参照
 - 失敗時はエラー内容・失敗ケースを返す
 
 ### F-05 学習履歴

@@ -65,10 +65,10 @@
 - `ProblemsModule`：問題 CRUD
 - `GenerationModule`：LLM 呼び出し（生成・Judge）
 - `GradingModule`：採点ジョブの投入と結果取得
-- `ObservabilityModule`：OTel / ログ / メトリクス
+- `ObservabilityModule`：OTel による計装（ログ・メトリクス・トレース）+ エラー追跡
 
 #### 設計スタイル
-機能別モジュール + シンプルレイヤード（Controller / Service / Repository）で統一。過剰な抽象化は避け、MVP の実装速度を優先する。
+機能別モジュール + シンプルレイヤード（Controller / Service）で統一。データアクセスは Service から Drizzle ORM を直接呼び出し、Repository レイヤは設けない。過剰な抽象化は避け、MVP の実装速度を優先する。
 
 → 採用フレームワーク・ライブラリ・選定理由は [07: バックエンド API](./07_tech_stack.md#バックエンド-api-nestjs--typescript)
 

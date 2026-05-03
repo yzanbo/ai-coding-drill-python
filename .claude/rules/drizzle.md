@@ -6,7 +6,32 @@ paths:
 
 # Drizzle マイグレーションルール（Postgres）
 
-DB は Postgres、ORM は Drizzle。詳細な選定理由は [ADR 0001](../../docs/adr/0001-postgres-as-job-queue.md)。
+DB は Postgres、ORM は Drizzle。
+
+- ジョブキューを Postgres に乗せる判断 → [ADR 0001](../../docs/adr/0001-postgres-as-job-queue.md)
+- ORM に Drizzle を採用した判断（Prisma 不採用） → [ADR 0016](../../docs/adr/0016-drizzle-orm-over-prisma.md)
+
+## 採用バージョンの確定タイミング（実装着手時に必ず実施）
+
+[ADR 0016](../../docs/adr/0016-drizzle-orm-over-prisma.md) 起票時点（2026-05-03）で Drizzle は **v1.0 stable 未到達**（npm `latest` は v0.45.x、v1.0 は RC 段階）。**1.0 ベータ・RC 期間中に複数の破壊的変更**（`.enableRLS()` 廃止、casing API リワーク等）が発生しているため、実装着手時に以下を必ず実施する。
+
+### チェックリスト
+
+- [ ] 実装着手時点の **Drizzle 最新 stable バージョン**を [npm](https://www.npmjs.com/package/drizzle-orm) と [公式リリースノート](https://orm.drizzle.team/docs/latest-releases) で確認
+- [ ] **採用バージョンを決定**：以下のいずれか
+  - **v1.0 stable がリリース済み** → v1.x 系で着手（推奨：直近マイナーを固定）
+  - **v1.0 stable 未リリース** → v0.45.x 系（npm `latest`）で着手し、v1.0 stable 到達後に移行 ADR を起票して切替
+  - **判断が割れる場合**は本 ADR の「将来の見直しトリガー」に該当 → 新規 ADR で記録
+- [ ] 採用バージョンを `package.json` に **`^` ではなく具体バージョン**で固定（例：`"drizzle-orm": "0.45.2"` または `"1.0.0"`）
+- [ ] 同様に `drizzle-kit` のバージョンも固定（drizzle-orm と互換性のあるマイナーに揃える）
+- [ ] [07_tech_stack.md: データベース](../../docs/requirements/base/07_tech_stack.md#データベース) に採用バージョンを追記
+- [ ] メジャー更新（v1 → v2 等）時は移行 ADR を起票してから着手
+
+### 破壊的変更への対応方針
+
+- v0.x → v1.0 を含むメジャー更新は**専用ブランチで対応**（`feature/api/drizzle-vX-migration` 等）
+- 公式の Migration Guide を読んでから着手、自己判断で API を書き換えない
+- 移行作業は ADR で記録（理由・代替案・所要時間）
 
 ## ファイル構成
 
