@@ -58,5 +58,8 @@
 - 0013: コード品質ツールに Biome を採用（ESLint + Prettier 不採用）
 - 0014: 共有データ型は JSON Schema を Single Source of Truth とし各言語向けに自動生成
 - 0015: 認証は GitHub OAuth のみ実装、ただし複数プロバイダへ拡張可能な設計とする
+- 0016: ORM に Drizzle を採用（Prisma 不採用）
+- 0017: W3C Trace Context をジョブペイロードに埋め込んでプロセス境界トレース連携を実現
+- 0018: 補完ツール（Knip / lefthook / commitlint / syncpack）を Phase 0 から導入
 
 実装中に発生した新たな決定も都度追加する。

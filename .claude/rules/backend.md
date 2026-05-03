@@ -5,7 +5,7 @@ paths:
 
 # バックエンド開発ルール（NestJS API）
 
-NestJS（TypeScript）の API サーバー。詳細な選定理由は [ADR 0004](../../docs/adr/0004-nestjs-for-backend.md)。
+NestJS（TypeScript）の API サーバー。詳細な選定理由は [ADR 0004](../../docs/adr/0004-nestjs-for-backend.md)。ORM は Drizzle（→ [ADR 0016](../../docs/adr/0016-drizzle-orm-over-prisma.md)）。
 
 ## モジュール構成（`apps/api/src/`）
 

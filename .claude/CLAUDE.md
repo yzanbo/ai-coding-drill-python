@@ -38,7 +38,7 @@
 - パッケージマネージャは **pnpm**、モノレポは **Turborepo**（→ [ADR 0012](../docs/adr/0012-turborepo-pnpm-monorepo.md)）
 - TS のリント・フォーマットは **Biome**、型チェックは `tsc --noEmit`（→ [ADR 0013](../docs/adr/0013-biome-for-tooling.md)）
 - Go は `gofmt` + `golangci-lint`（→ [ADR 0013](../docs/adr/0013-biome-for-tooling.md)）
-- DB は **Postgres + Drizzle ORM**（→ [ADR 0001](../docs/adr/0001-postgres-as-job-queue.md)）
+- DB は **Postgres + Drizzle ORM**（→ [ADR 0001](../docs/adr/0001-postgres-as-job-queue.md)、[ADR 0016](../docs/adr/0016-drizzle-orm-over-prisma.md)）
 - ジョブキューは **Postgres `SELECT FOR UPDATE SKIP LOCKED` + LISTEN/NOTIFY**（外部キューミドルウェア不使用）
 - Redis は **キャッシュ・セッション・レート制限のみ**、ジョブキュー用途では使わない（→ [ADR 0006](../docs/adr/0006-redis-not-for-job-queue.md)）
 - LLM プロバイダは **抽象化レイヤ経由**で呼び出し、設定で差し替え可能（→ [ADR 0011](../docs/adr/0011-llm-provider-abstraction.md)）

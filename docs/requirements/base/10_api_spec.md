@@ -14,7 +14,7 @@
 - 認証：Cookie ベースのセッション（HttpOnly + Secure + SameSite=Lax）
 
 ### OpenAPI 自動生成
-- NestJS の `@nestjs/swagger` で**コードから自動生成**
+- 実装コードから OpenAPI ドキュメントを**自動生成**（採用ライブラリは [07: バックエンド API](./07_tech_stack.md#バックエンド-api-nestjs--typescript) を参照）
 - 生成された OpenAPI JSON を `/api/docs/openapi.json` で配信
 - Swagger UI を `/api/docs` で配信（開発・ステージング環境のみ）
 - 本ドキュメント（10）は**主要エンドポイントの設計意図**を残す位置付けで、最新の機械可読仕様は OpenAPI に従う
@@ -180,9 +180,7 @@
 | `POST /submissions` | 1 ユーザー / 1 分 / 30 回 |
 | `GET /*` | 1 IP / 1 分 / 300 回 |
 
-実装：Redis ZSET による Sliding Log 方式（`@nestjs/throttler` + Redis ストレージ）。
-
-→ 詳細は [03_non_functional.md](./03_non_functional.md#セキュリティ最重要)
+→ 方式・実装ライブラリの詳細は [03_non_functional.md](./03_non_functional.md#セキュリティ最重要) と [07: キャッシュ / セッション](./07_tech_stack.md#キャッシュ--セッション)
 
 ---
 
@@ -191,7 +189,7 @@
 採点・生成は非同期。クライアントは以下の流れで結果を取得：
 
 1. `POST` で受付 → `202 Accepted` + ID を取得
-2. `GET /<resource>/:id` をポーリング（TanStack Query、1〜2 秒間隔、指数バックオフ）
+2. `GET /<resource>/:id` をポーリング（1〜2 秒間隔、指数バックオフ。クライアント側ライブラリは [07: フロントエンド](./07_tech_stack.md#フロントエンド) を参照）
 3. `status === 'graded' | 'completed'` で停止
 
 → 採点ジョブの内部フローは [04_architecture.md: 1 ジョブが流れる完全な経路](./04_architecture.md#1-ジョブが流れる完全な経路)
