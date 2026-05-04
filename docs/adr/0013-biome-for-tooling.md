@@ -48,6 +48,47 @@
 - syncpack（依存バージョン整合）
 - cspell（スペルチェック）
 
+## Why（採用理由）
+
+3 言語に等価な品質ゲートを設計する観点で言語別に整理する。
+
+### なぜ TS は Biome か（ESLint + Prettier ではなく）
+
+1. **Lint + Format の統合で設定ファイル乱立を回避**
+   - `.eslintrc` / `.prettierrc` / プラグイン群を 1 ファイル（`biome.json`）に統合
+   - モノレポの共有設定（`packages/config/biome-config/`）を最小化
+2. **CI 高速化（ESLint 比 25〜100 倍）**
+   - Rust 製で並列実行が高速、CI 時間とローカル feedback ループの両方で効く
+3. **`tsc --noEmit` との明確な役割分担**
+   - Biome は構文・スタイル、`tsc` は型という分離で責務が混乱しない
+4. **dprint より統合的**
+   - dprint はフォーマット専業で Linter 機能なし、Biome の方が用途を 1 ツールに集約できる
+
+### なぜ Go は gofmt + golangci-lint か
+
+1. **Go 標準（gofmt）に逆らわない**
+   - フォーマット論争を回避でき、コードレビューで揉めない
+2. **メタリンターによる包括チェック**
+   - `govet` / `staticcheck` / `errcheck` / `ineffassign` / `unused` / `gofumpt` / `gosec` を 1 コマンドで実行
+   - revive 単体や個別ツール手動運用より管理コスト・網羅性で優れる
+3. **型チェックは `go build` に内蔵**
+   - 別途型チェッカーを選定する必要がなく、TS / Python と同等の品質ゲートを最小構成で実現
+
+### なぜ Python は ruff（型チェッカーは Phase 7 着手時に決定）か
+
+1. **ruff は `lint + format` を Rust で統合**
+   - Astral 製で `flake8` / `black` / `isort` 等を 1 ツールに置換、TS の Biome と対称的な設計思想
+2. **型チェッカー選定を Phase 7 まで遅延**
+   - LLM プロバイダ抽象化（→ ADR 0011）と同じ「可逆な判断は遅延させ、判断時に最良を選ぶ」原則に従う
+   - 2026 年初頭時点で ty（Astral）が成熟途上、Phase 7 着手時に pyright と再評価する方が合理的
+3. **Astral エコシステム統合の余地**
+   - ruff / uv / ty が同社製で連携する将来性に賭けつつ、未確定部分は遅延する構造
+
+### MVP では補完ツール（Knip / lefthook / commitlint / syncpack / cspell）を導入しない
+
+- 必要性が確認できた段階で追加する
+- ただしこの判断は ADR 0018 で再検討され、Phase 0 から導入に変更されている
+
 ## Alternatives Considered（検討した代替案）
 
 ### TypeScript

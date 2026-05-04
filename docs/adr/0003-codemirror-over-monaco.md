@@ -18,6 +18,23 @@
 
 **CodeMirror 6** を採用。`@typescript/vfs` + `@valtown/codemirror-ts` でブラウザ内型診断・補完を実現する。
 
+## Why（採用理由）
+
+1. **バンドルサイズが Monaco 比で 10〜20 倍軽量（~200KB vs 2〜5MB）**
+   - Lighthouse スコア・LCP・初回読み込み体験に直接効く
+   - ポートフォリオで Web パフォーマンスを語る根拠になる
+2. **Next.js App Router との統合摩擦が小さい**
+   - Client Component に素直に乗り、SSR / Web Worker のハマりどころが Monaco より大幅に少ない
+   - Monaco は Next.js 統合で `next-monaco-editor` 等のラッパーや WebWorker 配線が必要で、CSP・SSR と衝突しやすい
+3. **モバイル・アクセシビリティが設計から考慮されている**
+   - CodeMirror 6 は IME・タッチ・スクリーンリーダーをコア機能として再設計した世代で、Monaco の VS Code 由来設計より広い利用シーンに対応
+4. **採点はサーバ側 Vitest で行うため、エディタの「IDE 完成度」は最重要ではない**
+   - ブラウザ実行は不要で、必要なのは型診断・補完による即時フィードバックのみ
+   - `@typescript/vfs` + `@valtown/codemirror-ts` で Monaco の 80% 程度の体験を遥かに軽量に実現でき、コスパが優れる
+   - Sandpack / WebContainers のようなブラウザ内ランタイムはサーバ採点と二重実装になりセキュリティモデルとも不整合
+5. **モジュラー設計で必要機能だけ取捨選択できる**
+   - 拡張パッケージを選んで組み込むため、Monaco のように「全部入りで重い」を避けられる
+
 ## Alternatives Considered（検討した代替案）
 
 | 候補 | 概要 | 採用しなかった理由 |

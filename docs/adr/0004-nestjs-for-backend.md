@@ -18,6 +18,25 @@ API 層のフレームワークを 1 つに決める必要がある。
 
 **NestJS** を採用。Module 構成は `AuthModule` / `ProblemsModule` / `GenerationModule` / `GradingModule` / `ObservabilityModule`。設計スタイルは機能別モジュール + シンプルレイヤード（Controller / Service）で統一し、データアクセスは Service から Drizzle ORM を直接呼び出す（Repository レイヤは設けない）。
 
+## Why（採用理由）
+
+1. **実務経験を活かして MVP 完成リスクを最小化**
+   - 既に実務で使用中のフレームワークのため、設計判断とコード生産性が最も高い
+   - Hono / Fastify / Encore.ts に乗り換えると学習コストが MVP 完成を圧迫する
+2. **DI / Module / Decorator による設計力アピール**
+   - 機能別 Module + Guard / Interceptor / Pipe のレイヤード構造をポートフォリオで語れる
+   - Express / Hono のような薄いフレームワークは規模が大きくなると散らかりやすく、設計判断を見せにくい
+3. **公式エコシステムの厚み**
+   - `@nestjs/passport`（OAuth）・`class-validator`（DTO 検証）・`@nestjs/swagger`（OpenAPI 自動生成）が公式提供
+   - 認証・問題 CRUD・LLM 呼び出し・ジョブ投入・観測性という多機能 API を「公式の組み合わせ」で構築できる
+4. **求人市場での評価が高い**
+   - TypeScript バックエンドフレームワークの中で求人需要・知名度ともに最大級
+5. **tRPC / Next.js Route Handlers より責務分離が明確**
+   - tRPC はフロント・バック密結合になり、API 公開や Go ワーカー連携を見せにくい
+   - Next.js Route Handlers のみだとフロントと API の責務が混ざり、ジョブ投入・LLM 呼び出しの増加で破綻する
+6. **Drizzle との直接呼び出しと相性が良い**
+   - Service 層から Drizzle を直接呼ぶ方針（→ ADR 0016）でも、Module / DI が Drizzle インスタンスの提供・テスト時のモック差し替えに自然に効く
+
 ## Alternatives Considered（検討した代替案）
 
 | 候補 | 概要 | 採用しなかった理由 |

@@ -19,6 +19,26 @@
 
 専用キューミドルウェアを使わず、**Postgres に `jobs` テーブルを置き、`SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1` で行ロックベースのキュー**として運用する。`LISTEN/NOTIFY` + 30 秒間隔の低頻度ポーリングのハイブリッドで取得する。
 
+## Why（採用理由）
+
+1. **言語非依存性（TS Producer × Go Consumer の両立）**
+   - `pg`（Node）も `pgx`（Go）も生 SQL で行ロックを扱えるため、Producer / Consumer が異なる言語でもネイティブに連携できる
+   - BullMQ（TS 専用）/ asynq（Go 専用）/ graphile-worker / River のような言語ロックインを回避し、ポリグロット要件と整合
+2. **Outbox パターン不要（二重書き込み問題の根絶）**
+   - 解答登録（`submissions` INSERT）とジョブ登録（`jobs` INSERT + `NOTIFY`）を同一 Postgres トランザクションで原子的に実行できる
+   - Redis Streams や外部キューでは「DB は成功したがキュー投入が失敗」のリスクを Outbox で吸収する必要があり、設計が複雑化する
+3. **インフラ追加ゼロ・コスト最小**
+   - 既に採用予定の Postgres を再利用するため、サービス・運用対象が増えない（バックアップ / PITR / 監視が一元化）
+   - RabbitMQ・Kafka・NATS の導入は本プロジェクト規模（数百ジョブ/日）に対して過剰
+4. **観測性が SQL で完結**
+   - `SELECT * FROM jobs WHERE state='failed'` でジョブ状態を即座に確認でき、専用 GUI 不要
+   - jobs テーブル自体が監査ログを兼ねる
+5. **`SKIP LOCKED` + `LISTEN/NOTIFY` の組み合わせで十分な性能**
+   - 通常時は `NOTIFY` で即時取得、フォールバックの 30 秒ポーリングで取りこぼしを防ぐ
+   - 想定規模（数百ジョブ/日）の 1000 倍以上のスループット余力があり、過剰設計を避けつつ将来余裕も確保
+6. **コスト目標（月 $0〜10）に適合**
+   - マネージドキュー SaaS（Inngest / Trigger.dev）は TS 中心で Go 連携が弱く、ポリグロット訴求も消える
+
 ## Alternatives Considered（検討した代替案）
 
 | 候補 | 概要 | 採用しなかった理由 |

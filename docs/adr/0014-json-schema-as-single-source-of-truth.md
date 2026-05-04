@@ -50,6 +50,27 @@ packages/shared-types/
 - **TS は生成物をコミットする**：ビルド前に型が必要、IDE 補完の即時性、`workspace:*` 参照のため
 - **Go / Python は gitignore**：`go generate` / `uv build` 時に都度生成、各言語慣習に従う
 
+## Why（採用理由）
+
+1. **3 言語間の型整合性を構造的に保証**
+   - TypeScript / Go / Python が同じデータ構造（ジョブペイロード・問題スキーマ・API 型）を扱う以上、手動定義では食い違いバグが必発
+   - 1 箇所のスキーマ変更で全言語が自動追従する仕組みは、人為ミスの排除という観点で本質的
+2. **JSON Schema は最も中立で多言語生成エコシステムが厚い**
+   - TS（zod）・Go（quicktype）・Python（datamodel-code-generator）に成熟した生成ツールが揃う
+   - TS-first（zod-to-json-schema）にすると他言語が「二級」扱いになり、Go / Python のスキーマ表現力が落ちる
+3. **ランタイムバリデーションも同じスキーマで実現**
+   - Zod / Pydantic は同じ JSON Schema から派生し、API 入出力・ジョブペイロード検証で一貫性が保てる
+   - 「型」と「ランタイム検証」を別 SSoT で管理するアンチパターンを回避
+4. **gRPC / Protocol Buffers より HTTP/JSON 主体の本プロジェクトと整合**
+   - Protobuf は通信プロトコルを縛り、HTTP/JSON 中心の API 設計と相性が悪い
+   - JSON Schema は伝送フォーマットに依存しない汎用スキーマで、API 仕様（OpenAPI）への変換も容易
+5. **Phase 7 Python 追加のコスト最小化**
+   - 既存スキーマをそのまま流用でき、言語の段階導入（→ ADR 0010）と整合
+   - Python を後から入れる際のコスト障壁を構造的に低くする
+6. **ポートフォリオでの訴求**
+   - 「言語間の整合性問題を理解し、構造的に解決する設計力」を ADR + 実装で示せる
+   - 多言語モノレポで型のズレに苦しむケースが多い中、最初から SSoT 戦略を立てた点は差別化軸になる
+
 ## Alternatives Considered（検討した代替案）
 
 | 候補 | 概要 | 採用しなかった理由 |
