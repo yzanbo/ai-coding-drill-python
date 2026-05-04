@@ -1,0 +1,44 @@
+# lefthook 設定ファイル
+# Git フックを管理し、commit / push 時に自動チェックを実行する。
+# 公式: https://lefthook.dev/configuration/
+#
+# pre-commit フックは Biome 導入時に追加する（現時点では空）。
+
+commit-msg:
+  commands:
+    commitlint:
+      # commit-msg フックで commitlint を実行し、コミットメッセージが
+      # Conventional Commits 規約（commitlint.config.mjs）に従っているかを検証する。
+      #
+      # コマンド分解:
+      #   pnpm exec   ─ プロジェクトの node_modules/.bin から実行可能ファイルを起動
+      #                  （グローバルインストール不要、devDependencies の commitlint を使う）
+      #   commitlint  ─ @commitlint/cli の本体
+      #   --edit      ─ 「ファイルパスを引数に取り、その中身をコミットメッセージとして検証する」モード
+      #                  （--edit が無いと stdin やオプションでメッセージを渡す必要がある）
+      #   {1}         ─ lefthook が commit-msg フックの第 1 引数を埋め込むプレースホルダ
+      #                  Git が commit-msg フックに渡す引数 = .git/COMMIT_EDITMSG（編集中のメッセージファイル）
+      #
+      # 結果として: pnpm exec commitlint --edit .git/COMMIT_EDITMSG が実行され、
+      # 検証失敗時は exit 1 を返してコミットがブロックされる。
+      run: pnpm exec commitlint --edit {1}
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  コミットメッセージが規約に違反しています
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        【正しいコミットメッセージ例】
+          feat(api): 問題生成エンドポイントを追加
+
+        【形式】
+          <type>(<scope>): <subject>
+          └─┬──┘ └──┬──┘   └───┬───┘
+            │       │          └ subject : 変更内容を簡潔に（日本語可、ヘッダー全体 100 文字以内）
+            │       └──────────- scope   : web / api / worker / shared / config / infra / docs / db / deps （省略可、複数はカンマ区切り）
+            └──────────────────- type    : feat / fix / docs / refactor / test / chore / ci / build / perf / style / revert （必須）
+
+        詳細は以下を参照:
+          - .claude/CLAUDE.md「コミットメッセージ」セクション
+          - commitlint.config.mjs（許可リストの SSoT）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

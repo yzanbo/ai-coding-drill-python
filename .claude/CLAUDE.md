@@ -99,16 +99,20 @@ pnpm --filter @ai-coding-drill/grading-worker dev
 
 GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`.env` に `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` を設定する。
 
-## ⚠️ Git ルール
+## ⚠️ 絶対ルール
 
 絶対遵守。違反は許容しない。
 
-### 共通禁止
+### サイト全体の禁止事項（commit / PR / issue / `.md` ドキュメント全てに適用）
+
+- **`#数字` 形式を使わない**（GitHub が issue/PR への自動リンクに変換するため）。項目参照は `R0-2` / `R1-3` / `F-01` 等のプレフィックス付き形式を使う
+- **AI 生成文言を含めない**（「Claude」「AI」「Generated with」「Co-Authored-By」等、署名・ヘッダー含む）
+
+### Git 操作の禁止
 
 - main で直接作業しない（必ず別ブランチを切る）
 - 明示指示なしに push・PR 作成しない
 - 勝手に `git add` しない（ステージ済みファイルのみコミット）
-- AI 生成文言（「Claude」「Generated with」「Co-Authored-By」等、署名・ヘッダー含む）を含めない
 
 ### ブランチ運用
 
