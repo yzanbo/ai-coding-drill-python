@@ -174,6 +174,15 @@ docs/requirements/
 - 流れの方向：上下なら `flowchart TB`、左右なら `flowchart LR`
 - 1 つの図に詰め込みすぎない（**1 図 1 メッセージ**）。情報が多い場合は複数図に分割
 
+### Mermaid アンチパターン（既知のレンダリングエラー）
+
+GitHub Mermaid パーサで実際に落ちた事例。**新規・編集時は GitHub UI 上でレンダリング確認すること**（ローカルで通っても GitHub で落ちることがある）。
+
+- **`participant` エイリアスに `<br/>` を入れない**（sequenceDiagram）：図全体が描画されない。改行は `Note over X` に分離
+- **dotted-arrow のラベルに `.` を入れない**（flowchart）：`A -. docker.sock .-> B` は Lexical error。pipe-quoted 形式 `A -.->|"docker.sock"| B` を使う
+- **`->>-` / `->>+` 暗黙修飾子を多用しない**（sequenceDiagram）：末尾 `-` は **送信者を** deactivate するため誤用しやすく "Trying to inactivate an inactive participant" で落ちる。複数往復・非対称な活性化は明示的な `activate` / `deactivate` キーワードで書く
+- **メッセージ内の特殊文字を避ける**：中括弧 `{}` / シングルクォート `'` / `<br/>` はパーサ依存。丸括弧 `()` と平文に置換
+
 ### 既存の Mermaid 図参考（2026-05 時点）
 
 > **注意**：以下は**参考例**であり、新規追加されると陳腐化する。最新状況は各ファイル本体を参照。
@@ -207,6 +216,8 @@ docs/requirements/
 - [ ] 章番号（`# NN.`）が **ファイル名の連番**と一致しているか
 - [ ] 他ファイルへのリンクが正しい相対パスで書かれているか（GitHub レンダリングで切れない）
 - [ ] フロー / 関係図 / 構造図 を **Mermaid で書けないか** 検討したか（§7）
+- [ ] Mermaid 図を追加・編集した場合、§7 アンチパターン（`<br/>` / dotted-arrow のドット / `->>-` 暗黙修飾子 / 特殊文字）に該当していないか
+- [ ] Mermaid 図を追加・編集した場合、**GitHub UI 上でレンダリング確認**を行ったか（ローカルで通っても GitHub で落ちることがある）
 - [ ] 重要な設計判断が含まれる場合、対応する **ADR が起票** されているか / 既存 ADR にリンクしているか
 
 ---
