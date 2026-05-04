@@ -6,14 +6,17 @@ argument-hint: "[feature-name] (例: problem-generation, grading) または all 
 
 # 要件 vs 実装の整合性検証
 
-引数 `$ARGUMENTS` を機能名として解釈する。`all` の場合は `docs/requirements/features/` 配下の全要件 + ベース要件を対象とする。
+引数 `$ARGUMENTS` を機能名として解釈する。`all` の場合は `docs/requirements/4-features/` 配下の全要件 + ベース要件を対象とする。
 
 ## 手順
 
 ### 1. 要件の読み込み
 
-- 機能要件：`docs/requirements/features/$ARGUMENTS.md`（`all` の場合は全ファイル）
-- ベース要件：[docs/requirements/base/](../../../docs/requirements/base/)（02 / 09 / 10 を中心に）
+- 機能要件：`docs/requirements/4-features/$ARGUMENTS.md`（`all` の場合は全ファイル）
+- ベース要件：[docs/requirements/](../../../docs/requirements/)
+  - 機能横断仕様：[3-cross-cutting/01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md)（ER 図）、[3-cross-cutting/02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md)（API 共通仕様）
+  - 全体構造：[2-foundation/02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md)
+  - 非機能要件：[2-foundation/01-non-functional.md](../../../docs/requirements/2-foundation/01-non-functional.md)
 
 各要件から以下を抽出する：
 
@@ -79,7 +82,7 @@ argument-hint: "[feature-name] (例: problem-generation, grading) または all 
 
 ### 8. ER 図の突合
 
-[09_data_model.md](../../../docs/requirements/base/09_data_model.md) の Mermaid ER 図と Drizzle スキーマを比較：
+[01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md) の Mermaid ER 図と Drizzle スキーマを比較：
 
 - ER 図に反映されていないテーブル・カラム・リレーション
 - ER 図にあるが実装にないもの

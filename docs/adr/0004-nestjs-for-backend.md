@@ -48,5 +48,5 @@ API 層のフレームワークを 1 つに決める必要がある。
 
 ## References
 
-- [04_architecture.md: Backend API](../requirements/base/04_architecture.md#backend-apinestjs)
-- [07_tech_stack.md: バックエンド API](../requirements/base/07_tech_stack.md#バックエンド-api-nestjs--typescript)
+- [02-architecture.md: Backend API](../requirements/2-foundation/02-architecture.md#backend-apinestjs)
+- [05-runtime-stack.md: バックエンド API](../requirements/2-foundation/05-runtime-stack.md#バックエンド-apinestjs--typescript)

@@ -28,10 +28,10 @@
 | `packages/prompts/` | LLM プロンプト（YAML、バージョン管理） | — |
 | `packages/config/` | Biome / TSConfig 共有設定 | — |
 | `infra/` | Terraform（AWS） | HCL |
-| `docs/requirements/base/` | 要件定義書（10 章） | Markdown |
+| `docs/requirements/` | 要件定義書（時系列 5 バケット：1-vision / 2-foundation / 3-cross-cutting / 4-features / 5-roadmap） | Markdown |
 | `docs/adr/` | Architecture Decision Records | Markdown |
 
-詳細は [SYSTEM_OVERVIEW.md](../SYSTEM_OVERVIEW.md) と [docs/requirements/base/04_architecture.md](../docs/requirements/base/04_architecture.md) を参照。
+詳細は [SYSTEM_OVERVIEW.md](../SYSTEM_OVERVIEW.md) と [docs/requirements/2-foundation/02-architecture.md](../docs/requirements/2-foundation/02-architecture.md) を参照。
 
 ### 主要な規約
 
@@ -155,7 +155,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 | コマンド | 用途 |
 |---|---|
-| `/new-requirements` | 要件 .md を対話的に新規作成（`docs/requirements/features/` 配下） |
+| `/new-requirements` | 要件 .md を対話的に新規作成（`docs/requirements/4-features/` 配下） |
 | `/update-requirements` | 要件を先に更新してから実装を修正 |
 | `/verify-requirements` | 要件と実装の整合性を検証 |
 | `/backend-implement` | 要件 .md を読んで NestJS 実装 |

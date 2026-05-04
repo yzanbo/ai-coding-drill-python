@@ -20,5 +20,5 @@ prompts/
 
 ## 関連
 - 出力スキーマ：[../shared-types/schemas/](../shared-types/schemas/)
-- 設計方針：[docs/requirements/base/05_llm_pipeline.md](../../docs/requirements/base/05_llm_pipeline.md)
+- 設計方針：[docs/requirements/2-foundation/03-llm-pipeline.md](../../docs/requirements/2-foundation/03-llm-pipeline.md)
 - LLM プロバイダ抽象化：[docs/adr/0011-llm-provider-abstraction.md](../../docs/adr/0011-llm-provider-abstraction.md)

@@ -69,6 +69,6 @@
 
 ## References
 
-- [02_functional.md: F-01 ユーザー認証](../requirements/base/02_functional.md)
-- [09_data_model.md: users / auth_providers](../requirements/base/09_data_model.md)
-- [04_architecture.md: AuthModule](../requirements/base/04_architecture.md#backend-apinestjs)
+- [01-overview.md: F-01 ユーザー認証](../requirements/1-vision/01-overview.md)
+- [01-data-model.md: users / auth_providers](../requirements/3-cross-cutting/01-data-model.md)
+- [02-architecture.md: AuthModule](../requirements/2-foundation/02-architecture.md#backend-apinestjs)

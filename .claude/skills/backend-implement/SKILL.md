@@ -12,8 +12,8 @@ argument-hint: "[feature-name] (例: problem-generation, grading)"
 
 ### 1. 要件の読み込み
 
-- 機能要件：`docs/requirements/features/$ARGUMENTS.md`
-- ベース要件：[02_functional.md](../../../docs/requirements/base/02_functional.md)、[04_architecture.md](../../../docs/requirements/base/04_architecture.md)、[09_data_model.md](../../../docs/requirements/base/09_data_model.md)、[10_api_spec.md](../../../docs/requirements/base/10_api_spec.md)
+- 機能要件：`docs/requirements/4-features/$ARGUMENTS.md`
+- ベース要件：[01-overview.md](../../../docs/requirements/1-vision/01-overview.md)、[02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md)、[01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md)、[02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md)
 - 関連 ADR：[docs/adr/](../../../docs/adr/)
 - バックエンドルール：[.claude/rules/backend.md](../../rules/backend.md)、[.claude/rules/drizzle.md](../../rules/drizzle.md)
 
@@ -57,7 +57,7 @@ argument-hint: "[feature-name] (例: problem-generation, grading)"
 2. `pnpm db:generate` でマイグレーション SQL 生成
 3. 生成 SQL を確認してコミット
 4. `pnpm db:migrate` で適用
-5. [09_data_model.md](../../../docs/requirements/base/09_data_model.md) の ER 図・テーブル定義も更新
+5. [01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md) の ER 図・テーブル定義も更新
 
 ### 6. 共有スキーマ・プロンプト変更時
 
@@ -66,7 +66,7 @@ argument-hint: "[feature-name] (例: problem-generation, grading)"
 
 ### 7. ステータス更新
 
-実装完了後、`docs/requirements/features/$ARGUMENTS.md` のステータスチェックボックスを更新する：
+実装完了後、`docs/requirements/4-features/$ARGUMENTS.md` のステータスチェックボックスを更新する：
 
 ```markdown
 ## ステータス

@@ -27,12 +27,12 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 - [README.md](../../../README.md) — ハイライト・技術スタック・クイックスタート
 - [SYSTEM_OVERVIEW.md](../../../SYSTEM_OVERVIEW.md) — 物理配置・コンポーネント責務・ジョブの流れ
 - [.claude/CLAUDE.md](../../CLAUDE.md) — 開発フロー・コマンド・規約
-- [01_overview.md](../../../docs/requirements/base/01_overview.md) — プロジェクトの目的・ターゲット
+- [01-overview.md](../../../docs/requirements/1-vision/01-overview.md) — プロジェクトの目的・ターゲット
 
 説明すべき内容：
 
 - **プロダクト**：AI Coding Drill — LLM 自動生成 × サンドボックス採点の TS 学習サイト
-- **アーキテクチャ**：3 言語ポリグロット（TS for Web/API、Go for 採点ワーカー、Phase 7 で Python）
+- **アーキテクチャ**：3 言語ポリグロット（TS for Web/API、Go for 採点ワーカー、R7 で Python）
 - **モノレポ**：Turborepo + pnpm workspaces
 - **DB / キュー**：Postgres + Drizzle、ジョブキューも Postgres `SELECT FOR UPDATE SKIP LOCKED`
 - **キャッシュ**：Upstash Redis（ジョブキュー用途では使わない）
@@ -40,7 +40,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 
 ### 3. アーキテクチャ・設計判断の説明
 
-[04_architecture.md](../../../docs/requirements/base/04_architecture.md) と [docs/adr/](../../../docs/adr/) の代表的な ADR を紹介：
+[02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md) と [docs/adr/](../../../docs/adr/) の代表的な ADR を紹介：
 
 - [ADR 0001: Postgres ジョブキュー](../../../docs/adr/0001-postgres-as-job-queue.md) — なぜ Redis Streams ではないか
 - [ADR 0003: CodeMirror 6 採用](../../../docs/adr/0003-codemirror-over-monaco.md) — なぜ Monaco ではないか
@@ -53,7 +53,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 
 ### 4. ドメインモデルの説明
 
-[09_data_model.md](../../../docs/requirements/base/09_data_model.md) の ER 図をもとに：
+[01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md) の ER 図をもとに：
 
 - `users` + `auth_providers`（プロバイダ非依存設計、→ [ADR 0015](../../../docs/adr/0015-github-oauth-with-extensible-design.md)）
 - `problems`（カテゴリ・難易度・テストケース・模範解答・LLM Judge スコア）
@@ -86,7 +86,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 | `/worker-implement` | Go 採点ワーカーの実装 |
 | `/worker-test` | Go ワーカーのテスト生成・実行 |
 
-**重要**：機能追加は必ず `docs/requirements/features/` の要件 .md から始める。
+**重要**：機能追加は必ず `docs/requirements/4-features/` の要件 .md から始める。
 
 ### 6. 担当領域別の規約説明
 
@@ -104,7 +104,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 
 #### LLM プロンプト関連の場合
 - [.claude/rules/prompts.md](../../rules/prompts.md) — YAML 構造、バージョン管理、A/B テスト
-- [05_llm_pipeline.md](../../../docs/requirements/base/05_llm_pipeline.md) — 4 レイヤ品質評価の全体像
+- [03-llm-pipeline.md](../../../docs/requirements/2-foundation/03-llm-pipeline.md) — 4 レイヤ品質評価の全体像
 
 #### フルスタック担当の場合
 - 上記すべてを読み込んで説明する
@@ -132,4 +132,4 @@ pnpm dev
 
 ### 8. 開発フェーズの現在地
 
-[08_milestones.md](../../../docs/requirements/base/08_milestones.md) で現在の Phase を伝え、次に取り組むべき作業を案内する。
+[01-roadmap.md](../../../docs/requirements/5-roadmap/01-roadmap.md) で現在の Phase を伝え、次に取り組むべき作業を案内する。

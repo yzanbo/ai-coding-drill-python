@@ -73,7 +73,7 @@ ai-coding-drill/
 │   ├── modules/                ← network / db / ecs / worker / monitoring
 │   └── envs/                   ← staging / production
 ├── docs/
-│   ├── requirements/base/
+│   ├── requirements/
 │   └── adr/
 ├── .github/workflows/          ← GitHub Actions
 ├── .env.example                ← 共有環境変数（DB URL 等）
@@ -128,7 +128,7 @@ ai-coding-drill/
 
 ## References
 
-- [07_tech_stack.md: モノレポ構成](../requirements/base/07_tech_stack.md)
+- [05-runtime-stack.md: モノレポ構成](../requirements/2-foundation/05-runtime-stack.md)
 - [ADR 0010: 言語の段階導入](./0010-phased-language-introduction.md)
 - [Turborepo 公式](https://turborepo.com/)
 - [pnpm workspaces 公式](https://pnpm.io/workspaces)

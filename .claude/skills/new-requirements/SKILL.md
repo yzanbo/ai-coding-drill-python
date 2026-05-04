@@ -8,15 +8,15 @@ argument-hint: "[feature-name] [概要の説明]"
 
 引数の最初の単語 `$0` を機能名（ファイル名）、残り `$1` 以降を機能の概要として解釈する。
 
-機能要件は `docs/requirements/features/<feature-name>.md` に作成する。
-ベースとなる全体要件（[docs/requirements/base/](../../../docs/requirements/base/)）に対する**機能別の追加仕様**として位置付ける。
+機能要件は `docs/requirements/4-features/<feature-name>.md` に作成する。
+ベースとなる全体要件（[docs/requirements/](../../../docs/requirements/)）に対する**機能別の追加仕様**として位置付ける。
 
 ## 手順
 
 ### 1. テンプレートと既存要件の確認
 
-- ベース要件 [docs/requirements/base/02_functional.md](../../../docs/requirements/base/02_functional.md) を読み、F-01〜F-08 の既存機能との重複・関連を把握
-- 既存の `docs/requirements/features/` 配下があれば確認し、粒度とスタイルの参考にする
+- ベース要件 [docs/requirements/1-vision/01-overview.md](../../../docs/requirements/1-vision/01-overview.md) を読み、F-01〜F-08 の既存機能との重複・関連を把握
+- 既存の `docs/requirements/4-features/` 配下があれば確認し、粒度とスタイルの参考にする
 - ベース要件の編集ルール [.claude/rules/base-requirements-docs.md](../../rules/base-requirements-docs.md) に従う
 
 ### 2. 概要からの深掘り（対話フェーズ）
@@ -25,8 +25,8 @@ argument-hint: "[feature-name] [概要の説明]"
 
 - **ターゲットユーザー**：認証必須か、未認証も使えるか
 - **画面**：新規画面が必要か、既存画面を拡張するか
-- **データモデル**：新規テーブル・カラムが必要か（→ [09_data_model.md](../../../docs/requirements/base/09_data_model.md) との整合性）
-- **API**：新規エンドポイントが必要か（→ [10_api_spec.md](../../../docs/requirements/base/10_api_spec.md) との整合性）
+- **データモデル**：新規テーブル・カラムが必要か（→ [01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md) との整合性）
+- **API**：新規エンドポイントが必要か（→ [02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md) との整合性）
 - **LLM 利用**：問題生成・評価への影響があるか
 - **採点ワーカーへの影響**：Go ワーカー側の処理が増えるか
 - **既存機能との関係**：既存の問題・採点・履歴フローとの依存関係
@@ -37,7 +37,7 @@ argument-hint: "[feature-name] [概要の説明]"
 
 ### 3. 機能要件 .md の生成
 
-対話で得た情報をまとめ、`docs/requirements/features/$0.md` を以下のセクション構成で作成する：
+対話で得た情報をまとめ、`docs/requirements/4-features/$0.md` を以下のセクション構成で作成する：
 
 ```markdown
 # 機能要件：<機能名>
@@ -88,10 +88,15 @@ argument-hint: "[feature-name] [概要の説明]"
 
 ### 5. ベース要件との整合チェック
 
-機能要件で**新規エンドポイント・新規テーブル・新規画面**を追加した場合、それらをベース要件にも反映する：
+機能要件で**新規エンドポイント・新規テーブル・新規画面・新規ユーザーストーリー**を追加した場合、それらをベース要件にも反映する：
 
-- [02_functional.md](../../../docs/requirements/base/02_functional.md)：F-XX として概要レベルで追記
-- [09_data_model.md](../../../docs/requirements/base/09_data_model.md)：ER 図とテーブル定義を更新
-- [10_api_spec.md](../../../docs/requirements/base/10_api_spec.md)：エンドポイント一覧に追記
+- [1-vision/01-overview.md](../../../docs/requirements/1-vision/01-overview.md)：機能俯瞰一覧に F-XX を追記（概要レベルのみ）
+- [1-vision/03-user-stories.md](../../../docs/requirements/1-vision/03-user-stories.md)：該当ペルソナのマトリクスにストーリーを追加（[`_template-03-user-stories.md`](../../../docs/requirements/1-vision/_template-03-user-stories.md) の形式に従う）
+- [3-cross-cutting/01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md)：ER 図と命名規則・横断方針を更新
+- [3-cross-cutting/02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md)：機能別エンドポイント一覧に F-XX 行を追加
+- [4-features/README.md](../../../docs/requirements/4-features/README.md)：機能一覧表に F-XX 行を追加
+- [5-roadmap/01-roadmap.md](../../../docs/requirements/5-roadmap/01-roadmap.md)：プロダクトバックログに項目追加
 
 ただし詳細はベースに書かず、機能要件 .md へのリンクで誘導する。
+
+機能 .md は [4-features/_template.md](../../../docs/requirements/4-features/_template.md) を雛形に作成する。新規ユーザーストーリーは先に追加してから機能要件詳細を書く（[`_template-03-user-stories.md`](../../../docs/requirements/1-vision/_template-03-user-stories.md) のガイドに従う）。

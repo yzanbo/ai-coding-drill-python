@@ -84,7 +84,7 @@ packages/shared-types/
 
 ## References
 
-- [09_data_model.md: ジョブペイロードのスキーマ](../requirements/base/09_data_model.md)
-- [07_tech_stack.md: 共有型・スキーマ](../requirements/base/07_tech_stack.md)
+- [01-data-model.md: ジョブペイロードのスキーマ](../requirements/3-cross-cutting/01-data-model.md)
+- [05-runtime-stack.md: 共有型・スキーマ](../requirements/2-foundation/05-runtime-stack.md)
 - [ADR 0010: 言語の段階導入](./0010-phased-language-introduction.md)
 - [ADR 0012: モノレポツール](./0012-turborepo-pnpm-monorepo.md)

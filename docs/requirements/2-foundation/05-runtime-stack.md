@@ -1,44 +1,8 @@
-# 07. 技術スタック
+# 05. 実装技術スタック（ランタイム）
 
-> **このドキュメントの守備範囲**：各レイヤで採用する技術（What）と選定理由（Why）、ライブラリ・サービスの具体名、コスト試算。
-> **コンポーネントの責務・データフロー・ジョブ動作の仕組み**は [04_architecture.md](./04_architecture.md) を参照。
-
----
-
-## リポジトリ・モノレポ構成
-
-- **Turborepo + pnpm workspaces** を採用（→ [ADR 0012](../../adr/0012-turborepo-pnpm-monorepo.md)）
-  - pnpm workspaces：JS/TS パッケージの依存解決・リンク（土台）
-  - Turborepo：ビルド順序・並列実行・キャッシュ・Vercel リモートキャッシュ（上層）
-  - Go は `go mod`、Python（Phase 7）は `uv` を使い、Turborepo は `package.json` script から薄く統合
-- ディレクトリ構成の最終版は [ADR 0012](../../adr/0012-turborepo-pnpm-monorepo.md) を参照
-
-## コード品質ツール
-
-- **Biome**（lint + format、Rust 製で高速）を TS で書かれた全アプリ・全パッケージで統一使用（→ [ADR 0013](../../adr/0013-biome-for-tooling.md)）
-  - 共有設定：`packages/config/biome-config/`
-  - ESLint + Prettier の組み合わせは不採用
-- **TypeScript（`tsc --noEmit`）** で型チェック（Biome は型チェックを行わないため必須）
-- 補完ツール（**Phase 0 / リポジトリ初期セットアップ時から導入**、→ [ADR 0018](../../adr/0018-phase-0-tooling-discipline.md)）：
-  - **共通の根拠**：これらのツールは**途中導入のコストが線形的に膨張**する（蓄積したコードが規約違反だらけになり、後追いで全件修正する作業が発生する）。Phase 0 で入れれば修正対象がほぼゼロ、Phase 4 まで放置すると数百ファイル規模の整地 PR が必要になりレビュー不能。**初期導入が圧倒的に低コスト**
-  - **lefthook**：Git フック管理（pre-commit で Biome / 型チェック、commit-msg で commitlint を起動）。壊れたコードが main に入る前に弾く
-  - **commitlint**（Conventional Commits）：コミットメッセージ規約の機械的検証。**過去のコミット履歴は遡及修正できない**ため、最初から規約を効かせる必要がある
-  - **Knip**：未使用 export / 依存 / ファイルの検出。蓄積後の一斉検出は削除可否の個別判断で時間を消費する
-  - **syncpack**：モノレポ内 `package.json` のバージョン整合性を強制。Turborepo + pnpm workspaces 構成で必須レベル。**バージョンずれは積もると一括修正に動作リスクが伴う**
-  - 設定はすべて `packages/config/` 配下に集約し、各アプリから参照
-- **Go**：`gofmt` + `golangci-lint`
-- **Python（Phase 7）**：`ruff`（Linter + Formatter 統合）
-
-## 共有型・スキーマ（JSON Schema を SSoT）
-
-- **JSON Schema を Single Source of Truth とし、各言語向けの型を自動生成**する設計（→ [ADR 0014](../../adr/0014-json-schema-as-single-source-of-truth.md)）
-- 配置：`packages/shared-types/`
-  - `schemas/`：JSON Schema 本体（SSoT）
-  - `generated/ts/`：Zod スキーマ + TS 型（コミットする）
-  - `generated/go/`：Go struct（gitignore、build 時生成）
-  - `generated/python/`：Pydantic モデル（gitignore、build 時生成、Phase 7）
-- 生成ツール候補：`json-schema-to-zod`（TS）、`quicktype`（Go）、`datamodel-code-generator`（Python）
-- 選定理由：3 言語間の型整合性を構造的に保証、スキーマ変更が 1 箇所で全言語追従、新言語追加コスト最小
+> **このドキュメントの守備範囲**：**サービスを動かす実装技術**（フロントエンド / バックエンド / 採点ワーカー / ジョブキュー / DB / キャッシュ / LLM / サンドボックス / インフラ / 観測性）。各レイヤで採用する技術（What）と選定理由（Why）、ライブラリ・サービスの具体名、コスト試算。
+> **開発フロー・品質保証技術**（モノレポ構成 / コード品質ツール / 共有型生成 / CI/CD / テストフレームワーク）は [06-dev-workflow.md](./06-dev-workflow.md) を参照。
+> **コンポーネントの責務・データフロー・ジョブ動作の仕組み**は [02-architecture.md](./02-architecture.md) を参照。
 
 ---
 
@@ -51,11 +15,11 @@
   - `@typescript/vfs` + `@valtown/codemirror-ts`（ブラウザ内型診断・補完）
   - 選定理由：Monaco 比でバンドル 10〜20 倍軽量（~200KB）、Next.js との親和性（Worker/SSR ハマりなし）、モバイル・アクセシビリティ対応、サーバ採点前の即時型フィードバックで UX 向上
 - **TanStack Query**（Client Component 側のサーバー状態管理）
-  - 用途を限定：採点結果ポーリング、ジョブステータス監視、学習履歴の再取得・キャッシュ、解答送信（`useMutation` + 楽観的更新）
+  - 用途を限定：採点結果ポーリング、ジョブステータス監視、学習履歴の再取得・キャッシュ、解答送信(`useMutation` + 楽観的更新)
   - 一覧・詳細の単純取得は RSC で直接 `fetch` し役割分担を明確化
   - 選定理由：ポーリング・リトライ・キャッシュが標準装備、非同期ジョブ中心の本サービスで UX 効果が高い
 
-→ コンポーネントの責務は [04: Frontend](./04_architecture.md#frontend)
+→ コンポーネントの責務は [02-architecture.md: Frontend](./02-architecture.md#frontend)
 
 ---
 
@@ -71,9 +35,9 @@
   - バリデーション：`class-validator` + `class-transformer`
   - OpenAPI：`@nestjs/swagger`
   - キュー（Producer）：Drizzle から `jobs` テーブルへ INSERT（専用ライブラリ不使用）
-  - テスト：Jest（NestJS 標準）
+  - テスト：Jest（NestJS 標準。詳細は [06-dev-workflow.md: テスト](./06-dev-workflow.md#テスト)）
 
-→ Module 構成・責務・設計スタイルは [04: Backend API](./04_architecture.md#backend-apinestjs)
+→ Module 構成・責務・設計スタイルは [02-architecture.md: Backend API](./02-architecture.md#backend-apinestjs)
 
 ---
 
@@ -92,9 +56,9 @@
   - Redis 接続：`github.com/redis/go-redis`（LLM キャッシュ参照時のみ）
   - 構造化ログ：標準 `log/slog`
   - OpenTelemetry：`go.opentelemetry.io/otel`
-  - テスト：標準 `testing` + `testify`
+  - テスト：標準 `testing` + `testify`（詳細は [06-dev-workflow.md: テスト](./06-dev-workflow.md#テスト)）
 
-→ ワーカーの役割・並列処理・サンドボックス起動の流れは [04: 採点ワーカー](./04_architecture.md#採点ワーカーgo)
+→ ワーカーの役割・並列処理・サンドボックス起動の流れは [02-architecture.md: 採点ワーカー](./02-architecture.md#採点ワーカーgo)
 
 ---
 
@@ -110,11 +74,11 @@
 - テーブル設計（概要）：
   - `id / queue / payload(JSONB) / state / attempts / run_at / locked_at / locked_by / last_error / created_at`
   - インデックス：`(queue, state, run_at)`
-- ペイロードは JSONB、スキーマは JSON Schema で管理し TS / Go 両方に型生成
+- ペイロードは JSONB、スキーマは JSON Schema で管理し TS / Go 両方に型生成（→ [06-dev-workflow.md: 共有型・スキーマ](./06-dev-workflow.md#共有型スキーマjson-schema-を-ssot)）
 - 取得方式：`LISTEN/NOTIFY` + 30 秒間隔の低頻度ポーリングのハイブリッド
 - スケール時の移行先：NATS JetStream（ファンアウト・Pub/Sub が必要になった場合）
 
-→ 動作仕組み・運用作法・ジョブの流れは [04: ジョブキュー](./04_architecture.md#ジョブキューpostgres-select-for-update-skip-locked)
+→ 動作仕組み・運用作法・ジョブの流れは [02-architecture.md: ジョブキュー](./02-architecture.md#ジョブキューpostgres-select-for-update-skip-locked)
 
 ---
 
@@ -149,7 +113,7 @@
 
 - 切替候補：Anthropic Claude / Google Gemini / OpenAI / OpenRouter（DeepSeek・Llama 等を含む）/ 自前ホスティング
 - 抽象化レイヤに集約する責務：構造化出力の正規化、キャッシュ、コスト計測、観測性スパン、リトライ・フォールバック
-- 具体的なモデル選定は MVP 実装着手時に決定し、Phase 2 以降にベンチマークと運用ログに基づいて適時更新
+- 具体的なモデル選定は MVP 実装着手時に決定し、R2 以降にベンチマークと運用ログに基づいて適時更新
 - 詳細は [ADR 0011: LLM プロバイダ抽象化戦略](../../adr/0011-llm-provider-abstraction.md)
 
 ### 想定ライブラリ
@@ -177,14 +141,14 @@
   - フェーズ 3（任意）：Firecracker microVM
 - 言語アダプタ層を抽象化し、将来的な Python・他言語追加に備える
 
-→ 使い捨てコンテナ方式の根拠と隔離設計は [04: サンドボックスランナー](./04_architecture.md#サンドボックスランナーgo-ワーカー内で実行)
+→ 使い捨てコンテナ方式の根拠と隔離設計は [02-architecture.md: サンドボックスランナー](./02-architecture.md#サンドボックスランナーgo-ワーカー内で実行)
 
 ---
 
 ## 品質評価まわりのツール
 
-- **ミューテーションテスト**：`stryker-js`（TS 向け、Phase 2 以降）
 - **LLM-as-a-Judge**：自前実装（上述）
+- **ミューテーションテスト**：`stryker-js`（TS 向け、R2 以降）— 詳細は [06-dev-workflow.md: テスト](./06-dev-workflow.md#テスト) を参照
 
 ---
 
@@ -214,7 +178,7 @@
 - 標準構成：~$25〜50/月
 - 最適化構成（Upstash + Spot Instance 等）：~$10〜15/月
 
-→ 物理配置の論理と責務分離は [04: インフラの論理配置](./04_architecture.md#インフラの論理配置)
+→ 物理配置の論理と責務分離は [02-architecture.md: インフラの論理配置](./02-architecture.md#インフラの論理配置)
 
 ---
 
@@ -224,29 +188,11 @@
 - **Grafana Cloud**（無料枠）または自前 Grafana + Loki + Tempo + Prometheus
 - **Sentry**（無料枠、エラー追跡）
 
----
-
-## CI/CD
-
-- **GitHub Actions**
-- pre-commit（lint/format）
-- Dependabot
-- PR 時：lint、型チェック、テスト
-- main マージ時：Docker build → ECR push → デプロイ
-- Terraform plan/apply もワークフロー化
+→ 観測性の設計詳細（必須フィールド・PII マスキング・アラート対象等）は [04-observability.md](./04-observability.md) を参照
 
 ---
 
-## テスト
-
-- **Jest**（NestJS 標準。API・LLM パイプライン・ユニット・E2E スペック）
-- Go 標準 `testing` + `testify`（採点ワーカー）
-- **Playwright**（E2E）
-- テストカバレッジ：Codecov
-
----
-
-## 将来追加予定（次バージョン・Phase 7）
+## 将来追加予定（次バージョン・R7）
 
 ### Python（オフライン評価・分析パイプライン）
 - 生成済み問題の一括再評価バッチ（Judge プロンプト改善時の回帰テスト）
@@ -261,3 +207,5 @@
 ## 選定理由の README 反映方針
 
 各技術について「なぜ選んだか」「他候補と比較して何を優先したか」を README に書く。これが面接で最も評価される。
+
+開発フロー・品質保証ツール（Biome / lefthook / Knip / syncpack 等）の選定理由は [06-dev-workflow.md](./06-dev-workflow.md) を参照。

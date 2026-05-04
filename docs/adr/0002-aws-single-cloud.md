@@ -46,5 +46,5 @@
 
 ## References
 
-- [04_architecture.md: クラウド](../requirements/base/04_architecture.md#クラウドaws-に確定)
-- [07_tech_stack.md: インフラ](../requirements/base/07_tech_stack.md#インフラ)
+- [02-architecture.md: クラウド](../requirements/2-foundation/02-architecture.md#クラウドaws-に確定)
+- [05-runtime-stack.md: インフラ](../requirements/2-foundation/05-runtime-stack.md#インフラ)

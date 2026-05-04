@@ -14,7 +14,7 @@ argument-hint: "[user|admin] (省略時は両方生成)"
 |---|---|
 | （なし / 空） | ユーザー向けマニュアル + 管理者向けマニュアル（両方） |
 | `user` | ユーザー向けマニュアルのみ |
-| `admin` | 管理者向けマニュアルのみ（Phase 4 以降） |
+| `admin` | 管理者向けマニュアルのみ（R4 以降） |
 
 ## 出力先
 
@@ -22,7 +22,7 @@ argument-hint: "[user|admin] (省略時は両方生成)"
   - HTML：`docs/manuals/user/html/index.html`
   - PDF：`docs/manuals/user/pdf/ai-coding-drill-user-manual.pdf`
   - スクリーンショット：`docs/manuals/user/html/images/`
-- 管理者向けマニュアル（Phase 4 以降）
+- 管理者向けマニュアル（R4 以降）
   - HTML：`docs/manuals/admin/html/index.html`
   - PDF：`docs/manuals/admin/pdf/ai-coding-drill-admin-manual.pdf`
   - スクリーンショット：`docs/manuals/admin/html/images/`
@@ -59,7 +59,7 @@ argument-hint: "[user|admin] (省略時は両方生成)"
 ### 1. 現状の把握
 
 - フロントエンドの画面構成を確認する（`apps/web/src/app/(routing)/` 配下のルーティング）
-- 機能要件（`docs/requirements/features/`）とベース要件 [02_functional.md](../../../docs/requirements/base/02_functional.md) を確認する
+- 機能要件（`docs/requirements/4-features/`）とベース要件 [01-overview.md](../../../docs/requirements/1-vision/01-overview.md) を確認する
 - 既存のマニュアルがあれば読み込み、内容の参考とする
 
 ### 2. ユーザー向けマニュアル（`user` または引数なしの場合）
@@ -83,8 +83,8 @@ argument-hint: "[user|admin] (省略時は両方生成)"
 
 ### 3. 管理者向けマニュアル（`admin` または引数なしの場合）
 
-**前提：管理者ダッシュボードは Phase 4 で実装される**（→ [08_milestones.md](../../../docs/requirements/base/08_milestones.md)）。
-Phase 4 未実装の場合は、ユーザーに「Phase 4 の管理ダッシュボード実装後に作成可能」と案内し、スキップする。
+**前提：管理者ダッシュボードは R4 で実装される**（→ [01-roadmap.md](../../../docs/requirements/5-roadmap/01-roadmap.md)）。
+R4 未実装の場合は、ユーザーに「R4 の管理ダッシュボード実装後に作成可能」と案内し、スキップする。
 
 対象：運用担当者（自分自身、または将来のチームメンバー）
 
@@ -135,7 +135,7 @@ async (page) => {
 - Playwright MCP を使ってローカル環境（`http://localhost:3000`）からキャプチャする
 - 撮影前に必ずログイン状態を確立する（GitHub OAuth はモック・テストアカウントを使用）
 - シードデータ（`pnpm db:seed`）が投入された状態で撮影する
-- 管理画面（Phase 4）の撮影には認証が必要なため、テスト用セッションで撮影する
+- 管理画面（R4）の撮影には認証が必要なため、テスト用セッションで撮影する
 
 ### 7. 最終確認
 

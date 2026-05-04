@@ -45,5 +45,5 @@
 
 ## References
 
-- [04_architecture.md: サンドボックスランナー](../requirements/base/04_architecture.md#サンドボックスランナーgo-ワーカー内で実行)
-- [07_tech_stack.md: サンドボックス](../requirements/base/07_tech_stack.md#サンドボックス)
+- [02-architecture.md: サンドボックスランナー](../requirements/2-foundation/02-architecture.md#サンドボックスランナーgo-ワーカー内で実行)
+- [05-runtime-stack.md: サンドボックス](../requirements/2-foundation/05-runtime-stack.md#サンドボックス)

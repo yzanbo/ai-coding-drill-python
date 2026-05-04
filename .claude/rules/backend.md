@@ -9,7 +9,7 @@ NestJS（TypeScript）の API サーバー。詳細な選定理由は [ADR 0004]
 
 ## モジュール構成（`apps/api/src/`）
 
-機能別フラット構成（→ [04_architecture.md](../../docs/requirements/base/04_architecture.md#backend-apinestjs)）：
+機能別フラット構成（→ [02-architecture.md](../../docs/requirements/2-foundation/02-architecture.md#backend-apinestjs)）：
 
 - `auth/` — 認証（GitHub OAuth、Passport Strategy、セッション管理）
 - `users/` — ユーザー管理（プロバイダ非依存、`auth_providers` 経由で連携）
@@ -42,7 +42,7 @@ NestJS（TypeScript）の API サーバー。詳細な選定理由は [ADR 0004]
 - 認証：Passport + GitHub OAuth、セッションは Cookie + Redis（→ [ADR 0015](../../docs/adr/0015-github-oauth-with-extensible-design.md)）
 - 全ルートデフォルト認証必須（`APP_GUARD` で `JwtAuthGuard` 相当をグローバル適用）
 - `@Public()` で認証スキップ、`@CurrentUser(key?)` で認証済みユーザー情報取得
-- レート制限：`@nestjs/throttler` + Redis ストレージ、Sliding Log 方式（→ [03_non_functional.md](../../docs/requirements/base/03_non_functional.md)）
+- レート制限：`@nestjs/throttler` + Redis ストレージ、Sliding Log 方式（→ [01-non-functional.md](../../docs/requirements/2-foundation/01-non-functional.md)）
 
 ## データベース（Postgres + Drizzle ORM）
 
@@ -51,7 +51,7 @@ NestJS（TypeScript）の API サーバー。詳細な選定理由は [ADR 0004]
 - IDs：UUID（`gen_random_uuid()`）または BIGSERIAL（`jobs.id` のみ BIGSERIAL）
 - 全テーブルに `created_at`、必要に応じて `updated_at`。**ハードデリート方針**（ソフトデリートは原則使わない、必要なら個別に検討）
 - スキーマ定義：`apps/api/src/drizzle/schema/` 配下に機能別ファイル
-- 詳細は [09_data_model.md](../../docs/requirements/base/09_data_model.md)
+- 詳細は [01-data-model.md](../../docs/requirements/3-cross-cutting/01-data-model.md)
 
 ### Drizzle クエリパターン
 
@@ -216,4 +216,4 @@ pnpm db:reset             # DB を初期化（破壊的、ローカル専用）
 - バリデーション（LLM 出力等のランタイム検証）：`zod`
 - HTTP クライアント：標準 `fetch` または `undici`
 - LLM SDK：`@anthropic-ai/sdk` / `@google/generative-ai` 等（プロバイダ抽象化レイヤ内でのみ）
-- メール送信：MVP では不要（Phase 6 以降で必要なら検討）
+- メール送信：MVP では不要（R6 以降で必要なら検討）

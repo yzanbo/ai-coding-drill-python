@@ -12,8 +12,12 @@ argument-hint: "[feature-name] [変更内容の説明]"
 
 ### 1. 現在の要件を読み込む
 
-- 機能要件：`docs/requirements/features/$0.md`
-- 関連するベース要件：[docs/requirements/base/](../../../docs/requirements/base/)（特に 02 / 04 / 09 / 10）
+- 機能要件：`docs/requirements/4-features/$0.md`
+- 関連するベース要件：[docs/requirements/](../../../docs/requirements/)
+  - [1-vision/03-user-stories.md](../../../docs/requirements/1-vision/03-user-stories.md)（ユーザーストーリー）
+  - [2-foundation/02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md)（アーキテクチャ）
+  - [3-cross-cutting/01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md)（ER 図・データモデル）
+  - [3-cross-cutting/02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md)（API 共通仕様）
 - 関連 ADR：[docs/adr/](../../../docs/adr/)
 
 ファイルが存在しない場合は、ユーザーに `/new-requirements` で先に作成することを提案する。
@@ -32,10 +36,10 @@ argument-hint: "[feature-name] [変更内容の説明]"
 
 機能要件の変更が以下に波及するかを確認し、必要なら更新：
 
-- [02_functional.md](../../../docs/requirements/base/02_functional.md)：機能一覧 F-XX
-- [04_architecture.md](../../../docs/requirements/base/04_architecture.md)：コンポーネント責務、データフロー
-- [09_data_model.md](../../../docs/requirements/base/09_data_model.md)：ER 図、テーブル定義
-- [10_api_spec.md](../../../docs/requirements/base/10_api_spec.md)：エンドポイント一覧
+- [01-overview.md](../../../docs/requirements/1-vision/01-overview.md)：機能一覧 F-XX
+- [02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md)：コンポーネント責務、データフロー
+- [01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md)：ER 図、テーブル定義
+- [02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md)：エンドポイント一覧
 
 ### 4. ADR 化の判断
 
@@ -56,4 +60,4 @@ ADR は [docs/adr/template.md](../../../docs/adr/template.md) を元に作成。
 
 ### 6. ステータス更新
 
-実装完了後、`docs/requirements/features/$0.md` のステータスを適宜更新する。
+実装完了後、`docs/requirements/4-features/$0.md` のステータスを適宜更新する。

@@ -8,7 +8,7 @@ paths:
 
 `packages/prompts/` 配下で LLM プロンプトを YAML として管理する。プロンプトはコード資産であり、バージョン管理・A/B テスト可能な構造を維持する。
 
-詳細は [05_llm_pipeline.md](../../docs/requirements/base/05_llm_pipeline.md) と [ADR 0011](../../docs/adr/0011-llm-provider-abstraction.md)。
+詳細は [03-llm-pipeline.md](../../docs/requirements/2-foundation/03-llm-pipeline.md) と [ADR 0011](../../docs/adr/0011-llm-provider-abstraction.md)。
 
 ## ファイル構成
 
@@ -155,7 +155,7 @@ llm:cache:<sha256(prompt_yaml_content + variables_json + model_id)>
 
 これにより「どのプロンプトで生成された問題か」を後から追跡できる。
 
-## 評価・改善サイクル（Phase 2 以降）
+## 評価・改善サイクル（R2 以降）
 
 1. 本番でプロンプト v1 を稼働
 2. メトリクス収集：生成成功率、Judge スコア分布、コスト、ユーザー評価
@@ -167,5 +167,5 @@ llm:cache:<sha256(prompt_yaml_content + variables_json + model_id)>
 
 ## ライセンス・著作物
 
-- 既存著作物の文章をプロンプト内に埋め込まない（教材引用は Phase 7 の RAG 経路で別途処理）
+- 既存著作物の文章をプロンプト内に埋め込まない（教材引用は R7 の RAG 経路で別途処理）
 - few-shot examples のコードは独自に書く、書籍・既存サイトからのコピーは禁止

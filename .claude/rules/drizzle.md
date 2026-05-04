@@ -24,7 +24,7 @@ DB は Postgres、ORM は Drizzle。
   - **判断が割れる場合**は本 ADR の「将来の見直しトリガー」に該当 → 新規 ADR で記録
 - [ ] 採用バージョンを `package.json` に **`^` ではなく具体バージョン**で固定（例：`"drizzle-orm": "0.45.2"` または `"1.0.0"`）
 - [ ] 同様に `drizzle-kit` のバージョンも固定（drizzle-orm と互換性のあるマイナーに揃える）
-- [ ] [07_tech_stack.md: データベース](../../docs/requirements/base/07_tech_stack.md#データベース) に採用バージョンを追記
+- [ ] [05-runtime-stack.md: データベース](../../docs/requirements/2-foundation/05-runtime-stack.md#データベース) に採用バージョンを追記
 - [ ] メジャー更新（v1 → v2 等）時は移行 ADR を起票してから着手
 
 ### 破壊的変更への対応方針
@@ -64,7 +64,7 @@ DB は Postgres、ORM は Drizzle。
 
 ### `jobs` テーブル
 
-ジョブキュー実装の中核（→ [09_data_model.md](../../docs/requirements/base/09_data_model.md)、[ADR 0001](../../docs/adr/0001-postgres-as-job-queue.md)）。
+ジョブキュー実装の中核（→ [01-data-model.md](../../docs/requirements/3-cross-cutting/01-data-model.md)、[ADR 0001](../../docs/adr/0001-postgres-as-job-queue.md)）。
 
 - `id BIGSERIAL` — その他のテーブルが UUID を使うのに対し、ジョブだけ数値 ID（処理順序を直感的に扱うため）
 - `payload JSONB` — ジョブごとのデータ。スキーマは `packages/shared-types/schemas/job.schema.json`
@@ -79,9 +79,9 @@ NestJS が `INSERT INTO jobs` と同じトランザクションで `NOTIFY new_j
 await tx.execute(sql`NOTIFY new_job, ${jobId.toString()}`);
 ```
 
-### `pgvector` 拡張（Phase 7）
+### `pgvector` 拡張（R7）
 
-将来的に RAG・重複検出を実装する際に有効化（→ [09_data_model.md: 将来拡張の想定](../../docs/requirements/base/09_data_model.md)）。
+将来的に RAG・重複検出を実装する際に有効化（→ [01-data-model.md: 将来拡張の想定](../../docs/requirements/3-cross-cutting/01-data-model.md)）。
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;

@@ -94,7 +94,7 @@
 
 ## References
 
-- [07_tech_stack.md: コード品質ツール](../requirements/base/07_tech_stack.md)
+- [05-runtime-stack.md: コード品質ツール](../requirements/2-foundation/05-runtime-stack.md)
 - [ADR 0010: 言語の段階導入](./0010-phased-language-introduction.md)
 - [ADR 0011: LLM プロバイダ抽象化（"可逆な判断は遅延させる" 原則）](./0011-llm-provider-abstraction.md)
 - [Biome 公式](https://biomejs.dev/)

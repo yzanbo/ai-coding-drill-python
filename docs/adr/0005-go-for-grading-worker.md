@@ -45,5 +45,5 @@
 
 ## References
 
-- [04_architecture.md: 採点ワーカー](../requirements/base/04_architecture.md#採点ワーカーgo)
-- [07_tech_stack.md: 採点ワーカー](../requirements/base/07_tech_stack.md#採点ワーカーgo)
+- [02-architecture.md: 採点ワーカー](../requirements/2-foundation/02-architecture.md#採点ワーカーgo)
+- [05-runtime-stack.md: 採点ワーカー](../requirements/2-foundation/05-runtime-stack.md#採点ワーカーgo)

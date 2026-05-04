@@ -44,6 +44,6 @@
 
 ## References
 
-- [04_architecture.md: キャッシュ](../requirements/base/04_architecture.md#インフラの論理配置)
-- [07_tech_stack.md: キャッシュ / セッション](../requirements/base/07_tech_stack.md#キャッシュ--セッション)
+- [02-architecture.md: キャッシュ](../requirements/2-foundation/02-architecture.md#インフラの論理配置)
+- [05-runtime-stack.md: キャッシュ / セッション](../requirements/2-foundation/05-runtime-stack.md#キャッシュ--セッション)
 - [ADR 0002](./0002-aws-single-cloud.md)、[ADR 0006](./0006-redis-not-for-job-queue.md)

@@ -48,6 +48,6 @@
 
 ## References
 
-- [01_overview.md: 言語・フレームワーク構成ロードマップ](../requirements/base/01_overview.md)
-- [04_architecture.md: 言語構成ロードマップ](../requirements/base/04_architecture.md)
-- [08_milestones.md: Phase 7](../requirements/base/08_milestones.md)
+- [01-overview.md: 言語・フレームワーク構成ロードマップ](../requirements/1-vision/01-overview.md)
+- [02-architecture.md: 言語構成ロードマップ](../requirements/2-foundation/02-architecture.md)
+- [01-roadmap.md: Phase 7](../requirements/5-roadmap/01-roadmap.md)

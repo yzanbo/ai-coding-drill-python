@@ -17,7 +17,7 @@
 2. **品質評価の 4 レイヤ防御**（決定論チェック / LLM-as-a-Judge / ユーザー行動シグナル / 集合的評価）
    ミューテーションテスト・複数モデルによる多軸評価・人間評価との相関分析を組み合わせ、LLM 生成物の品質を継続的に担保。
 
-3. **TypeScript + Go のポリグロット構成**（Phase 7 で Python 追加）
+3. **TypeScript + Go のポリグロット構成**（R7 で Python 追加）
    実装速度（NestJS）・採点ワーカーの軽量並列性（Go）・LLM/評価エコシステム（Python）を、フェーズに応じて適材適所で導入。
 
 4. **Postgres ジョブキュー**（`SELECT FOR UPDATE SKIP LOCKED` + `LISTEN/NOTIFY`）
@@ -43,14 +43,14 @@
 | **採点ワーカー** | Go + Docker クライアント（公式）+ pgx |
 | **データストア** | PostgreSQL 16（DB + ジョブキュー兼任）+ Upstash Redis（キャッシュ・セッション） |
 | **LLM** | プロバイダ抽象化（Anthropic / Gemini / OpenAI / OpenRouter 差し替え可） |
-| **サンドボックス** | Docker（使い捨てコンテナ）→ Phase 2 で gVisor → Phase 3 で Firecracker |
+| **サンドボックス** | Docker（使い捨てコンテナ）→ R3 で gVisor → R9 で Firecracker |
 | **モノレポ** | Turborepo + pnpm workspaces |
 | **コード品質** | Biome（lint+format）+ TypeScript（tsc）+ gofmt + golangci-lint |
 | **インフラ** | AWS（ECS Fargate + EC2 + RDS + ECR + Route 53）+ Terraform |
 | **観測性** | OpenTelemetry + Grafana + Loki + Tempo + Sentry |
 | **CI/CD** | GitHub Actions |
 
-詳細は [docs/requirements/base/07_tech_stack.md](docs/requirements/base/07_tech_stack.md) を参照。
+詳細は [docs/requirements/2-foundation/05-runtime-stack.md](docs/requirements/2-foundation/05-runtime-stack.md) を参照。
 
 ---
 
@@ -209,22 +209,45 @@ pnpm sandbox:build       # 採点用コンテナイメージビルド
 
 ## ドキュメント
 
-### 要件定義書（base）
+### 要件定義書
 
-プロジェクトの設計全体を 10 章で記述：
+要件定義書は **時系列 × 変更頻度** で 5 つのバケットに分かれる（[docs/requirements/README.md](docs/requirements/README.md) 参照）：
 
-| # | ファイル | 内容 |
-|---|---|---|
-| 01 | [overview](docs/requirements/base/01_overview.md) | プロジェクト概要・ゴール |
-| 02 | [functional](docs/requirements/base/02_functional.md) | 機能要件 |
-| 03 | [non_functional](docs/requirements/base/03_non_functional.md) | 非機能要件 |
-| 04 | [architecture](docs/requirements/base/04_architecture.md) | アーキテクチャ・データフロー |
-| 05 | [llm_pipeline](docs/requirements/base/05_llm_pipeline.md) | LLM パイプライン・品質評価 |
-| 06 | [observability](docs/requirements/base/06_observability.md) | 観測性 |
-| 07 | [tech_stack](docs/requirements/base/07_tech_stack.md) | 技術スタック・選定理由 |
-| 08 | [milestones](docs/requirements/base/08_milestones.md) | マイルストーン |
-| 09 | [data_model](docs/requirements/base/09_data_model.md) | ER 図・テーブル定義 |
-| 10 | [api_spec](docs/requirements/base/10_api_spec.md) | API 仕様 |
+| # | バケット | 役割 | 変更頻度 |
+|---|---|---|---|
+| 1 | [1-vision/](docs/requirements/1-vision/) | プロジェクトビジョン・ペルソナ・ユーザーストーリー | 極小 |
+| 2 | [2-foundation/](docs/requirements/2-foundation/) | 非機能・アーキテクチャ・LLM パイプライン・観測性・技術スタック | 小 |
+| 3 | [3-cross-cutting/](docs/requirements/3-cross-cutting/) | ER 図・API 共通仕様 | 中 |
+| 4 | [4-features/](docs/requirements/4-features/) | 個別機能（F-XX）の詳細仕様 | 大 |
+| 5 | [5-roadmap/](docs/requirements/5-roadmap/) | ロードマップ・プロダクトバックログ・スプリント運用 | 大 |
+
+#### 主要ドキュメント
+
+| 内容 | ファイル |
+|---|---|
+| プロジェクト概観 | [1-vision/01-overview.md](docs/requirements/1-vision/01-overview.md) |
+| ペルソナ定義 | [1-vision/02-personas.md](docs/requirements/1-vision/02-personas.md) |
+| ユーザーストーリー | [1-vision/03-user-stories.md](docs/requirements/1-vision/03-user-stories.md) |
+| 非機能要件 | [2-foundation/01-non-functional.md](docs/requirements/2-foundation/01-non-functional.md) |
+| アーキテクチャ | [2-foundation/02-architecture.md](docs/requirements/2-foundation/02-architecture.md) |
+| LLM パイプライン | [2-foundation/03-llm-pipeline.md](docs/requirements/2-foundation/03-llm-pipeline.md) |
+| 観測性 | [2-foundation/04-observability.md](docs/requirements/2-foundation/04-observability.md) |
+| 技術スタック | [2-foundation/05-runtime-stack.md](docs/requirements/2-foundation/05-runtime-stack.md) |
+| データモデル（ER 図・横断方針） | [3-cross-cutting/01-data-model.md](docs/requirements/3-cross-cutting/01-data-model.md) |
+| API 共通仕様 | [3-cross-cutting/02-api-conventions.md](docs/requirements/3-cross-cutting/02-api-conventions.md) |
+| ロードマップ・バックログ | [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) |
+
+#### 個別機能（4-features/）
+
+各機能の **受け入れ条件・画面・API・フロー・実装ステータス** は [4-features/](docs/requirements/4-features/) が SSoT。
+
+| ID | 機能名 |
+|---|---|
+| [F-01](docs/requirements/4-features/F-01-github-oauth-auth.md) | GitHub OAuth ログイン |
+| [F-02](docs/requirements/4-features/F-02-problem-generation.md) | 問題生成リクエスト |
+| [F-03](docs/requirements/4-features/F-03-problem-display-and-answer.md) | 問題表示・解答入力 |
+| [F-04](docs/requirements/4-features/F-04-auto-grading.md) | 自動採点 |
+| [F-05](docs/requirements/4-features/F-05-learning-history.md) | 学習履歴・統計 |
 
 ### ADR（Architecture Decision Records）
 
@@ -260,23 +283,23 @@ pnpm sandbox:build       # 採点用コンテナイメージビルド
      └── 使い捨て採点コンテナ（Vitest 実行）
 ```
 
-詳細は [04_architecture.md](docs/requirements/base/04_architecture.md) を参照。
+詳細は [2-foundation/02-architecture.md](docs/requirements/2-foundation/02-architecture.md) を参照。
 
 ---
 
-## 開発フェーズ
+## リリース計画
 
-| Phase | 内容 | 状態 |
+| リリース | アウトカム | 状態 |
 |---|---|---|
-| Phase 0 | 基盤整備（モノレポ・Docker Compose・CI 雛形） | _未着手_ |
-| Phase 1 | MVP（認証・問題生成・採点・最低限フロント） | _未着手_ |
-| Phase 2 | 品質保証パイプライン（Judge・ミューテーションテスト） | _未着手_ |
-| Phase 3 | サンドボックス強化（gVisor） | _未着手_ |
-| Phase 4 | 観測性（OTel・Grafana・管理ダッシュボード） | _未着手_ |
-| Phase 5 | 仕上げ（IaC・E2E・本番デプロイ） | _未着手_ |
-| Phase 7 | Python 評価パイプライン + RAG | _Phase 6 以降の任意_ |
+| R0 | 基盤整備（モノレポ・Docker Compose・CI 雛形・補完ツール一式） | _未着手_ |
+| R1 | MVP（認証・問題生成・採点・最低限フロント・一気通貫動作） | _未着手_ |
+| R2 | 品質保証パイプライン（Judge・ミューテーションテスト・非同期ジョブ完成） | _未着手_ |
+| R3 | サンドボックス強化（gVisor + ベンチマーク） | _未着手_ |
+| R4 | 観測性（OTel・Grafana・Sentry・管理ダッシュボード） | _未着手_ |
+| R5 | 仕上げ（IaC・E2E・本番デプロイ・README 完成） | _未着手_ |
+| R6 以降 | 任意（適応型出題・LLM ヒント・Python 評価パイプライン・多言語化・Firecracker） | _任意_ |
 
-詳細は [08_milestones.md](docs/requirements/base/08_milestones.md) を参照。
+詳細は [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) を参照。
 
 ---
 

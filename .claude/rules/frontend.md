@@ -19,7 +19,7 @@ Next.js 16+（App Router）+ React + TypeScript のフロントエンド。
 - Biome（lint / format）
 - Vitest + Testing Library（テスト）
 
-詳細な選定理由は [07_tech_stack.md](../../docs/requirements/base/07_tech_stack.md#フロントエンド) と [ADR 0003](../../docs/adr/0003-codemirror-over-monaco.md)。
+詳細な選定理由は [05-runtime-stack.md](../../docs/requirements/2-foundation/05-runtime-stack.md#フロントエンド) と [ADR 0003](../../docs/adr/0003-codemirror-over-monaco.md)。
 
 ## ディレクトリ構成
 
@@ -69,7 +69,7 @@ apps/web/src/
 | `/problems/:id` | 問題詳細・解答画面（CodeMirror、採点ポーリング） | 必須 |
 | `/history` | 学習履歴・正答率 | 必須 |
 
-→ 詳細は [02_functional.md](../../docs/requirements/base/02_functional.md)
+→ 詳細は [01-overview.md](../../docs/requirements/1-vision/01-overview.md)
 
 ## デスクトップ優先方針
 
@@ -81,7 +81,7 @@ apps/web/src/
 
 - **一覧・詳細の単純取得は RSC（Server Components）で直接 `fetch`**
 - **採点結果ポーリング・ジョブステータス監視・解答送信は Client Component + TanStack Query**
-- 理由：データ取得方法を役割で分け、TanStack Query を「非同期ジョブ周り」に集中させる（→ [07_tech_stack.md](../../docs/requirements/base/07_tech_stack.md#フロントエンド)）
+- 理由：データ取得方法を役割で分け、TanStack Query を「非同期ジョブ周り」に集中させる（→ [05-runtime-stack.md](../../docs/requirements/2-foundation/05-runtime-stack.md#フロントエンド)）
 
 ## コマンド
 

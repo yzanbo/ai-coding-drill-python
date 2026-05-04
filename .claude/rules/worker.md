@@ -50,7 +50,7 @@ apps/grading-worker/
 
 ### 行ロックを Docker 実行中ずっと握らない
 
-ジョブ取得は短いトランザクションで `state='running'`, `locked_at=now()`, `locked_by` を更新してすぐコミット → 別トランザクションで Docker 実行 → 完了後に結果を UPDATE。詳細は [04_architecture.md: ジョブキュー](../../docs/requirements/base/04_architecture.md#ジョブキューpostgres-select-for-update-skip-locked)。
+ジョブ取得は短いトランザクションで `state='running'`, `locked_at=now()`, `locked_by` を更新してすぐコミット → 別トランザクションで Docker 実行 → 完了後に結果を UPDATE。詳細は [02-architecture.md: ジョブキュー](../../docs/requirements/2-foundation/02-architecture.md#ジョブキューpostgres-select-for-update-skip-locked)。
 
 ### スタックジョブのリクレイム
 

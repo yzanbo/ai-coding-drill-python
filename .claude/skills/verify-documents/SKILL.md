@@ -55,7 +55,7 @@ argument-hint: "[user|admin] (省略時は両方検証)"
 
 #### 2-3. 入力項目・バリデーションの差異
 
-- 機能要件（`docs/requirements/features/`）およびバックエンドのバリデーションスキーマを確認する
+- 機能要件（`docs/requirements/4-features/`）およびバックエンドのバリデーションスキーマを確認する
 - マニュアルに記載された入力項目（項目名、必須/任意、入力制約）が実装と一致するか確認する
 - フロントの Zod スキーマ（`apps/web/src/lib/validation/`）と API の DTO（`apps/api/src/<feature>/dto/`）の両方をチェックする
 

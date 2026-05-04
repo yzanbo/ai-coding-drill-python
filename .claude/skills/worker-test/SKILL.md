@@ -12,7 +12,7 @@ argument-hint: "[feature-name] (例: grading)"
 
 ### 1. 要件と実装の読み込み
 
-- `docs/requirements/features/$ARGUMENTS.md` を読み込む
+- `docs/requirements/4-features/$ARGUMENTS.md` を読み込む
 - [.claude/rules/worker.md](../../rules/worker.md) のテスト規約を確認する
 - 対象パッケージの実装コード（`apps/grading-worker/internal/<area>/`）を読み込む
 

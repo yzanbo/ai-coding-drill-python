@@ -48,5 +48,5 @@
 
 ## References
 
-- [04_architecture.md: Frontend](../requirements/base/04_architecture.md#frontend)
-- [07_tech_stack.md: フロントエンド](../requirements/base/07_tech_stack.md#フロントエンド)
+- [02-architecture.md: Frontend](../requirements/2-foundation/02-architecture.md#frontend)
+- [05-runtime-stack.md: フロントエンド](../requirements/2-foundation/05-runtime-stack.md#フロントエンド)

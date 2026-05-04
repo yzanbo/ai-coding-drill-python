@@ -44,5 +44,5 @@ LLM-as-a-Judge は **NestJS の `GenerationModule` 内で自前実装**する。
 
 ## References
 
-- [05_llm_pipeline.md: 品質評価の 4 レイヤ](../requirements/base/05_llm_pipeline.md)
-- [07_tech_stack.md: 品質評価まわりのツール](../requirements/base/07_tech_stack.md#品質評価まわりのツール)
+- [03-llm-pipeline.md: 品質評価の 4 レイヤ](../requirements/2-foundation/03-llm-pipeline.md)
+- [05-runtime-stack.md: 品質評価まわりのツール](../requirements/2-foundation/05-runtime-stack.md#品質評価まわりのツール)

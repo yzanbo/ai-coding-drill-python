@@ -12,8 +12,8 @@ argument-hint: "[feature-name] (例: grading, regrading)"
 
 ### 1. 要件の読み込み
 
-- 機能要件：`docs/requirements/features/$ARGUMENTS.md`
-- ベース要件：[04_architecture.md: ジョブキュー](../../../docs/requirements/base/04_architecture.md#ジョブキューpostgres-select-for-update-skip-locked)、[09_data_model.md: jobs テーブル](../../../docs/requirements/base/09_data_model.md)
+- 機能要件：`docs/requirements/4-features/$ARGUMENTS.md`
+- ベース要件：[02-architecture.md: ジョブキュー](../../../docs/requirements/2-foundation/02-architecture.md#ジョブキューpostgres-select-for-update-skip-locked)、[01-data-model.md: jobs テーブル](../../../docs/requirements/3-cross-cutting/01-data-model.md)
 - 関連 ADR：[ADR 0001](../../../docs/adr/0001-postgres-as-job-queue.md)、[ADR 0005](../../../docs/adr/0005-go-for-grading-worker.md)、[ADR 0008](../../../docs/adr/0008-disposable-sandbox-container.md)
 - ワーカールール：[.claude/rules/worker.md](../../rules/worker.md)
 - 共有スキーマ：`packages/shared-types/schemas/job.schema.json`
@@ -93,7 +93,7 @@ pnpm sandbox:build       # ai-coding-drill-sandbox イメージ再ビルド
 
 ### 7. ステータス更新
 
-実装完了後、`docs/requirements/features/$ARGUMENTS.md` のステータスチェックボックスを更新：
+実装完了後、`docs/requirements/4-features/$ARGUMENTS.md` のステータスチェックボックスを更新：
 
 ```markdown
 ## ステータス

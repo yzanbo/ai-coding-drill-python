@@ -12,8 +12,8 @@ argument-hint: "[feature-name] (例: problem-detail, history)"
 
 ### 1. 要件の読み込み
 
-- 機能要件：`docs/requirements/features/$ARGUMENTS.md`
-- ベース要件：[02_functional.md](../../../docs/requirements/base/02_functional.md)
+- 機能要件：`docs/requirements/4-features/$ARGUMENTS.md`
+- ベース要件：[01-overview.md](../../../docs/requirements/1-vision/01-overview.md)
 - フロントエンドルール：[.claude/rules/frontend.md](../../rules/frontend.md)
 
 ファイルが存在しない場合は、ユーザーに `/new-requirements` で先に作成することを提案する。
@@ -81,7 +81,7 @@ const { data: submission } = useGetSubmission(submissionId, {
 
 ### 8. ステータス更新
 
-実装完了後、`docs/requirements/features/$ARGUMENTS.md` のステータスチェックボックスを更新：
+実装完了後、`docs/requirements/4-features/$ARGUMENTS.md` のステータスチェックボックスを更新：
 
 ```markdown
 ## ステータス

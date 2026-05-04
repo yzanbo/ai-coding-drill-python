@@ -12,7 +12,7 @@ argument-hint: "[feature-name] (例: problems, grading)"
 
 ### 1. 要件と実装の読み込み
 
-1. `docs/requirements/features/$ARGUMENTS.md` を読み込む
+1. `docs/requirements/4-features/$ARGUMENTS.md` を読み込む
 2. [.claude/rules/backend.md](../../rules/backend.md) のテスト規約を確認する
 3. 対象モジュールの実装コードを読み込む：
    - `apps/api/src/$ARGUMENTS/*.service.ts` — テスト対象のメインロジック

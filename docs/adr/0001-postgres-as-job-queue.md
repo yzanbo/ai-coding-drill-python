@@ -55,6 +55,6 @@
 
 ## References
 
-- [04_architecture.md: ジョブキュー](../requirements/base/04_architecture.md#ジョブキューpostgres-select-for-update-skip-locked)
-- [07_tech_stack.md: ジョブキュー](../requirements/base/07_tech_stack.md#ジョブキューpostgres-select-for-update-skip-locked)
-- [09_data_model.md: jobs テーブル](../requirements/base/09_data_model.md)
+- [02-architecture.md: ジョブキュー](../requirements/2-foundation/02-architecture.md#ジョブキューpostgres-select-for-update-skip-locked)
+- [05-runtime-stack.md: ジョブキュー](../requirements/2-foundation/05-runtime-stack.md#ジョブキューpostgres-select-for-update-skip-locked)
+- [01-data-model.md: jobs テーブル](../requirements/3-cross-cutting/01-data-model.md)
