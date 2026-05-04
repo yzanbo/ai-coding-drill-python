@@ -263,7 +263,7 @@ flowchart LR
             GoWorker[Go 採点ワーカー]
             DockerEngine[Docker Engine]
             Containers[使い捨てサンドボックス<br/>コンテナ群]
-            GoWorker -. docker.sock .-> DockerEngine
+            GoWorker -.->|"docker.sock"| DockerEngine
             DockerEngine --> Containers
         end
 

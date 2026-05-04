@@ -180,7 +180,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 - 採点ワーカー（Go）に関すること → `.claude/rules/worker.md`
 - Drizzle スキーマ・マイグレーションに関すること → `.claude/rules/drizzle.md`
 - LLM プロンプトに関すること → `.claude/rules/prompts.md`
-- 要件定義書（base）の編集ルール → `.claude/rules/base-requirements-docs.md`
+- 要件定義書（base）の編集ルール → `.claude/rules/requirements-docs.md`
 - プロジェクト全体に関することはこのファイルに追記
 
 ## コーディング規約（全体共通）

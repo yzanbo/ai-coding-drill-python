@@ -102,7 +102,7 @@ docs/requirements/
 
 - [docs/requirements/README.md](../requirements/README.md) — 5 バケット構造の全体マップ・読む順序・書く順序ガイド
 - [docs/requirements/1-vision/README.md](../requirements/1-vision/README.md) — 各バケット README の例
-- [.claude/rules/base-requirements-docs.md](../../.claude/rules/base-requirements-docs.md) — 編集ルール（重複禁止・守備範囲遵守・SSoT 原則）
+- [.claude/rules/requirements-docs.md](../../.claude/rules/requirements-docs.md) — 編集ルール（重複禁止・守備範囲遵守・SSoT 原則）
 - [ADR 0017: W3C Trace Context をジョブペイロードに埋め込む](./0017-w3c-trace-context-in-job-payload.md) — 「遅延の不可逆性が高い判断」シリーズ
 - [ADR 0018: 補完ツールを R0 から導入](./0018-phase-0-tooling-discipline.md) — 同上、メタ方針の確立
 - [Architectural Decision Records: Best Practices](https://adr.github.io/) — ADR の基本方針

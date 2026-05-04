@@ -58,7 +58,7 @@
 | **05-runtime-stack.md** | **サービスを動かす技術**（NestJS / Drizzle / Postgres / LLM プロバイダ等）。エンドユーザーのリクエストを処理する |
 | **06-dev-workflow.md** | **開発体験を支える技術**（Biome / Knip / lefthook / commitlint / syncpack / Jest / Playwright / GitHub Actions 等）。開発者の生産性・品質保証 |
 
-詳細は [.claude/rules/base-requirements-docs.md](../../../.claude/rules/base-requirements-docs.md) を参照。
+詳細は [.claude/rules/requirements-docs.md](../../../.claude/rules/requirements-docs.md) を参照。
 
 ---
 

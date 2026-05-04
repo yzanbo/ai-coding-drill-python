@@ -1,7 +1,7 @@
 # NNNN. <タイトル>
 
 - **Status**: Proposed | Accepted | Deprecated | Superseded by NNNN
-- **Date**: YYYY-MM-DD
+- **Date**: YYYY-MM-DD <!-- 決定が下された日（ADR 起票日ではない）。Append-only 原則のため、起票日と異なる場合は References にも併記する -->
 - **Decision-makers**: <氏名>
 
 ## Context（背景・課題）
