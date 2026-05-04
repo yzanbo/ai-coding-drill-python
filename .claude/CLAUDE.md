@@ -101,96 +101,64 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 ## ⚠️ Git ルール
 
-**以下のルールは必ず守ること。違反は許容されない。**
+絶対遵守。違反は許容しない。
 
-### コミット・PR 作成時の禁止事項
+### 共通禁止
 
-- **コミットメッセージ・PR 本文に以下の文言を絶対に含めない：**
-  - 「Claude」「AI」「Generated with」「Co-Authored-By」など、AI 生成を示す一切の文言
-  - `🤖 Generated with [Claude Code](https://claude.com/claude-code)` のような署名
-  - `Co-Authored-By: Claude` のようなヘッダー
-- **main ブランチでの作業は禁止**（コミット・push 共に禁止。必ず feature ブランチを作成してから PR を作成する）
+- main で直接作業しない（必ず別ブランチを切る）
+- 明示指示なしに push・PR 作成しない
+- 勝手に `git add` しない（ステージ済みファイルのみコミット）
+- AI 生成文言（「Claude」「Generated with」「Co-Authored-By」等、署名・ヘッダー含む）を含めない
 
-### Push・PR 作成のルール
+### ブランチ運用
 
-- **ユーザーから明示的な指示がない限り、push・PR 作成は行わない**
+- `main` を唯一の長期ブランチとし、リリースはタグ（`v0.1.0` 等）で管理する
+- 複数領域を跨ぐ作業は **ブランチ名に詰めず commit 側で表現**（例：commit `feat(api,worker): ...`）
+- 日本語・スペース・シェル特殊文字・予約名（`main` / `master` / `HEAD`）を使わない
 
-### コミット・PR の書き方
+#### 新規ブランチの命名規則（下記パターンから 1 つ選ぶ）
 
-- コミットメッセージや PR 本文は **日本語**で記載する
-- PR 本文の見出し（Summary、Test plan 等）も日本語で記載する（例: 概要、テスト方法）
-- 「Test plan」は「テスト方法」と記載する
-- テスト方法は `- [ ]` 形式のチェックリストで記載する
-- コミット対象はステージング済みのファイルのみ
-- **勝手に `git add` しない** — ユーザーがステージしたファイルのみをコミットする
+| パターン | 用途 |
+|---|---|
+| `feature/web/<機能名>` | フロントエンドの機能開発 |
+| `feature/api/<機能名>` | バックエンドの機能開発 |
+| `feature/worker/<機能名>` | 採点ワーカーの機能開発 |
+| `feature/shared/<機能名>` | 共有パッケージ（types, prompts, config）の変更 |
+| `feature/infra/<機能名>` | インフラ（Terraform）の変更 |
+| `fix/<scope>/<内容>` | バグ修正 |
+| `refactor/<scope>/<内容>` | リファクタリング |
+| `docs/<内容>` | ドキュメント変更 |
+| `chore/<scope>/<内容>` | 依存関係更新等の雑務 |
 
-### ブランチ戦略：Trunk-based + フィーチャーブランチ
+### コミットメッセージ
 
-- `main` が唯一の長期ブランチ、本番デプロイ対象
-- 機能開発は `feature/<short-name>` で作業 → PR → main にマージ
-- リリースはタグ（`v0.1.0` 等）で管理、リリースブランチは作らない
-- `main` への直接 push は禁止
+- 日本語で記載、commitlint で機械強制（SSoT: [commitlint.config.mjs](../commitlint.config.mjs)）
+- 形式は `<type>(<scope>): <subject>` / scope 任意 / ヘッダー 100 文字以内 / 本文 1 行 200 文字以内
+- 複数領域はカンマ区切り（例：`feat(api,worker): ...`）
 
-### ブランチ命名規則
+#### type（Conventional Commits 標準、下記から 1 つ選ぶ）
 
-- `feature/web/<機能名>` — フロントエンドの機能開発
-- `feature/api/<機能名>` — バックエンドの機能開発
-- `feature/worker/<機能名>` — 採点ワーカーの機能開発
-- `feature/shared/<機能名>` — 共有パッケージ（types, prompts, config）の変更
-- `feature/infra/<機能名>` — インフラ（Terraform）の変更
-- `fix/<scope>/<内容>` — バグ修正
-- `refactor/<scope>/<内容>` — リファクタリング
-- `docs/<内容>` — ドキュメント変更
-- `chore/<scope>/<内容>` — 依存関係更新等の雑務
+`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `ci` / `build` / `perf` / `style` / `revert`
 
-#### 複数 scope を跨ぐ変更
+#### scope（プロジェクト固有、下記から 1 つ以上選ぶ）
 
-複数領域に同時に手を入れる場合は、scope 部分を **カンマ区切りで括弧に入れる**：
+| scope | 対応領域 |
+|---|---|
+| `web` | apps/web |
+| `api` | apps/api |
+| `worker` | apps/grading-worker |
+| `shared` | packages/shared-types, packages/prompts 等 |
+| `config` | packages/config |
+| `infra` | infra/ |
+| `docs` | docs/ |
+| `db` | Drizzle スキーマ・マイグレーション |
+| `deps` | 依存パッケージ更新 |
 
-- `feature/(api,worker)/<機能名>` — API と採点ワーカー両方に変更
-- `fix/(web,api)/<内容>` — フロントエンドと API の両方を修正
+### PR
 
-commit メッセージ側も同じ表記を使う：
-
-- ブランチ `feature/(api,worker)/job-payload-rename` → commit `feat(api,worker): ジョブペイロード型を変更`
-
-**運用上の注意**：
-
-- ブランチ名の `()` と `,` は **シェルでクォートが必要**：`git checkout -b "feature/(api,worker)/job-payload-rename"`
-- **3 つ以上跨ぐのは分割すべきサイン**。本来 2 〜 3 コミットに分けられるはずの変更を 1 つにまとめていないか確認する
-
-> **commit メッセージの `scope` 部分は [commitlint.config.mjs](../commitlint.config.mjs) で機械強制されている**。
-> 上記ブランチ命名規則の `<scope>` と同じ語彙（`web` / `api` / `worker` / `shared` / `config` / `infra` / `docs` / `db` / `deps`）を使う。
-> 許可リストの追加・変更は `commitlint.config.mjs` の `scope-enum` を更新する（SSoT）。
-
-### 機械強制されるコミット規約（commitlint）
-
-`commit-msg` フック（lefthook 接続後）で以下が自動チェックされ、違反コミットは弾かれる：
-
-- **type 必須かつ許可リスト内**（下表参照）
-- **scope 必須ではない**が、付ける場合は許可リスト内（上記参照）
-- **subject（コロン以降の本文）は空不可**、末尾 `.` 不可
-- **ヘッダー全体は 100 文字以内**、本文 1 行は 200 文字以内
-- 詳細・上書きルールは [commitlint.config.mjs](../commitlint.config.mjs) を参照（こちらが SSoT）
-
-#### 許可 type 一覧と使い分け
-
-| type | 用途 | 具体例 |
-|---|---|---|
-| `feat` | **新機能追加**（ユーザーから見える機能の追加） | 新しい API エンドポイント / 新しい画面 / 新しい採点ルール |
-| `fix` | **バグ修正**（既存機能の不具合を直す） | レスポンスの型ミス修正 / リダイレクト不具合修正 / ジョブ取りこぼし修正 |
-| `docs` | **ドキュメントのみの変更**（コードに影響しない） | README 更新 / `docs/` 配下の編集 / コメント追加 |
-| `refactor` | **機能・挙動を変えないコード整理** | 関数分割 / 命名変更 / ディレクトリ移動 / 型整理 |
-| `test` | **テストの追加・修正のみ** | ユニットテスト追加 / E2E シナリオ追加 / モック整理 |
-| `chore` | **補助タスク**（ビルド・依存・ツール設定で、ユーザー体験に影響しない雑務） | 依存パッケージ追加 / commitlint 設定 / `.gitignore` 更新 |
-| `ci` | **CI 設定の変更**（GitHub Actions など） | ワークフロー追加 / job 追加 / Action のバージョン更新 |
-| `build` | **ビルドシステム・外部依存の変更** | Dockerfile / `tsconfig.json` / `turbo.json` / pnpm 設定 |
-| `perf` | **パフォーマンス改善**（挙動は変えず速度・リソース効率を改善） | クエリ最適化 / キャッシュ追加 / N+1 解消 |
-| `style` | **フォーマット変更のみ**（コードの意味を変えない） | インデント修正 / セミコロン追加 / Biome 自動整形適用 |
-| `revert` | **過去コミットの取り消し** | `git revert <hash>` の生成コミット |
-
-> **判断に迷ったら**：「ユーザーから見える挙動が変わったか？」を基準にする。
-> 変わったなら `feat` / `fix` / `perf`、変わらないなら `refactor` / `style` / `chore` / `test` / `docs` / `build` / `ci`。
+- 本文・見出しは日本語（見出し例：「概要」「テスト方法」）
+- テスト方法は `- [ ]` チェックリスト形式
+- タイトルは `type(scope): subject` 形式が望ましい
 
 ## 開発ワークフロー・カスタムコマンド
 
