@@ -39,5 +39,54 @@ export default {
     //   既定 100 を 200 に緩和（日本語の情報密度に合わせる）。
     //   level=2 (error) のまま運用し、長すぎる行はコミット時点で弾く。
     "body-max-line-length": [2, "always", 200],
+
+    // type-enum:
+    //   許可する type を明示。@commitlint/config-conventional の既定値も
+    //   同じ 11 種だが、明示することで「このプロジェクトで何が使えるか」を
+    //   config 単独で読み取れるようにする（CLAUDE.md / commitlint 設定間の SSoT）。
+    //   level=2 (error) で未許可 type を弾く。
+    "type-enum": [
+      2,
+      "always",
+      [
+        "feat",     // 新機能追加
+        "fix",      // バグ修正
+        "docs",     // ドキュメントのみの変更
+        "refactor", // 機能変化なしのリファクタ
+        "test",     // テスト追加・修正
+        "chore",    // ビルド・補助ツール・依存更新等
+        "ci",       // CI 設定の変更
+        "build",    // ビルドシステム・外部依存の変更
+        "perf",     // パフォーマンス改善
+        "style",    // フォーマット変更（コード意味は変えない）
+        "revert",   // 過去コミットの取り消し
+      ],
+    ],
+
+    // scope-enum:
+    //   scope を CLAUDE.md のブランチ命名規則（feature/<scope>/<name>）と整合させる。
+    //   モノレポの作業対象を機械的に把握できる（git log --grep="(api)" 等で絞り込み可）。
+    //   level=2 (error) で未許可 scope を弾く。
+    "scope-enum": [
+      2,
+      "always",
+      [
+        "web",     // apps/web（フロントエンド / Next.js）
+        "api",     // apps/api（NestJS API）
+        "worker",  // apps/grading-worker（Go 採点ワーカー）
+        "shared",  // packages/shared-types, packages/prompts 等の共有パッケージ
+        "config",  // packages/config（Biome / tsconfig 等の共有設定）
+        "infra",   // infra/（Terraform）
+        "docs",    // docs/（要件定義 / ADR）
+        "db",      // Drizzle スキーマ・マイグレーション
+        "deps",    // 依存パッケージの更新
+      ],
+    ],
+
+    // scope-empty:
+    //   scope なしのコミット（リポジトリ全体に関わる変更）も許容する。
+    //   level=0 で「scope 無し」をエラー扱いしないことを明示。
+    //   例: "chore: commitlint を導入" のようなリポジトリ横断の変更で scope 不要。
+    "scope-empty": [0],
   },
 };

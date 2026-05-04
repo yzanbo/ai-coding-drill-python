@@ -143,6 +143,36 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 - `docs/<内容>` — ドキュメント変更
 - `chore/<scope>/<内容>` — 依存関係更新等の雑務
 
+#### 複数 scope を跨ぐ変更
+
+複数領域に同時に手を入れる場合は、scope 部分を **カンマ区切りで括弧に入れる**：
+
+- `feature/(api,worker)/<機能名>` — API と採点ワーカー両方に変更
+- `fix/(web,api)/<内容>` — フロントエンドと API の両方を修正
+
+commit メッセージ側も同じ表記を使う：
+
+- ブランチ `feature/(api,worker)/job-payload-rename` → commit `feat(api,worker): ジョブペイロード型を変更`
+
+**運用上の注意**：
+
+- ブランチ名の `()` と `,` は **シェルでクォートが必要**：`git checkout -b "feature/(api,worker)/job-payload-rename"`
+- **3 つ以上跨ぐのは分割すべきサイン**。本来 2 〜 3 コミットに分けられるはずの変更を 1 つにまとめていないか確認する
+
+> **commit メッセージの `scope` 部分は [commitlint.config.mjs](../commitlint.config.mjs) で機械強制されている**。
+> 上記ブランチ命名規則の `<scope>` と同じ語彙（`web` / `api` / `worker` / `shared` / `config` / `infra` / `docs` / `db` / `deps`）を使う。
+> 許可リストの追加・変更は `commitlint.config.mjs` の `scope-enum` を更新する（SSoT）。
+
+### 機械強制されるコミット規約（commitlint）
+
+`commit-msg` フック（lefthook 接続後）で以下が自動チェックされ、違反コミットは弾かれる：
+
+- **type 必須かつ許可リスト内**：`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `ci` / `build` / `perf` / `style` / `revert`
+- **scope 必須ではない**が、付ける場合は許可リスト内（上記参照）
+- **subject（コロン以降の本文）は空不可**、末尾 `.` 不可
+- **ヘッダー全体は 100 文字以内**、本文 1 行は 200 文字以内
+- 詳細・上書きルールは [commitlint.config.mjs](../commitlint.config.mjs) を参照（こちらが SSoT）
+
 ## 開発ワークフロー・カスタムコマンド
 
 要件駆動の開発フローを採用：
