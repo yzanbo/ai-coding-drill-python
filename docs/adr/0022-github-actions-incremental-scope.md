@@ -31,6 +31,7 @@ R0 に含める（**実装済み**）：
 | ✅ 実装済み | `Biome` | `pnpm lint`（lint + format 検証、書き込みなし） |
 | ✅ 実装済み | `typecheck` | `pnpm typecheck`（Turborepo 経由で各 workspace の `tsc --noEmit`、R0 時点では TS workspace 未追加のため no-op） |
 | ✅ 実装済み | Composite Action | `.github/actions/setup-node-pnpm` に環境セットアップ（pnpm + Node + install）を集約 |
+| ✅ 実装済み | Dependabot | `.github/dependabot.yml` で github-actions / npm の週次自動更新 PR。SHA ピン止めとセットで運用 |
 
 R0 では決めない（対応フェーズで追加）：
 

@@ -1,0 +1,145 @@
+# ======================================================================
+# Dependabot 設定（R0-6）
+# ======================================================================
+#
+# 役割：
+#   依存関係の更新を週次で自動 PR 化する。R0-5 で導入した GitHub Actions の
+#   SHA ピン止め（タグ書き換え攻撃対策）と組み合わせて運用する：
+#     1. アクションは SHA + バージョンコメントの形式で固定（不変参照）
+#     2. Dependabot が新バージョン検出時に自動 PR で SHA とコメントを更新
+#     3. CI（ci.yml）が PR 上で実行され、人間が緑を確認してマージ
+#
+# 公式リファレンス: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# ----------------------------------------------------------------------
+
+# version: dependabot.yml の設定スキーマバージョン。
+#   現行サポートは v2 のみ（v1 は 2019 年に廃止済み・新規作成不可）。
+#   将来 v3 が出るまで実質固定値だが、必須キーなので省略はできない。
+version: 2
+
+updates:
+  # ────────────────────────────────────────────────────────────────────
+  # GitHub Actions エコシステム
+  #   .github/workflows/*.yml と .github/actions/*/action.yml を自動更新。
+  #   SHA ピン止めしているので Dependabot は SHA 文字列とバージョンコメントを
+  #   セットで書き換える PR を作る。
+  # ────────────────────────────────────────────────────────────────────
+  # package-ecosystem: 監視対象のパッケージマネージャ種別。
+  #   github-actions を指定すると .github/workflows/*.yml と
+  #   .github/actions/*/action.yml の uses: 行を解析対象にする。
+  - package-ecosystem: github-actions
+    # directory: 設定ファイルの探索起点（リポジトリルートからの相対パス）。
+    #   github-actions の場合は実質「.github 配下を見る」固定なので / で良い。
+    directory: /
+    schedule:
+      # interval: チェック頻度。daily だと PR ノイズが多く、monthly だと
+      #   セキュリティ更新の取り込みが遅れるため weekly が現実的な落としどころ。
+      interval: weekly
+      # day / time / timezone: weekly のときに PR を作る曜日・時刻。
+      #   月曜の早朝に PR を作る（週初に通知 → 週内に確認・マージできる運用）。
+      #   timezone 省略時は UTC 解釈なので Asia/Tokyo を明示する。
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo
+    # open-pull-requests-limit: 同時にオープンしておける PR の上限。
+    #   超過分は次回スキャンに回される。GitHub Actions は更新頻度が低いので 5 で十分。
+    open-pull-requests-limit: 5
+    # labels: 自動 PR に付与するラベル。トリアージや絞り込みフィルタに使う。
+    #   ラベルは事前にリポジトリ側で作成しておく必要がある（無いものは無視される）。
+    labels:
+      - dependencies
+      - github-actions
+    # commit-message: Dependabot が生成するコミットメッセージの形式。
+    #   commitlint で機械強制しているため、規約から外れると CI が落ちて自動 PR が
+    #   そのままマージできなくなる。ここで明示的に規約準拠の形式に揃える。
+    commit-message:
+      # 全体方針: commitlint.config.mjs の規約（type(scope): subject）に揃える。
+      #
+      # prefix: production 依存の更新時に使う type。
+      #   依存更新は Conventional Commits の build 系（ビルドシステム・外部依存）に該当するため build を採用。
+      #   生成例: "build(deps): bump actions/checkout from X to Y"
+      prefix: build
+      # prefix-development: devDependencies 更新時に使う type。
+      #   github-actions エコシステムには dev 概念が無いのでこの設定は実質未使用だが、
+      #   npm 側の設定と文字列を揃えておくと挙動が一貫し、後で差分を読みやすくなる。
+      #   生成例（npm 側）: "build(deps-dev): bump @biomejs/biome from X to Y"
+      prefix-development: build
+      # include: scope 指定時、Dependabot が () 内 scope を依存種別から自動決定する。
+      #   production / github-actions → "(deps)"
+      #   devDependencies               → "(deps-dev)"
+      #   grouped PR                    → "(deps)" 固定（グループ単位で本番/開発を区別しない）
+      #   commitlint 側の scope-enum に deps / deps-dev を両方登録しておくこと。
+      include: scope
+
+  # ────────────────────────────────────────────────────────────────────
+  # npm エコシステム（pnpm-lock.yaml 経由）
+  #   モノレポのルートを起点に Dependabot が pnpm-lock.yaml と各 workspace の
+  #   package.json を辿って更新する。各 workspace ごとに directory を分ける必要はない。
+  # ────────────────────────────────────────────────────────────────────
+  # package-ecosystem: npm を指定すると pnpm-lock.yaml / yarn.lock / package-lock.json
+  #   いずれかを自動検出する（pnpm 専用の値は無く、npm が pnpm も兼ねる）。
+  - package-ecosystem: npm
+    # directory: ルート 1 つで足りる。pnpm workspaces はルートの pnpm-lock.yaml に
+    #   全 workspace の依存解決結果が集約されるため、Dependabot はそこから各 package.json を
+    #   逆引きできる。workspace ごとに分けると同じ依存の PR が分裂・lockfile が衝突するので避ける。
+    directory: /
+    schedule:
+      # github-actions と同じ運用リズムに揃える（曜日・時刻が揃うと月曜朝のレビュー時間に集約できる）。
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo
+    # open-pull-requests-limit: npm は依存数が多くなる前提なので github-actions より上限を高く取る。
+    #   グループ化（後述 groups:）で実 PR 数は抑えるが、グループ外の単発 PR で詰まらないよう余裕を持たせる。
+    open-pull-requests-limit: 10
+    # labels: github-actions 側と共通の "dependencies" + エコシステム識別用 "npm" を付ける。
+    #   フィルタ "label:dependencies label:npm" で npm 系の自動 PR だけ一覧できる。
+    labels:
+      - dependencies
+      - npm
+    # commit-message: github-actions 側と同じ規約。
+    #   prefix を省略すると "Bump foo from X to Y"（type 無し）になり commitlint で必ず弾かれるため必須。
+    #   include: scope で production → "(deps)" / devDependencies → "(deps-dev)" が自動付与される
+    #   （commitlint.config.mjs の scope-enum に両方登録済み）。
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+    # ignore: 自動 PR から除外する条件。
+    #   メジャーバージョン更新は破壊的変更を含むことが多く、リリースノート確認・移行作業が必要。
+    #   自動 PR 化すると毎週 close する手間が出るので最初から除外し、必要な時に人間が手動更新する。
+    #   minor / patch は引き続き自動 PR 化される（semver-major のみを止める指定）。
+    ignore:
+      # dependency-name: 除外対象とするパッケージ名のパターン。
+      #   "*" は全パッケージにマッチするワイルドカード。
+      #   特定パッケージだけ凍結したい場合は "next" や "@types/*" のように書く。
+      - dependency-name: "*"
+        # update-types: 除外する更新の種類をリストで指定（省略時はそのパッケージの全更新を除外）。
+        #   指定可能値:
+        #     version-update:semver-major  メジャー更新（1.x → 2.0、破壊的変更を含む）
+        #     version-update:semver-minor  マイナー更新（1.2.x → 1.3.0、後方互換の機能追加）
+        #     version-update:semver-patch  パッチ更新（1.2.3 → 1.2.4、バグ修正）
+        #   ここでは semver-major のみ除外 → minor / patch は引き続き自動 PR 化される。
+        update-types:
+          - version-update:semver-major
+    # groups: 関連パッケージを 1 PR に束ねて PR 数とレビュー回数を削減する。
+    #   グループ化された PR は scope が "(deps)" 固定（dev/prod を区別しない）になる点に注意。
+    #   束ねる基準は「単独で更新すると壊れる／意味がない」関係のあるパッケージ群。
+    groups:
+      # @types/* は実体コードを伴わない型定義パッケージ。破壊的変更の影響範囲が小さく、
+      # かつ TypeScript 本体の更新と連動して頻繁に上がるので 1 PR に束ねる方が運用負荷が軽い。
+      types:
+        patterns:
+          - "@types/*"
+      # Biome 本体（biome）と各プラットフォーム用バイナリ（@biomejs/cli-*）はバージョンを揃える必要がある。
+      # バラバラに更新されると lint/format 挙動が一時的に矛盾するため、必ず一括更新する。
+      biome:
+        patterns:
+          - "@biomejs/*"
+          - biome
+      # commitlint は本体（commitlint）+ config-conventional / cli / types などサブパッケージで構成される。
+      # 個別更新すると相互の API バージョン不一致で commit-msg フックが壊れるため一括更新する。
+      commitlint:
+        patterns:
+          - "@commitlint/*"
+          - commitlint
