@@ -1,82 +1,79 @@
 {
-    // $schema: エディタの補完・検証用。Biome 実行には影響しない。バージョンは @biomejs/biome に合わせる。
-    "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+  // $schema: エディタの補完・検証用。Biome 実行には影響しない。バージョンは @biomejs/biome に合わせる。
+  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
 
-    // vcs: .gitignore を Biome の除外対象に流用。.gitignore と files.ignore の二重管理を防ぐ。
-    "vcs": {
-        "enabled": true,
-        "clientKind": "git",
-        "useIgnoreFile": true
-    },
+  // vcs: .gitignore を Biome の除外対象に流用。.gitignore と files.ignore の二重管理を防ぐ。
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
 
-    "files": {
-        // ignoreUnknown: 未知の拡張子（.go / .md 等）を黙ってスキップ。false だと警告ノイズが出る。
-        "ignoreUnknown": true,
-        // includes: スキャン対象の包含/除外パターン。Biome 2.x では先頭 ! で除外を表す（旧 ignore は廃止）。
-        //          .gitignore で拾えない追加除外（生成物・キャッシュ・ロックファイル等）を列挙。
-        "includes": [
-            "**",
-            "!**/node_modules",
-            "!**/dist",
-            "!**/.next",
-            "!**/.turbo",
-            "!**/coverage",
-            "!**/generated",
-            "!pnpm-lock.yaml"
-        ]
-    },
+  "files": {
+    // ignoreUnknown: 未知の拡張子（.go / .md 等）を黙ってスキップ。false だと警告ノイズが出る。
+    "ignoreUnknown": true,
+    // includes: スキャン対象の包含/除外パターン。Biome 2.x では先頭 ! で除外を表す（旧 ignore は廃止）。
+    //          .gitignore で拾えない追加除外（生成物・キャッシュ・ロックファイル等）を列挙。
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/.next",
+      "!**/.turbo",
+      "!**/coverage",
+      "!**/generated",
+      "!pnpm-lock.yaml"
+    ]
+  },
 
-    // formatter: 全言語共通のフォーマット規約。言語固有の上書きは下の javascript / json で行う。
-    "formatter": {
-        "enabled": true,
-        // indentStyle: インデント文字を space に統一（タブ vs スペース論争を回避）。
-        "indentStyle": "space",
-        // indentWidth: 1 階層 4 スペース。可読性優先、Python / Go 慣習にも馴染む。
-        "indentWidth": 4,
-        // lineWidth: 折返し閾値。Prettier 既定 80 より広い 120（横長モニタ前提、無理な改行を減らす）。
-        "lineWidth": 120,
-        // lineEnding: lf に固定。Windows / macOS 混在時の改行コード差分混入を防ぐ。
-        "lineEnding": "lf"
-    },
+  // formatter: 全言語共通のフォーマット規約。言語固有の上書きは下の javascript / json で行う。
+  "formatter": {
+    "enabled": true,
+    // indentStyle: インデント文字を space に統一（タブ vs スペース論争を回避）。
+    "indentStyle": "space",
+    // indentWidth: 1 階層 2 スペース。TS/JS/JSON エコシステムの事実上の標準（Prettier / Next.js / NestJS 等と整合）。
+    "indentWidth": 2,
+    // lineWidth: 折返し閾値。Prettier 既定 80 より広い 120（横長モニタ前提、無理な改行を減らす）。
+    "lineWidth": 120,
+    // lineEnding: lf に固定。Windows / macOS 混在時の改行コード差分混入を防ぐ。
+    "lineEnding": "lf"
+  },
 
-    // assist: import 整理などの「コード補助アクション」（Biome 2.x で organizeImports から再編）。
-    //         actions.source.organizeImports の on で format 実行時に import 文の並び替え + 重複削除を適用。
-    "assist": {
-        "enabled": true,
-        "actions": {
-            "source": {
-                "organizeImports": "on"
-            }
-        }
-    },
-
-    "linter": {
-        "enabled": true,
-        "rules": {
-            // recommended: Biome がメンテする推奨ルール一式を有効化（バージョンアップで自動追従）。
-            //              個別ルールの調整は、必要が出た時点で各 workspace 側 biome.jsonc で上書きする。
-            "recommended": true
-        }
-    },
-
-    // javascript: JS / TS 固有のフォーマット規約。
-    "javascript": {
-        "formatter": {
-            // quoteStyle: double クォートに統一。JSON との往復で一貫性を保つ。
-            "quoteStyle": "double",
-            // trailingCommas: 関数引数まで含めて常時付与。行追加時の git diff を最小化。
-            "trailingCommas": "all",
-            // semicolons: 常時付与。ASI（自動セミコロン挿入）の罠を回避、TS 標準慣習。
-            "semicolons": "always",
-            // arrowParentheses: アロー関数の引数括弧を常時付与。型注釈追加時に書き換え不要。
-            "arrowParentheses": "always"
-        }
-    },
-
-    // json: JSON 固有の上書き。package.json 等の慣習に合わせインデント 4 を明示。
-    "json": {
-        "formatter": {
-            "indentWidth": 4
-        }
+  // assist: import 整理などの「コード補助アクション」（Biome 2.x で organizeImports から再編）。
+  //         actions.source.organizeImports の on で format 実行時に import 文の並び替え + 重複削除を適用。
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
     }
+  },
+
+  "linter": {
+    "enabled": true,
+    "rules": {
+      // recommended: Biome がメンテする推奨ルール一式を有効化（バージョンアップで自動追従）。
+      //              個別ルールの調整は、必要が出た時点で各 workspace 側 biome.jsonc で上書きする。
+      "recommended": true
+    }
+  },
+
+  // javascript: JS / TS 固有のフォーマット規約。
+  "javascript": {
+    "formatter": {
+      // quoteStyle: double クォートに統一。JSON との往復で一貫性を保つ。
+      "quoteStyle": "double",
+      // trailingCommas: 関数引数まで含めて常時付与。行追加時の git diff を最小化。
+      "trailingCommas": "all",
+      // semicolons: 常時付与。ASI（自動セミコロン挿入）の罠を回避、TS 標準慣習。
+      "semicolons": "always",
+      // arrowParentheses: アロー関数の引数括弧を常時付与。型注釈追加時に書き換え不要。
+      "arrowParentheses": "always"
+    }
+  },
+
+  // json: JSON 固有の上書きは現状なし（formatter のデフォルト 2 をそのまま使う）。
+  // 必要が出たらここに json.formatter.* を追加する。
+  "json": {}
 }

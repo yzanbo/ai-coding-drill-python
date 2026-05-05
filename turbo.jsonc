@@ -1,54 +1,54 @@
 {
-    "$schema": "https://turbo.build/schema.json",
+  "$schema": "https://turbo.build/schema.json",
 
-    // 各 workspace の package.json scripts に合わせて、Turbo がどう実行・キャッシュするかを宣言する。
-    // pnpm <task> を叩くと、Turbo が全 workspace の package.json から同名 scripts.<task> を集め、
-    // workspace 間の依存関係に従って順序付け、独立部分は並列実行し、入力ハッシュでキャッシュする。
-    //
-    // 注：lint / format は Biome の設計（ルート 1 つの biome.json で全体スキャン）に従い、
-    //     ルート package.json から biome を直接呼ぶ。Turbo 非経由のため tasks には登録しない。
-    //     workspace 数が増え per-workspace lint の方が高速化に効くようになったら再評価する（R1 以降）。
-    "tasks": {
-        // 本番ビルド：依存 workspace を先にビルドし、成果物をキャッシュ。
-        "build": {
-            // "^build" = 依存している（dependsOn）workspace の build を先に完了させる。
-            // 例：apps/web → packages/shared-types の build が先。
-            "dependsOn": ["^build"],
-            // ビルド成果物のパス。Turbo はこれをキャッシュし、入力に変更がなければ次回はスキップ。
-            // !.next/cache/** は Next.js 内部キャッシュ（容量大・Next 自身が管理）を除外。
-            "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
-        },
+  // 各 workspace の package.json scripts に合わせて、Turbo がどう実行・キャッシュするかを宣言する。
+  // pnpm <task> を叩くと、Turbo が全 workspace の package.json から同名 scripts.<task> を集め、
+  // workspace 間の依存関係に従って順序付け、独立部分は並列実行し、入力ハッシュでキャッシュする。
+  //
+  // 注：lint / format は Biome の設計（ルート 1 つの biome.json で全体スキャン）に従い、
+  //     ルート package.json から biome を直接呼ぶ。Turbo 非経由のため tasks には登録しない。
+  //     workspace 数が増え per-workspace lint の方が高速化に効くようになったら再評価する（R1 以降）。
+  "tasks": {
+    // 本番ビルド：依存 workspace を先にビルドし、成果物をキャッシュ。
+    "build": {
+      // "^build" = 依存している（dependsOn）workspace の build を先に完了させる。
+      // 例：apps/web → packages/shared-types の build が先。
+      "dependsOn": ["^build"],
+      // ビルド成果物のパス。Turbo はこれをキャッシュし、入力に変更がなければ次回はスキップ。
+      // !.next/cache/** は Next.js 内部キャッシュ（容量大・Next 自身が管理）を除外。
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    },
 
-        // 開発サーバー：依存先 workspace を 1 回ビルドしてから、各 workspace の dev を並列・常駐起動。
-        // 例：packages/shared-types の build（dist/ + .d.ts 生成）→ apps/api / apps/web の dev（watch 起動）。
-        // 各 workspace の dev script は watch モードで書く想定（next dev / nest start --watch / tsc --watch 等）。
-        // 起動後は watch が連鎖し、依存先の編集も自動反映される（HMR / hot reload）。
-        "dev": {
-            // 依存先の build 成果物（.d.ts / dist/）が無いと dev 起動直後に型解決エラーになるため先行ビルド。
-            // build はキャッシュ対象なので、変更がなければ 2 回目以降は瞬時に復元される。
-            "dependsOn": ["^build"],
-            // 開発サーバー自体は毎回起動するためキャッシュ対象外。
-            "cache": false,
-            // persistent: true がないと Turbo が next dev 等を「終了しない＝失敗」と誤判定する。
-            "persistent": true
-        },
+    // 開発サーバー：依存先 workspace を 1 回ビルドしてから、各 workspace の dev を並列・常駐起動。
+    // 例：packages/shared-types の build（dist/ + .d.ts 生成）→ apps/api / apps/web の dev（watch 起動）。
+    // 各 workspace の dev script は watch モードで書く想定（next dev / nest start --watch / tsc --watch 等）。
+    // 起動後は watch が連鎖し、依存先の編集も自動反映される（HMR / hot reload）。
+    "dev": {
+      // 依存先の build 成果物（.d.ts / dist/）が無いと dev 起動直後に型解決エラーになるため先行ビルド。
+      // build はキャッシュ対象なので、変更がなければ 2 回目以降は瞬時に復元される。
+      "dependsOn": ["^build"],
+      // 開発サーバー自体は毎回起動するためキャッシュ対象外。
+      "cache": false,
+      // persistent: true がないと Turbo が next dev 等を「終了しない＝失敗」と誤判定する。
+      "persistent": true
+    },
 
-        // テスト：他 workspace（packages/shared-types 等）を import している場合、
-        // それらの build 成果物（dist/*.js + dist/*.d.ts）が無いと "Cannot find module" で
-        // テストが起動できないため、先に依存先 workspace を build する。
-        // ※ npm パッケージ（@nestjs/common 等）は node_modules に .d.ts が同梱されているため対象外。
-        // ※ 自 workspace のソースだけで完結するなら ^build は不要だが、本プロジェクトは
-        //   shared-types を全アプリが import する設計（ADR 0014）のため事実上必須。
-        "test": {
-            "dependsOn": ["^build"]
-        },
+    // テスト：他 workspace（packages/shared-types 等）を import している場合、
+    // それらの build 成果物（dist/*.js + dist/*.d.ts）が無いと "Cannot find module" で
+    // テストが起動できないため、先に依存先 workspace を build する。
+    // ※ npm パッケージ（@nestjs/common 等）は node_modules に .d.ts が同梱されているため対象外。
+    // ※ 自 workspace のソースだけで完結するなら ^build は不要だが、本プロジェクトは
+    //   shared-types を全アプリが import する設計（ADR 0014）のため事実上必須。
+    "test": {
+      "dependsOn": ["^build"]
+    },
 
-        // 型チェック（tsc --noEmit）：他 workspace の .d.ts が無いと型解決できず
-        // "Cannot find module or its corresponding type declarations" で失敗するため、
-        // 先に依存先 workspace を build して .d.ts を生成しておく。
-        // 必要なのは .d.ts だけで .js は使わない点が test との違い（^build で両方生成されるので結果同じ）。
-        "typecheck": {
-            "dependsOn": ["^build"]
-        }
+    // 型チェック（tsc --noEmit）：他 workspace の .d.ts が無いと型解決できず
+    // "Cannot find module or its corresponding type declarations" で失敗するため、
+    // 先に依存先 workspace を build して .d.ts を生成しておく。
+    // 必要なのは .d.ts だけで .js は使わない点が test との違い（^build で両方生成されるので結果同じ）。
+    "typecheck": {
+      "dependsOn": ["^build"]
     }
+  }
 }
