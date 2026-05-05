@@ -79,7 +79,8 @@ export default {
         "infra", // infra/（Terraform）
         "docs", // docs/（要件定義 / ADR）
         "db", // Drizzle スキーマ・マイグレーション
-        "deps", // 依存パッケージの更新
+        "deps", // 依存パッケージの更新（production / github-actions）。Dependabot が production 依存・github-actions 更新時に自動付与
+        "deps-dev", // 依存パッケージの更新（devDependencies）。Dependabot が prefix-development + include:scope で自動付与
       ],
     ],
 

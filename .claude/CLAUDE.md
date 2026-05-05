@@ -156,7 +156,8 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 | `infra` | infra/ |
 | `docs` | docs/ |
 | `db` | Drizzle スキーマ・マイグレーション |
-| `deps` | 依存パッケージ更新 |
+| `deps` | 依存パッケージ更新（production / github-actions、Dependabot 自動付与含む） |
+| `deps-dev` | 依存パッケージ更新（devDependencies、Dependabot 自動付与） |
 
 ### PR
 

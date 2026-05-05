@@ -31,6 +31,8 @@ R0 に含める（**実装済み**）：
 | ✅ 実装済み | `Biome` | `pnpm lint`（lint + format 検証、書き込みなし） |
 | ✅ 実装済み | `typecheck` | `pnpm typecheck`（Turborepo 経由で各 workspace の `tsc --noEmit`、R0 時点では TS workspace 未追加のため no-op） |
 | ✅ 実装済み | Composite Action | `.github/actions/setup-node-pnpm` に環境セットアップ（pnpm + Node + install）を集約 |
+| ✅ 実装済み | アクション SHA ピン止め | `actions/checkout` / `actions/setup-node` / `pnpm/action-setup` を 40 文字 SHA + バージョンコメント形式で固定（タグ書き換え攻撃対策） → [ADR 0026](./0026-github-actions-sha-pinning.md) |
+| ✅ 実装済み | Dependabot | `.github/dependabot.yml` で github-actions / npm の週次自動更新 PR。SHA ピン止めとセットで運用 → [ADR 0024](./0024-dependabot-auto-update-policy.md) |
 
 R0 では決めない（対応フェーズで追加）：
 
