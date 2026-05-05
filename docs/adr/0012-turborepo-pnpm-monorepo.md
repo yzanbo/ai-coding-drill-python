@@ -109,8 +109,7 @@ ai-coding-drill/
 │   └── eval-pipeline/          ← Python バッチ（Phase 7）
 ├── packages/
 │   ├── config/
-│   │   ├── biome-config/       ← 共有 biome.json
-│   │   └── tsconfig/           ← 共有 tsconfig
+│   │   └── tsconfig/           ← 共有 tsconfig（Biome 設定はリポジトリルート biome.jsonc に直接配置 → ADR 0013）
 │   ├── shared-types/           ← JSON Schema を SSoT、各言語向け型生成
 │   │   ├── schemas/            ← JSON Schema（SSoT）
 │   │   ├── generated/          ← ts/（コミット）, go/（gitignore）, python/（gitignore）

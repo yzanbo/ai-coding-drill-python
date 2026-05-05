@@ -1,4 +1,4 @@
-# 0013. コード品質ツール戦略（言語別、Biome / golangci-lint / ruff を採用）
+# 0013. TypeScript のコード品質ツールに Biome を採用し、設定はリポジトリルートに直接配置する
 
 - **Status**: Accepted
 - **Date**: 2026-04-25
@@ -6,138 +6,104 @@
 
 ## Context（背景・課題）
 
-3 言語（TypeScript / Go / Python）構成のモノレポで、各言語に同等レベルの品質ゲート（フォーマット・リント・型チェック）を整備する必要がある。
+TypeScript のリンタ・フォーマッタ選定と、モノレポにおける設定の物理配置を決める必要がある。
 
+- TypeScript は本プロジェクトの主言語（フロント / バックエンドの 2 アプリ + 共有パッケージ群）
+- ESLint + Prettier の組み合わせは設定ファイル乱立・実行速度・依存ツリーの肥大化が常態化している
 - モノレポ規模：MVP で 5〜10 パッケージ、Phase 7 で 8〜12 パッケージ
-- 設定ファイル数を最小化したい
 - CI 時間を抑えたい
-- 各言語のモダンかつ実用的なツールを採用したい
-- ポートフォリオで「3 言語に等価な品質ゲートを設計した」と語れる構成にしたい
+- 「3 言語に等価な品質ゲートを設計した」と語れる構成にしたい（Go / Python の同様 ADR は別ファイル）
+
+関連：
+
+- Go の品質ツール → [ADR 0020](./0020-go-code-quality.md)
+- Python の品質ツール → [ADR 0021](./0021-python-code-quality.md)
 
 ## Decision（決定内容）
 
-各言語で以下のツールを採用する。
-
-### TypeScript（MVP）
-- **Biome**：lint + format（Rust 製、高速、統合）
-  - 共有設定：`packages/config/biome-config/`
-  - TS で書かれた全アプリ・全パッケージで統一使用
-  - ESLint + Prettier の組み合わせは不採用
-- **TypeScript（`tsc --noEmit`）**：型チェック（Biome がカバーしないため必須）
-
-### Go（MVP）
-- **`gofmt`**：フォーマット（Go 標準）
-- **`golangci-lint`**：メタリンター（`govet` / `staticcheck` / `errcheck` / `ineffassign` / `unused` / `gofumpt` / `gosec` 等を有効化）
-- 型チェックは Go 言語仕様（`go build`）に内蔵されるため別途不要
-- 任意追加：`govulncheck`（脆弱性スキャン）
-
-### Python（Phase 7）
-- **`ruff`**：lint + format（Astral 製、Rust、Linter + Formatter 統合）
-- **型チェッカーは Phase 7 着手時に再評価**して決定する
-  - **第一候補：pyright**（Microsoft、TS 製、実績充分、VS Code/Cursor 標準、`strict` モードで `tsc --noEmit` 相当）
-  - **第二候補：ty**（Astral、Rust 製、`ruff` + `uv` と同社統合の美しさあり。2026 年初頭時点で開発中のため成熟度を Phase 7 着手時に再確認する）
-  - 代替：mypy（特定プラグイン（`django-stubs` 等）が必要になった場合のみ）
-- 選定方針：[ADR 0011: LLM プロバイダ抽象化](./0011-llm-provider-abstraction.md) と同じ「可逆な判断は遅延させ、判断時に最良を選ぶ」原則に従う
-- 任意追加：`pip-audit`（脆弱性スキャン）
-
-### MVP では導入しない補完ツール
-以下は必要性が確認できた段階で追加する：
-- Knip（未使用 export / 依存検出）
-- lefthook / husky（Git フック）
-- commitlint（コミットメッセージ規約）
-- syncpack（依存バージョン整合）
-- cspell（スペルチェック）
+- **lint + format に [Biome](https://biomejs.dev/)** を採用する（Rust 製、lint と format を統合）
+- **型チェックには `tsc --noEmit`** を併用する（Biome は型チェックをカバーしないため）
+- **ESLint + Prettier は採用しない**
+- **設定ファイルはリポジトリルート直下の `biome.jsonc` に直接配置**する。`packages/config/` 配下に共有 base ファイルを置く 2 段構成は採用しない
+- 将来 workspace 固有の上書きが必要になった場合のみ、`apps/<name>/biome.jsonc` を作成しルートを `extends` で継承する
 
 ## Why（採用理由）
 
-3 言語に等価な品質ゲートを設計する観点で言語別に整理する。
+### なぜ Biome か（ESLint + Prettier ではなく）
 
-### なぜ TS は Biome か（ESLint + Prettier ではなく）
-
-1. **Lint + Format の統合で設定ファイル乱立を回避**
-   - `.eslintrc` / `.prettierrc` / プラグイン群を 1 ファイル（`biome.json`）に統合
-   - モノレポの共有設定（`packages/config/biome-config/`）を最小化
+1. **lint + format の統合で設定ファイル乱立を回避**
+   - `.eslintrc` / `.prettierrc` / プラグイン群を 1 ファイル（`biome.jsonc`）に統合
+   - 共有設定の物理ファイル数が最小化される
 2. **CI 高速化（ESLint 比 25〜100 倍）**
    - Rust 製で並列実行が高速、CI 時間とローカル feedback ループの両方で効く
 3. **`tsc --noEmit` との明確な役割分担**
    - Biome は構文・スタイル、`tsc` は型という分離で責務が混乱しない
 4. **dprint より統合的**
-   - dprint はフォーマット専業で Linter 機能なし、Biome の方が用途を 1 ツールに集約できる
+   - dprint はフォーマット専業で linter 機能なし、Biome の方が用途を 1 ツールに集約できる
 
-### なぜ Go は gofmt + golangci-lint か
+### なぜルート直接配置か（`packages/config/biome-config/` を経由しない）
 
-1. **Go 標準（gofmt）に逆らわない**
-   - フォーマット論争を回避でき、コードレビューで揉めない
-2. **メタリンターによる包括チェック**
-   - `govet` / `staticcheck` / `errcheck` / `ineffassign` / `unused` / `gofumpt` / `gosec` を 1 コマンドで実行
-   - revive 単体や個別ツール手動運用より管理コスト・網羅性で優れる
-3. **型チェックは `go build` に内蔵**
-   - 別途型チェッカーを選定する必要がなく、TS / Python と同等の品質ゲートを最小構成で実現
-
-### なぜ Python は ruff（型チェッカーは Phase 7 着手時に決定）か
-
-1. **ruff は `lint + format` を Rust で統合**
-   - Astral 製で `flake8` / `black` / `isort` 等を 1 ツールに置換、TS の Biome と対称的な設計思想
-2. **型チェッカー選定を Phase 7 まで遅延**
-   - LLM プロバイダ抽象化（→ ADR 0011）と同じ「可逆な判断は遅延させ、判断時に最良を選ぶ」原則に従う
-   - 2026 年初頭時点で ty（Astral）が成熟途上、Phase 7 着手時に pyright と再評価する方が合理的
-3. **Astral エコシステム統合の余地**
-   - ruff / uv / ty が同社製で連携する将来性に賭けつつ、未確定部分は遅延する構造
-
-### MVP では補完ツール（Knip / lefthook / commitlint / syncpack / cspell）を導入しない
-
-- 必要性が確認できた段階で追加する
-- ただしこの判断は ADR 0018 で再検討され、Phase 0 から導入に変更されている
+1. **Biome は単一設定で全体を再帰スキャンする設計**
+   - ESLint / Prettier のような「各 package 配下の `.eslintrc` を辿る」モデルとは前提が違う
+   - 主な消費者がルート 1 つに集中するため、共有 base を別ディレクトリに切り出す indirection の便益がない
+2. **YAGNI**
+   - `packages/config` を別 npm パッケージとして公開する未来は想定されない（個人ポートフォリオ）
+   - 「将来別プロジェクトで再利用するかも」という抽象化を先取りしない
+3. **役割が見えやすい**
+   - 実際の規則がルート `biome.jsonc` に直接書かれていれば、新規参画者が 1 ファイルを読むだけで全体像を把握できる
+4. **業界実例**
+   - Vercel turborepo 公式テンプレートの Biome 版・Astro モノレポ・Bluesky social-app 等、主要モノレポは Biome をルート直接配置している
+5. **tsconfig との非対称は問題にならない**
+   - tsconfig は各 workspace から base を継承する **多消費者前提**のため `packages/config/tsconfig/` に置く意義が明確
+   - Biome は **単一消費者前提**で消費パターンが本質的に異なる
+   - 同じ `packages/config/` 配下に置こうとすると、消費パターンの違いを構造に反映できない
 
 ## Alternatives Considered（検討した代替案）
 
-### TypeScript
+### TypeScript のコード品質ツール
+
 | 候補 | 採用しなかった理由 |
 |---|---|
-| ESLint + Prettier | 設定ファイル乱立、CI が遅い、Biome 比で 25〜100 倍遅い |
-| dprint | Linter 機能なし、Biome の方が統合的 |
+| ESLint + Prettier | 設定ファイル乱立、CI が遅い（Biome 比 25〜100 倍）、依存ツリー肥大 |
+| dprint | linter 機能なし、Biome の方が統合的 |
+| Rome（Biome の前身） | 開発停止 |
 
-### Go
+### Biome 設定の物理配置
+
 | 候補 | 採用しなかった理由 |
 |---|---|
-| revive のみ | golangci-lint がメタリンターで複数ツール統合、より包括的 |
-| 個別ツール手動運用 | 管理コスト高、golangci-lint で 1 コマンド化が定石 |
-
-### Python
-| 候補 | 採用しなかった理由（現時点で確定しない） |
-|---|---|
-| ruff + pyright で確定 | 妥当な選択だが、Phase 7 着手までに ty（Astral）が成熟する可能性があり、その場合 Astral 統合の方が綺麗。確定は時期尚早 |
-| ruff + mypy で確定 | mypy は遅く、本プロジェクトでプラグインが必要になる見込みがない |
-| ruff + pyrefly で確定 | Meta 製、新興、Astral 統合とはならない |
+| ルート直接配置（採用） | — |
+| `packages/config/biome-config/biome.base.jsonc` ← `biome.jsonc`（extends 1 行）| indirection の便益が現状ゼロ。役割が見えづらく、共有 base と extends 元の二重メンテが発生 |
+| 各 workspace に `biome.jsonc` を必須化し `turbo run lint` で集約 | Biome は単一設定で全体スキャンする設計のため、workspace 増加でボイラープレートが嵩む。Biome 自身が並列化されており Turbo キャッシュの便益も限定的 |
 
 ## Consequences（結果・トレードオフ）
 
 ### 得られるもの
-- TS / Go / Python のすべてに同等レベルの品質ゲートを設計した、と語れる
-- TS は単一ツール（Biome）で設定統合、CI 高速化
-- Go は実績ある golangci-lint で網羅的にチェック
-- Python は Phase 7 着手時の最良ツールを採用できる柔軟性
-- Astral エコシステム（ruff / uv / 将来の ty）への統合余地を残せる
+
+- 設定統合（`biome.jsonc` 1 ファイル）で TS の lint / format / import 整理が完結
+- CI 高速化（ESLint + Prettier 比で大幅短縮見込み）
+- 新規参画者が Biome 設定の場所を探さなくて済む（リポジトリ直下にある）
+- 型チェック（`tsc`）と構文・スタイル（Biome）の責務が明確
+- `packages/config/` の責務が「**多消費者前提の shared config**（tsconfig）専用」に絞られ、置く基準が明確になる
 
 ### 失うもの・受容するリスク
-- Python の型チェッカーが Phase 7 まで未確定
-- 補完ツール（Knip / lefthook / commitlint 等）が当面入らないため、品質保証に手作業が一部残る
-- Biome は ESLint プラグインエコシステムを使えない
+
+- ESLint プラグインエコシステム（特定ライブラリ向けの lint ルール）を使えない
+- Biome の rule set はまだ ESLint 比で薄い領域がある（typescript-eslint の高度な型ベースルール等）
+- 将来「Biome 共有設定を別プロジェクトに切り出して再利用したい」というニーズが発生した場合、`packages/config/biome-config/` 等への再構成が必要
 
 ### 将来の見直しトリガー
-- **Phase 7 着手時に Python 型チェッカーを正式決定**（必須）
-  - ty が Stable に達していれば ty 採用を検討（Astral 統合）
-  - そうでなければ pyright を採用
-  - 決定内容を新規 ADR（例：`0015-python-type-checker.md`）として記録
-- 未使用コード・依存が増えてきた段階で **Knip** 導入
-- モノレポ品質を厳格化したい段階で **lefthook + commitlint** 導入
-- 特定 ESLint プラグインが必須となるルールが必要になった場合は ESLint 併用または移行を検討
+
+- 特定 ESLint プラグインが必須となるルールが必要になった場合 → ESLint 併用または部分移行を検討
+- `packages/config/` を別 npm パッケージとして公開し他プロジェクトで利用するニーズが発生した場合 → Biome 共有設定を `packages/config/biome-config/` に再移動を検討
+- workspace 固有の Biome 上書きが 3 つ以上発生し、共通の中間レイヤを抽出する価値が出てきた場合 → 中間 base を `packages/config/biome-config/` に新設して各 workspace から extends する構造を再評価
 
 ## References
 
 - [05-runtime-stack.md: コード品質ツール](../requirements/2-foundation/05-runtime-stack.md)
-- [ADR 0010: 言語の段階導入](./0010-phased-language-introduction.md)
-- [ADR 0011: LLM プロバイダ抽象化（"可逆な判断は遅延させる" 原則）](./0011-llm-provider-abstraction.md)
+- [ADR 0020: Go のコード品質ツール](./0020-go-code-quality.md)
+- [ADR 0021: Python のコード品質ツール](./0021-python-code-quality.md)
+- [ADR 0018: Phase 0 ツール導入規律](./0018-phase-0-tooling-discipline.md)
+- [biome.jsonc](../../biome.jsonc) — 統合後の設定本体
+- [turbo.jsonc](../../turbo.jsonc) — lint / format を Turbo 非経由とする方針コメント
 - [Biome 公式](https://biomejs.dev/)
-- [golangci-lint 公式](https://golangci-lint.run/)
-- [Astral（ruff / uv / ty）](https://astral.sh/)
