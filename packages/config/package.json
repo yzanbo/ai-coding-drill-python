@@ -1,0 +1,6 @@
+{
+    "name": "@ai-coding-drill/config",
+    "version": "0.0.0",
+    "//private": "npm publish の事故防止フラグ。モノレポ内部用パッケージは必ず true にする（外部公開を意図していないため）。",
+    "private": true
+}
