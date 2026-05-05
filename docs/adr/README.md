@@ -10,7 +10,7 @@
 
 ---
 
-## 📚 カテゴリ別索引（24 件）
+## 📚 カテゴリ別索引（25 件）
 
 採用担当者・面接官の方は、興味のある観点から該当 ADR を探せます。
 
@@ -65,12 +65,13 @@
 | [0022](./0022-github-actions-incremental-scope.md) | GitHub Actions のスコープを段階的に拡張（R0 は commitlint + Biome + typecheck のみ） | YAGNI / 段階拡張 / 無料枠節約 |
 | [0023](./0023-github-actions-as-ci-cd.md) | CI/CD ツールに GitHub Actions を採用（CircleCI / Jenkins / Tekton 等を不採用） | コードホスト統合 / OIDC キーレス / 可逆性 |
 | [0024](./0024-dependabot-auto-update-policy.md) | 依存関係の自動更新ポリシー（Dependabot を採用、週次 / メジャー除外 / グループ化） | 脆弱性追従 / SHA ピン止め前提 / commitlint 規約準拠 |
+| [0025](./0025-commit-scope-convention.md) | コミット scope 規約（モノレポ領域 8 種 + 自動更新用 deps / deps-dev の列挙制） | scope-enum / Dependabot 連携 / SSoT |
 
 ---
 
 ## 📝 連番一覧（時系列）
 
-書かれた順序で全 24 件を一覧する場合：
+書かれた順序で全 25 件を一覧する場合：
 
 | # | タイトル | カテゴリ |
 |---|---|---|
@@ -98,6 +99,7 @@
 | [0022](./0022-github-actions-incremental-scope.md) | GitHub Actions のスコープを段階的に拡張 | 📋 開発規律 |
 | [0023](./0023-github-actions-as-ci-cd.md) | CI/CD ツールに GitHub Actions を採用 | 📋 開発規律 |
 | [0024](./0024-dependabot-auto-update-policy.md) | 依存関係の自動更新ポリシー（Dependabot） | 📋 開発規律 |
+| [0025](./0025-commit-scope-convention.md) | コミット scope 規約（モノレポ領域 + 自動更新用 deps / deps-dev） | 📋 開発規律 |
 
 ---
 
@@ -107,7 +109,7 @@
 
 | リリース | 主な参照 ADR |
 |---|---|
-| **R0** 基盤整備 | [0012](./0012-turborepo-pnpm-monorepo.md) / [0013](./0013-biome-for-tooling.md) / [0014](./0014-json-schema-as-single-source-of-truth.md) / [0018](./0018-phase-0-tooling-discipline.md) / [0022](./0022-github-actions-incremental-scope.md) / [0023](./0023-github-actions-as-ci-cd.md) / [0024](./0024-dependabot-auto-update-policy.md) |
+| **R0** 基盤整備 | [0012](./0012-turborepo-pnpm-monorepo.md) / [0013](./0013-biome-for-tooling.md) / [0014](./0014-json-schema-as-single-source-of-truth.md) / [0018](./0018-phase-0-tooling-discipline.md) / [0022](./0022-github-actions-incremental-scope.md) / [0023](./0023-github-actions-as-ci-cd.md) / [0024](./0024-dependabot-auto-update-policy.md) / [0025](./0025-commit-scope-convention.md) |
 | **R1** MVP（最小貫通） | [0001](./0001-postgres-as-job-queue.md) / [0003](./0003-codemirror-over-monaco.md) / [0004](./0004-nestjs-for-backend.md) / [0005](./0005-go-for-grading-worker.md) / [0008](./0008-disposable-sandbox-container.md) / [0011](./0011-llm-provider-abstraction.md) / [0015](./0015-github-oauth-with-extensible-design.md) / [0016](./0016-drizzle-orm-over-prisma.md) / [0017](./0017-w3c-trace-context-in-job-payload.md) |
 | **R2** 品質保証パイプライン | [0009](./0009-custom-llm-judge.md) / [0011](./0011-llm-provider-abstraction.md) |
 | **R3** サンドボックス強化 | [0008](./0008-disposable-sandbox-container.md) |
