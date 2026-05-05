@@ -129,18 +129,27 @@ jobs:
       #     20 コミット単位で deepen を繰り返す方式を採る。
       #   - 取得量は「PR コミット数を 20 単位に切り上げた値」で、リポジトリ全体の
       #     運用期間・累積コミット数には依存しない。
+      #   - 万一 base.sha が永遠に届かない事故（GitHub 側の異常応答等）に備え、
+      #     最大 10 回（= 200 コミット）で打ち切る fail-fast の安全弁を入れる。
       # ──────────────────────────────────────────────────────────────
 
       # ① base.sha が手元に届くまで `--deepen=20` を繰り返す。
       #    通常 PR は 1〜5 コミット程度なので 1 回（20 コミット）で十分届く。
       #    深い PR でも数回のループで終わる。
+      #    10 回到達しても届かなければ ::error:: を出して非ゼロ終了し、
+      #    CI が無音で詰まることを防ぐ（チャンクサイズ・上限値は ADR 0027 参照）。
       - name: "[PR] Deepen until base reachable"
         if: github.event_name == 'pull_request'
         run: |
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          until git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; do
+          for _ in $(seq 1 10); do
+            if git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+              exit 0
+            fi
             git fetch --no-tags --deepen=20 origin
           done
+          echo "::error::base.sha (${BASE_SHA}) not reachable after 10 deepen rounds (200 commits)"
+          exit 1
 
       # ② base..head の範囲のコミットメッセージを 1 件ずつ規約検証する。
       #    base.sha / head.sha は GitHub が PR メタデータとして注入する範囲指定用 SHA。
@@ -168,15 +177,21 @@ jobs:
       # ──────────────────────────────────────────────────────────────
 
       # ① before が手元に届くまで `--deepen=20` を繰り返す（経路 A と同じパターン）。
+      #    10 回到達で打ち切り、明示エラー終了する fail-fast の安全弁を含む。
       - name: "[push] Deepen until before reachable"
         if: >-
           github.event_name == 'push' &&
           github.event.before != '0000000000000000000000000000000000000000'
         run: |
           BEFORE_SHA="${{ github.event.before }}"
-          until git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; do
+          for _ in $(seq 1 10); do
+            if git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+              exit 0
+            fi
             git fetch --no-tags --deepen=20 origin
           done
+          echo "::error::before SHA (${BEFORE_SHA}) not reachable after 10 deepen rounds (200 commits)"
+          exit 1
 
       # ② before..after の範囲のコミットメッセージを 1 件ずつ規約検証する。
       - name: "[push] Validate commits"
