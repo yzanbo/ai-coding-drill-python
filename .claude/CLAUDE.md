@@ -37,7 +37,7 @@
 
 - パッケージマネージャは **pnpm**、モノレポは **Turborepo**（→ [ADR 0012](../docs/adr/0012-turborepo-pnpm-monorepo.md)）
 - TS のリント・フォーマットは **Biome**、型チェックは `tsc --noEmit`（→ [ADR 0013](../docs/adr/0013-biome-for-tooling.md)）
-- Go は `gofmt` + `golangci-lint`（→ [ADR 0013](../docs/adr/0013-biome-for-tooling.md)）
+- Go は `gofmt` + `golangci-lint`（→ [ADR 0020](../docs/adr/0020-go-code-quality.md)）
 - DB は **Postgres + Drizzle ORM**（→ [ADR 0001](../docs/adr/0001-postgres-as-job-queue.md)、[ADR 0016](../docs/adr/0016-drizzle-orm-over-prisma.md)）
 - ジョブキューは **Postgres `SELECT FOR UPDATE SKIP LOCKED` + LISTEN/NOTIFY**（外部キューミドルウェア不使用）
 - Redis は **キャッシュ・セッション・レート制限のみ**、ジョブキュー用途では使わない（→ [ADR 0006](../docs/adr/0006-redis-not-for-job-queue.md)）
@@ -213,7 +213,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 ### 設計原則
 
-- **可逆な判断は遅延させる**：LLM モデル選定・Python 型チェッカー選定など、市場が変化する領域は実装着手時に決定（→ [ADR 0011](../docs/adr/0011-llm-provider-abstraction.md)、[ADR 0013](../docs/adr/0013-biome-for-tooling.md)）
+- **可逆な判断は遅延させる**：LLM モデル選定・Python 型チェッカー選定など、市場が変化する領域は実装着手時に決定（→ [ADR 0011](../docs/adr/0011-llm-provider-abstraction.md)、[ADR 0021](../docs/adr/0021-python-code-quality.md)）
 - **YAGNI**：使うか分からない抽象化を先取りで作らない
 - **拡張容易性は構造的に確保**：認証プロバイダ・LLM プロバイダ・サンドボックスランタイムは差し替え可能に
 - **規模に応じた選定**：このプロジェクト規模（小〜中）に最適なツールを選ぶ。Bazel・Kafka・Nx 等の "本格派" は不採用

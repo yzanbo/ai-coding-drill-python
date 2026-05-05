@@ -10,7 +10,7 @@
 
 ---
 
-## 📚 カテゴリ別索引（19 件）
+## 📚 カテゴリ別索引（21 件）
 
 採用担当者・面接官の方は、興味のある観点から該当 ADR を探せます。
 
@@ -49,23 +49,25 @@
 | [0002](./0002-aws-single-cloud.md) | AWS 単独クラウド（マルチクラウド不採用） | エコシステム集中 / 複雑度回避 |
 | [0007](./0007-upstash-redis-over-elasticache.md) | Upstash Redis 採用（ElastiCache 不採用） | サーバレス / 無料枠 / コスト効率 |
 
-### 📋 開発規律判断（5 件）
+### 📋 開発規律判断（7 件）
 
 モノレポ運用・コード品質・型生成・ツール導入規律など、**開発体験を支える判断**。
 
 | ADR | タイトル | キーワード |
 |---|---|---|
 | [0012](./0012-turborepo-pnpm-monorepo.md) | モノレポツールに Turborepo + pnpm workspaces を採用 | ビルドキャッシュ / 並列実行 |
-| [0013](./0013-biome-for-tooling.md) | コード品質ツールに Biome を採用（ESLint + Prettier 不採用） | Rust 製高速 / 設定統一 |
+| [0013](./0013-biome-for-tooling.md) | TypeScript のコード品質ツールに Biome を採用、設定はリポジトリルートに直接配置 | Rust 製高速 / 設定統一 / 単一設定スキャン |
 | [0014](./0014-json-schema-as-single-source-of-truth.md) | 共有データ型は JSON Schema を Single Source of Truth とし各言語向けに自動生成 | 3 言語型整合 / 新言語追加コスト最小 |
 | [0018](./0018-phase-0-tooling-discipline.md) | 補完ツール（Knip / lefthook / commitlint / syncpack）を R0 から導入 | YAGNI 例外条件 / 不可逆コスト膨張 |
 | [0019](./0019-requirements-as-5-buckets.md) | 要件定義書を「時系列 × 変更頻度」の 5 バケット構造に再編 | ドキュメント設計 / SSoT / 読む順序と書く順序 |
+| [0020](./0020-go-code-quality.md) | Go のコード品質ツールに gofmt + golangci-lint を採用 | Go 標準 / メタリンター / `go build` 内蔵型チェック |
+| [0021](./0021-python-code-quality.md) | Python のコード品質ツールに ruff を採用、型チェッカーは Phase 7 着手時に決定 | Astral 統合 / 可逆な判断の遅延 |
 
 ---
 
 ## 📝 連番一覧（時系列）
 
-書かれた順序で全 18 件を一覧する場合：
+書かれた順序で全 21 件を一覧する場合：
 
 | # | タイトル | カテゴリ |
 |---|---|---|
@@ -81,13 +83,15 @@
 | [0010](./0010-phased-language-introduction.md) | 言語の段階導入 | 🏗️ アーキテクチャ |
 | [0011](./0011-llm-provider-abstraction.md) | LLM プロバイダ抽象化戦略 | 🏗️ アーキテクチャ |
 | [0012](./0012-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces | 📋 開発規律 |
-| [0013](./0013-biome-for-tooling.md) | Biome 採用 | 📋 開発規律 |
+| [0013](./0013-biome-for-tooling.md) | TypeScript のコード品質ツールに Biome を採用、設定はリポジトリルート直接配置 | 📋 開発規律 |
 | [0014](./0014-json-schema-as-single-source-of-truth.md) | JSON Schema を SSoT に | 📋 開発規律 |
 | [0015](./0015-github-oauth-with-extensible-design.md) | GitHub OAuth + 拡張可能設計 | 🔧 技術スタック |
 | [0016](./0016-drizzle-orm-over-prisma.md) | ORM に Drizzle 採用 | 🔧 技術スタック |
 | [0017](./0017-w3c-trace-context-in-job-payload.md) | W3C Trace Context をジョブペイロードに埋め込む | 🏗️ アーキテクチャ |
 | [0018](./0018-phase-0-tooling-discipline.md) | 補完ツールを R0 から導入 | 📋 開発規律 |
 | [0019](./0019-requirements-as-5-buckets.md) | 要件定義書を 5 バケット時系列構造に再編 | 📋 開発規律 |
+| [0020](./0020-go-code-quality.md) | Go のコード品質ツール（gofmt + golangci-lint） | 📋 開発規律 |
+| [0021](./0021-python-code-quality.md) | Python のコード品質ツール（ruff、型チェッカーは Phase 7 着手時決定） | 📋 開発規律 |
 
 ---
 
@@ -103,7 +107,7 @@
 | **R3** サンドボックス強化 | [0008](./0008-disposable-sandbox-container.md) |
 | **R4** 観測性 | [0017](./0017-w3c-trace-context-in-job-payload.md) |
 | **R5** 仕上げ・公開 | [0002](./0002-aws-single-cloud.md) / [0007](./0007-upstash-redis-over-elasticache.md) |
-| **R7** Python 分析パイプライン | [0010](./0010-phased-language-introduction.md) / [0013](./0013-biome-for-tooling.md) |
+| **R7** Python 分析パイプライン | [0010](./0010-phased-language-introduction.md) / [0021](./0021-python-code-quality.md) |
 
 ---
 

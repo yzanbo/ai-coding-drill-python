@@ -203,7 +203,7 @@ slog.InfoContext(ctx, "job claimed",
 
 ### コードスタイル
 
-- `gofmt` でフォーマット、`golangci-lint` でリント（→ [ADR 0013](../../docs/adr/0013-biome-for-tooling.md)）
+- `gofmt` でフォーマット、`golangci-lint` でリント（→ [ADR 0020](../../docs/adr/0020-go-code-quality.md)）
 - `golangci-lint` の有効リンター：`errcheck`, `govet`, `staticcheck`, `ineffassign`, `unused`, `gofumpt`, `gosec`
 - 命名：パッケージは小文字 1 単語、エクスポートは `PascalCase`、内部は `camelCase`
 - インターフェースは小さく分割、`io.Reader` 級の単一メソッドが理想

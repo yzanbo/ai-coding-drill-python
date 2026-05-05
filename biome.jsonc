@@ -1,0 +1,71 @@
+{
+  // $schema: エディタの補完・検証用。Biome 実行には影響しない。バージョンは @biomejs/biome に合わせる。
+  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+
+  // vcs: .gitignore を Biome の除外対象に流用。.gitignore と files.includes の二重管理を防ぐ。
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+
+  "files": {
+    // ignoreUnknown: 未知の拡張子（.go / .md 等）を黙ってスキップ。false だと警告ノイズが出る。
+    "ignoreUnknown": true,
+    // includes: スキャン対象の包含/除外パターン。Biome 2.x では先頭 ! で除外を表す（旧 ignore は廃止）。
+    //          .gitignore に書かれているパスは vcs.useIgnoreFile が処理するためここでは列挙しない。
+    //          ここには .gitignore に無い追加除外のみを書く。
+    //          - **/generated: packages/shared-types/generated/ts/ は commit 対象だが、
+    //            生成物の自動整形を防ぐため Biome 対象から外す（go / python は .gitignore 済み）。
+    "includes": ["**", "!**/generated"]
+  },
+
+  // formatter: 全言語共通のフォーマット規約。
+  // 既定値の再記述は意図の明示（Biome のメジャーアップで既定値が変わってもブレない防御）。
+  "formatter": {
+    "enabled": true,
+    // indentStyle: ✅ 真の上書き（Biome 既定は "tab"）。タブ vs スペース論争を回避するため space に固定。
+    "indentStyle": "space",
+    // indentWidth: 〇 既定値（space 時は 2）の明示。TS/JS/JSON エコシステムの事実上の標準（Prettier / Next.js / NestJS 等と整合）。
+    "indentWidth": 2,
+    // lineWidth: ✅ 真の上書き（Biome 既定は 80）。横長モニタ前提で 120 に拡大、無理な改行を減らす。
+    "lineWidth": 120,
+    // lineEnding: 〇 既定値（"lf"）の明示。Windows / macOS 混在時の改行コード差分混入を防ぐ。
+    "lineEnding": "lf"
+  },
+
+  // assist: import 整理などの「コード補助アクション」（Biome 2.x で organizeImports から再編）。
+  //         actions.source.organizeImports の on で format 実行時に import 文の並び替え + 重複削除を適用。
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+
+  "linter": {
+    "enabled": true,
+    "rules": {
+      // recommended: Biome がメンテする推奨ルール一式を有効化（バージョンアップで自動追従）。
+      //              個別ルールの調整は、必要が出た時点で各 workspace 側 biome.jsonc で上書きする。
+      "recommended": true
+    }
+  },
+
+  // javascript: JS / TS 固有のフォーマット規約。
+  // 以下 4 項目はすべて Biome の既定値だが、意図の明示と将来の既定変更に対する防御のため再記述している。
+  "javascript": {
+    "formatter": {
+      // quoteStyle: 〇 既定値（"double"）の明示。JSON との往復で一貫性を保つ。
+      "quoteStyle": "double",
+      // trailingCommas: 〇 既定値（"all"）の明示。関数引数まで含めて常時付与し、行追加時の git diff を最小化。
+      "trailingCommas": "all",
+      // semicolons: 〇 既定値（"always"）の明示。ASI（自動セミコロン挿入）の罠を回避、TS 標準慣習。
+      "semicolons": "always",
+      // arrowParentheses: 〇 既定値（"always"）の明示。型注釈追加時に書き換え不要。
+      "arrowParentheses": "always"
+    }
+  }
+}

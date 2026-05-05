@@ -133,10 +133,12 @@
 | ADR | タイトル | キーワード |
 |---|---|---|
 | [0012](docs/adr/0012-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces | モノレポ運用 |
-| [0013](docs/adr/0013-biome-for-tooling.md) | Biome 採用（ESLint+Prettier 不採用） | Rust 製 / 高速 |
+| [0013](docs/adr/0013-biome-for-tooling.md) | TS のコード品質ツールに Biome を採用、設定はルート直接配置 | Rust 製 / 高速 / 単一設定 |
 | [0014](docs/adr/0014-json-schema-as-single-source-of-truth.md) | JSON Schema を SSoT に | 3 言語型自動生成 |
 | [0018](docs/adr/0018-phase-0-tooling-discipline.md) | 補完ツールを R0 から導入 | Knip / lefthook / commitlint / syncpack |
 | [0019](docs/adr/0019-requirements-as-5-buckets.md) | 要件定義書を 5 バケット時系列構造に再編 | ドキュメント設計 / SSoT / 読む順序 vs 書く順序 |
+| [0020](docs/adr/0020-go-code-quality.md) | Go のコード品質ツール（gofmt + golangci-lint） | Go 標準 / メタリンター |
+| [0021](docs/adr/0021-python-code-quality.md) | Python のコード品質ツール（ruff、型チェッカーは Phase 7 着手時決定） | Astral 統合 / 可逆な判断の遅延 |
 
 → 索引一覧：[docs/adr/README.md](docs/adr/README.md)
 → ADR 運用ルール：1 決定 1 ファイル / Append-only / 代替案・トレードオフ・将来見直しトリガーを必ず記録

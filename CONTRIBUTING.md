@@ -135,9 +135,9 @@ infra/                   Terraform（network / db / ecs / worker / monitoring）
 docs/                    要件定義書（5 バケット構造）+ ADR（18 本以上）+ Runbook
 .github/workflows/       GitHub Actions（CI / デプロイ）
 docker-compose.yml       ローカル開発環境
-turbo.json               Turborepo 設定
+turbo.jsonc              Turborepo 設定
 pnpm-workspace.yaml      pnpm workspaces 設定
-biome.json               Biome 設定
+biome.jsonc              Biome 設定
 ```
 
 詳細な構成は [docs/adr/0012-turborepo-pnpm-monorepo.md](docs/adr/0012-turborepo-pnpm-monorepo.md) を参照。
@@ -152,8 +152,8 @@ biome.json               Biome 設定
 pnpm dev                 # 全アプリ並列起動
 pnpm build               # 全パッケージビルド（依存順）
 pnpm test                # 全テスト実行
-pnpm lint                # Biome チェック
-pnpm format              # Biome フォーマット
+pnpm lint                # Biome チェック（lint + format 差分を検出）
+pnpm lint:fix            # Biome 自動修正（フォーマット差分・修正可能な lint エラーを書き込み）
 pnpm typecheck           # tsc --noEmit（型チェック）
 ```
 
@@ -201,6 +201,9 @@ pnpm sandbox:build       # 採点用コンテナイメージビルド
 - **コミット**：意味のある単位で commit
   - メッセージは日本語または英語、Conventional Commits 形式（`docs:`, `feat:`, `fix:`, `chore:` 等）
   - commitlint で機械的に検証（[ADR 0018](docs/adr/0018-phase-0-tooling-discipline.md)）
+- **Git フック（lefthook）**：`pnpm install` 時に `prepare` script で自動セットアップ
+  - **pre-commit**：ステージ済み TS/JS/JSON 系ファイルに Biome を実行、フォーマット差分は自動修正・再ステージ。lint エラー（自動修正不可）はコミットをブロック
+  - **commit-msg**：commitlint がコミットメッセージ規約を検証
 - **PR**：本文は日本語、概要・テスト方法を記載
 
 詳細なブランチ命名規則・PR 規約は [.claude/CLAUDE.md](.claude/CLAUDE.md) を参照。

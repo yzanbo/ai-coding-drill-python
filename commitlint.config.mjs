@@ -49,17 +49,17 @@ export default {
       2,
       "always",
       [
-        "feat",     // 新機能追加
-        "fix",      // バグ修正
-        "docs",     // ドキュメントのみの変更
+        "feat", // 新機能追加
+        "fix", // バグ修正
+        "docs", // ドキュメントのみの変更
         "refactor", // 機能変化なしのリファクタ
-        "test",     // テスト追加・修正
-        "chore",    // ビルド・補助ツール・依存更新等
-        "ci",       // CI 設定の変更
-        "build",    // ビルドシステム・外部依存の変更
-        "perf",     // パフォーマンス改善
-        "style",    // フォーマット変更（コード意味は変えない）
-        "revert",   // 過去コミットの取り消し
+        "test", // テスト追加・修正
+        "chore", // ビルド・補助ツール・依存更新等
+        "ci", // CI 設定の変更
+        "build", // ビルドシステム・外部依存の変更
+        "perf", // パフォーマンス改善
+        "style", // フォーマット変更（コード意味は変えない）
+        "revert", // 過去コミットの取り消し
       ],
     ],
 
@@ -71,15 +71,15 @@ export default {
       2,
       "always",
       [
-        "web",     // apps/web（フロントエンド / Next.js）
-        "api",     // apps/api（NestJS API）
-        "worker",  // apps/grading-worker（Go 採点ワーカー）
-        "shared",  // packages/shared-types, packages/prompts 等の共有パッケージ
-        "config",  // packages/config（Biome / tsconfig 等の共有設定）
-        "infra",   // infra/（Terraform）
-        "docs",    // docs/（要件定義 / ADR）
-        "db",      // Drizzle スキーマ・マイグレーション
-        "deps",    // 依存パッケージの更新
+        "web", // apps/web（フロントエンド / Next.js）
+        "api", // apps/api（NestJS API）
+        "worker", // apps/grading-worker（Go 採点ワーカー）
+        "shared", // packages/shared-types, packages/prompts 等の共有パッケージ
+        "config", // packages/config（Biome / tsconfig 等の共有設定）
+        "infra", // infra/（Terraform）
+        "docs", // docs/（要件定義 / ADR）
+        "db", // Drizzle スキーマ・マイグレーション
+        "deps", // 依存パッケージの更新
       ],
     ],
 

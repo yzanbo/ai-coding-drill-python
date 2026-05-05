@@ -14,14 +14,17 @@
     "pnpm": "9.15.4"
   },
   "scripts": {
+    "prepare": "lefthook install",
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "lint": "turbo run lint",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "commitlint": "commitlint"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.14",
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
     "lefthook": "^2.1.6",
