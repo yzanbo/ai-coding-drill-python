@@ -10,7 +10,7 @@
 
 ---
 
-## 📚 カテゴリ別索引（21 件）
+## 📚 カテゴリ別索引（23 件）
 
 採用担当者・面接官の方は、興味のある観点から該当 ADR を探せます。
 
@@ -49,7 +49,7 @@
 | [0002](./0002-aws-single-cloud.md) | AWS 単独クラウド（マルチクラウド不採用） | エコシステム集中 / 複雑度回避 |
 | [0007](./0007-upstash-redis-over-elasticache.md) | Upstash Redis 採用（ElastiCache 不採用） | サーバレス / 無料枠 / コスト効率 |
 
-### 📋 開発規律判断（7 件）
+### 📋 開発規律判断（9 件）
 
 モノレポ運用・コード品質・型生成・ツール導入規律など、**開発体験を支える判断**。
 
@@ -62,12 +62,14 @@
 | [0019](./0019-requirements-as-5-buckets.md) | 要件定義書を「時系列 × 変更頻度」の 5 バケット構造に再編 | ドキュメント設計 / SSoT / 読む順序と書く順序 |
 | [0020](./0020-go-code-quality.md) | Go のコード品質ツールに gofmt + golangci-lint を採用 | Go 標準 / メタリンター / `go build` 内蔵型チェック |
 | [0021](./0021-python-code-quality.md) | Python のコード品質ツールに ruff を採用、型チェッカーは Phase 7 着手時に決定 | Astral 統合 / 可逆な判断の遅延 |
+| [0022](./0022-github-actions-incremental-scope.md) | GitHub Actions のスコープを段階的に拡張（R0 は commitlint + Biome + typecheck のみ） | YAGNI / 段階拡張 / 無料枠節約 |
+| [0023](./0023-github-actions-as-ci-cd.md) | CI/CD ツールに GitHub Actions を採用（CircleCI / Jenkins / Tekton 等を不採用） | コードホスト統合 / OIDC キーレス / 可逆性 |
 
 ---
 
 ## 📝 連番一覧（時系列）
 
-書かれた順序で全 21 件を一覧する場合：
+書かれた順序で全 23 件を一覧する場合：
 
 | # | タイトル | カテゴリ |
 |---|---|---|
@@ -92,6 +94,8 @@
 | [0019](./0019-requirements-as-5-buckets.md) | 要件定義書を 5 バケット時系列構造に再編 | 📋 開発規律 |
 | [0020](./0020-go-code-quality.md) | Go のコード品質ツール（gofmt + golangci-lint） | 📋 開発規律 |
 | [0021](./0021-python-code-quality.md) | Python のコード品質ツール（ruff、型チェッカーは Phase 7 着手時決定） | 📋 開発規律 |
+| [0022](./0022-github-actions-incremental-scope.md) | GitHub Actions のスコープを段階的に拡張 | 📋 開発規律 |
+| [0023](./0023-github-actions-as-ci-cd.md) | CI/CD ツールに GitHub Actions を採用 | 📋 開発規律 |
 
 ---
 
@@ -101,7 +105,7 @@
 
 | リリース | 主な参照 ADR |
 |---|---|
-| **R0** 基盤整備 | [0012](./0012-turborepo-pnpm-monorepo.md) / [0013](./0013-biome-for-tooling.md) / [0014](./0014-json-schema-as-single-source-of-truth.md) / [0018](./0018-phase-0-tooling-discipline.md) |
+| **R0** 基盤整備 | [0012](./0012-turborepo-pnpm-monorepo.md) / [0013](./0013-biome-for-tooling.md) / [0014](./0014-json-schema-as-single-source-of-truth.md) / [0018](./0018-phase-0-tooling-discipline.md) / [0022](./0022-github-actions-incremental-scope.md) / [0023](./0023-github-actions-as-ci-cd.md) |
 | **R1** MVP（最小貫通） | [0001](./0001-postgres-as-job-queue.md) / [0003](./0003-codemirror-over-monaco.md) / [0004](./0004-nestjs-for-backend.md) / [0005](./0005-go-for-grading-worker.md) / [0008](./0008-disposable-sandbox-container.md) / [0011](./0011-llm-provider-abstraction.md) / [0015](./0015-github-oauth-with-extensible-design.md) / [0016](./0016-drizzle-orm-over-prisma.md) / [0017](./0017-w3c-trace-context-in-job-payload.md) |
 | **R2** 品質保証パイプライン | [0009](./0009-custom-llm-judge.md) / [0011](./0011-llm-provider-abstraction.md) |
 | **R3** サンドボックス強化 | [0008](./0008-disposable-sandbox-container.md) |

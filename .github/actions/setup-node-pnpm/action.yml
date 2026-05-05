@@ -1,0 +1,57 @@
+# ======================================================================
+# Composite Action: Setup Node + pnpm + install dependencies
+# ======================================================================
+#
+# 目的：
+#   ci.yml の各ジョブで重複していた「pnpm CLI → Node.js → pnpm install」の
+#   3 ステップを 1 つの再利用可能ステップに集約する。
+#
+# 呼び出し側の前提：
+#   - actions/checkout は呼び出し側で事前に実行しておくこと。
+#     （Composite Action 内で checkout するとリポジトリパスが上書きされて壊れる）
+#
+# 使い方（呼び出し側の例）:
+#   - uses: actions/checkout@v4
+#   - uses: ./.github/actions/setup-node-pnpm
+#     with:
+#       node-version: "22.20.0"
+#       pnpm-version: "9.15.4"
+# ----------------------------------------------------------------------
+
+name: Setup Node + pnpm
+description: pnpm CLI と Node.js をインストールし、pnpm 依存を frozen-lockfile でインストールする
+
+# inputs: この Composite Action が受け取る引数。
+#   呼び出し側の `with:` で渡された値が ${{ inputs.<name> }} で参照できる。
+inputs:
+  node-version:
+    description: Node.js のバージョン（ルート package.json の volta と一致させる）
+    required: true
+  pnpm-version:
+    description: pnpm のバージョン（ルート package.json の packageManager と一致させる）
+    required: true
+
+# runs.using: composite を指定すると、この Action は他の Action と通常の run ステップを
+# 組み合わせた「ステップの集まり」として動く（Docker や JS ベースの Action とは別形式）。
+runs:
+  using: composite
+  steps:
+    # pnpm CLI をインストール。
+    # actions/setup-node の cache: pnpm より前に置く必要がある
+    # （setup-node のキャッシュ機能が pnpm コマンドの存在を要求するため）。
+    - uses: pnpm/action-setup@v4
+      with:
+        version: ${{ inputs.pnpm-version }}
+
+    # Node.js をインストールし、pnpm-lock.yaml をキーに pnpm ストアをキャッシュする。
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: pnpm
+
+    # 依存パッケージをロックファイル厳密一致でインストール。
+    # Composite Action 内の run ステップは shell を必ず明示する必要がある
+    # （ジョブ全体の defaults.run.shell が継承されないため）。
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
