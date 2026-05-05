@@ -20,11 +20,29 @@
 
 | ツール | バージョン | 用途 |
 |---|---|---|
-| Node.js | 20+ | TS アプリ実行 |
-| pnpm | 9+ | パッケージ管理 |
+| Volta | 最新 | Node.js / pnpm のバージョン管理（推奨） |
+| Node.js | 22.20.0（`package.json` の `volta.node` で固定） | TS アプリ実行 |
+| pnpm | 9.15.4（`package.json` の `volta.pnpm` / `packageManager` で固定） | パッケージ管理 |
 | Go | 1.22+ | 採点ワーカー |
 | Docker | Desktop / Engine | サンドボックス + ローカル DB |
 | psql | 任意 | DB クライアント（デバッグ用） |
+
+> **Volta を推奨する理由**：`package.json` の `volta` フィールドにより、リポジトリに `cd` した瞬間に Node / pnpm が指定バージョンへ自動切替される。手動インストールや Corepack 不要。
+> Volta を使わない場合は、表のバージョンに揃えて Node / pnpm をインストールしてください（`packageManager` フィールドにより、Corepack 経由でも pnpm が固定されます）。
+
+### Volta インストール（未導入の場合）
+
+```bash
+# macOS / Linux
+curl https://get.volta.sh | bash
+
+# シェル再起動後、リポジトリに入れば自動的に正しい Node / pnpm が使える
+cd ai-coding-drill
+node -v   # → v22.20.0
+pnpm -v   # → 9.15.4
+```
+
+詳細は [Volta 公式ドキュメント](https://docs.volta.sh/) を参照。
 
 ### セットアップ
 
@@ -39,7 +57,7 @@ cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 # 各 .env を編集：DATABASE_URL / REDIS_URL / GitHub OAuth Secret 等
 
-# 3. 依存パッケージをインストール
+# 3. 依存パッケージをインストール（Volta が Node / pnpm を自動切替）
 pnpm install
 
 # 4. ローカル DB / Redis を起動
