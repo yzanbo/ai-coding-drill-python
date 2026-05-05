@@ -123,7 +123,7 @@ return {
 
 ### コードスタイル
 
-- Biome（lint + format）。設定は `packages/config/biome-config/`（→ [ADR 0013](../../docs/adr/0013-biome-for-tooling.md)）
+- Biome（lint + format）。設定はリポジトリルートの `biome.jsonc`（→ [ADR 0013](../../docs/adr/0013-biome-for-tooling.md)）
 - 型チェックは `tsc --noEmit`
 - **`any` 利用不可**。Drizzle の推論型（`typeof problems.$inferSelect`）や独自 DTO で型付けする
 - モジュール名（ディレクトリ・クラス名）は単数形を使う（例：`problem/`, `ProblemModule`）。テーブル名は複数形のまま

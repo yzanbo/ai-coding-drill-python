@@ -2,7 +2,17 @@
 # Git フックを管理し、commit / push 時に自動チェックを実行する。
 # 公式: https://lefthook.dev/configuration/
 #
-# pre-commit フックは Biome 導入時に追加する（現時点では空）。
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      # ステージ済みの TS/JS/JSON 系ファイルに対し Biome の lint + format を実行。
+      # --write でフォーマット差分は自動修正、--no-errors-on-unmatched で対象ゼロ時もエラーにしない。
+      # stage_fixed: true で Biome が書き換えたファイルを自動再ステージし、
+      # フォーマット差分のためにコミットがブロックされ続ける現象を防ぐ。
+      glob: "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}"
+      run: pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
 
 commit-msg:
   commands:
