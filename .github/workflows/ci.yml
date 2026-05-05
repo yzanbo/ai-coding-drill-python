@@ -105,7 +105,7 @@ jobs:
       # fetch-depth: 0（全履歴）にすると履歴量に比例して遅くなるため、commitlint が
       # 必要とする base コミットだけ後続ステップで個別に取得する方式（深掘り）を採る。
       # これにより所要時間がリポジトリの運用期間・コミット総数に依存しなくなる。
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       # 環境セットアップ（pnpm CLI + Node.js + pnpm install）を Composite Action に委譲。
       # 同一リポジトリ内のローカル Action は ./<path> 形式で参照する（先頭の `./` 必須）。
@@ -198,7 +198,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # ソース取得（ここは差分検証ではないので fetch-depth は既定の 1 で十分）。
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       # 環境セットアップを Composite Action に委譲。
       - uses: ./.github/actions/setup-node-pnpm
@@ -222,7 +222,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # ソース取得。
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       # 環境セットアップを Composite Action に委譲。
       - uses: ./.github/actions/setup-node-pnpm
