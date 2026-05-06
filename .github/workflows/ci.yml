@@ -260,6 +260,31 @@ jobs:
         run: pnpm exec turbo run typecheck
 
   # ====================================================================
+  # job 4: syncpack
+  #   モノレポ内 package.json の整合性検証（バージョン揃え / semver 範囲統一 /
+  #   workspace:* 強制 / dep 重複検知）。規約 SSoT は .syncpackrc.ts。
+  #   違反があれば exit 1 となり CI が失敗する。
+  #   詳細: ADR 0029
+  # ====================================================================
+  syncpack:
+    name: syncpack
+    runs-on: ubuntu-latest
+    steps:
+      # ソース取得。
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # 環境セットアップを Composite Action に委譲。
+      - uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          pnpm-version: ${{ env.PNPM_VERSION }}
+
+      # syncpack lint: .syncpackrc.ts に従って package.json 群を検証。
+      # 修正は `pnpm syncpack fix-mismatches` / `pnpm syncpack format` をローカルで実行。
+      - name: syncpack lint
+        run: pnpm exec syncpack lint
+
+  # ====================================================================
   # 【集約ジョブ】ci-success （umbrella / aggregator）
   #   ※ 上記の job 1〜N とは性質が異なるため番号を付けない。
   #   上記すべてのジョブの成否を集約する。
@@ -278,7 +303,7 @@ jobs:
     # 逆に「成功扱い」と誤認される事故の温床になる。always() で必ず起動させ、
     # 結果は steps 内で明示的に判定する。
     if: always()
-    needs: [commitlint, lint, typecheck]
+    needs: [commitlint, lint, typecheck, syncpack]
     runs-on: ubuntu-latest
     steps:
       # needs.*.result は 'success' / 'failure' / 'cancelled' / 'skipped' のいずれか。

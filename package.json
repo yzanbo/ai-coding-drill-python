@@ -22,6 +22,9 @@
     "test": "turbo run test",
     "typecheck": "tsc --noEmit -p tsconfig.json && turbo run typecheck",
     "commitlint": "commitlint",
+    "syncpack:lint": "syncpack lint",
+    "syncpack:fix": "syncpack fix-mismatches",
+    "syncpack:format": "syncpack format",
     "g-clean": "bash scripts/cleanup-merged-branches.sh"
   },
   "devDependencies": {
@@ -30,7 +33,8 @@
     "@commitlint/config-conventional": "^20.5.3",
     "@commitlint/types": "^20.5.0",
     "lefthook": "^2.1.6",
-    "turbo": "latest",
+    "syncpack": "^15.0.0",
+    "turbo": "^2.9.9",
     "typescript": "^6.0.3"
   }
 }
