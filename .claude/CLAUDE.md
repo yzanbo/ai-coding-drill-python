@@ -59,6 +59,7 @@ pnpm test                 # 全テスト実行
 pnpm lint                 # Biome チェック
 pnpm format               # Biome フォーマット
 pnpm typecheck            # tsc --noEmit
+pnpm g-clean              # マージ済みでリモートが消えたローカルブランチを掃除（必要なら main へ切替・最新化）
 ```
 
 個別アプリ：
