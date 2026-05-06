@@ -20,7 +20,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "tsc --noEmit -p tsconfig.json && turbo run typecheck",
     "commitlint": "commitlint"
   },
   "devDependencies": {
@@ -29,6 +29,7 @@
     "@commitlint/config-conventional": "^20.5.3",
     "@commitlint/types": "^20.5.0",
     "lefthook": "^2.1.6",
-    "turbo": "latest"
+    "turbo": "latest",
+    "typescript": "^6.0.3"
   }
 }

@@ -26,6 +26,9 @@ importers:
       turbo:
         specifier: latest
         version: 2.9.9
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/config: {}
 

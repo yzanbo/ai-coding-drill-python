@@ -34,7 +34,7 @@ const config: UserConfig = {
     //   英語ケース規約に沿わせるよう要求する。
     //   日本語コミット（例: "feat: 問題生成 API を追加"）は判定対象外とすべきなので
     //   level=Disabled で完全に無効化する。
-    "subject-case": [RuleConfigSeverity.Disabled, "never"],
+    "subject-case": [RuleConfigSeverity.Disabled],
 
     // header-max-length:
     //   ヘッダー（"type(scope): subject" の 1 行目全体）の最大文字数。
@@ -97,7 +97,7 @@ const config: UserConfig = {
     //   scope なしのコミット（リポジトリ全体に関わる変更）も許容する。
     //   level=Disabled で「scope 無し」をエラー扱いしないことを明示。
     //   例: "chore: commitlint を導入" のようなリポジトリ横断の変更で scope 不要。
-    "scope-empty": [RuleConfigSeverity.Disabled, "never"],
+    "scope-empty": [RuleConfigSeverity.Disabled],
   },
 };
 

@@ -1,0 +1,34 @@
+// リポジトリルート用 tsconfig.json
+// ルート配置の TS 設定ファイル（commitlint.config.ts、将来の .syncpackrc.ts 等）の
+// 型チェック専用。workspace 用の tsconfig は各 apps / packages 配下に別途配置する。
+
+{
+  "compilerOptions": {
+    // Node.js が解釈する最新 ECMAScript 機能を利用可能にする。
+    "target": "ESNext",
+
+    // Node.js の ESM/CJS 解決ルールに沿って .ts を読み込む。
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    // 型安全のメリットを最大化するため strict mode を有効化
+    // （noImplicitAny / strictNullChecks 等まとめて on）。
+    "strict": true,
+
+    // JS 出力は不要、型チェックのみを目的とする。
+    "noEmit": true,
+
+    // CommonJS モジュール（@commitlint/types 等）の default import を許容。
+    "esModuleInterop": true,
+
+    // node_modules 内の .d.ts は信頼してチェックをスキップ（ビルド時間短縮）。
+    "skipLibCheck": true,
+
+    // JSON ファイルの直接 import を許可（将来の package.json 参照等に備える）。
+    "resolveJsonModule": true
+  },
+
+  // ルート直下の TS 設定ファイルのみを対象にする。
+  // workspace 配下は各 workspace の tsconfig が担当。
+  "include": ["commitlint.config.ts"]
+}
