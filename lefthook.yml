@@ -28,6 +28,24 @@ pre-commit:
       glob: "{*.ts,.*.ts}"
       run: pnpm exec tsc --noEmit -p tsconfig.json
 
+    syncpack:
+      # モノレポ内 package.json の整合性を検証（バージョン揃え / `^` 統一 / workspace:* 強制 /
+      # dependencies/devDependencies 重複検知）。規約 SSoT は .syncpackrc.ts。
+      # 根拠：ADR 0029（syncpack 採用）。
+      #
+      # glob: "package.json" — package.json 系ファイルが staged の時だけ走る。
+      #   - 開発者がコード（.tsx 等）だけ編集した時には走らず、commit がスムーズ
+      #   - 依存追加・版変更などの「違反を入れる/触る瞬間」に限り即時検知
+      #
+      # 自動修正 (fix-mismatches) は走らせない：
+      #   - syncpack の自動修正は他ファイルの package.json も書き換えうる
+      #   - pnpm-lock.yaml との整合保守が pre-commit のような気軽なタイミングで起きるべきではない
+      #   - 修正は `pnpm syncpack:fix` を開発者が手動実行する半自動運用
+      #
+      # 注：CI 側にも独立した `syncpack` ジョブがあり、pre-commit を skip された場合の最終 gate になる。
+      glob: "package.json"
+      run: pnpm exec syncpack lint
+
 commit-msg:
   commands:
     commitlint:
