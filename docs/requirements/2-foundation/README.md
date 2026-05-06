@@ -14,6 +14,7 @@
 - 観測性（ログ・トレース・メトリクス）
 - 実装技術スタック（サービスを動かすランタイム技術）
 - 開発フロー・品質保証技術（モノレポ・コード品質ツール・CI/CD・テスト）
+- GitHub リポジトリ設定（ブランチ保護・マージ動作・Actions・Security）
 
 機能個別の詳細・スプリント計画・ER 図・API エンドポイントは扱わない（他バケットを参照）。
 
@@ -29,6 +30,7 @@
 | 04 | [observability](./04-observability.md) | 観測性（ログ・トレース・メトリクス・アラート） |
 | 05 | [runtime-stack](./05-runtime-stack.md) | **サービスを動かす実装技術スタック**（FE / BE / ワーカー / DB / LLM / サンドボックス / インフラ / 観測性ツール） |
 | 06 | [dev-workflow](./06-dev-workflow.md) | **開発フロー・品質保証**（モノレポ / コード品質 / 共有型生成 / CI/CD / テスト） |
+| 07 | [github-settings](./07-github-settings.md) | **GitHub リポジトリ設定**（ブランチ保護 Ruleset / Pull Request 動作 / Actions 権限 / Security / Features） |
 | _template.md | [_template.md](./_template.md) | 新規章追加用テンプレ |
 
 ---
@@ -57,6 +59,13 @@
 |---|---|
 | **05-runtime-stack.md** | **サービスを動かす技術**（NestJS / Drizzle / Postgres / LLM プロバイダ等）。エンドユーザーのリクエストを処理する |
 | **06-dev-workflow.md** | **開発体験を支える技術**（Biome / Knip / lefthook / commitlint / syncpack / Jest / Playwright / GitHub Actions 等）。開発者の生産性・品質保証 |
+
+### 06 と 07（CI 中身 vs リポジトリ設定）
+
+| ファイル | 担当 |
+|---|---|
+| **06-dev-workflow.md** | **CI/CD のジョブ設計**（lint / typecheck / test 等のジョブ定義、テストフレームワーク選定）。`.github/workflows/*.yml` の中身 |
+| **07-github-settings.md** | **GitHub の管理画面 / API で設定するもの**（Ruleset / Pull Request 動作 / Actions 権限 / Security / Features）。コードリポジトリには含まれず GitHub 側に保存される設定 |
 
 詳細は [.claude/rules/requirements-docs.md](../../../.claude/rules/requirements-docs.md) を参照。
 
