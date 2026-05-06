@@ -27,8 +27,8 @@
   - **lefthook**：Git フック管理（pre-commit で Biome / 型チェック、commit-msg で commitlint を起動）。壊れたコードが main に入る前に弾く
   - **commitlint**（Conventional Commits）：コミットメッセージ規約の機械的検証。**過去のコミット履歴は遡及修正できない**ため、最初から規約を効かせる必要がある
   - **Knip**：未使用 export / 依存 / ファイルの検出。蓄積後の一斉検出は削除可否の個別判断で時間を消費する
-  - **syncpack**：モノレポ内 `package.json` のバージョン整合性を強制。Turborepo + pnpm workspaces 構成で必須レベル。**バージョンずれは積もると一括修正に動作リスクが伴う**
-  - 設定はすべて `packages/config/` 配下に集約し、各アプリから参照
+  - **syncpack**：モノレポ内 `package.json` のバージョン整合性を強制（→ [ADR 0029](../../adr/0029-syncpack-package-json-consistency.md)）。Turborepo + pnpm workspaces 構成で必須レベル。**バージョンずれは積もると一括修正に動作リスクが伴う**
+  - 設定はすべて `packages/config/` 配下に集約し、各アプリから参照（**例外**：syncpack はルート起点で `package.json` を再帰検索する設計のため `.syncpackrc.ts` をルート直接配置、→ [ADR 0029](../../adr/0029-syncpack-package-json-consistency.md)）
 - **Go**：`gofmt` + `golangci-lint`（→ [ADR 0020](../../adr/0020-go-code-quality.md)）
 - **Python（R7）**：`ruff`（Linter + Formatter 統合）。型チェッカーは Phase 7 着手時に決定（→ [ADR 0021](../../adr/0021-python-code-quality.md)）
 
