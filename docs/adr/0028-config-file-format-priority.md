@@ -57,7 +57,37 @@
 
 - Biome → `biome.jsonc`
 - Turborepo → `turbo.jsonc`
-- TypeScript → `tsconfig.json`（実態は JSONC）
+- TypeScript → `tsconfig.json`（実態は JSONC、後述の例外リスト参照）
+
+#### 拡張子と実態が一致しない例外ファイル
+
+「拡張子は `.json` だが、対応ツールが JSONC として解釈する」ファイルが ecosystem 慣習として存在する。**新規メンバー / LLM が「`.json` だからコメント書けない」と誤認しないよう、リストとして明示する**：
+
+| ファイル | 解釈 | 読むツール | 改名可能性 |
+|---|---|---|---|
+| `tsconfig.json` | **JSONC**（コメント可） | TypeScript コンパイラ | ❌ 不可（tsc の自動探索が固定名を要求） |
+| `.vscode/settings.json` | **JSONC**（コメント可） | VSCode | ❌ 不可（VSCode が固定名を要求） |
+| `.vscode/launch.json` | **JSONC**（コメント可） | VSCode | ❌ 不可 |
+| `.vscode/tasks.json` | **JSONC**（コメント可） | VSCode | ❌ 不可 |
+| `package.json` | **strict JSON**（コメント不可） | npm / pnpm / Node.js | ❌ 不可（標準 `JSON.parse()` で解釈） |
+| `package-lock.json` | **strict JSON**（コメント不可） | npm | ❌ 不可（自動生成） |
+
+**運用上の注意**：
+
+- `tsconfig.json` 等の「JSONC として解釈される `.json` ファイル」を編集する際は、**ファイル冒頭に「このファイルは JSONC として扱われる」旨のコメント**を残し、混乱を防ぐ
+- `package.json` のように「`.json` 拡張子で実際にもコメント不可」なファイルとは挙動が真逆なので、混同を防ぐ意味でも明記が重要
+- VSCode は内部的にファイル名で言語モード（"JSON" vs "JSON with Comments"）を切り替えており、上記のテーブルはその挙動と一致している
+
+#### `tsconfig.json` を `tsconfig.jsonc` にリネームしない理由
+
+「拡張子で実態を表現したい」という発想は健全だが、`tsconfig.json` のリネームは**ツールチェーン全体を破壊する**：
+
+- `tsc` 引数なし起動時の自動探索が `tsconfig.json` を期待
+- VSCode / IntelliJ / Vim 等のエディタ統合が固定名を期待
+- 周辺ツール（Vite / webpack / Biome / ESLint / Vitest 等）が `tsconfig.json` を直接読む
+- `--project` 等の明示パス指定で動作はするが、設定箇所が爆発的に増える
+
+ecosystem 慣習に逆らう労力 vs 拡張子変更の利点を比較すると、明らかに後者が小さい。Decision 2 の原則通り、ecosystem 慣習に従って `tsconfig.json` 名を維持する。
 
 ### 3. 自由選択時の優先順位
 
@@ -207,6 +237,7 @@
 - **TS loader の標準化**：cosmiconfig 等が TS をデフォルトでネイティブサポートするようになった場合、判断はさらに TS 寄りに
 - **YAML を強制するツールが減った場合**：強制比率が下がれば、自由選択優先順位の YAML の位置はさらに下がる
 - **追加ツール（Knip / Vitest 等）の導入時に本方針が機能するか検証**：方針通りに選べない事例が複数出たら、フローチャートを再検討
+- **TypeScript が `tsconfig.jsonc` を auto-discovery 対象に追加した場合**：拡張子で実態を表現できるようになるので、リネーム検討の余地が出る（上記「例外ファイル」セクションを更新）
 
 ## References
 

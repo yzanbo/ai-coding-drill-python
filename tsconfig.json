@@ -1,6 +1,10 @@
 // リポジトリルート用 tsconfig.json
 // ルート配置の TS 設定ファイル（commitlint.config.ts、将来の .syncpackrc.ts 等）の
 // 型チェック専用。workspace 用の tsconfig は各 apps / packages 配下に別途配置する。
+//
+// このファイルは拡張子 `.json` だが、TypeScript コンパイラが JSONC として解釈するため
+// `//` コメントが書ける。ecosystem 慣習で `tsconfig.json` の名前は固定（tsc の自動探索が
+// この名前を要求するため改名不可）。詳細・他の例外ファイルは ADR 0028 を参照。
 
 {
   "compilerOptions": {
