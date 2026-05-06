@@ -21,7 +21,8 @@
     "lint:fix": "biome check --write .",
     "test": "turbo run test",
     "typecheck": "tsc --noEmit -p tsconfig.json && turbo run typecheck",
-    "commitlint": "commitlint"
+    "commitlint": "commitlint",
+    "g-clean": "bash scripts/cleanup-merged-branches.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
