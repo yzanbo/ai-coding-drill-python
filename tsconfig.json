@@ -33,6 +33,10 @@
   },
 
   // ルート直下の TS 設定ファイルのみを対象にする。
-  // workspace 配下は各 workspace の tsconfig が担当。
-  "include": ["commitlint.config.ts"]
+  // workspace 配下（apps/ / packages/）は各 workspace の tsconfig が担当（再帰しない）。
+  // パターン解説：
+  //   "*.ts"  — ルート直下の通常 TS ファイル（commitlint.config.ts、将来の vitest.config.ts 等）
+  //   ".*.ts" — ルート直下のドットファイル TS（.syncpackrc.ts 等。`*` は dotfile を拾わないため別パターンが必要）
+  // 新規 TS 設定ファイルが増えても自動的に対象に入るため、include の保守が不要になる。
+  "include": ["*.ts", ".*.ts"]
 }
