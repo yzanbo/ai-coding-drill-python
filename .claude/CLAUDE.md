@@ -228,3 +228,32 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 - コミットメッセージ・コメントは**日本語**でも英語でもよい（一貫していれば可）
 - IDE の問題タブにエラー・警告があれば適宜修正する
 - lint・型チェック・knip 等のコマンド実行時に警告が出たら、即時修正する（警告を放置しない）
+
+### 設定ファイル形式の優先順位
+
+ツールの設定ファイル形式は以下の優先順位で選ぶ（→ [ADR 0028](../docs/adr/0028-config-file-format-priority.md)）：
+
+**前提原則**：設定ファイルには「なぜこのルールがあるか」をインラインコメントで残す。コメントが書けない純 JSON は他形式が受容される限り採用しない。
+
+1. **ツール強制があればそれに従う**：GitHub Actions / Dependabot / pnpm workspace は YAML 強制
+2. **ツール ecosystem 慣習が確立されていればそれに従う**：Biome → `biome.jsonc` / Turborepo → `turbo.jsonc` / TypeScript → `tsconfig.json`
+3. **自由選択時は以下の優先順位**：
+   - **TS（`.ts`）**：ツールが型を export している場合（syncpack の `RcFile`、commitlint の `UserConfig` 等）。typo を保存時に IDE / `tsc` が即時に弾く
+   - **JSONC（`.jsonc`）**：純データかつ `$schema` が IDE 補完を提供する場合
+   - **JS 系（`.mjs` ＞ `.cjs` ＞ `.js`）**：TS が使えず JSONC も合わない場合の妥協（ロジック必要時 / TS loader 不在時）
+   - **YAML（`.yaml`）**：ツール強制 / 慣習以外で選ぶ理由は無い
+   - **純 JSON（`.json`）**：ツールが他形式を一切受容しない場合のみ（コメント書けないため最終手段）
+
+#### 拡張子 `.json` だが JSONC として扱われる例外ファイル
+
+ツール ecosystem 慣習により、拡張子は `.json` でも対応ツールが JSONC として解釈するファイル群がある。**「`.json` だからコメント書けない」と誤認しない**ようリストで把握する：
+
+| ファイル | 実態 | 読むツール |
+|---|---|---|
+| `tsconfig.json` | **JSONC** | TypeScript コンパイラ |
+| `.vscode/settings.json` / `launch.json` / `tasks.json` | **JSONC** | VSCode |
+| `package.json` / `package-lock.json` | **strict JSON**（コメント不可） | npm / pnpm / Node.js |
+
+これらは ecosystem 慣習でファイル名が固定されており、**改名すると周辺ツールが壊れる**ため `.jsonc` 拡張子に変更しない。代わりに該当ファイル冒頭に「JSONC として扱われる」旨のコメントを残して混乱を防ぐ。
+
+詳細・判断フローチャート・代替案は [ADR 0028](../docs/adr/0028-config-file-format-priority.md) を参照。

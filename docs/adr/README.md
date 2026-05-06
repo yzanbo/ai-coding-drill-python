@@ -10,7 +10,7 @@
 
 ---
 
-## 📚 カテゴリ別索引（27 件）
+## 📚 カテゴリ別索引（28 件）
 
 採用担当者・面接官の方は、興味のある観点から該当 ADR を探せます。
 
@@ -68,12 +68,13 @@
 | [0025](./0025-commit-scope-convention.md) | コミット scope 規約（モノレポ領域 8 種 + 自動更新用 deps / deps-dev の列挙制） | scope-enum / Dependabot 連携 / SSoT |
 | [0026](./0026-github-actions-sha-pinning.md) | GitHub Actions のサードパーティアクションを SHA でピン止め（タグ書き換え攻撃対策） | サプライチェーン攻撃耐性 / fail-closed / Dependabot 前提 |
 | [0027](./0027-commitlint-base-commit-fetch.md) | commitlint の base コミット取得を iterative deepen 方式で行う（GitHub Git プロトコル非互換回避） | shallow-exclude 不可 / `--deepen=20` ループ / 累積コミット数非依存 |
+| [0028](./0028-config-file-format-priority.md) | 設定ファイル形式の選定方針（自由選択時は TS > JSONC > YAML の優先順位） | ツール強制 / ecosystem 慣習 / 型安全 |
 
 ---
 
 ## 📝 連番一覧（時系列）
 
-書かれた順序で全 27 件を一覧する場合：
+書かれた順序で全 28 件を一覧する場合：
 
 | # | タイトル | カテゴリ |
 |---|---|---|
@@ -104,6 +105,7 @@
 | [0025](./0025-commit-scope-convention.md) | コミット scope 規約（モノレポ領域 + 自動更新用 deps / deps-dev） | 📋 開発規律 |
 | [0026](./0026-github-actions-sha-pinning.md) | GitHub Actions のサードパーティアクションを SHA でピン止め | 📋 開発規律 |
 | [0027](./0027-commitlint-base-commit-fetch.md) | commitlint の base コミット取得を iterative deepen 方式で行う | 📋 開発規律 |
+| [0028](./0028-config-file-format-priority.md) | 設定ファイル形式の選定方針（TS > JSONC > YAML の優先順位） | 📋 開発規律 |
 
 ---
 
@@ -113,7 +115,7 @@
 
 | リリース | 主な参照 ADR |
 |---|---|
-| **R0** 基盤整備 | [0012](./0012-turborepo-pnpm-monorepo.md) / [0013](./0013-biome-for-tooling.md) / [0014](./0014-json-schema-as-single-source-of-truth.md) / [0018](./0018-phase-0-tooling-discipline.md) / [0022](./0022-github-actions-incremental-scope.md) / [0023](./0023-github-actions-as-ci-cd.md) / [0024](./0024-dependabot-auto-update-policy.md) / [0025](./0025-commit-scope-convention.md) / [0026](./0026-github-actions-sha-pinning.md) / [0027](./0027-commitlint-base-commit-fetch.md) |
+| **R0** 基盤整備 | [0012](./0012-turborepo-pnpm-monorepo.md) / [0013](./0013-biome-for-tooling.md) / [0014](./0014-json-schema-as-single-source-of-truth.md) / [0018](./0018-phase-0-tooling-discipline.md) / [0022](./0022-github-actions-incremental-scope.md) / [0023](./0023-github-actions-as-ci-cd.md) / [0024](./0024-dependabot-auto-update-policy.md) / [0025](./0025-commit-scope-convention.md) / [0026](./0026-github-actions-sha-pinning.md) / [0027](./0027-commitlint-base-commit-fetch.md) / [0028](./0028-config-file-format-priority.md) |
 | **R1** MVP（最小貫通） | [0001](./0001-postgres-as-job-queue.md) / [0003](./0003-codemirror-over-monaco.md) / [0004](./0004-nestjs-for-backend.md) / [0005](./0005-go-for-grading-worker.md) / [0008](./0008-disposable-sandbox-container.md) / [0011](./0011-llm-provider-abstraction.md) / [0015](./0015-github-oauth-with-extensible-design.md) / [0016](./0016-drizzle-orm-over-prisma.md) / [0017](./0017-w3c-trace-context-in-job-payload.md) |
 | **R2** 品質保証パイプライン | [0009](./0009-custom-llm-judge.md) / [0011](./0011-llm-provider-abstraction.md) |
 | **R3** サンドボックス強化 | [0008](./0008-disposable-sandbox-container.md) |

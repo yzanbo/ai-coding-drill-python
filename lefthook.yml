@@ -14,11 +14,25 @@ pre-commit:
       run: pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
 
+    typecheck:
+      # ルート直下の TS 設定ファイル（commitlint.config.ts、将来の .syncpackrc.ts 等）の型チェック。
+      # `tsc` はプロジェクト単位で動作するため、ファイル単位の起動はできない。
+      # `.ts` ファイルが 1 つでも staged にあれば tsconfig.json 全体を検証する。
+      # 根拠：ADR 0028（設定ファイルは TS 化により型安全を機械保証する方針）。
+      # 注：workspace 配下の TS 型チェックは Turborepo 経由で別途実行される（pnpm typecheck）。
+      #
+      # glob パターン：
+      #   "*.ts"  ─ 通常 TS ファイル（commitlint.config.ts 等）
+      #   ".*.ts" ─ dotfile TS ファイル（.syncpackrc.ts 等。`*` は dotfile を拾わないため別パターン）
+      #   tsconfig.json の include と対称（同じ範囲をトリガする）。
+      glob: "{*.ts,.*.ts}"
+      run: pnpm exec tsc --noEmit -p tsconfig.json
+
 commit-msg:
   commands:
     commitlint:
       # commit-msg フックで commitlint を実行し、コミットメッセージが
-      # Conventional Commits 規約（commitlint.config.mjs）に従っているかを検証する。
+      # Conventional Commits 規約（commitlint.config.ts）に従っているかを検証する。
       #
       # コマンド分解:
       #   pnpm exec   ─ プロジェクトの node_modules/.bin から実行可能ファイルを起動
@@ -50,5 +64,5 @@ commit-msg:
 
         詳細は以下を参照:
           - .claude/CLAUDE.md「コミットメッセージ」セクション
-          - commitlint.config.mjs（許可リストの SSoT）
+          - commitlint.config.ts（許可リストの SSoT）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
