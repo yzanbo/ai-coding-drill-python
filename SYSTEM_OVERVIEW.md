@@ -13,7 +13,7 @@ flowchart TB
 
     subgraph aws["AWS"]
         API["NestJS API<br/>★ ECS Fargate<br/>- Auth<br/>- 問題 CRUD<br/>- LLM 呼び出し<br/>- ジョブ INSERT"]
-        DB[("Postgres（RDS）<br/>★ マネージド<br/>- users<br/>- problems<br/>- submissions<br/>- jobs<br/>　（ジョブキュー兼任）")]
+        DB[("Postgres（RDS）<br/>★ マネージド<br/>- users<br/>- problems<br/>- submissions<br/>- jobs（兼ジョブキュー）")]
         Redis[("Redis（Upstash）<br/>★ マネージド<br/>- LLM cache<br/>- sessions")]
 
         subgraph workerVM["EC2 t4g.small（単一 VM）"]
@@ -28,10 +28,10 @@ flowchart TB
     Browser -.->|"HTTPS API"| API
     API --> DB
     API --> Redis
-    DB -.->|"LISTEN/NOTIFY<br/>+ 低頻度ポーリング"| Worker
+    DB -.->|"LISTEN/NOTIFY + ポーリング"| Worker
     Worker --> DB
     Worker -->|"Docker API"| DockerEngine
-    DockerEngine -->|"ContainerCreate<br/>/ Start / Remove"| Sandbox
+    DockerEngine -->|"Create / Start / Remove"| Sandbox
 
     classDef store fill:#dbeafe,stroke:#1e40af,color:#1e3a8a
     classDef compute fill:#dcfce7,stroke:#166534,color:#14532d
@@ -101,16 +101,19 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     participant Browser as ブラウザ
-    participant API as NestJS API（GradingController → GradingService）
+    participant API as NestJS API
     participant DB as Postgres
-    participant Worker as Go 採点ワーカー（別 VM、LISTEN 中）
+    participant Worker as Go 採点ワーカー
     participant Sandbox as 採点コンテナ
+
+    Note over API: GradingController から GradingService 経由で呼び出し
+    Note over Worker: 別 VM、LISTEN 中
 
     Browser->>API: POST /api/submissions（code 本文を含む）
     activate API
     Note over API,DB: 同一トランザクション（BEGIN）
-    API->>DB: INSERT INTO submissions ... RETURNING id
-    API->>DB: INSERT INTO jobs (type, payload, state) VALUES (grade, ..., queued) RETURNING id
+    API->>DB: INSERT INTO submissions（カラム省略）RETURNING id
+    API->>DB: INSERT INTO jobs（type, payload, state, queued 等）RETURNING id
     API->>DB: NOTIFY new_job, jobId
     Note over API,DB: COMMIT
     API-->>Browser: 202 Accepted（submissionId を返す）
@@ -120,32 +123,34 @@ sequenceDiagram
 
     DB-->>Worker: NOTIFY 受信
     activate Worker
-    Worker->>DB: SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1
+    Worker->>DB: SELECT FOR UPDATE SKIP LOCKED LIMIT 1
     Worker->>DB: UPDATE jobs SET state=running, locked_by=worker-1
     Note over Worker,DB: COMMIT（行ロック解放）
 
     Worker->>Sandbox: cli.ContainerCreate / Start
     activate Sandbox
-    Note over Sandbox: tsx + Vitest 実行<br/>5 秒タイムアウト<br/>--network none / --memory 256m
+    Note over Sandbox: tsx + Vitest 実行
+    Note over Sandbox: 5 秒タイムアウト
+    Note over Sandbox: --network none / --memory 256m
     Worker->>Sandbox: cli.Wait / Logs
     Sandbox-->>Worker: 標準出力 / 終了コード
     Worker->>Sandbox: cli.Remove
     deactivate Sandbox
 
-    Worker->>DB: UPDATE jobs SET state=done, result=... WHERE id=jobId
-    Worker->>DB: UPDATE submissions SET status=graded, score=... WHERE id=submissionId
+    Worker->>DB: UPDATE jobs SET state=done, result（結果データ） WHERE id=jobId
+    Worker->>DB: UPDATE submissions SET status=graded, score WHERE id=submissionId
     deactivate Worker
 
     Browser->>API: ポーリング継続
     API->>DB: SELECT submission
-    API-->>Browser: status=graded を受信 → 結果表示
+    API-->>Browser: status=graded を受信、結果表示
 ```
 
 **読み方**：
 - 実線矢印 = 同期呼び出し（HTTP / SQL）、点線矢印 = 非同期通知（NOTIFY）または HTTP レスポンス
 - `activate` / `deactivate` は処理が走っている期間を示す
 - 上から下に時系列。`Note over X,Y` はトランザクション境界・処理内容の補足
-- SQL リテラルのシングルクォートは Mermaid パーサ事故回避のため省略表記（実装時は `'queued'` 等の正しい SQL リテラルを使う）
+- SQL リテラルのシングルクォートと `→` 矢印・`...` 省略記号は Mermaid パーサ事故回避のため平文に置換（実装時は `'queued'` 等の正しい SQL リテラルを使う）
 
 ---
 

@@ -132,7 +132,7 @@ pnpm dev
 apps/                    実行可能アプリ（web / api / grading-worker）
 packages/                共有パッケージ（shared-types / prompts / config）
 infra/                   Terraform（network / db / ecs / worker / monitoring）
-docs/                    要件定義書（5 バケット構造）+ ADR（31 本以上）+ Runbook
+docs/                    要件定義書（5 バケット構造）+ ADR + Runbook
 .github/workflows/       GitHub Actions（CI / デプロイ）
 docker-compose.yml       ローカル開発環境
 turbo.jsonc              Turborepo 設定

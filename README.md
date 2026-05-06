@@ -5,7 +5,7 @@
 
 🚀 **デモ**：_（デプロイ後に追記予定。R5 完了時に公開）_
 📊 **ステータス**：**設計フェーズ完了 / R1 着手予定**（[ロードマップ](docs/requirements/5-roadmap/01-roadmap.md) 参照）
-📚 **設計判断**：[31 本の ADR](docs/adr/) に体系化
+📚 **設計判断**：[ADR](docs/adr/) として体系的に記録（最新件数は [索引](docs/adr/README.md) を参照）
 🛠️ **セットアップして動かしたい場合**：[CONTRIBUTING.md](CONTRIBUTING.md) を参照
 
 ---
@@ -14,7 +14,7 @@
 
 | フェーズ | 状態 | 完了内容 |
 |---|---|---|
-| **設計フェーズ** | ✅ **完了** | 31 ADR / 要件定義書 5 バケット（うち R0 で `06-dev-workflow` / `07-github-settings` を新設） / アーキテクチャ図 3 種 / プロダクトバックログ |
+| **設計フェーズ** | ✅ **完了** | ADR / 要件定義書 5 バケット（うち R0 で `06-dev-workflow` / `07-github-settings` を新設） / アーキテクチャ図 3 種 / プロダクトバックログ |
 | **R0** 基盤整備 | ⏳ **着手予定** | モノレポ・Docker Compose・CI 雛形・補完ツール一式 |
 | **R1** MVP（最小貫通） | ⏳ 未着手 | F-01〜F-05 の一気通貫動作 |
 | **R2〜R5** 仕上げ | ⏳ 未着手 | 品質保証 / サンドボックス強化 / 観測性 / 公開 |
@@ -22,7 +22,7 @@
 > **ポートフォリオとしての位置づけ**：
 > 現時点では **設計力・ドキュメント力**が成果物の中心です。実装フェーズ（R1〜）が進むにつれ、動くサービス・スクリーンショット・デモ動画・ベンチマーク結果を順次追加していきます。
 >
-> - **設計シニア / アーキテクト枠**：現時点で十分に評価可能（[31 本の ADR](docs/adr/) を中心に閲覧推奨）
+> - **設計シニア / アーキテクト枠**：現時点で十分に評価可能（[ADR](docs/adr/) を中心に閲覧推奨）
 > - **フルスタック枠**：R1（MVP 動作）完成までお待ちいただくか、設計判断の議論を中心に評価をお願いします
 >
 > 進捗は [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) で更新します。
@@ -34,7 +34,7 @@
 採用担当者・面接官の方は、以下の順で読むと短時間で評価できます：
 
 1. **[本 README のハイライト](#ハイライト)** ← 今ここ（差別化軸の概要）
-2. **[31 本の ADR（設計判断の記録）](docs/adr/)** ← 設計力アピールの中核
+2. **[ADR（設計判断の記録）](docs/adr/)** ← 設計力アピールの中核
 3. **[要件定義書 5 バケット構造](docs/requirements/)** ← ドキュメント設計力
 4. **個別機能の詳細仕様**：[F-01](docs/requirements/4-features/F-01-github-oauth-auth.md) 〜 [F-05](docs/requirements/4-features/F-05-learning-history.md)
 5. **動くデモ** ← R5 公開後
@@ -43,7 +43,7 @@
 
 | 評価したい観点 | 推奨閲覧 |
 |---|---|
-| 設計判断・トレードオフの言語化能力 | [docs/adr/](docs/adr/) — 31 本の ADR |
+| 設計判断・トレードオフの言語化能力 | [docs/adr/](docs/adr/) — 全 ADR の索引 |
 | アーキテクチャ設計力 | [02-architecture.md](docs/requirements/2-foundation/02-architecture.md) + [ADR 0001](docs/adr/0001-postgres-as-job-queue.md) / [0008](docs/adr/0008-disposable-sandbox-container.md) / [0017](docs/adr/0017-w3c-trace-context-in-job-payload.md) |
 | LLM アプリ設計力 | [03-llm-pipeline.md](docs/requirements/2-foundation/03-llm-pipeline.md) + [ADR 0009](docs/adr/0009-custom-llm-judge.md) / [0011](docs/adr/0011-llm-provider-abstraction.md) |
 | セキュリティ・サンドボックス設計 | [ADR 0008](docs/adr/0008-disposable-sandbox-container.md) + [F-04 自動採点](docs/requirements/4-features/F-04-auto-grading.md) |
