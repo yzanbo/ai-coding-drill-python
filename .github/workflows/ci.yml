@@ -258,3 +258,38 @@ jobs:
       # R0 時点では TS workspace が未追加なので no-op になるが、追加され次第そのまま有効化される。
       - name: tsc --noEmit (workspaces, via Turborepo)
         run: pnpm exec turbo run typecheck
+
+  # ====================================================================
+  # 【集約ジョブ】ci-success （umbrella / aggregator）
+  #   ※ 上記の job 1〜N とは性質が異なるため番号を付けない。
+  #   上記すべてのジョブの成否を集約する。
+  #   ブランチ保護（Ruleset）の Required status checks には、このジョブ 1 つだけを
+  #   登録すれば足りるようにする。狙い：
+  #     - 新規ジョブを追加した際は、本ジョブの `needs:` に 1 行追加するだけで
+  #       Required の網に組み込める（GitHub UI 側のルール編集が不要）。
+  #     - ジョブ名のリネームでも Ruleset 側の status check 名は不変に保てる。
+  #     - skip / cancelled / failure を `if: always()` で正しく失敗扱いにする
+  #       （`needs:` の失敗時にデフォルトでは集約ジョブが skipped になる挙動を回避）。
+  # ====================================================================
+  ci-success:
+    name: ci-success
+    # if: always() を付けないと、いずれかの needs が失敗した瞬間に本ジョブが
+    # 「skipped」状態となり、保護ルール上は「未実行」扱いとなってマージできない／
+    # 逆に「成功扱い」と誤認される事故の温床になる。always() で必ず起動させ、
+    # 結果は steps 内で明示的に判定する。
+    if: always()
+    needs: [commitlint, lint, typecheck]
+    runs-on: ubuntu-latest
+    steps:
+      # needs.*.result は 'success' / 'failure' / 'cancelled' / 'skipped' のいずれか。
+      # success 以外を 1 つでも含めば失敗とみなす（skipped も「未検証」として失敗扱い）。
+      - name: Verify all required jobs succeeded
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] \
+             || [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]] \
+             || [[ "${{ contains(needs.*.result, 'skipped') }}" == "true" ]]; then
+            echo "::error::One or more required jobs did not succeed"
+            echo "results: ${{ join(needs.*.result, ', ') }}"
+            exit 1
+          fi
+          echo "All required jobs succeeded"
