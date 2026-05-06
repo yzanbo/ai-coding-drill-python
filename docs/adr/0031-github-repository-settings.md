@@ -17,64 +17,17 @@
 
 **個別の決定は他 ADR で済んでいる項目もあるが、リポジトリ全体としての設定方針が一覧されておらず、棚卸しされていない**。本 ADR で「デフォルトから変更している項目すべて」と「敢えてデフォルトのままにしている項目」の判断根拠を 1 か所に集約する。
 
-詳細な仕様（What）は [docs/requirements/2-foundation/07-github-settings.md](../requirements/2-foundation/07-github-settings.md) を参照。本 ADR は **Why** に集中する。
+設定の現行値（What）は [07-github-settings.md](../requirements/2-foundation/07-github-settings.md) を参照。本 ADR は **Why** に集中する。
 
 ## Decision（決定内容）
 
-GitHub リポジトリ設定を以下の方針で構成する。
+GitHub リポジトリ設定を 5 つの領域で構成する。各設定の値（What）は [07-github-settings.md](../requirements/2-foundation/07-github-settings.md) を参照、選定理由は次節 [Why](#why採用理由) に集約する。
 
-### 1. ブランチ保護（Repository ruleset `protect-main`）
-
-- target は `~DEFAULT_BRANCH`（main のみ）
-- rules: `deletion` / `non_fast_forward` / `pull_request`（approvals 0）/ `required_status_checks`（ci-success）
-- bypass_actors: 空（admin 含む全員例外なし）
-
-設計理由・代替案検討は [ADR 0030](./0030-ci-success-umbrella-job.md) に集約。本 ADR では「main の構造的保護＋ CI ゲート」が完備していることだけ確認する。
-
-### 2. Pull Request / マージ動作
-
-| 項目 | 設定 | 理由 |
-|---|---|---|
-| Allow merge commit / squash / rebase | 3 種すべて ON | PR の性格（複数 commit / 単発 / リベース運用）に応じて使い分ける。マージ方式を 1 つに絞ると WIP commit を残したい PR で困る |
-| Allow auto-merge | ✅ ON | PR 単位で**明示的に有効化した PR のみ**自動マージされるオプトイン機能。デフォルトは何も自動化されないため害なし。Dependabot の小修正 PR を CI 通過後に放置で回せる将来運用を見越して有効化 |
-| Always suggest updating PR branches | ✅ ON | base が更新されたら "Update branch" ボタンを PR ページに表示するだけ。強制ではなく気付きの機会増。スタック PR で base 側の修正に追従し損ねる事故を減らす |
-| Automatically delete head branches | ✅ ON | マージ済みブランチを自動削除し、リポジトリのブランチ一覧の見通しを保つ。誤削除時は GitHub UI から復元可能（リスク低） |
-| `web_commit_signoff_required` | ❌ OFF | DCO（Developer Certificate of Origin）署名強制。OSS 標準仕様だが、ポートフォリオ規模では運用負荷が割に合わない |
-
-### 3. GitHub Actions
-
-| 項目 | 設定 | 理由 |
-|---|---|---|
-| `default_workflow_permissions` | `read` | `GITHUB_TOKEN` の既定スコープを最小化。書き込みが必要なジョブだけ `permissions:` で明示拡張する方針（→ [.github/workflows/ci.yml](../../.github/workflows/ci.yml) `permissions:` ブロック） |
-| `allowed_actions` | `all` | サードパーティアクションの利用を許可。**SHA ピン止めで攻撃面を絞る**方針（→ [ADR 0026](./0026-github-actions-sha-pinning.md)）と組み合わせて運用 |
-| `sha_pinning_required`（サーバー側強制） | ❌ OFF | サーバー側で SHA ピン止めを機械強制すると、Dependabot の自動 PR が壊れる可能性がある。ADR 0026 の慣習を PR レビューで担保する方針 |
-| `can_approve_pull_request_reviews` | ❌ OFF | デフォルト通り。GitHub Actions が PR を approve できないようにする（自動承認による迂回防止） |
-
-### 4. Security（Dependabot）
-
-| 項目 | 設定 | 理由 |
-|---|---|---|
-| Dependabot version updates | ✅ 有効 | `.github/dependabot.yml` で構成（→ [ADR 0024](./0024-dependabot-auto-update-policy.md)）。週次の自動更新 PR |
-| Dependabot alerts | ✅ 有効 | 既知脆弱性の通知。public リポジトリでは脆弱性放置が公開恥となる。コスト：通知が来るだけ、無視可能 |
-| Dependabot security updates | ✅ 有効 | アラート対象を修正版へ上げる PR を自動生成。alerts と組み合わせて初めて意味を成す |
-| Private vulnerability reporting | ❌ OFF | 外部報告者から非公開で脆弱性報告を受ける窓口。ポートフォリオ規模では不要 |
-
-3 種の Dependabot 機能は独立だが、`.github/dependabot.yml` に書いた `commit-message` / `labels` / `groups` / `ignore` は security updates にも継承される。これにより「自動 PR の commit メッセージ規約・ラベル・グループ化」が一貫する。
-
-### 5. Features（機能のオン/オフ）
-
-| 機能 | 設定 | 理由 |
-|---|---|---|
-| Issues | ✅ ON | フィードバック・バグ報告の窓口として残す |
-| Discussions | ❌ OFF | ポートフォリオ規模では Issues で足りる |
-| Wiki | ❌ OFF | **デフォルトから変更**。ドキュメント一元化（`docs/` 配下の Markdown）方針と二重管理を避けるため |
-| Projects | ✅ ON | デフォルト通り |
-| Allow forking | ✅ ON | public リポジトリのデフォルト。Fork 自体を禁止する設定は GitHub に存在しないので維持以外の選択肢なし |
-
-### 6. Collaborators
-
-- オーナー（yzanbo）のみ。Collaborator 招待なし
-- マージ可能者は実質オーナー専有（個人リポジトリの Collaborator は Write 権限固定で、追加するとマージ可能者が増える）
+1. **ブランチ保護**：Repository ruleset `protect-main` を main 単独に適用。`deletion` / `non_fast_forward` / `pull_request` / `required_status_checks` の 4 ルール、bypass_actors は空。詳細仕様と判断経緯は [ADR 0030](./0030-ci-success-umbrella-job.md) に集約
+2. **Pull Request / マージ動作**：3 種のマージ方式（merge / squash / rebase）すべて許可。auto-merge / Always suggest update / Auto delete head branches を有効化。DCO 署名強制（`web_commit_signoff_required`）は無効
+3. **GitHub Actions**：`default_workflow_permissions: read`（最小権限）、サードパーティアクション利用は無制限許可（SHA ピン止めを慣習で担保）、Actions による PR approve は無効
+4. **Security（Dependabot）**：alerts / security updates / version updates の 3 機能すべて有効、Private vulnerability reporting は無効
+5. **Features**：Issues / Projects 有効、Wiki / Discussions 無効、Allow forking はデフォルト維持
 
 ## Why（採用理由）
 
@@ -84,10 +37,44 @@ GitHub リポジトリ設定を以下の方針で構成する。
 - **機械強制を最大化**：人間の規律に頼る前に、機械（Ruleset / required checks / Dependabot）に強制させる。1 人運用の現状でも自分の不注意から守る
 - **オプトイン機能の有効化は害なし**：auto-merge / always-suggest-update のように「明示的に使った時だけ動く」機能は、有効化しても副作用がない。将来の運用幅を残す観点で ON
 
+### 1. ブランチ保護
+
+詳細は [ADR 0030](./0030-ci-success-umbrella-job.md) に集約。本 ADR の文脈では「main への直接 push / force-push / 削除 / CI 失敗マージのいずれも機械的に阻止される」状態が確立していることを確認するに留める。
+
+### 2. Pull Request / マージ動作
+
+- **3 種のマージ方式を全許可**：PR の性格（複数 commit / 単発 / リベース運用）に応じて使い分けたい。マージ方式を 1 つに絞ると、WIP commit を意味のある単位で残したい PR で対応できなくなる
+- **Allow auto-merge を ON**：PR 単位で**明示的に有効化した PR のみ**自動マージされるオプトイン機能。デフォルトは何も自動化されないため害なし。Dependabot の小修正 PR を CI 通過後に放置で回せる将来運用を見越して有効化
+- **Always suggest updating PR branches を ON**：base が更新されたら "Update branch" ボタンを PR ページに表示するだけの「気付きの機会増」。スタック PR で base 側の修正に追従し損ねる事故を減らす
+- **Automatically delete head branches を ON**：マージ済み head ブランチを自動削除し、リポジトリのブランチ一覧の見通しを保つ。誤削除時は GitHub UI から復元可能（リスク低）
+- **DCO 署名強制を OFF**：OSS 標準仕様だがポートフォリオ規模では運用負荷が割に合わない
+
+### 3. GitHub Actions
+
+- **`default_workflow_permissions: read`**：`GITHUB_TOKEN` の既定スコープを最小化。書き込みが必要なジョブだけ `permissions:` ブロックで明示拡張する方針（→ [.github/workflows/ci.yml](../../.github/workflows/ci.yml)）
+- **`allowed_actions: all`**：サードパーティアクションの利用を許可しつつ、**SHA ピン止めで攻撃面を絞る**（→ [ADR 0026](./0026-github-actions-sha-pinning.md)）。許可リスト方式にすると Dependabot 自動 PR の運用が回らなくなる
+- **`sha_pinning_required` のサーバー側強制を OFF**：サーバー側で機械強制すると Dependabot の自動 PR が SHA 形式チェックに引っかかって壊れる可能性がある。慣習を PR レビューで担保する方針
+- **`can_approve_pull_request_reviews` を OFF**：GitHub Actions が PR を approve できないようにし、自動承認による迂回経路を塞ぐ
+
+### 4. Security（Dependabot）
+
+- **alerts / security updates をともに有効化**：public リポジトリで脆弱性を放置することはリスクとリピュテーションの両面で割に合わない。alerts は通知を出すだけ、security updates はそれに対する修正 PR を自動生成。両者は依存関係で、alerts なしでは security updates も動かない
+- **version updates は ADR 0024 で導入済み**。本 ADR ではその前提で「3 機能の役割が直交していること」と「`.github/dependabot.yml` の `commit-message` / `labels` / `groups` / `ignore` が security updates にも継承されること」を再確認する
+- **Private vulnerability reporting を OFF**：外部報告者から非公開で脆弱性報告を受ける窓口。ポートフォリオ規模では運用が回らない
+
+### 5. Features
+
+- **Wiki を無効化**：`docs/` 配下の Markdown でドキュメント一元化（SSoT 原則）。Wiki は PR レビュー対象外なので品質も担保できない
+- **Discussions を無効化**：ポートフォリオ規模では Issues で十分、運用負荷だけ増える
+- **Issues / Projects は有効**：フィードバックとタスク管理の窓口として残す
+- **Allow forking はデフォルト維持**：public リポジトリでは Allow forking トグルが UI に表示されず暗黙に有効（private 限定の設定）。維持以外の選択肢なし
+
 ### 1 人運用前提との整合
 
-- approvals: 0 / Collaborator 0 人 / bypass_actors 空 → 「他人」が存在しないため approval 系の制約は無意味、しかし bypass を許すと自分のうっかりミスを救えなくなるので bypass も空のまま
-- 複数人運用に移行する際は本 ADR と ADR 0030 の見直しトリガー条項を参照
+- **Collaborator 0 人**：オーナー（yzanbo）のみ。個人リポジトリの Collaborator は Write 権限固定で、招待するとマージ可能者が増えるため、現状はオーナー専有
+- **approvals: 0**：「他人」が存在しないため approval 必須化は機能しない（自分の PR は自分で approve できない GitHub 仕様）
+- **bypass_actors 空**：自分を bypass に含めると保護が装飾化する。緊急時は Ruleset 一時無効化で対処
+- 複数人運用に移行する際は本 ADR と [ADR 0030](./0030-ci-success-umbrella-job.md) の「将来の見直しトリガー」条項を参照
 
 ## Alternatives Considered（検討した代替案）
 
@@ -102,7 +89,7 @@ GitHub リポジトリ設定を以下の方針で構成する。
 
 | 候補 | 概要 | 採用しなかった理由 |
 |---|---|---|
-| C. Auto-merge を OFF | 「使わない機能はオフ」の規律 | 採用しなかった。明示有効化型（オプトイン）なので副作用なし、将来 Dependabot 自動マージ等で使う場面が出る |
+| C. Auto-merge を OFF | 「使わない機能はオフ」の規律 | 明示有効化型（オプトイン）なので副作用なし、将来 Dependabot 自動マージ等で使う場面が出る |
 
 ### マージ方式の制限
 
@@ -129,7 +116,7 @@ GitHub リポジトリ設定を以下の方針で構成する。
 
 - リポジトリ設定の現状（What）と理由（Why）が要件定義書 + ADR の 2 層で参照可能になる
 - 設定項目の漏れ・退行に対するチェックリストが揃う
-- 1 人運用 → 複数人運用移行時の見直し範囲が明確（本 ADR と ADR 0030 の Alternatives / 見直しトリガー）
+- 1 人運用 → 複数人運用移行時の見直し範囲が明確（本 ADR と [ADR 0030](./0030-ci-success-umbrella-job.md) の Alternatives / 見直しトリガー）
 - 機械強制で守られる主要シナリオ：
   - main 直接 push 阻止（Ruleset `pull_request`）
   - main force-push 阻止（Ruleset `non_fast_forward`）
@@ -153,7 +140,7 @@ GitHub リポジトリ設定を以下の方針で構成する。
 
 ## References
 
-- [docs/requirements/2-foundation/07-github-settings.md](../requirements/2-foundation/07-github-settings.md) — GitHub 設定の現行仕様（What）
+- [07-github-settings.md](../requirements/2-foundation/07-github-settings.md) — GitHub 設定の現行仕様（What）
 - [ADR 0024: Dependabot 自動更新ポリシー](./0024-dependabot-auto-update-policy.md)
 - [ADR 0025: コミット scope 規約](./0025-commit-scope-convention.md)
 - [ADR 0026: GitHub Actions のサードパーティアクションを SHA でピン止め](./0026-github-actions-sha-pinning.md)
