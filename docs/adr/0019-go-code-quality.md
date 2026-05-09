@@ -1,7 +1,7 @@
 # 0019. Go のコード品質ツールに gofmt + golangci-lint を採用
 
 - **Status**: Accepted
-- **Date**: 2026-04-25
+- **Date**: 2026-05-09 <!-- Python pivot（ADR 0033）/ mise 採用（ADR 0039）に追従して CI 統合方針と起動経路を明記 -->
 - **Decision-makers**: 神保 陽平
 
 ## Context（背景・課題）
@@ -24,7 +24,14 @@
 - **lint に [`golangci-lint`](https://golangci-lint.run/)** を採用（メタリンター）
   - 有効化するリンタ：`govet` / `staticcheck` / `errcheck` / `ineffassign` / `unused` / `gofumpt` / `gosec` 等
 - **型チェックは `go build`（Go 言語仕様）に内蔵**されるため別ツールを採用しない
-- 任意追加：[`govulncheck`](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck)（脆弱性スキャン）
+- 任意追加：[`govulncheck`](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck)（脆弱性スキャン、Worker 実装着手時に組込検討）
+
+### CI / lefthook 統合（[ADR 0026](./0026-github-actions-incremental-scope.md) 拡張版に基づく）
+
+- Worker 実装着手前でも **R0 skeleton として `golangci-lint` ジョブ枠を CI に先置き**する（実 Go ファイルが無い間は no-op、追加された瞬間に有効化）
+- ジョブ起動経路は **`mise run worker-lint` 経由**で統一（→ [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)）。ローカルと CI で同一コマンド
+- `go` 本体のバージョン管理は `mise.toml` の `[tools]` セクションに集約（`goenv` は採用しない）
+- lefthook も同様に `*.go` glob トリガーで `mise run worker-lint` を呼ぶ（Worker 実装着手時に組込）
 
 ## Why（採用理由）
 
@@ -74,10 +81,13 @@
 ## References
 
 - [06-dev-workflow.md: コード品質ツール](../requirements/2-foundation/06-dev-workflow.md#コード品質ツール)
-- [ADR 0018: TypeScript のコード品質ツール](./0018-biome-for-tooling.md)
-- [ADR 0020: Python のコード品質ツール](./0020-python-code-quality.md)
 - [ADR 0016: 採点ワーカーを Go で実装](./0016-go-for-grading-worker.md)
-- [ADR 0021: R0 ツール導入規律](./0021-r0-tooling-discipline.md)
+- [ADR 0018: TypeScript のコード品質ツールに Biome](./0018-biome-for-tooling.md)（Superseded by 0033、Frontend 用途として継続採用）
+- [ADR 0020: Python のコード品質ツールに ruff + pyright を採用](./0020-python-code-quality.md)
+- [ADR 0021: 補完ツールを R0 から導入](./0021-r0-tooling-discipline.md)
+- [ADR 0026: GitHub Actions の段階拡張](./0026-github-actions-incremental-scope.md)（Go ジョブを R0 skeleton として先置きする根拠）
+- [ADR 0039: タスクランナー兼 tool 版数管理に mise を採用](./0039-mise-for-task-runner-and-tool-versions.md)（Go 版数管理 / 起動経路統一の前提）
+- [ADR 0033: バックエンドを Python に pivot](./0033-backend-language-pivot-to-python.md)（3 言語対称な品質ゲートの前提）
 - [golangci-lint 公式](https://golangci-lint.run/)
 - [gofmt 公式](https://pkg.go.dev/cmd/gofmt)
 - [govulncheck 公式](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck)
