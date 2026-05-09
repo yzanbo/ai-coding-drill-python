@@ -10,7 +10,7 @@
 
 GitHub の UI / API で**デフォルト値から変更している設定**のみを記録する。デフォルト通りの項目はノイズになるため記載しない。設定変更時は本ファイルと [ADR 0032](../../adr/0032-github-repository-settings.md) の両方を更新する。
 
-`gh` で現行値を読み出すコマンド例は本ファイル末尾の [現状確認コマンド](#現状確認コマンド) を参照。
+`gh` で現行値を読み出すコマンド例は本ファイル末尾の [現状確認コマンド](#現状確認コマンド) を、新規リポジトリ等に同じ設定を流し込む手順は [適用コマンド](#適用コマンド) を参照。
 
 ---
 
@@ -128,6 +128,80 @@ gh api repos/yzanbo/ai-coding-drill/automated-security-fixes      # { enabled, p
 # Collaborators
 gh api repos/yzanbo/ai-coding-drill/collaborators --jq '.[].login'
 ```
+
+---
+
+## 適用コマンド
+
+新規リポジトリ・姉妹リポジトリ等に本ファイルの設定を流し込むためのコマンド集。`OWNER` / `REPO` を対象リポジトリ名に書き換えて実行する。各コマンドは冪等（再実行しても同じ結果になる）。
+
+```bash
+OWNER=yzanbo
+REPO=ai-coding-drill
+
+# 1. リポジトリ基本 + Pull Requests / マージ動作
+#   - description は対象リポジトリ固有のため必要に応じて -f description=... を加える
+gh api -X PATCH "repos/${OWNER}/${REPO}" \
+  -F has_wiki=false \
+  -F allow_auto_merge=true \
+  -F allow_update_branch=true \
+  -F delete_branch_on_merge=true
+
+# 2. GitHub Actions: GITHUB_TOKEN の既定スコープを read に最小化
+gh api -X PUT "repos/${OWNER}/${REPO}/actions/permissions/workflow" \
+  -F default_workflow_permissions=read \
+  -F can_approve_pull_request_reviews=false
+
+# 3. Security: Dependabot alerts + automated security fixes を有効化
+gh api -X PUT "repos/${OWNER}/${REPO}/vulnerability-alerts"      # 204 = 成功
+gh api -X PUT "repos/${OWNER}/${REPO}/automated-security-fixes"  # 204 = 成功
+
+# 4. ブランチ保護ルールセット protect-main を作成
+#   - 既存の同名 ruleset がある場合は先に削除するか PUT /rulesets/<id> で更新する
+gh api -X POST "repos/${OWNER}/${REPO}/rulesets" --input - <<'JSON'
+{
+  "name": "protect-main",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          { "context": "ci-success" }
+        ]
+      }
+    }
+  ]
+}
+JSON
+```
+
+**適用時の注意**：
+
+- 手順 4 の `required_status_checks` は `ci-success` ジョブが存在することを前提とする。CI 未整備のリポジトリに先行投入すると PR がマージ不能になるため、`.github/workflows/ci.yml` の `ci-success` 集約ジョブ（→ [ADR 0031](../../adr/0031-ci-success-umbrella-job.md)）を整備してから流す
+- description は本家固有の文言のため上のコマンドからは除外している。姉妹リポジトリで TS 版と同じ description を使うかは個別判断
+- `bypass_actors: []` は admin も例外なしを意味する。緊急回避が必要な運用に変える場合は本ファイルと [ADR 0032](../../adr/0032-github-repository-settings.md) の両方を更新する
 
 ---
 
