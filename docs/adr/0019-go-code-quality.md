@@ -37,9 +37,9 @@
 ### CI / lefthook 統合（[ADR 0026](./0026-github-actions-incremental-scope.md) 拡張版に基づく）
 
 - Worker 実装着手前でも **R0 skeleton として `golangci-lint` ジョブ枠を CI に先置き**する（実 Go ファイルが無い間は no-op、追加された瞬間に有効化）
-- ジョブ起動経路は **`mise run worker-lint` 経由**で統一（→ [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)）。ローカルと CI で同一コマンド
+- ジョブ起動経路は **`mise run worker:lint` 経由**で統一（→ [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)）。ローカルと CI で同一コマンド
 - `go` 本体のバージョン管理は `mise.toml` の `[tools]` セクションに集約（`goenv` は採用しない）
-- lefthook も同様に `*.go` glob トリガーで `mise run worker-lint` を呼ぶ（Worker 実装着手時に組込）
+- lefthook も同様に `*.go` glob トリガーで `mise run worker:lint` を呼ぶ（Worker 実装着手時に組込）
 
 ## Why（採用理由）
 

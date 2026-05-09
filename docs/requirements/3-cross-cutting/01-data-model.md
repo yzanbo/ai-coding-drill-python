@@ -153,7 +153,7 @@ erDiagram
 ## マイグレーション運用
 
 - マイグレーションは **Alembic で管理**（→ [05-runtime-stack.md: データベース](../2-foundation/05-runtime-stack.md#データベース)、[ADR 0037](../../adr/0037-sqlalchemy-alembic-for-database.md)）
-- ローカル適用は `mise run db-migrate`（内部で `alembic upgrade head`、→ [ADR 0039](../../adr/0039-mise-for-task-runner-and-tool-versions.md)）
+- ローカル適用は `mise run api:db-migrate`（内部で `alembic upgrade head`、→ [ADR 0039](../../adr/0039-mise-for-task-runner-and-tool-versions.md)）
 - 1 マイグレーション = 1 つの論理変更
 - **後方互換性を保つ順序で書く**：カラム追加 → 書き込みコード更新 → 旧カラム削除
 - 本番マイグレーションは GitHub Actions の **手動承認ジョブ**で実行

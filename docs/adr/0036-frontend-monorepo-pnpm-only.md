@@ -6,6 +6,8 @@
 
 ## Context（背景・課題）
 
+<!-- ※本 ADR の Context は Python pivot（ADR 0033）以前の状況（NestJS + apps/grading-worker + packages/*）を記述しているが、Decision（pnpm を apps/web/ 内に閉じる + Turborepo 不採用）は pivot 後も有効。Python pivot 後の現行構成は ADR 0033 / 0035 / 0040 を参照。 -->
+
 [ADR 0023](./0023-turborepo-pnpm-monorepo.md) で TS 版時代に **Turborepo + pnpm workspaces** を採用していた。当時の前提：
 
 - `apps/web`（Next.js）+ `apps/api`（NestJS）+ `apps/grading-worker`（Go）+ `packages/*` の **複数アプリ構成**
@@ -174,6 +176,6 @@ Turborepo の主要価値は以下 3 点：
 - [ADR 0033: バックエンドを Python に pivot](./0033-backend-language-pivot-to-python.md)（Backend Python 化により TS 側構成が縮小した契機）
 - [ADR 0035: Python のパッケージ管理に uv を採用](./0035-uv-for-python-package-management.md)（Python 側のモノレポ管理）
 - [ADR 0013: Frontend ホスティングに Vercel を採用](./0013-vercel-for-frontend-hosting.md)（リモートキャッシュ非採用の文脈）
-- [ADR 0006: JSON Schema を SSoT に](./0006-json-schema-as-single-source-of-truth.md)（packages/shared-types の役割）
+- [ADR 0006: Pydantic を SSoT、用途別 2 伝送路で各言語に展開](./0006-json-schema-as-single-source-of-truth.md)（共有型 SSoT を `apps/api/` 内に閉じ、`packages/shared-types` 等の TS package を不採用とした根拠）
 - [pnpm workspaces 公式](https://pnpm.io/workspaces)
 - [Self-hosting Next.js without full monorepo dependencies](https://github.com/vercel/next.js/discussions/85099)

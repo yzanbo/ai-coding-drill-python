@@ -41,7 +41,7 @@ Python のパッケージ管理・仮想環境管理・モノレポ管理に **`
 - **未使用 / 未宣言 / transitive dependency 検出**：[`deptry`](https://github.com/osprey-oss/deptry) を採用し、依存衛生を CI で機械強制する
   - 入力源：`pyproject.toml`（PEP 621 標準準拠）+ Python ソースファイル（import 解析）
   - 検出項目：宣言済みだが未使用 / import されているが未宣言 / transitive を直接 import している依存
-  - CI 統合：`mise run api-deps-check` 経由で `ci-success.needs` に追加
+  - CI 統合：`mise run api:deps-check` 経由で `ci-success.needs` に追加
   - 速度：依存セット 100 個規模で 165ms（fawltydeps 比 20 倍以上）、成長時も CI 時間を圧迫しない
   - **TS の Knip（[ADR 0021](./0021-r0-tooling-discipline.md)）に対称な dependency hygiene ゲート**として位置付ける
 

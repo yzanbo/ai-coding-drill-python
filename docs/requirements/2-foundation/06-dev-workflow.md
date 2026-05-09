@@ -19,7 +19,7 @@
 
 3 言語横断のタスク実行と tool 版数管理に **`mise`** を採用（→ [ADR 0039](../../adr/0039-mise-for-task-runner-and-tool-versions.md)）。
 
-- **役割 1：タスクランナー**：`mise run <task>` でリポジトリルートから各レイヤのタスク（`api-test` / `web-dev` / `worker-test` / `db-migrate` 等）を起動。`cd` 不要
+- **役割 1：タスクランナー**：`mise run <task>` でリポジトリルートから各レイヤのタスク（`api:test` / `web:dev` / `worker:test` / `api:db-migrate` 等の `<scope>:<sub>:<verb>` 階層コロン形式、scope-first）を起動。`cd` 不要
 - **役割 2：tool 版数管理**：Python / Node / Go / uv / pnpm 等のバージョンを `mise.toml` 1 ファイルに集約。`pyenv` / `nvm` / `goenv` は採用しない（mise に集約）
 - **役割 3：環境変数管理**：`.env` / `[env]` セクションをディレクトリ移動時に自動ロード（`direnv` 相当）
 - **設定 SSoT**：`mise.toml`（リポジトリルート）+ 必要に応じて各 app 配下の `.mise.toml`（Monorepo Tasks 機能で `mise run //api:test` 形式の呼び出しが可能）
@@ -90,7 +90,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 | **`gofmt` / `golangci-lint`** | Go（Worker） | pre-commit（実装時に組込） | `*.go` | `golangci-lint` | `go build` 内蔵の型チェックで型ゲートも兼ねる |
 | **`pip-audit`**（脆弱性スキャン） | Python（Backend） | （pre-commit には組込まない、CI のみ） | `uv.lock` 変更時 | `pip-audit` | `uv.lock` を入力源、PyPI Advisory + OSV.dev を照会。Dependabot との二重ゲート（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)） |
 | **commitlint** | 言語横断 | commit-msg | （glob なし、毎回） | `commitlint`（PR は base..head、push は before..after） | 過去履歴は遡及修正不可のため hook と CI の両方で常時起動 |
-| **syncpack** | TS（Frontend 限定） | pre-commit | `package.json` | `syncpack` | pre-commit は `lint` のみ。自動修正は `pnpm syncpack:fix` を手動実行（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)） |
+| **syncpack** | TS（Frontend 限定） | pre-commit | `package.json` | `syncpack` | pre-commit は `lint` のみ。自動修正は `mise run web:syncpack` を手動実行（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)） |
 | **Knip** | TS（Frontend 限定） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json}` | `knip` | ファイル単位起動できないため glob トリガー時に全プロジェクト解析。自動修正は `pnpm knip:fix` を手動実行 |
 
 ### 多層防御の構造
@@ -102,7 +102,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 - **pre-commit で自動修正するもの**：Biome のフォーマット差分のみ（`stage_fixed: true` で再ステージ）。安全に書き戻せるため
 - **pre-commit で自動修正しないもの**：syncpack（他 workspace の `package.json` を書き換えうる）/ Knip（削除可否は人間レビューが必要、未公開機能の足跡 vs dead code の判別）
-- **手動実行コマンド**：`pnpm syncpack:fix` / `pnpm knip:fix`
+- **手動実行コマンド**：`mise run web:syncpack` / `mise run web:knip-fix`
 
 採用根拠（なぜこれらのツールを R0 から入れるか）は [ADR 0021](../../adr/0021-r0-tooling-discipline.md) を参照。
 
@@ -197,7 +197,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 ### 運用
 
 - **lefthook pre-commit / CI**：[#フック × チェック × CI 対応表](#フック--チェック--ci-対応表) を参照
-- **自動修正**：pre-commit / CI には接続せず、`pnpm syncpack:fix`（mismatches 修正）/ `pnpm syncpack:format`（キー順）を開発者が手動実行する半自動運用
+- **自動修正**：pre-commit / CI には接続せず、`mise run web:syncpack`（mismatches 修正）/ `mise run web:syncpack-format`（キー順）を開発者が手動実行する半自動運用
 - **設定ファイル形式**：`.ts`（→ [#設定ファイル形式の優先順位](#設定ファイル形式の優先順位) の Tier 3-1：型 export ありで typo を保存時に弾ける）
 - **設定の物理配置**：`apps/web/.syncpackrc.ts`（apps/web 内の multi-package 対象、ADR 0036 拡張で root から移動）
 
@@ -239,7 +239,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 | `web` | `apps/web`（フロントエンド / Next.js） |
 | `api` | `apps/api`（FastAPI / Python バックエンド） |
 | `worker` | `apps/workers/*`（grading / generation 等の Go Worker 群、→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)） |
-| `shared` | （共有パッケージ：現状は不採用。`packages/shared-types` は ADR 0006、`packages/config` は ADR 0036、`packages/prompts` は ADR 0040 で全廃。将来追加された場合に再度有効化） |
+| `shared` | OpenAPI / JSON Schema artifact など複数 app から参照される共有 artifact（`apps/api/openapi.json` / `apps/api/job-schemas/` 等）。`packages/shared-types` は ADR 0006、`packages/config` は ADR 0036、`packages/prompts` は ADR 0040 で全廃済み |
 | `config` | root 直接配置の tooling 設定ファイル群（`mise.toml` / `lefthook.yml` / `commitlint.config.mjs` 等。`packages/config/` は廃止、→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md)） |
 | `infra` | `infra/`（Terraform） |
 | `docs` | `docs/`（要件定義 / ADR） |
@@ -264,22 +264,25 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 ---
 
-## 共有型・スキーマ（Pydantic を SSoT、用途別伝送路で各言語へ展開）
+## 共有型・スキーマ（Pydantic を SSoT、境界別の 2 伝送路で各言語へ展開）
 
-Backend の Pydantic モデルを Single Source of Truth とし、用途別の伝送路で TS / Go に展開する（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）。
+Backend の Pydantic モデル（`apps/api/app/schemas/`）を Single Source of Truth とし、**境界が 2 つあるから伝送路も 2 つ**用意する（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）：
 
-| 言語 | 入力源 | 生成ツール | 出力 | コミット |
+- **HTTP API 境界（API ⇄ Web）**：FastAPI 自動 OpenAPI 3.1（`apps/api/openapi.json`）→ Hey API で TS 型 + Zod + HTTP クライアント生成
+- **Job キュー境界（API → DB → Worker）**：Pydantic `model.model_json_schema()` で個別 JSON Schema を `apps/api/job-schemas/` 配下に出力 → quicktype `--src-lang schema` で Go struct 生成
+
+| 境界 | 入力源 | 生成ツール | 出力 | コミット |
 |---|---|---|---|---|
-| Python（Backend） | （SSoT 自身） | — | Pydantic v2 モデル | ソースとしてコミット |
-| TypeScript（Frontend） | FastAPI 自動 OpenAPI 3.1 | **Hey API**（`@hey-api/openapi-ts` + Zod プラグイン） | TS 型 + Zod + 型付き HTTP クライアント | 生成物コミット |
-| Go（Worker） | Pydantic `model.model_json_schema()` 出力（ジョブペイロードのみ） | **quicktype** | Go struct + JSON タグ | gitignore（`go generate` で生成） |
+| Python（Backend、SSoT 自身） | — | — | Pydantic v2 モデル | ソースとしてコミット |
+| HTTP API（Frontend 向け） | `apps/api/openapi.json`（OpenAPI 3.1 全要素） | **Hey API**（`@hey-api/openapi-ts` + Zod プラグイン） | TS 型 + Zod + 型付き HTTP クライアント | 生成物コミット |
+| Job キュー（Worker 向け） | `apps/api/job-schemas/<job-name>.schema.json`（個別 JSON Schema） | **quicktype `--src-lang schema`** | Go struct + JSON タグ | gitignore（`go generate` で生成） |
 
-生成パイプラインは mise タスクで集約：
+生成パイプラインは mise タスクで集約（タスク命名は `<scope>:<sub>:<verb>` 階層コロン形式）：
 
-- `mise run api-openapi-export`：FastAPI から OpenAPI 3.1 を書き出し
-- `mise run web-types-gen`：Hey API で TS / Zod / HTTP クライアント生成
-- `mise run api-job-schemas-export`：Pydantic から JSON Schema 書き出し
-- `mise run worker-types-gen`：quicktype で Go struct 生成
+- `mise run api:openapi-export`：FastAPI から OpenAPI 3.1 を `apps/api/openapi.json` に書き出し
+- `mise run api:job-schemas-export`：Pydantic Job payload から個別 JSON Schema を `apps/api/job-schemas/` に書き出し
+- `mise run web:types-gen`：Hey API で OpenAPI から TS / Zod / HTTP クライアント生成
+- `mise run worker:types-gen`：quicktype で `apps/api/job-schemas/` から Go struct 生成（横断、対象 Worker 全てに配布）
 - CI で `git diff --exit-code` により drift 検出（生成物コミット忘れの fail-closed）
 
 配置・生成ツール候補・コミット方針・選定理由・代替検討の詳細 SSoT は [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) を参照。

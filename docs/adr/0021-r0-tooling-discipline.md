@@ -45,14 +45,14 @@
 
 syncpack はツール採用そのものは維持し、ADR 0036 拡張で **配置を root → `apps/web/` に移動 + ルールセットを 3/5 ルールに縮小**（→ [ADR 0024](./0024-syncpack-package-json-consistency.md) Note）。
 
-- 設定の物理配置：本 ADR で扱う補完ツールはすべてリポジトリルート直接配置（`pyproject.toml` の `[tool.*]` セクション含む）。詳細な配置方針は [packages/config/README.md](../../packages/config/README.md) を参照
+- 設定の物理配置：本 ADR で扱う補完ツールは各 app 配下に閉じる（root には orchestration 層のみ、Frontend は `apps/web/`、Backend は `apps/api/pyproject.toml` の `[tool.*]` セクション、Worker は `apps/workers/<name>/`）。`packages/config/` は廃止済み（→ [ADR 0036](./0036-frontend-monorepo-pnpm-only.md)）
 - **lefthook と CI で多層防御**：lefthook を `--no-verify` で skip された場合も CI が最終 gate になる
 - **mise 経由起動で統一**：lefthook フック・CI ジョブとも `mise run <task>` 形式で各ツールを起動する（[ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)）
 - フック × チェック × CI の対応表（どのツールがどのフック・どの CI ジョブで動くか）の SSoT は要件定義書側 [06-dev-workflow.md: フック × チェック × CI 対応表](../requirements/2-foundation/06-dev-workflow.md#フック--チェック--ci-対応表) に集約。本 ADR は採用根拠を扱い、運用上の対応関係はそちらを参照
 - 自動修正系（`syncpack fix` / `knip --fix` / `ruff format` の自動書き戻し / `ruff check --fix`）の運用：
   - **pre-commit に接続して安全に書き戻すもの**：Biome の format 差分、ruff format
   - **pre-commit に接続しないもの**：`syncpack fix`（他 workspace の package.json を書き換え）/ `knip --fix`（削除可否は人間レビュー）/ `ruff check --fix`（一部のルールはセマンティクス変更を伴う、手動実行）
-  - 手動実行：`mise run sync-fix` / `mise run knip-fix` / `mise run api-lint-fix`
+  - 手動実行：`mise run web:syncpack` / `mise run web:knip-fix` / `mise run api:lint-fix`
 - 導入が遅れる場合でも **Backend / Frontend / Worker の各実装着手時点までには必ず該当言語のツールを稼働状態にする**
 
 ## Why（採用理由）

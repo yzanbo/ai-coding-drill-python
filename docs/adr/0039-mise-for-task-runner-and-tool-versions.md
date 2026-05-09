@@ -11,7 +11,7 @@
 - **3 言語ポリグロット構成**（Python / TS / Go）の各レイヤで使うコマンドが言語別に分散：
   - Python（Backend）：`uv run pytest` / `uv run alembic upgrade head` / `uv run ruff check` 等を `apps/api/` で実行
   - TS（Frontend）：`pnpm --filter @ai-coding-drill/web dev` 等を root で実行
-  - Go（Worker）：`go test ./...` を `apps/grading-worker/` で実行
+  - Go（Worker）：`go test ./...` を `apps/workers/grading/` で実行
 - **`cd` を毎回挟む運用は非効率**で、root から横断コマンドを叩ける仕組みが欲しい
 - **ツール版数管理が散逸**：Python 版数（`.python-version`）/ Node 版数（`.nvmrc`）/ Go 版数 / `uv` / `pnpm` のバージョンが各々別ファイル / 別ツール（`pyenv` / `nvm` / `goenv`）で管理されると、ローカルと CI の再現性が脆くなる
 - **Turborepo の役割が空席**：[ADR 0036](./0036-frontend-monorepo-pnpm-only.md) で Frontend の Turborepo を不採用にしたため、横断タスク実行（`turbo run lint` / `turbo run test` 等）の代替手段が必要
@@ -99,7 +99,7 @@
 
 ### 得られるもの
 
-- **`cd` 不要の root 起動**：`mise run db-migrate` 等が root から 1 コマンドで叩ける、開発体験が大幅改善
+- **`cd` 不要の root 起動**：`mise run api:db-migrate` 等が root から 1 コマンドで叩ける、開発体験が大幅改善
 - **tool 版数の単一 SSoT**：`mise.toml` 1 ファイルに Python / Node / Go / uv / pnpm のバージョンが集約、ローカル / CI / 新規参画者で完全再現
 - **環境差異事故ゼロ**：mise が自動で正しい tool 版数 + env をロード、「Python が違う」「Node が違う」事故が構造的に消える
 - **ポートフォリオ価値**：「Turborepo を入れず mise で polyglot monorepo を運用する判断」を**規模適合の意思決定として説明可能**

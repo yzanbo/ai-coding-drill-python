@@ -45,7 +45,7 @@
 
 - **モノレポの物理ディレクトリと一対一対応**：`apps/*` / `packages/*` / `infra/` / `docs/` の各ディレクトリが scope に対応する
 - **`db` だけは物理ディレクトリでなく論理領域**：DB スキーマ・マイグレーションは `apps/api` 配下にあるが、DB スキーマ変更は影響範囲が API 単独でないため独立 scope を割り当てる（マイグレーションを伴う変更を後で `git log` で抽出しやすい）
-- **`config` はルート直接配置の tooling 設定群と `packages/config/` の両方を含む**：配置方針の詳細は [packages/config/README.md](../../packages/config/README.md) 参照。両方とも `config` scope を使う
+- **`config` は root 直接配置の tooling 設定群を対象**：`mise.toml` / `lefthook.yml` / `commitlint.config.mjs` 等。`packages/config/` は廃止済み（→ [ADR 0036](./0036-frontend-monorepo-pnpm-only.md)）のため、現状は root tooling 設定のみが対象
 
 ### 自動更新 scope を分離して 2 種追加する理由
 

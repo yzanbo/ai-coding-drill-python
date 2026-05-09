@@ -1,7 +1,7 @@
-# 0006. 共有データ型は Pydantic を Single Source of Truth とし、FastAPI 自動生成 OpenAPI 3.1 を単一伝送路として各言語に展開する
+# 0006. 共有データ型は Pydantic を Single Source of Truth とし、用途別の 2 伝送路（OpenAPI 3.1 / 個別 JSON Schema）で各言語に展開する
 
 - **Status**: Accepted
-- **Date**: 2026-05-09 <!-- Python pivot（ADR 0033）に追従、伝送路を OpenAPI 3.1 単一に簡素化 -->
+- **Date**: 2026-05-10 <!-- 「境界が 2 つあるから伝送路も 2 つ」確定。HTTP API 境界 = OpenAPI 3.1、Job キュー境界 = 個別 JSON Schema に分離 -->
 - **Decision-makers**: 神保 陽平
 
 ## Context（背景・課題）
@@ -30,21 +30,19 @@
 
 このため、Python pivot 後は **Pydantic そのものを SSoT に転換**するのが自然。Pydantic は API スキーマと内部データモデルの両方を一元的に表現でき、FastAPI / openapi-ts / quicktype 等の周辺エコシステムが Pydantic 出力（OpenAPI 3.1 / JSON Schema）を入力として扱える。
 
-### 流通経路は単一（OpenAPI 3.1）に集約できる
+### 流通経路は「境界が 2 つあるから 2 伝送路」
 
-Worker は **API クライアントではなく Postgres を直接読む**（[ADR 0004](./0004-postgres-as-job-queue.md) の SKIP LOCKED ベース設計）。一方 Frontend は API クライアントとして HTTP 経由で Backend を叩く。
+本プロジェクトには Pydantic モデルを跨ぐ **2 つの異なる境界**が存在する。境界ごとに性質が違うため、伝送路も 2 本用意するのが自然：
 
-当初は「Frontend は OpenAPI 経由 / Worker は JSON Schema 別 export 経由」の 2 伝送路設計を検討したが、以下の事実から **OpenAPI 3.1 単一伝送路で簡素化できる**と判断した：
+- **HTTP API 境界（API ⇄ Web）**：Frontend が API クライアントとして HTTP 経由で Backend を叩く。エンドポイント定義（paths）・レスポンスステータス・認証ヘッダ等の HTTP 文脈を含む契約が必要
+- **Job キュー境界（API → DB → Worker）**：API が Postgres にエンキュー、Worker が SKIP LOCKED で取得（→ [ADR 0004](./0004-postgres-as-job-queue.md)）。Worker は API クライアントではなく **DB を直接読む**ため、必要なのはペイロード struct だけ。HTTP 文脈は逆にノイズになる
 
-- **OpenAPI 3.1 は JSON Schema 2020-12 の上位互換**（OpenAPI 3.1 仕様で明記）。components/schemas 配下の各エントリが純粋な JSON Schema として読める
-- **本プロジェクトのジョブペイロードは自然に API 表面に出る**：問題生成リクエスト / 採点結果取得などの API endpoint が Pydantic モデルを参照するため、`/openapi.json` の components/schemas に全モデルが含まれる
-- **quicktype は `--src-lang openapi` で OpenAPI 3.x を直接読める**：components/schemas のみ抽出し、paths（API endpoint 定義）は無視して struct 群だけ生成可能
-- これにより **`packages/shared-schemas/` 等の別 artifact パッケージが不要**になり、drift 検出も単一ファイル（`apps/api/openapi.json`）で完結
+「2 本あるのは複雑」ではなく「**境界が 2 つあるから伝送路も 2 つ**」と整理する。HTTP 境界と Job 境界の責務が違うため、artifact / 生成ツール / 消費者を分離するほうが各々の最小公倍数で済み、保守が単純になる。
 
-| 言語 | 必要な型 | 流通経路 | 生成ツール |
+| 境界 | 必要な型 | 出力 artifact | 生成ツール（消費側） |
 |---|---|---|---|
-| TS（Frontend） | API リクエスト / レスポンス + Zod ランタイム検証 + HTTP クライアント | OpenAPI 3.1 全要素 | Hey API |
-| Go（Worker） | ジョブペイロード struct + JSON タグ。**HTTP クライアントは不要** | OpenAPI 3.1 の components/schemas のみ抽出 | quicktype `--src-lang openapi` |
+| HTTP API（API ⇄ Web） | API リクエスト / レスポンス + Zod ランタイム検証 + HTTP クライアント | FastAPI 自動 OpenAPI 3.1（`apps/api/openapi.json`） | **Hey API**（`@hey-api/openapi-ts` + Zod プラグイン） |
+| Job キュー（API → DB → Worker） | ジョブペイロード struct + JSON タグ。**HTTP クライアントは不要** | Pydantic `model.model_json_schema()` で個別 JSON Schema（`apps/api/job-schemas/<job-name>.schema.json`） | **quicktype**（`--src-lang schema`） |
 
 判断のために参照した情報源：
 
@@ -55,27 +53,28 @@ Worker は **API クライアントではなく Postgres を直接読む**（[AD
 
 ## Decision（決定内容）
 
-**Pydantic モデル（`apps/api/` 配下）を Single Source of Truth とし、FastAPI 自動生成 OpenAPI 3.1（`/openapi.json`）を単一伝送路として TS / Go に展開する**設計を採用する。
+**Pydantic モデル（`apps/api/app/schemas/` 配下）を Single Source of Truth とし、用途別の 2 伝送路で TS / Go に展開する**設計を採用する。HTTP API 境界は FastAPI 自動 OpenAPI 3.1、Job キュー境界は Pydantic から個別出力する JSON Schema を artifact とする。
 
 ### 配置と流通経路
 
 ```
-apps/api/ （Python Backend）
-  └─ src/.../schemas/   ← ★ Single Source of Truth（Pydantic v2 モデル）
-       │
-       └─ FastAPI 自動 OpenAPI 3.1（/openapi.json、components/schemas に全モデル収録）
-            │
-            ├──→ apps/web/ （Frontend）
-            │     Hey API（openapi-ts + Zod プラグイン）
-            │     入力：OpenAPI 3.1 全要素
-            │     生成物：TS 型 + Zod スキーマ + 型付き HTTP クライアント
-            │
-            ├──→ apps/grading-worker/ （Go）
-            │     quicktype --src-lang openapi
-            │     入力：OpenAPI 3.1 の components/schemas のみ抽出（paths は無視）
-            │     生成物：Go struct + JSON タグ
-            │
-            └──→ Swagger UI / Redoc（人間向け、FastAPI 標準同梱）
+apps/api/app/schemas/   ← ★ Single Source of Truth（Pydantic v2 モデル）
+    │
+    ├──[ HTTP API 境界 ]──→ FastAPI 自動 OpenAPI 3.1
+    │                          apps/api/openapi.json（components/schemas + paths）
+    │                              │
+    │                              ├──→ apps/web/ （Frontend）
+    │                              │     Hey API（openapi-ts + Zod プラグイン）
+    │                              │     生成物：TS 型 + Zod スキーマ + 型付き HTTP クライアント
+    │                              │
+    │                              └──→ Swagger UI / Redoc（人間向け、FastAPI 標準同梱）
+    │
+    └──[ Job キュー境界 ]──→ model.model_json_schema()
+                               apps/api/job-schemas/<job-name>.schema.json（個別出力）
+                                   │
+                                   └──→ apps/workers/<name>/ （Go）
+                                         quicktype --src-lang schema
+                                         生成物：Go struct + JSON タグ
 ```
 
 ### 言語別の生成ツール
@@ -83,36 +82,32 @@ apps/api/ （Python Backend）
 | 言語 | 入力源 | 生成ツール | 出力 | コミット方針 |
 |---|---|---|---|---|
 | **Python**（Backend） | （SSoT 自身、生成不要） | — | Pydantic v2 モデルそのもの | ソースコードとしてコミット |
-| **TypeScript**（Frontend） | `apps/api/openapi.json`（OpenAPI 3.1 全要素） | **Hey API**（`@hey-api/openapi-ts` + Zod プラグイン） | TS 型 + Zod スキーマ + 型付き HTTP クライアント | **生成物をコミット**（IDE 補完即時性、ビルド前に型必要） |
-| **Go**（Worker） | `apps/api/openapi.json`（components/schemas のみ抽出） | **quicktype `--src-lang openapi`** | Go struct + JSON タグ | **gitignore**（`go generate` 時に都度生成、Go 慣習に従う） |
+| **TypeScript**（Frontend） | `apps/api/openapi.json`（HTTP API 境界 artifact、OpenAPI 3.1 全要素） | **Hey API**（`@hey-api/openapi-ts` + Zod プラグイン） | TS 型 + Zod スキーマ + 型付き HTTP クライアント | **生成物をコミット**（IDE 補完即時性、ビルド前に型必要） |
+| **Go**（Worker） | `apps/api/job-schemas/*.schema.json`（Job キュー境界 artifact、個別 JSON Schema） | **quicktype `--src-lang schema`** | Go struct + JSON タグ | **gitignore**（`go generate` 時に都度生成、Go 慣習に従う） |
 
 ### 生成パイプラインの実装
 
-- **OpenAPI 出力**：`mise run api-openapi-export` → FastAPI の `/openapi.json` を `apps/api/openapi.json` に書き出し（コミット対象）
-- **TS 生成**：`mise run web-types-gen` → Hey API CLI で OpenAPI から TS / Zod / HTTP クライアントを生成
-- **Go 生成**：`mise run worker-types-gen` → quicktype `--src-lang openapi` で OpenAPI 3.1 から Go struct を生成（components/schemas のみ抽出）
-- **CI ガード**：上記 3 タスクを CI で実行し、`apps/api/openapi.json` および `apps/web/src/__generated__/api/` で `git diff --exit-code` を走らせて「生成物の更新忘れ」を fail-closed（drift 検出ジョブ、→ [ADR 0026](./0026-github-actions-incremental-scope.md) で R3 追加項目）
+- **OpenAPI 出力**：`mise run api:openapi-export` → FastAPI の `/openapi.json` を `apps/api/openapi.json` に書き出し（コミット対象）
+- **JSON Schema 出力**：`mise run api:job-schemas-export` → Pydantic Job payload モデルから `model.model_json_schema()` で `apps/api/job-schemas/<job-name>.schema.json` を書き出し（コミット対象）
+- **TS 生成**：`mise run web:types-gen` → Hey API CLI で OpenAPI から TS / Zod / HTTP クライアントを生成
+- **Go 生成**：`mise run worker:types-gen` → quicktype `--src-lang schema` で `apps/api/job-schemas/` 配下の各 JSON Schema から Go struct を生成（横断タスク、対象 Worker 全てに配布）
+- **CI ガード**：上記 4 タスクを CI で実行し、`apps/api/openapi.json` / `apps/api/job-schemas/` / `apps/web/src/__generated__/api/` で `git diff --exit-code` を走らせて「生成物の更新忘れ」を fail-closed（drift 検出ジョブ、→ [ADR 0026](./0026-github-actions-incremental-scope.md) で R3 追加項目）
 
 ### 配置物理パス
 
 ```
-apps/api/src/<package>/schemas/         ← Pydantic SSoT（コミット）
-apps/api/openapi.json                    ← FastAPI 自動生成 OpenAPI 3.1（コミット、唯一の出力 artifact、CI で drift 検出）
-apps/web/src/__generated__/api/          ← Hey API 生成物（TS + Zod + HTTP client、コミット）
-apps/grading-worker/internal/jobtypes/   ← quicktype 生成物（gitignore、go generate）
+apps/api/app/schemas/                       ← Pydantic SSoT（コミット）
+apps/api/openapi.json                       ← HTTP API 境界 artifact（コミット、CI で drift 検出）
+apps/api/job-schemas/<job-name>.schema.json ← Job キュー境界 artifact（コミット、CI で drift 検出）
+apps/web/src/__generated__/api/             ← Hey API 生成物（TS + Zod + HTTP client、コミット）
+apps/workers/<name>/internal/jobtypes/      ← quicktype 生成物（gitignore、go generate）
 ```
 
-`packages/shared-schemas/` 等の別 artifact パッケージは**作らない**。Worker は同じ `apps/api/openapi.json` を読む。
+### 境界ごとに artifact を分ける根拠
 
-### 「ジョブペイロードを OpenAPI に含める」前提
-
-本設計は「**ジョブペイロード Pydantic モデルが API 表面に表れる**」前提で成立する。具体的には：
-
-- 問題生成エンドポイント（`POST /problems/generate` 等）が job payload Pydantic モデルをリクエストボディとして受け取る
-- ジョブ状態取得エンドポイント（`GET /jobs/{id}` 等）が job payload と job result を含むレスポンスを返す
-- これらのモデルは FastAPI が自動的に OpenAPI components/schemas に登録する
-
-**API に表れない純粋に内部用のモデル**が将来必要になった場合は、`Pydantic` の `model.model_json_schema()` で個別 JSON Schema を別途出力する選択肢を持つ（→ §将来の見直しトリガー）。
+- **HTTP API 境界の消費者（Web）**は paths / responses / 認証スキーム等を含む完全な OpenAPI を必要とする。OpenAPI 3.1 全体を artifact にするのが自然
+- **Job キュー境界の消費者（Worker）**は payload struct のみが必要。HTTP 文脈（paths / 認証）は逆にノイズで、components/schemas を OpenAPI から抽出する「絞り込み」工程を増やすより、Pydantic が標準で吐ける個別 JSON Schema を直接食わせるほうが単純
+- 「**消費側が必要とする最小情報を、その境界専用の artifact として export する**」原則。境界ごとに artifact を分けることで drift 検出も境界単位で局所化できる
 
 ### Pydantic ↔ TypeScript の API 外直接変換は採用しない
 
@@ -132,13 +127,12 @@ apps/grading-worker/internal/jobtypes/   ← quicktype 生成物（gitignore、g
 - 「コード = 仕様」が成立し、API ドキュメント（Swagger UI / Redoc）が同時に手に入る
 - TS 側の Zod ランタイム検証も同じ OpenAPI から派生 → API 入出力のバリデーションが Frontend / Backend で同じスキーマに収束
 
-### 3. 単一伝送路で簡素化、用途に応じて消費の深さを変える
+### 3. 境界に最適化した 2 伝送路、各々が最小公倍数で済む
 
-- **OpenAPI 3.1 = JSON Schema 2020-12 上位互換**を活用：`/openapi.json` 1 ファイルで両者の要件を満たせる
-- **Frontend**：OpenAPI 3.1 全要素を Hey API で消費 → TS 型 + Zod + HTTP クライアントを一括取得
-- **Worker**：OpenAPI 3.1 の components/schemas のみ quicktype が抽出 → Go struct + JSON タグだけ軽量に取得（paths は無視、重量級の `ogen` を導入する理由がない）
-- **artifact / drift 検出が単一**：`apps/api/openapi.json` 1 ファイルが出力 SSoT、CI ガードも 1 系統で済む
-- CLAUDE.md「規模に応じた選定」原則と整合
+- **HTTP API 境界（Web 向け）**：OpenAPI 3.1 全要素を Hey API で消費 → TS 型 + Zod + HTTP クライアントを一括取得。paths / 認証 / レスポンスステータス等の HTTP 文脈が必要な消費者には全部入りが適切
+- **Job キュー境界（Worker 向け）**：Pydantic が標準で吐ける個別 JSON Schema をそのまま quicktype に食わせ → Go struct + JSON タグだけ軽量に取得。OpenAPI から components/schemas を抽出する「絞り込み」工程が不要、`ogen` 等の重量級ツールも導入不要
+- **drift 検出は境界単位で局所化**：HTTP 境界変更 → `openapi.json` 差分、Job 境界変更 → `job-schemas/` 差分、と影響範囲が CI 上で明確に分離される
+- **「2 つあるのは複雑」ではなく「境界が 2 つあるから当然」**：HTTP と Job はそもそも違う契約なので、artifact が 1 本に収まることのほうが不自然。CLAUDE.md「規模に応じた選定」原則とも整合（境界に必要十分な artifact を選ぶ）
 
 ### 4. ランタイムバリデーションの一貫性
 
@@ -184,7 +178,8 @@ apps/grading-worker/internal/jobtypes/   ← quicktype 生成物（gitignore、g
 
 | 候補 | 概要 | 採用しなかった理由 |
 |---|---|---|
-| **quicktype（採用）** | JSON Schema → Go struct + JSON タグ | Worker は HTTP クライアント不要、struct だけで十分なので軽量に済む |
+| **quicktype `--src-lang schema`（採用）** | 個別 JSON Schema → Go struct + JSON タグ | Worker は HTTP クライアント不要、Job payload struct だけで十分。Pydantic 個別 JSON Schema をそのまま入力にできる |
+| `quicktype --src-lang openapi` | OpenAPI から components/schemas を抽出して Go 化 | Job キュー境界に HTTP 文脈は不要。OpenAPI 経由は HTTP API 境界の話で、Worker 用途では境界を混ぜることになる |
 | `ogen` | OpenAPI 3.1 → Go HTTP サーバ / クライアント | Worker は API を呼ばないため過剰。将来 Worker が API を叩くなら採用検討 |
 | `oapi-codegen` | OpenAPI → Go | **OpenAPI 3.1 未対応**、FastAPI と非互換 |
 | `datamodel-code-generator`（Go 出力） | JSON Schema → Go | quicktype の方が Go struct 生成の品質が安定 |
@@ -203,14 +198,14 @@ apps/grading-worker/internal/jobtypes/   ← quicktype 生成物（gitignore、g
 
 - **Pydantic-first ロックイン**：他の Python ORM / バリデーションへの乗り換えコストが上がる（ただし Pydantic は FastAPI と一体で確立しているため低リスク）
 - **`apps/api/` が型 SSoT を抱える**：Backend repo に他 app（Frontend / Worker）が依存する構造になる（mise / monorepo 内なので物理的には支障なし）
-- **生成スクリプトのメンテナンス**：3 タスク（OpenAPI 出力 / TS 生成 / Go 生成）を mise.toml に整備する必要
+- **生成スクリプトのメンテナンス**：4 タスク（OpenAPI 出力 / JSON Schema 出力 / TS 生成 / Go 生成）を mise.toml に整備する必要
 - **drift 検出の CI ジョブ**：生成物コミット忘れを防ぐ `git diff --exit-code` ジョブが必要（[ADR 0026](./0026-github-actions-incremental-scope.md) の R3 拡張項目に位置付ける）
 - **Pydantic / FastAPI / Hey API の各 breaking change**：3 ツールの追従コストが直列に発生
 
 ### 将来の見直しトリガー
 
-- **API に表れない純粋に内部用の Pydantic モデルが必要になった場合**：`model.model_json_schema()` で個別 JSON Schema を別途出力する 2 伝送路設計に部分的回帰を検討（その時点で `packages/shared-schemas/` 等の artifact パッケージを新設）
-- **Worker が API クライアントになった場合**：`quicktype --src-lang openapi` から `ogen`（OpenAPI 3.1 対応、HTTP サーバ / クライアント生成も含む）への移行を検討
+- **Worker が API クライアントになった場合**：Job キュー境界とは別に Worker 向け OpenAPI クライアント生成（`ogen` 等、OpenAPI 3.1 対応 / HTTP サーバ + クライアント生成）の追加を検討
+- **Job payload の数が増えて個別 export が辛くなった場合**：`apps/api/job-schemas/` を 1 ファイルにまとめた束 schema（`$defs` 集約形式）の出力に切り替え、quicktype に 1 ファイル単位で食わせる構成に簡素化を検討
 - **Pydantic v3 / FastAPI 大規模 breaking change**：移行コストを ADR で再評価
 - **gRPC / 双方向ストリームが必要になった場合**：Protocol Buffers 移行を検討（極めて低確率）
 - **TypeSpec が成熟した場合**：中立 IDL を SSoT とする選択肢を再評価

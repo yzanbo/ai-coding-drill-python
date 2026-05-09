@@ -37,16 +37,16 @@ R0 に含める（**実装済み or 実装直前**）：
 | 状態 | 項目 | 言語 | 内容 |
 |---|---|---|---|
 | ✅ 実装済み | `commitlint` | 横断 | PR の base..head / push の before..after を範囲検証 |
-| ✅ 実装済み | `Biome` | TS | `mise run web-lint` 経由で `biome check`（lint + format 検証、書き込みなし） |
-| ✅ 実装済み | `typecheck` (TS) | TS | `mise run web-typecheck` 経由で `tsc --noEmit`（R0 時点では TS workspace 未追加のため no-op） |
-| 🔧 R0 拡張 | `ruff` | Python | `mise run api-lint` 経由で `ruff check`（lint + format 検証） → [ADR 0020](./0020-python-code-quality.md) |
-| 🔧 R0 拡張 | `pyright` | Python | `mise run api-typecheck` 経由で `pyright`（型検証、`typeCheckingMode = "basic"` から開始） → [ADR 0020](./0020-python-code-quality.md) |
-| 🔧 R0 拡張 | `pip-audit` | Python | `mise run api-audit` 経由で `uv.lock` の脆弱性スキャン → [ADR 0035](./0035-uv-for-python-package-management.md) |
-| 🔧 R0 拡張 | `deptry` | Python | `mise run api-deps-check` 経由で未使用 / 未宣言 / transitive 依存を検出（Knip の dep 検査に対称） → [ADR 0035](./0035-uv-for-python-package-management.md) |
-| 🔧 R0 skeleton | `golangci-lint` | Go | `mise run worker-lint`（Worker 実装着手前は no-op、実装後に有効化、`unused` linter で未使用関数 / 型を検出） → [ADR 0019](./0019-go-code-quality.md) |
-| 🔧 R0 skeleton | `go mod tidy --check` | Go | `mise run worker-deps-check` 経由で未整理 dep の混入を検出（go.mod / go.sum の差分が出れば fail）→ [ADR 0019](./0019-go-code-quality.md) |
-| ✅ 実装済み | `syncpack` | TS | `mise run sync-packages` 経由（モノレポ依存整合性、Frontend 限定） |
-| ✅ 実装済み | `knip` | TS | `mise run knip-check` 経由（未使用 export / file / dep 検出、Frontend 限定） |
+| ✅ 実装済み | `Biome` | TS | `mise run web:lint` 経由で `biome check`（lint + format 検証、書き込みなし） |
+| ✅ 実装済み | `typecheck` (TS) | TS | `mise run web:typecheck` 経由で `tsc --noEmit`（R0 時点では TS workspace 未追加のため no-op） |
+| 🔧 R0 拡張 | `ruff` | Python | `mise run api:lint` 経由で `ruff check`（lint + format 検証） → [ADR 0020](./0020-python-code-quality.md) |
+| 🔧 R0 拡張 | `pyright` | Python | `mise run api:typecheck` 経由で `pyright`（型検証、`typeCheckingMode = "basic"` から開始） → [ADR 0020](./0020-python-code-quality.md) |
+| 🔧 R0 拡張 | `pip-audit` | Python | `mise run api:audit` 経由で `uv.lock` の脆弱性スキャン → [ADR 0035](./0035-uv-for-python-package-management.md) |
+| 🔧 R0 拡張 | `deptry` | Python | `mise run api:deps-check` 経由で未使用 / 未宣言 / transitive 依存を検出（Knip の dep 検査に対称） → [ADR 0035](./0035-uv-for-python-package-management.md) |
+| 🔧 R0 skeleton | `golangci-lint` | Go | `mise run worker:lint`（横断、Worker 実装着手前は no-op、実装後に有効化、`unused` linter で未使用関数 / 型を検出） → [ADR 0019](./0019-go-code-quality.md) |
+| 🔧 R0 skeleton | `go mod tidy --check` | Go | `mise run worker:deps-check` 経由で未整理 dep の混入を検出（go.mod / go.sum の差分が出れば fail）→ [ADR 0019](./0019-go-code-quality.md) |
+| ✅ 実装済み | `syncpack` | TS | `mise run web:syncpack` 経由（モノレポ依存整合性、Frontend 限定） |
+| ✅ 実装済み | `knip` | TS | `mise run web:knip` 経由（未使用 export / file / dep 検出、Frontend 限定） |
 | 🔧 R0 拡張 | mise セットアップ | 横断 | `jdx/mise-action` で `mise.toml` 記載の tool 版数（Python / Node / Go / uv / pnpm）を統一インストール → [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md) |
 | ✅ 実装済み | アクション SHA ピン止め | 横断 | 全 third-party アクション（`actions/checkout` / `pnpm/action-setup` / `jdx/mise-action` 等）を 40 文字 SHA + バージョンコメント形式で固定 → [ADR 0027](./0027-github-actions-sha-pinning.md) |
 | 🔧 R0 拡張 | Dependabot | 横断 | `.github/dependabot.yml` で github-actions / npm に加え **pip（uv 経由 / Python 依存）** の週次自動更新 PR → [ADR 0028](./0028-dependabot-auto-update-policy.md) |
@@ -57,11 +57,11 @@ R0 では決めない（対応フェーズで追加）：
 |---|---|---|---|
 | ⏳ 未実装 | Backend 実装着手時（R0〜R1） | Python テスト：`pytest` / `pytest-asyncio` / `httpx`（→ [ADR 0038](./0038-test-frameworks.md)） | テストが書かれ始めてから接続する |
 | ⏳ 未実装 | Frontend 実装着手時（R1） | TS テスト：`Vitest` / `React Testing Library`（→ [ADR 0038](./0038-test-frameworks.md)） | テストが書かれ始めてから接続する |
-| ⏳ 未実装 | Worker 実装着手時（R1〜R2） | Go テスト：`go test` / `testify`（→ [ADR 0038](./0038-test-frameworks.md)） | grading-worker の実装開始後 |
+| ⏳ 未実装 | Worker 実装着手時（R1〜R2） | Go テスト：`go test` / `testify`（→ [ADR 0038](./0038-test-frameworks.md)） | apps/workers/grading の実装開始後 |
 | ⏳ 未実装 | DB 実装着手時（R0〜R1） | DB マイグレーション drift 検証：`alembic check`（→ [ADR 0037](./0037-sqlalchemy-alembic-for-database.md)） | スキーマ確定後 |
 | ⏳ 未実装 | R2 | Docker build 検証（API・Worker のイメージビルド） | Dockerfile 確定後 |
 | ⏳ 未実装 | R2〜R3 | E2E（`Playwright`） | Web の主要画面が揃ってから |
-| ⏳ 未実装 | R3 | JSON Schema → 各言語型 の drift チェック | `packages/shared-types` の運用開始後 |
+| ⏳ 未実装 | R3 | JSON Schema → 各言語型 の drift チェック | OpenAPI / Job JSON Schema artifact（`apps/api/openapi.json` / `apps/api/job-schemas/`）の運用開始後 |
 | ⏳ 未実装 | R3〜 | Terraform `fmt` / `validate` / `plan` | `infra/` 着手後 |
 | ⏳ 未実装 | Worker 実装着手時（R1〜R2） | Go 脆弱性スキャン：`govulncheck`（→ [ADR 0019](./0019-go-code-quality.md)） | 到達解析の対象コードが必要 |
 | ⏳ 未実装 | 本番直前 | 追加セキュリティスキャン（`pnpm audit` / Trivy / CodeQL）/ カバレッジ閾値 | 価値が出るのは資産が揃ってから（pip-audit / govulncheck は R0〜R1 で先行採用） |
@@ -95,7 +95,7 @@ R0 で同時に決めておく構造的事項：
 
 ### mise 経由でジョブを統一する理由
 
-- **ローカル / CI / 新規参画者の「起動コマンド一致」**：`mise run api-test` が手元・CI・新規 PC で同じ tool 版数 + env で動く（→ [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)）
+- **ローカル / CI / 新規参画者の「起動コマンド一致」**：`mise run api:test` が手元・CI・新規 PC で同じ tool 版数 + env で動く（→ [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)）
 - **CI yaml の見通し改善**：各 job の本体が `mise run <task>` 1 行になり、設定の重複（pnpm install / Python setup / Go setup の各種 setup-action 連鎖）が消える
 - **ci-success umbrella との相性**：`needs` リストの拡張がローカルタスク追加と一対一対応する（→ [ADR 0031](./0031-ci-success-umbrella-job.md)）
 

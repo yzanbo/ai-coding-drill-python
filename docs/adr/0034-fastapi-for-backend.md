@@ -22,7 +22,7 @@
 
 - バージョン制約は付けない（実装着手時に最新安定版を採用）
 - Pydantic をリクエスト/レスポンスのバリデーション・スキーマ定義の前提とする（FastAPI が内部で必須依存しているため事実上一体）
-- OpenAPI スキーマは FastAPI が Pydantic から自動生成するものを Frontend 向け型生成の起点とする。Worker（Go）向けには Pydantic から `model.model_json_schema()` で JSON Schema を別途出力する（→ [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の Pydantic-first SSoT 設計）
+- OpenAPI スキーマは FastAPI が Pydantic から自動生成するものを **HTTP API 境界（Frontend 向け）**の artifact とする。**Job キュー境界（Worker 向け）**には Pydantic から `model.model_json_schema()` で個別 JSON Schema を `apps/api/job-schemas/` に出力する。境界が 2 つあるため伝送路も 2 つ用意する（→ [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の Pydantic-first SSoT 設計）
 - DI（依存性注入）は FastAPI の `Depends` 方式を基本とし、明示的な Module / Provider 構造（NestJS 流）を再現する規律は実装側で別途定める
 
 ORM（SQLAlchemy 2.0 / SQLModel 等）・パッケージ管理（uv / poetry 等）・lint/format（ruff 等）・型チェッカー（mypy / pyright）等の周辺スタックは **本 ADR の対象外**。実装着手時にそれぞれ別 ADR を起票する（[ADR 0033](./0033-backend-language-pivot-to-python.md) の方針）。

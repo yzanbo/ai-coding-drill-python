@@ -74,15 +74,15 @@ apps/
 - 新：
   - `apps/workers/generation/prompts/generation/` ← generation worker 内
   - `apps/workers/grading/prompts/judge/` ← grading worker 内
-- バージョン管理ルール（`<role>.v<N>.yaml` / 一度配布した vN は書き換えない）は維持（→ [packages/prompts/README.md](../../packages/prompts/README.md) の現行運用ルール）
-- `packages/prompts/` ディレクトリは廃止、apps/workers/ 着手時に該当 Worker 内へ migration
+- バージョン管理ルール（`<role>.v<N>.yaml` / 一度配布した vN は書き換えない）は維持（旧 `packages/prompts/README.md` の運用ルールを各 Worker 配下の prompts/ ディレクトリに継承）
+- `packages/prompts/` ディレクトリは廃止済み、各 Worker 着手時に該当 Worker 内 prompts/ で運用
 
 ### 4. ジョブパターンの拡張
 
 - 既存：`grading_job` テーブル（採点ジョブ）
 - 追加：`generation_job` テーブル（問題生成ジョブ）
 - いずれも [ADR 0004](./0004-postgres-as-job-queue.md) の SKIP LOCKED + LISTEN/NOTIFY パターンに従う
-- 共通ジョブ型は Pydantic で `apps/api/` 内に定義（→ [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の SSoT 設計）。OpenAPI 3.1 経由で Worker（Go）に quicktype 生成
+- 共通ジョブ型は Pydantic で `apps/api/app/schemas/` 内に定義（→ [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の SSoT 設計）。Pydantic から個別 JSON Schema を `apps/api/job-schemas/` に出力し、quicktype `--src-lang schema` で各 Worker（Go）に struct 生成（Job キュー境界の伝送路）
 
 ## Why（採用理由）
 
@@ -183,4 +183,3 @@ apps/
 - [ADR 0034: バックエンド API に FastAPI を採用](./0034-fastapi-for-backend.md)（API は enqueue のみ）
 - [ADR 0036: Frontend ツーリングを apps/web 内に閉じる](./0036-frontend-monorepo-pnpm-only.md)（apps/<app>/ self-contained パターンの先例）
 - [ADR 0039: タスクランナー兼 tool 版数管理に mise を採用](./0039-mise-for-task-runner-and-tool-versions.md)（apps/workers/<name>/ 用のタスク追加先）
-- [packages/prompts/README.md](../../packages/prompts/README.md)（プロンプトのバージョン管理ルール、本 ADR 反映時に各 Worker 配下へ migration）

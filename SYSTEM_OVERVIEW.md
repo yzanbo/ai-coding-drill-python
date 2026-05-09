@@ -168,7 +168,7 @@ services:
     build: ./apps/api
     depends_on: [postgres, redis]
   worker:
-    build: ./apps/grading-worker
+    build: ./apps/workers/grading
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock  # DooD でホスト Docker を使う
     depends_on: [postgres]

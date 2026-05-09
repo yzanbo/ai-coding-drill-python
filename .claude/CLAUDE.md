@@ -30,7 +30,7 @@
 | `docs/adr/` | Architecture Decision Records | Markdown |
 
 > **注**：`packages/` ディレクトリは廃止（中身が全て apps/ 配下に移動済み）：
-> - **packages/shared-types/**（未作成）：共有データ型は **`apps/api/` の Pydantic を SSoT** とし、FastAPI 自動生成 OpenAPI 3.1（`apps/api/openapi.json`）を単一伝送路として TS / Go に展開する（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+> - **packages/shared-types/**（未作成）：共有データ型は **`apps/api/app/schemas/` の Pydantic を SSoT** とし、**境界別の 2 伝送路**（HTTP API 境界 = `apps/api/openapi.json` → Hey API、Job キュー境界 = `apps/api/job-schemas/` → quicktype `--src-lang schema`）で TS / Go に展開する（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 > - **packages/config/**（廃止済み）：Frontend が単一 Next.js app（→ [ADR 0036](../docs/adr/0036-frontend-monorepo-pnpm-only.md)）のため multi-consumer 前提が成立せず、tsconfig / vitest.config.ts は `apps/web/` 直下に直接配置する
 > - **packages/prompts/**（apps/workers/<name>/ に移動済み、ADR 0040）：
 >   - judge プロンプト → [apps/workers/grading/prompts/judge/](../apps/workers/grading/prompts/judge/)
@@ -49,7 +49,9 @@
 - ジョブキューは **Postgres `SELECT FOR UPDATE SKIP LOCKED` + LISTEN/NOTIFY**（外部キューミドルウェア不使用）
 - Redis は **キャッシュ・セッション・レート制限のみ**、ジョブキュー用途では使わない（→ [ADR 0005](../docs/adr/0005-redis-not-for-job-queue.md)）
 - LLM プロバイダは **抽象化レイヤ経由**で呼び出し、設定で差し替え可能（→ [ADR 0007](../docs/adr/0007-llm-provider-abstraction.md)）
-- 共有データ型は **`apps/api/` の Pydantic を SSoT** とし、FastAPI 自動生成 OpenAPI 3.1 を単一伝送路として Hey API（TS）/ quicktype（Go）で各言語に展開（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- 共有データ型は **`apps/api/app/schemas/` の Pydantic を SSoT** とし、**境界別の 2 伝送路**で各言語に展開（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）：
+  - **HTTP API 境界（API ⇄ Web）**：FastAPI 自動 OpenAPI 3.1（`apps/api/openapi.json`）→ Hey API で TS 型 + Zod + HTTP クライアント生成
+  - **Job キュー境界（API → DB → Worker）**：Pydantic `model.model_json_schema()` で個別 JSON Schema を `apps/api/job-schemas/` に出力 → quicktype `--src-lang schema` で Go struct 生成
 - **テスト**：pytest（Backend）/ Vitest + Playwright（Frontend）/ Go testing + testify（Worker）（→ [ADR 0038](../docs/adr/0038-test-frameworks.md)）
 
 ## よく使うコマンド
@@ -60,33 +62,41 @@
 mise install              # mise.toml の tools（Python / Node / Go / uv / pnpm）を一括インストール
 docker compose up -d      # ローカル DB / Redis 起動
 
+# タスク命名は `<scope>:<sub>:<verb>` 階層コロン形式（scope-first）
+
 # Backend (Python / FastAPI)
-mise run api-dev          # FastAPI 開発サーバ
-mise run api-test         # pytest
-mise run api-lint         # ruff check + format
-mise run api-typecheck    # pyright
-mise run api-audit        # pip-audit
-mise run api-deps-check   # deptry
-mise run db-migrate       # alembic upgrade head
-mise run api-openapi-export  # FastAPI から OpenAPI 3.1 を apps/api/openapi.json に書き出し
+mise run api:dev                  # FastAPI 開発サーバ
+mise run api:test                 # pytest
+mise run api:lint                 # ruff check + format
+mise run api:typecheck            # pyright
+mise run api:audit                # pip-audit
+mise run api:deps-check           # deptry
+mise run api:db-migrate           # alembic upgrade head
+mise run api:openapi-export       # FastAPI から OpenAPI 3.1 を apps/api/openapi.json に書き出し（HTTP API 境界 artifact）
+mise run api:job-schemas-export   # Pydantic Job payload から JSON Schema を apps/api/job-schemas/ に書き出し（Job キュー境界 artifact）
 
 # Frontend (Next.js / TS)
-mise run web-dev          # next dev
-mise run web-test         # vitest
-mise run web-types-gen    # Hey API で OpenAPI から TS / Zod / HTTP クライアントを生成
+mise run web:dev          # next dev
+mise run web:test         # vitest
+mise run web:lint         # biome check
+mise run web:typecheck    # tsc --noEmit
+mise run web:syncpack     # apps/web/.syncpackrc.ts に基づく自動修正
+mise run web:types-gen    # Hey API で OpenAPI から TS / Zod / HTTP クライアントを生成
 
 # Workers (Go) — apps/workers/<name>/ ごとに mise タスクを定義（ADR 0040）
-mise run grading-worker-dev    # apps/workers/grading の go run
-mise run grading-worker-test   # apps/workers/grading の go test
-mise run grading-worker-lint   # apps/workers/grading の golangci-lint
-mise run generation-worker-dev # apps/workers/generation（将来追加）
-# 横断
-mise run worker-types-gen      # quicktype --src-lang openapi で apps/api/openapi.json から各 Worker 内に Go struct 生成
+mise run worker:grading:dev      # apps/workers/grading の go run
+mise run worker:grading:test     # apps/workers/grading の go test
+mise run worker:grading:lint     # apps/workers/grading の golangci-lint
+mise run worker:generation:dev   # apps/workers/generation（将来追加）
+# 横断（全 worker）
+mise run worker:test             # 全 Worker の go test
+mise run worker:lint             # 全 Worker の golangci-lint
+mise run worker:types-gen        # quicktype --src-lang schema で apps/api/job-schemas/ から各 Worker 内に Go struct 生成
 
-# 横断
+# 横断（全言語）
 mise run lint             # 全言語 lint
 mise run test             # 全言語 test
-mise run g-clean          # マージ済みでリモートが消えたローカルブランチを掃除
+mise run git:clean        # マージ済みでリモートが消えたローカルブランチを掃除
 ```
 
 各レイヤ固有のコマンド・規約は `.claude/rules/` 配下の各ファイルを参照。
@@ -176,8 +186,8 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 | `web` | apps/web |
 | `api` | apps/api |
 | `worker` | apps/workers/*（grading / generation 等、ADR 0040） |
-| `shared` | packages/shared-types, packages/prompts 等 |
-| `config` | packages/config |
+| `shared` | OpenAPI / JSON Schema artifact など複数 app から参照される共有 artifact（`apps/api/openapi.json` / `apps/api/job-schemas/` 等。`packages/` は廃止済み） |
+| `config` | root 直接配置の tooling 設定群（`mise.toml` / `lefthook.yml` / `commitlint.config.mjs` 等。`packages/config/` は廃止済み） |
 | `infra` | infra/ |
 | `docs` | docs/ |
 | `db` | DB スキーマ・マイグレーション（SQLAlchemy 2.0 モデル + Alembic、→ [ADR 0037](../docs/adr/0037-sqlalchemy-alembic-for-database.md)） |
