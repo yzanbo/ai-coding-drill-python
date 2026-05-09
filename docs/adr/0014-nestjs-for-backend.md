@@ -67,5 +67,6 @@ API 層のフレームワークを 1 つに決める必要がある。
 
 ## References
 
-- [02-architecture.md: Backend API](../requirements/2-foundation/02-architecture.md#backend-apinestjs)
-- [05-runtime-stack.md: バックエンド API](../requirements/2-foundation/05-runtime-stack.md#バックエンド-apinestjs--typescript)
+- [02-architecture.md: Backend API](../requirements/2-foundation/02-architecture.md#backend-apifastapi--python)（pivot 後の現行記述）
+- [05-runtime-stack.md: バックエンド API](../requirements/2-foundation/05-runtime-stack.md#バックエンド-apifastapi--python)（pivot 後の現行記述）
+- [ADR 0033](./0033-backend-language-pivot-to-python.md)（本 ADR を Supersede した判断）

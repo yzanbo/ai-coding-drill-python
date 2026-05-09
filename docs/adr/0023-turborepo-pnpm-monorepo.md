@@ -1,6 +1,6 @@
 # 0023. モノレポツールに Turborepo + pnpm workspaces を採用
 
-- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md)
+- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md), [0035](./0035-uv-for-python-package-management.md), [0036](./0036-frontend-monorepo-pnpm-only.md), [0039](./0039-mise-for-task-runner-and-tool-versions.md)
 - **Date**: 2026-05-09
 - **Decision-makers**: 神保 陽平
 

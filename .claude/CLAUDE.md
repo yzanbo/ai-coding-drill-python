@@ -30,7 +30,7 @@
 | `docs/adr/` | Architecture Decision Records | Markdown |
 
 > **注**：`packages/` ディレクトリは廃止（中身が全て apps/ 配下に移動済み）：
-> - **packages/shared-types/**（未作成）：共有データ型は **`apps/api/app/schemas/` の Pydantic を SSoT** とし、**境界別の 2 伝送路**（HTTP API 境界 = `apps/api/openapi.json` → Hey API、Job キュー境界 = `apps/api/job-schemas/` → quicktype `--src-lang schema`）で TS / Go に展開する（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+> - **packages/shared-types/**（不採用）：共有データ型は **`apps/api/app/schemas/` の Pydantic を SSoT** とし、**境界別の 2 伝送路**（HTTP API 境界 = `apps/api/openapi.json` → Hey API、Job キュー境界 = `apps/api/job-schemas/` → quicktype `--src-lang schema`）で TS / Go に展開する（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 > - **packages/config/**（廃止済み）：Frontend が単一 Next.js app（→ [ADR 0036](../docs/adr/0036-frontend-monorepo-pnpm-only.md)）のため multi-consumer 前提が成立せず、tsconfig / vitest.config.ts は `apps/web/` 直下に直接配置する
 > - **packages/prompts/**（apps/workers/<name>/ に移動済み、ADR 0040）：
 >   - judge プロンプト → [apps/workers/grading/prompts/judge/](../apps/workers/grading/prompts/judge/)
