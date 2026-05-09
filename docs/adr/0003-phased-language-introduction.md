@@ -1,75 +1,89 @@
-# 0003. 言語の段階導入（MVP は TS+Go、R7 で Python 追加）
+# 0003. レイヤ別ポリグロット構成（Python + Go + TypeScript）
 
 - **Status**: Accepted
-- **Date**: 2026-04-25
+- **Date**: 2026-05-09 <!-- ADR 0033（Python pivot）に合わせて本文を書き換え -->
 - **Decision-makers**: 神保 陽平
 
 ## Context（背景・課題）
 
-ポートフォリオで複数言語を扱える証明をしたい。一方で、MVP の完成リスクは抑えたい。
+ポートフォリオで複数言語を扱える証明をしたい。一方で、「広く浅く」な技術アピールは避け、**各言語の使いどころに明確な役割**を持たせたい。
 
-- 候補言語：TypeScript（実務）、Go（差別化）、Python（AI/データ系）
-- 「広く浅く」になることを避けたい
-- 各言語の使いどころに**明確な役割**が欲しい
+- 候補言語：Python（AI / LLM / データ系）、Go（システム層 / 軽量並列性）、TypeScript（Web フロント / 型駆動）
+- 言語選定そのものに ADR 起票の判断軸がある（Why サブセクション参照）
+- バックエンド言語の選定経緯：当初 TS (NestJS) で設計フェーズを完遂し `v1.0.0-typescript` タグで凍結したが、採用面接駆動で Python に pivot（→ [ADR 0033](./0033-backend-language-pivot-to-python.md)）。本 ADR はその後の最新状態を反映する
 
 ## Decision（決定内容）
 
-3 言語を**段階的に導入**する：
+3 言語を**レイヤ別の役割**で並列導入する：
 
-| フェーズ | 言語構成 | 役割 |
+| レイヤ | 言語 | 役割 |
 |---|---|---|
-| MVP | TypeScript（Web/API/LLM）+ Go（採点ワーカー） | 最短で動かす、Go の強みを活かす |
-| 次期（R7） | 上記 + Python（評価・分析パイプライン） | オフライン評価バッチ、重複検出、分布分析、人間評価との相関 |
-| 将来（R8） | 採点対象言語の多言語化（Python、Next.js コンポーネント等） | 言語アダプタ層を通じて追加 |
+| **バックエンド API** | **Python**（FastAPI） | 認証・問題 CRUD・LLM 呼び出し・ジョブ投入。LLM / データ系エコシステムの恩恵を受ける（→ [ADR 0034](./0034-fastapi-for-backend.md)） |
+| **採点ワーカー** | **Go** | Postgres ジョブ受信 + Docker SDK で使い捨てサンドボックスを起動・採点。軽量・並列・システム制御（→ [ADR 0016](./0016-go-for-grading-worker.md)） |
+| **フロントエンド** | **TypeScript**（Next.js） | ユーザ向け UI、CodeMirror エディタ、React Query。型駆動の開発体験 |
+| 将来の拡張 | （言語アダプタ層経由） | 採点対象言語の多言語化（Python / Next.js コンポーネント等）に対応する設計余地を残す |
 
 ## Why（採用理由）
 
-1. **MVP 完成リスクの最小化**
-   - 3 言語同時導入は学習・統合コストが MVP 完成を圧迫するリスクが高い
-   - TS + Go の 2 言語に絞ることで完成優先度を担保
-2. **各言語の役割が明確**
-   - TS：Web / API / LLM 呼び出し（型と DX 重視）
-   - Go：採点ワーカー（軽量・並列・Docker 操作、→ [ADR 0016](./0016-go-for-grading-worker.md)）
-   - Python：評価・分析パイプライン（AI / データエコシステム）
-   - 「広く浅く」ではなく「適材適所」と説明できる
-3. **R7 の見せ場を作れる**
-   - MVP で 2 言語、R7 で 3 言語化する段階的成長は「設計の進化」としてポートフォリオで語れる
-   - 一気に 3 言語投入だと進化のストーリーが消える
-4. **Python の用途が R7 まで本質的に発生しない**
-   - 評価パイプライン・重複検出・分布分析・人間評価相関は MVP では不要
-   - 早期導入はオーバーエンジニアリングになる
-5. **ポリグロット要求の正当化**
-   - TS のみではポリグロット差別化が消え、TS + Python（Go なし）は採点ワーカーの軽量・並列特性に Python が合わない
-   - TS + Go + R7 Python が「言語選定能力を証明する」最小構成
-6. **言語アダプタ層の設計余地を残す**
-   - 将来の採点対象言語多言語化を見据え、最初から構造的に拡張可能な設計を意識できる
+### 1. 各言語の役割が明確
+
+- **Python（バックエンド API）**：LLM SDK の async 親和性、Pydantic / FastAPI による型駆動、データ・評価エコシステム（LangChain 等）の portfolio 価値（→ [ADR 0033](./0033-backend-language-pivot-to-python.md)）
+- **Go（採点ワーカー）**：シングルバイナリ・goroutine・Docker SDK の親和性、軽量並列性。サンドボックス制御のシステム層として最適（→ [ADR 0016](./0016-go-for-grading-worker.md)）
+- **TypeScript（フロント）**：Next.js + React Query + CodeMirror の現代的フロント体験、Vercel 統合（→ [ADR 0013](./0013-vercel-for-frontend-hosting.md)）
+- 「広く浅く」ではなく「適材適所」と説明できる
+
+### 2. ポリグロット要求の正当化
+
+- 1 言語のみではポリグロット差別化が消える
+- 全部 Python だと採点ワーカーの軽量並列性・Docker 操作で Go の比較優位を捨てる
+- 全部 Go だと LLM エコシステム・フロント DX が不利
+- **Python（アプリ層）+ Go（システム層）+ TS（UI 層）** が、各言語の比較優位を最も活かす最小構成
+
+### 3. 設計の言語非依存性を実証
+
+- 設計フェーズ（要件定義書 5 バケット / JSON Schema SSoT / LLM プロバイダ抽象化 / Postgres ジョブキュー）は TS 版で完遂し、Python に pivot しても同じ設計が成立することを構造的に検証している（→ [ADR 0033](./0033-backend-language-pivot-to-python.md) Context）
+- 「言語選定能力 + 設計の言語独立性」を 2 軸で示せる
+
+### 4. 言語アダプタ層の設計余地を残す
+
+- 将来の採点対象言語多言語化（ユーザが Python や別言語の問題を解く）を見据え、最初から構造的に拡張可能な設計を意識する
+- 採点ワーカーの言語アダプタ層は MVP 時点では TypeScript（Vitest）のみ対応、後続フェーズで他言語を追加
 
 ## Alternatives Considered（検討した代替案）
 
 | 候補 | 概要 | 採用しなかった理由 |
 |---|---|---|
-| 段階導入（TS+Go → +Python） | フェーズで責務を分離 | （採用） |
-| MVP から 3 言語（TS + Go + Python） | 一気に揃える | MVP 完成リスクが高い、R7 の見せ場を作れない |
-| TS のみ | シンプル | ポリグロットの差別化が消える |
-| TS + Python（Go なし） | AI 系の見せ方優先 | 採点ワーカーの軽量・並列特性に Python は不向き |
-| TS + Go のみ（Python 入れない） | 簡略 | AI エンジニア志望の見せ場が弱まる |
+| **採用：Python + Go + TS（レイヤ別）** | 各層に最適言語を配置 | （採用） |
+| TS のみ（Frontend / Backend / Worker 全て TS） | 単一言語で簡略 | ポリグロット差別化が消える、採点ワーカーの軽量並列性で Go の優位を捨てる、Python エコシステム portfolio が消える |
+| Python + TS（Go なし） | バックエンド・採点ワーカーともに Python | 採点ワーカーの軽量並列性・Docker SDK 親和性に Python は不向き（→ [ADR 0016](./0016-go-for-grading-worker.md)）。`v1.0.0-typescript` 時点で確立済みの Go 設計を捨てる合理性は無い |
+| Go + TS（Python なし） | バックエンドを Go で書く | LLM エコシステム（Anthropic / OpenAI / LangChain 公式 SDK）の async 親和性で Go が不利。AI / データ系の portfolio 訴求力が削がれる |
+| TS（Backend）+ Go + Python（評価のみ後付け） | TS 版時点の旧構成（段階導入） | 採用面接駆動の pivot で失効（→ [ADR 0033](./0033-backend-language-pivot-to-python.md)） |
 
 ## Consequences（結果・トレードオフ）
 
 ### 得られるもの
-- MVP は 2 言語で完成リスクを抑え、各言語の役割が明確
-- R7 で Python を「設計の進化」として導入でき、ポートフォリオで段階的成長を語れる
-- 「言語選定ができる」レベルを示せる（広く浅くではなく、適材適所）
+
+- 3 言語ポリグロット構成で「言語選定能力」を示せる（広く浅くではなく、適材適所）
+- 各言語の役割が明確で、面接時の説明が首尾一貫する
+- 設計フェーズを TS で完遂し Python で再実装したことで、設計の言語非依存性を構造的に証明できる
 
 ### 失うもの・受容するリスク
-- MVP 時点では Python の経験がポートフォリオに出ない
-- 言語ごとに採点対象を増やすには言語アダプタ層の抽象化を最初から意識する必要がある
+
+- 3 言語をまたぐビルド・テスト・デプロイのオーケストレーションコスト
+- 言語ごとに型表現・例外設計・並列性モデルが異なるため、共有型は JSON Schema SSoT（→ [ADR 0006](./0006-json-schema-as-single-source-of-truth.md)）と OpenAPI（→ [ADR 0034](./0034-fastapi-for-backend.md)）で吸収する必要
+- 言語ごとのツーリング選定 ADR が複数必要（パッケージ管理 / lint / フォーマッタ / 型チェッカー / マイグレーション 等）
 
 ### 将来の見直しトリガー
-- R7 で Python パイプラインを追加するタイミングで、必要なら Rust など別言語の追加も再検討
+
+- 採点対象言語の多言語化を本格導入するタイミングで、言語アダプタ層の設計を別 ADR で起票
+- 観測性 / 共有型生成パイプラインの実装を進める中で、3 言語横断のオーバーヘッドが運用 pain になった場合は、レイヤ統合（例：Frontend を Python 配信 SSR に寄せる等）を再検討
 
 ## References
 
+- [ADR 0033: バックエンドを Python に pivot](./0033-backend-language-pivot-to-python.md)（バックエンド言語選定の最新判断）
+- [ADR 0034: バックエンド API に FastAPI を採用](./0034-fastapi-for-backend.md)（Python の Web framework 選定）
+- [ADR 0016: 採点ワーカーを Go で実装](./0016-go-for-grading-worker.md)（Go 採用の根拠）
+- [ADR 0013: Frontend ホスティングに Vercel を採用](./0013-vercel-for-frontend-hosting.md)（Next.js / TS のホスティング）
+- [ADR 0006: JSON Schema を SSoT に](./0006-json-schema-as-single-source-of-truth.md)（3 言語横断の型生成基盤）
 - [01-overview.md: 言語・フレームワーク構成ロードマップ](../requirements/1-vision/01-overview.md)
 - [02-architecture.md: 言語構成ロードマップ](../requirements/2-foundation/02-architecture.md)
-- [01-roadmap.md: Later（R7 Python 分析パイプライン）](../requirements/5-roadmap/01-roadmap.md#later着手未定)

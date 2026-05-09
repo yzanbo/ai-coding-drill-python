@@ -1,7 +1,7 @@
 # 0029. コミット scope 規約（モノレポ領域 + 自動更新用 deps / deps-dev）
 
 - **Status**: Accepted
-- **Date**: 2026-05-05
+- **Date**: 2026-05-09 <!-- Python pivot に追従して ORM 固有名（Drizzle）を除去 -->
 - **Decision-makers**: 神保 陽平
 
 ## Context（背景・課題）
@@ -44,7 +44,7 @@
 ### 領域 scope を 8 種に絞る理由
 
 - **モノレポの物理ディレクトリと一対一対応**：`apps/*` / `packages/*` / `infra/` / `docs/` の各ディレクトリが scope に対応する
-- **`db` だけは物理ディレクトリでなく論理領域**：Drizzle スキーマ・マイグレーションは `apps/api` 配下にあるが、DB スキーマ変更は影響範囲が API 単独でないため独立 scope を割り当てる（マイグレーションを伴う変更を後で `git log` で抽出しやすい）
+- **`db` だけは物理ディレクトリでなく論理領域**：DB スキーマ・マイグレーションは `apps/api` 配下にあるが、DB スキーマ変更は影響範囲が API 単独でないため独立 scope を割り当てる（マイグレーションを伴う変更を後で `git log` で抽出しやすい）
 - **`config` はルート直接配置の tooling 設定群と `packages/config/` の両方を含む**：配置方針の詳細は [packages/config/README.md](../../packages/config/README.md) 参照。両方とも `config` scope を使う
 
 ### 自動更新 scope を分離して 2 種追加する理由
