@@ -8,28 +8,46 @@
 
 ## リポジトリ・モノレポ構成
 
-- **Turborepo + pnpm workspaces** を採用（→ [ADR 0023](../../adr/0023-turborepo-pnpm-monorepo.md)）
+- **Frontend（Next.js / TS）**：`pnpm workspaces` を採用（[ADR 0023](../../adr/0023-turborepo-pnpm-monorepo.md) は Python pivot により Superseded by 0033、Turborepo の採用是非を含めて Frontend 着手時に再評価）
   - pnpm workspaces：JS/TS パッケージの依存解決・リンク（土台）
-  - Turborepo：ビルド順序・並列実行・キャッシュ・Vercel リモートキャッシュ（上層）
-  - Go は `go mod`、Python（R7）は `uv` を使い、Turborepo は `package.json` script から薄く統合
-- ディレクトリ構成の最終版は [ADR 0023](../../adr/0023-turborepo-pnpm-monorepo.md) を参照
+- **Backend（Python / FastAPI）**：パッケージ管理・モノレポ管理ツール（uv / Poetry / Hatch 等）はバックエンド着手時に確定し、別 ADR を起票する（→ [ADR 0033 §4](../../adr/0033-backend-language-pivot-to-python.md)）
+- **Worker（Go）**：`go mod`
 
 ---
 
 ## コード品質ツール
 
-- **Biome**（lint + format、Rust 製で高速）を TS で書かれた全アプリ・全パッケージで統一使用（→ [ADR 0018](../../adr/0018-biome-for-tooling.md)）
-  - ESLint + Prettier の組み合わせは不採用
-- **TypeScript（`tsc --noEmit`）** で型チェック（Biome は型チェックを行わないため必須）
-- 補完ツール（**R0 / リポジトリ初期セットアップ時から導入**、→ [ADR 0021](../../adr/0021-r0-tooling-discipline.md)）：
-  - **共通の根拠**：これらのツールは**途中導入のコストが線形的に膨張**する（蓄積したコードが規約違反だらけになり、後追いで全件修正する作業が発生する）。R0 で入れれば修正対象がほぼゼロ、R4 まで放置すると数百ファイル規模の整地 PR が必要になりレビュー不能。**初期導入が圧倒的に低コスト**
-  - **lefthook**：Git フック管理。フック × チェック × CI の対応は [#フック × チェック × CI 対応表](#フック--チェック--ci-対応表) を参照。設定 SSoT は [lefthook.yml](../../../lefthook.yml)
-  - **commitlint**（Conventional Commits）：コミットメッセージ規約の機械的検証。**過去のコミット履歴は遡及修正できない**ため、最初から規約を効かせる必要がある
-  - **Knip**：未使用 export / 依存 / ファイルの検出。蓄積後の一斉検出は削除可否の個別判断で時間を消費する
-  - **syncpack**：モノレポ内 `package.json` のバージョン整合性を強制（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)）。Turborepo + pnpm workspaces 構成で必須レベル。**バージョンずれは積もると一括修正に動作リスクが伴う**
-- **Go**：`gofmt` + `golangci-lint`（→ [ADR 0019](../../adr/0019-go-code-quality.md)）
-- **Python（R7）**：`ruff`（Linter + Formatter 統合）。型チェッカーは R7 着手時に決定（→ [ADR 0020](../../adr/0020-python-code-quality.md)）
-- **設定ファイルの物理配置**：Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住人・判断基準・投入タイミングは [packages/config/README.md](../../../packages/config/README.md) に集約
+3 言語に **「lint + format 1 本 / 型チェック 1 本」の二層構造**を揃える。
+
+### Python（バックエンド本体、→ [ADR 0020](../../adr/0020-python-code-quality.md)）
+
+- **`ruff`**：lint + format 統合（Astral 製、Rust 製で高速）。`flake8` / `black` / `isort` / `pyupgrade` 等を 1 ツールに置換
+- **`pyright`**：型チェック（Microsoft 製、VS Code では Pylance として動作、型仕様準拠率 98%）
+  - `typeCheckingMode = "basic"` で開始 → 安定後に `"strict"` への段階的引き上げを検討
+  - 設定は `pyproject.toml` の `[tool.pyright]` に集約
+- **将来の乗り換え候補**：Pyrefly（Meta）/ ty（Astral）。GA + 型仕様準拠率 95% 超で再評価（→ [ADR 0020 §見直しトリガー](../../adr/0020-python-code-quality.md)）
+- 任意追加：`pip-audit`（脆弱性スキャン）
+
+### TypeScript（フロントエンド、→ [ADR 0018](../../adr/0018-biome-for-tooling.md) — Superseded by 0033、Frontend 用途として継続採用）
+
+- **Biome**：lint + format（Rust 製で高速）。ESLint + Prettier は不採用
+- **`tsc --noEmit`**：型チェック（Biome は型チェックを行わないため必須）
+
+### Go（採点ワーカー、→ [ADR 0019](../../adr/0019-go-code-quality.md)）
+
+- **`gofmt`** + **`golangci-lint`**（型チェックは `go build` 内蔵）
+
+### 言語横断の補完ツール（**R0 / リポジトリ初期セットアップ時から導入**、→ [ADR 0021](../../adr/0021-r0-tooling-discipline.md)）
+
+- **共通の根拠**：これらのツールは**途中導入のコストが線形的に膨張**する（蓄積したコードが規約違反だらけになり、後追いで全件修正する作業が発生する）。R0 で入れれば修正対象がほぼゼロ、後期に放置すると数百ファイル規模の整地 PR が必要になりレビュー不能。**初期導入が圧倒的に低コスト**
+- **lefthook**：Git フック管理（言語横断）。フック × チェック × CI の対応は [#フック × チェック × CI 対応表](#フック--チェック--ci-対応表) を参照。設定 SSoT は [lefthook.yml](../../../lefthook.yml)
+- **commitlint**（Conventional Commits、言語横断）：コミットメッセージ規約の機械的検証。**過去のコミット履歴は遡及修正できない**ため、最初から規約を効かせる必要がある
+- **Knip**（TS / Frontend 限定）：未使用 export / 依存 / ファイルの検出。蓄積後の一斉検出は削除可否の個別判断で時間を消費する
+- **syncpack**（TS / Frontend 限定、→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) — Superseded by 0033）：モノレポ内 `package.json` のバージョン整合性を強制。Python 用の依存整合性ツールはバックエンド着手時に決定する（uv / Poetry / Hatch の lockfile 機構で代替する想定）
+
+### 設定ファイルの物理配置
+
+Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住人・判断基準・投入タイミングは [packages/config/README.md](../../../packages/config/README.md) に集約。
 
 ---
 
@@ -39,13 +57,18 @@
 
 設定実体：[lefthook.yml](../../../lefthook.yml) / [.github/workflows/ci.yml](../../../.github/workflows/ci.yml) / [knip.config.ts](../../../knip.config.ts) / [.syncpackrc.ts](../../../.syncpackrc.ts) / [biome.jsonc](../../../biome.jsonc) / [commitlint.config.ts](../../../commitlint.config.ts)。
 
-| チェック | lefthook フック | glob トリガー | CI ジョブ | 備考 |
-|---|---|---|---|---|
-| **Biome**（lint + format） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}` | `Biome` | pre-commit は `--write` で自動修正 + `stage_fixed: true` で再ステージ。CI は検証のみ |
-| **`tsc --noEmit`**（型チェック） | pre-commit | `{*.ts,.*.ts}`（ルート直下のみ） | `typecheck`（root configs + workspaces 経由 Turborepo） | ファイル単位起動できないため staged に `.ts` が 1 つでもあれば全体検証 |
-| **commitlint** | commit-msg | （glob なし、毎回） | `commitlint`（PR は base..head、push は before..after） | 過去履歴は遡及修正不可のため hook と CI の両方で常時起動 |
-| **syncpack** | pre-commit | `package.json` | `syncpack` | pre-commit は `lint` のみ。自動修正は `pnpm syncpack:fix` を手動実行（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)） |
-| **Knip** | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json}` | `knip` | ファイル単位起動できないため glob トリガー時に全プロジェクト解析。自動修正は `pnpm knip:fix` を手動実行 |
+対象範囲：**Frontend（TS）/ Backend（Python）/ Worker（Go）に対し、それぞれ lint+format / 型チェックを揃える**。Python / Go の lefthook 統合詳細はバックエンド・ワーカー実装着手時に確定。
+
+| チェック | 対象言語 | lefthook フック | glob トリガー | CI ジョブ | 備考 |
+|---|---|---|---|---|---|
+| **Biome**（lint + format） | TS（Frontend） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}` | `biome` | pre-commit は `--write` で自動修正 + `stage_fixed: true` で再ステージ。CI は検証のみ |
+| **`tsc --noEmit`**（型チェック） | TS（Frontend） | pre-commit | `{*.ts,.*.ts}`（ルート直下のみ） | `typecheck` | ファイル単位起動できないため staged に `.ts` が 1 つでもあれば全体検証 |
+| **`ruff check` / `ruff format`** | Python（Backend） | pre-commit（着手時に組込） | `*.py` | `ruff` | format は自動修正、lint は検証のみ。設定 SSoT は `pyproject.toml` の `[tool.ruff]` |
+| **`pyright`**（型チェック） | Python（Backend） | pre-commit（着手時に組込） | `*.py` | `pyright` | `typeCheckingMode = "basic"` 開始、設定 SSoT は `pyproject.toml` の `[tool.pyright]` |
+| **`gofmt` / `golangci-lint`** | Go（Worker） | pre-commit（実装時に組込） | `*.go` | `golangci-lint` | `go build` 内蔵の型チェックで型ゲートも兼ねる |
+| **commitlint** | 言語横断 | commit-msg | （glob なし、毎回） | `commitlint`（PR は base..head、push は before..after） | 過去履歴は遡及修正不可のため hook と CI の両方で常時起動 |
+| **syncpack** | TS（Frontend 限定） | pre-commit | `package.json` | `syncpack` | pre-commit は `lint` のみ。自動修正は `pnpm syncpack:fix` を手動実行（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)） |
+| **Knip** | TS（Frontend 限定） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json}` | `knip` | ファイル単位起動できないため glob トリガー時に全プロジェクト解析。自動修正は `pnpm knip:fix` を手動実行 |
 
 ### 多層防御の構造
 
@@ -132,7 +155,9 @@
 
 ## モノレポ依存整合性（syncpack ルールセット）
 
-モノレポ内 `package.json` の整合性（バージョン揃え / `^` 統一 / `workspace:*` 強制 / dep 重複検知）の機械強制ルールセット。採用根拠は [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) を参照。
+> **適用範囲**：Frontend（TS / pnpm workspaces）限定。Python バックエンド側の依存整合性ツールはバックエンド着手時に確定する（→ [ADR 0033 §4](../../adr/0033-backend-language-pivot-to-python.md)）。
+
+モノレポ内 `package.json` の整合性（バージョン揃え / `^` 統一 / `workspace:*` 強制 / dep 重複検知）の機械強制ルールセット。採用根拠は [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) を参照（Superseded by 0033 だが Frontend 用途として継続採用）。
 
 **真の SSoT は [`.syncpackrc.ts`](../../../.syncpackrc.ts)**（`syncpack` の `RcFile` 型を import して型安全を確保、コメントで規約の「なぜ」をインライン化）。本セクションは概観・人間向け解説。
 
@@ -189,13 +214,13 @@
 | scope | 対応領域 |
 |---|---|
 | `web` | `apps/web`（フロントエンド / Next.js） |
-| `api` | `apps/api`（NestJS API） |
+| `api` | `apps/api`（FastAPI / Python バックエンド） |
 | `worker` | `apps/grading-worker`（Go 採点ワーカー） |
 | `shared` | `packages/shared-types`、`packages/prompts` 等の共有パッケージ |
 | `config` | tooling 設定ファイル群（ルート直接配置 + `packages/config/` の両方を含む、→ [packages/config/README.md](../../../packages/config/README.md)） |
 | `infra` | `infra/`（Terraform） |
 | `docs` | `docs/`（要件定義 / ADR） |
-| `db` | Drizzle スキーマ・マイグレーション |
+| `db` | DB スキーマ・マイグレーション（具体の ORM / マイグレーションツールはバックエンド着手時に確定） |
 
 ### 自動更新 scope（Dependabot が自動付与、2 種）
 
@@ -295,10 +320,10 @@ rules:
 
 ## テスト
 
-- **Jest**（NestJS 標準。API・LLM パイプライン・ユニット・E2E スペック）
-- Go 標準 `testing` + `testify`（採点ワーカー）
-- **Playwright**（E2E）
-- **ミューテーションテスト**：`stryker-js`（TS 向け、R2 以降）
+- **Backend（Python / FastAPI）**：`pytest`（+ `pytest-asyncio` / `pytest-cov`）。具体構成はバックエンド着手時に確定
+- **Frontend（TS / Next.js）**：`Vitest`（ユニット）+ `Playwright`（E2E）。具体構成は Frontend 着手時に確定
+- **Worker（Go）**：Go 標準 `testing` + `testify`
+- **ミューテーションテスト**：着手レイヤごとに選定（Python なら `mutmut` / `cosmic-ray`、TS なら `stryker-js` 等を実装着手時に評価）
 - テストカバレッジ：Codecov
 
 ---
@@ -307,9 +332,12 @@ rules:
 
 - [05-runtime-stack.md](./05-runtime-stack.md) — サービスを動かす実装技術スタック
 - [02-architecture.md](./02-architecture.md) — コンポーネントの責務・データフロー
-- [ADR 0023: Turborepo + pnpm workspaces](../../adr/0023-turborepo-pnpm-monorepo.md)
-- [ADR 0018: TypeScript のコード品質ツールに Biome](../../adr/0018-biome-for-tooling.md)
-- [ADR 0019: Go のコード品質ツール](../../adr/0019-go-code-quality.md)
-- [ADR 0020: Python のコード品質ツール](../../adr/0020-python-code-quality.md)
+- [ADR 0033: バックエンドを Python に pivot](../../adr/0033-backend-language-pivot-to-python.md)
+- [ADR 0034: バックエンド API に FastAPI を採用](../../adr/0034-fastapi-for-backend.md)
+- [ADR 0020: Python のコード品質ツールに ruff + pyright を採用](../../adr/0020-python-code-quality.md)
+- [ADR 0019: Go のコード品質ツール（gofmt + golangci-lint）](../../adr/0019-go-code-quality.md)
+- [ADR 0018: TypeScript のコード品質ツールに Biome](../../adr/0018-biome-for-tooling.md)（Superseded by 0033、Frontend 用途として継続採用）
+- [ADR 0023: Turborepo + pnpm workspaces](../../adr/0023-turborepo-pnpm-monorepo.md)（Superseded by 0033、Frontend 用途として継続検討）
+- [ADR 0024: syncpack による package.json 整合性](../../adr/0024-syncpack-package-json-consistency.md)（Superseded by 0033、Frontend 用途として継続採用）
 - [ADR 0006: JSON Schema を SSoT に](../../adr/0006-json-schema-as-single-source-of-truth.md)
 - [ADR 0021: 補完ツールを R0 から導入](../../adr/0021-r0-tooling-discipline.md)
