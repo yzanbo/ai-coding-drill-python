@@ -35,17 +35,17 @@
 | [F-04](./F-04-auto-grading.md) | 自動採点 | 認証ユーザー | 要件定義中 |
 | [F-05](./F-05-learning-history.md) | 学習履歴・統計 | 認証ユーザー | 要件定義中 |
 
-### バックログ（R6 以降）
+### バックログ（着手時に詳細化）
 
-着手時に [_template.md](./_template.md) で詳細化する。現状は概要のみ：
+リリース順。着手時に [_template.md](./_template.md) で詳細化する（現状は概要のみ）：
 
 | ID | 機能名 | リリース |
 |---|---|---|
+| F-08 | 管理ダッシュボード | R4 |
 | F-06 | 適応型出題（弱点に基づく問題生成） | R6 |
 | F-07 | LLM ヒント機能 | R6 |
-| F-08 | 管理ダッシュボード | R4 〜 |
 
-詳細な俯瞰は [1-vision/01-overview.md](../1-vision/01-overview.md) と [5-roadmap/01-roadmap.md](../5-roadmap/01-roadmap.md#laterバックログ着手未定)。
+詳細な俯瞰は [1-vision/01-overview.md](../1-vision/01-overview.md) と [5-roadmap/01-roadmap.md](../5-roadmap/01-roadmap.md#later着手未定)。
 
 ---
 

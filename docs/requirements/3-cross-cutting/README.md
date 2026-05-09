@@ -48,5 +48,5 @@
 
 - [2-foundation/02-architecture.md](../2-foundation/02-architecture.md) — システム全体構造
 - [4-features/](../4-features/) — 個別機能（ここで使うテーブル・エンドポイントを定義）
-- [docs/adr/0014-json-schema-as-single-source-of-truth.md](../../adr/0014-json-schema-as-single-source-of-truth.md) — JSON Schema SSoT 戦略
-- [docs/adr/0017-w3c-trace-context-in-job-payload.md](../../adr/0017-w3c-trace-context-in-job-payload.md) — ジョブペイロードへの traceContext 埋め込み
+- [docs/adr/0006-json-schema-as-single-source-of-truth.md](../../adr/0006-json-schema-as-single-source-of-truth.md) — JSON Schema SSoT 戦略
+- [docs/adr/0010-w3c-trace-context-in-job-payload.md](../../adr/0010-w3c-trace-context-in-job-payload.md) — ジョブペイロードへの traceContext 埋め込み

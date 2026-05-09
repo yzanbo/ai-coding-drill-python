@@ -5,7 +5,7 @@ paths:
 
 # バックエンド開発ルール（NestJS API）
 
-NestJS（TypeScript）の API サーバー。詳細な選定理由は [ADR 0004](../../docs/adr/0004-nestjs-for-backend.md)。ORM は Drizzle（→ [ADR 0016](../../docs/adr/0016-drizzle-orm-over-prisma.md)）。
+NestJS（TypeScript）の API サーバー。詳細な選定理由は [ADR 0014](../../docs/adr/0014-nestjs-for-backend.md)。ORM は Drizzle（→ [ADR 0017](../../docs/adr/0017-drizzle-orm-over-prisma.md)）。
 
 ## モジュール構成（`apps/api/src/`）
 
@@ -39,7 +39,7 @@ NestJS（TypeScript）の API サーバー。詳細な選定理由は [ADR 0004]
 
 - REST リソース単位のパス設計（例：`/problems`, `/submissions`, `/auth/github`）
 - Swagger UI：`/api/docs`、OpenAPI JSON：`/api/docs/openapi.json`
-- 認証：Passport + GitHub OAuth、セッションは Cookie + Redis（→ [ADR 0015](../../docs/adr/0015-github-oauth-with-extensible-design.md)）
+- 認証：Passport + GitHub OAuth、セッションは Cookie + Redis（→ [ADR 0011](../../docs/adr/0011-github-oauth-with-extensible-design.md)）
 - 全ルートデフォルト認証必須（`APP_GUARD` で `JwtAuthGuard` 相当をグローバル適用）
 - `@Public()` で認証スキップ、`@CurrentUser(key?)` で認証済みユーザー情報取得
 - レート制限：`@nestjs/throttler` + Redis ストレージ、Sliding Log 方式（→ [01-non-functional.md](../../docs/requirements/2-foundation/01-non-functional.md)）
@@ -107,23 +107,23 @@ return {
 
 ## ジョブキュー（Postgres `jobs` テーブル）
 
-- ジョブ投入は `INSERT INTO jobs` + `NOTIFY new_job, <jobId>` を**同一トランザクション**で実行（→ [ADR 0001](../../docs/adr/0001-postgres-as-job-queue.md)）
-- ペイロードは JSONB、スキーマは `packages/shared-types/schemas/job.schema.json` で管理（→ [ADR 0014](../../docs/adr/0014-json-schema-as-single-source-of-truth.md)）
+- ジョブ投入は `INSERT INTO jobs` + `NOTIFY new_job, <jobId>` を**同一トランザクション**で実行（→ [ADR 0004](../../docs/adr/0004-postgres-as-job-queue.md)）
+- ペイロードは JSONB、スキーマは `packages/shared-types/schemas/job.schema.json` で管理（→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 - ワーカー側の取得・処理は Go で実装（→ [.claude/rules/worker.md](./worker.md)）
 
 ## LLM 呼び出し
 
-- `generation/` モジュール内の `LlmProvider` インターフェース経由で呼び出す（→ [ADR 0011](../../docs/adr/0011-llm-provider-abstraction.md)）
+- `generation/` モジュール内の `LlmProvider` インターフェース経由で呼び出す（→ [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md)）
 - 直接 `@anthropic-ai/sdk` 等を呼ぶ実装はしない。必ず抽象化レイヤを通す
 - プロンプトは `packages/prompts/` 配下の YAML から読み込む（→ [.claude/rules/prompts.md](./prompts.md)）
 - 構造化出力は Zod でランタイムバリデーション、スキーマは `packages/shared-types/schemas/` から自動生成
-- LLM-as-a-Judge は自前実装、生成と Judge は別プロバイダ・別モデル（→ [ADR 0009](../../docs/adr/0009-custom-llm-judge.md)）
+- LLM-as-a-Judge は自前実装、生成と Judge は別プロバイダ・別モデル（→ [ADR 0008](../../docs/adr/0008-custom-llm-judge.md)）
 
 ## コーディング規約
 
 ### コードスタイル
 
-- Biome（lint + format）。設定はリポジトリルートの `biome.jsonc`（→ [ADR 0013](../../docs/adr/0013-biome-for-tooling.md)）
+- Biome（lint + format）。設定はリポジトリルートの `biome.jsonc`（→ [ADR 0018](../../docs/adr/0018-biome-for-tooling.md)）
 - 型チェックは `tsc --noEmit`
 - **`any` 利用不可**。Drizzle の推論型（`typeof problems.$inferSelect`）や独自 DTO で型付けする
 - モジュール名（ディレクトリ・クラス名）は単数形を使う（例：`problem/`, `ProblemModule`）。テーブル名は複数形のまま

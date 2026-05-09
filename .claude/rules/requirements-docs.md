@@ -5,7 +5,7 @@ paths:
 
 # 要件定義書（`docs/requirements/`）の記述ルール
 
-このプロジェクトでは要件定義書を **5 バケット時系列構造**（[ADR 0019](../../docs/adr/0019-requirements-as-5-buckets.md)）で運用する。本ルールはそのディレクトリ構造下の `.md` を編集するときに従う規約。
+このプロジェクトでは要件定義書を **5 バケット時系列構造**（[ADR 0001](../../docs/adr/0001-requirements-as-5-buckets.md)）で運用する。本ルールはそのディレクトリ構造下の `.md` を編集するときに従う規約。
 
 ---
 
@@ -233,6 +233,6 @@ GitHub Mermaid パーサで実際に落ちた事例。**新規・編集時は Gi
 ## 10. 関連ルール・ドキュメント
 
 - [docs/requirements/README.md](../../docs/requirements/README.md) — 5 バケット構造の全体マップ・読む順序・書く順序ガイド
-- [docs/adr/0019-requirements-as-5-buckets.md](../../docs/adr/0019-requirements-as-5-buckets.md) — 5 バケット構造の設計判断
+- [docs/adr/0001-requirements-as-5-buckets.md](../../docs/adr/0001-requirements-as-5-buckets.md) — 5 バケット構造の設計判断
 - [docs/adr/template.md](../../docs/adr/template.md) — ADR 作成時のテンプレ
 - 各バケット README — 各 `docs/requirements/<バケット>/README.md`

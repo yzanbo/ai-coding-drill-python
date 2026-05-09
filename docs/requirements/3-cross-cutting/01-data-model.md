@@ -124,27 +124,27 @@ erDiagram
 ### JSON カラム運用
 
 - 型は **JSONB**（高速・GIN インデックス可能）
-- 複数機能で共有するペイロードは **JSON Schema を SSoT** とし、TS / Go 両方の型を自動生成（→ [ADR 0014](../../adr/0014-json-schema-as-single-source-of-truth.md)）
+- 複数機能で共有するペイロードは **JSON Schema を SSoT** とし、TS / Go 両方の型を自動生成（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
 - 自由形式 JSON カラムでも、コメントまたは別ドキュメントでスキーマを文書化する
 
 ### ジョブペイロード共通フィールド：`traceContext`
 
 すべてのジョブ種別の `payload` に **`traceContext` を必須**として含める。NestJS（Producer）から Go ワーカー（Consumer）へ OTel Context をプロセス境界をまたいで伝播するため。詳細は：
 
-- [ADR 0017: W3C Trace Context をジョブペイロードに埋め込む](../../adr/0017-w3c-trace-context-in-job-payload.md)（採用方式・代替案・実装方針）
+- [ADR 0010: W3C Trace Context をジョブペイロードに埋め込む](../../adr/0010-w3c-trace-context-in-job-payload.md)（採用方式・代替案・実装方針）
 - [04-observability.md: プロセス境界をまたぐトレース連携](../2-foundation/04-observability.md#プロセス境界をまたぐトレース連携r1-で必須)
 
 具体的な JSON Schema 定義は **`packages/shared-types/schemas/job.schema.json`（実装着手時に作成）が SSoT**。本ドキュメントには共通フィールドの存在のみを示す。
 
 ### 認証スキーマの分離
 
-`users` と `auth_providers` を分離してプロバイダ ID をユーザーに直接持たせない設計。複数 OAuth プロバイダへの拡張余地を構造的に確保するため（→ [ADR 0015](../../adr/0015-github-oauth-with-extensible-design.md)）。
+`users` と `auth_providers` を分離してプロバイダ ID をユーザーに直接持たせない設計。複数 OAuth プロバイダへの拡張余地を構造的に確保するため（→ [ADR 0011](../../adr/0011-github-oauth-with-extensible-design.md)）。
 
 ### インデックス設計の方針
 
 横断的な設計方針のみここに記載。テーブル個別のインデックス定義は **Drizzle スキーマが SSoT**。
 
-- **読み込み頻度が高いクエリには必ずインデックスを張る**：特に `jobs(queue, state, run_at)` はワーカー取得クエリの中核（[ADR 0001](../../adr/0001-postgres-as-job-queue.md)）
+- **読み込み頻度が高いクエリには必ずインデックスを張る**：特に `jobs(queue, state, run_at)` はワーカー取得クエリの中核（[ADR 0004](../../adr/0004-postgres-as-job-queue.md)）
 - **`created_at DESC` で並べる履歴系**：複合インデックスで対応（例：`submissions(user_id, created_at DESC)`）
 - **JSONB の中身検索**：必要が出てから GIN インデックスを追加（MVP では未使用）
 
@@ -152,7 +152,7 @@ erDiagram
 
 ## マイグレーション運用
 
-- マイグレーションは **Drizzle で管理**（→ [05-runtime-stack.md: データベース](../2-foundation/05-runtime-stack.md#データベース)、[ADR 0016](../../adr/0016-drizzle-orm-over-prisma.md)）
+- マイグレーションは **Drizzle で管理**（→ [05-runtime-stack.md: データベース](../2-foundation/05-runtime-stack.md#データベース)、[ADR 0017](../../adr/0017-drizzle-orm-over-prisma.md)）
 - 1 マイグレーション = 1 つの論理変更
 - **後方互換性を保つ順序で書く**：カラム追加 → 書き込みコード更新 → 旧カラム削除
 - 本番マイグレーションは GitHub Actions の **手動承認ジョブ**で実行

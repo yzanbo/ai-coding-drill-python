@@ -1,4 +1,4 @@
-# 0014. 共有データ型は JSON Schema を Single Source of Truth とし、各言語向けに自動生成する
+# 0006. 共有データ型は JSON Schema を Single Source of Truth とし、各言語向けに自動生成する
 
 - **Status**: Accepted
 - **Date**: 2026-04-25
@@ -9,7 +9,7 @@
 このプロジェクトは複数言語を横断する設計：
 - TypeScript（NestJS API、Next.js フロント）
 - Go（採点ワーカー）
-- Python（Phase 7：RAG・評価パイプライン）
+- Python（R7：RAG・評価パイプライン）
 
 これら 3 言語が**同じデータ構造**を扱う必要がある：
 - ジョブペイロード（採点・問題生成）
@@ -64,8 +64,8 @@ packages/shared-types/
 4. **gRPC / Protocol Buffers より HTTP/JSON 主体の本プロジェクトと整合**
    - Protobuf は通信プロトコルを縛り、HTTP/JSON 中心の API 設計と相性が悪い
    - JSON Schema は伝送フォーマットに依存しない汎用スキーマで、API 仕様（OpenAPI）への変換も容易
-5. **Phase 7 Python 追加のコスト最小化**
-   - 既存スキーマをそのまま流用でき、言語の段階導入（→ ADR 0010）と整合
+5. **R7 Python 追加のコスト最小化**
+   - 既存スキーマをそのまま流用でき、言語の段階導入（→ ADR 0003）と整合
    - Python を後から入れる際のコスト障壁を構造的に低くする
 6. **ポートフォリオでの訴求**
    - 「言語間の整合性問題を理解し、構造的に解決する設計力」を ADR + 実装で示せる
@@ -87,7 +87,7 @@ packages/shared-types/
 ### 得られるもの
 - 3 言語間の型整合性を**構造的に保証**（食い違いバグの温床を排除）
 - スキーマ変更が 1 箇所、生成で全言語が自動追従
-- Phase 7 で Python を追加する際のコスト最小化（既存 schema をそのまま流用）
+- R7 で Python を追加する際のコスト最小化（既存 schema をそのまま流用）
 - ランタイムバリデーション（Zod / Pydantic）が同じスキーマで実現
 - API 仕様書（OpenAPI）への変換も容易（JSON Schema → OpenAPI コンポーネント）
 - 「言語間の整合性問題を理解し、解決する設計力」をポートフォリオで語れる
@@ -107,5 +107,5 @@ packages/shared-types/
 
 - [01-data-model.md: ジョブペイロードのスキーマ](../requirements/3-cross-cutting/01-data-model.md)
 - [05-runtime-stack.md: 共有型・スキーマ](../requirements/2-foundation/05-runtime-stack.md)
-- [ADR 0010: 言語の段階導入](./0010-phased-language-introduction.md)
-- [ADR 0012: モノレポツール](./0012-turborepo-pnpm-monorepo.md)
+- [ADR 0003: 言語の段階導入](./0003-phased-language-introduction.md)
+- [ADR 0023: モノレポツール](./0023-turborepo-pnpm-monorepo.md)

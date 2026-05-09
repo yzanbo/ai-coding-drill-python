@@ -4,7 +4,7 @@
 
 R0 現状はまだ消費者（`apps/*`）が存在しないため、本パッケージは `package.json` のみ・**設定ファイルは未投入**。R1 で apps を追加する際に `tsconfig/base.json` 等を投入する。
 
-設計判断の根拠：[ADR 0013](../../docs/adr/0013-biome-for-tooling.md)「`packages/config/` の責務は**多消費者前提の shared config（tsconfig）専用**に絞る。Biome 等の単一インスタンスで完結するツールはルート直接配置とする」
+設計判断の根拠：[ADR 0018](../../docs/adr/0018-biome-for-tooling.md)「`packages/config/` の責務は**多消費者前提の shared config（tsconfig）専用**に絞る。Biome 等の単一インスタンスで完結するツールはルート直接配置とする」
 
 - パッケージ名：`@ai-coding-drill/config`
 - npm 公開しない（`"private": true`）
@@ -40,11 +40,11 @@ R0 現状はまだ消費者（`apps/*`）が存在しないため、本パッケ
 
 | ファイル | ツール | ルート固定の理由 |
 |---|---|---|
-| `biome.jsonc` | Biome | monorepo native（v2 以降）で 1 root config + `overrides` で完結 → [ADR 0013](../../docs/adr/0013-biome-for-tooling.md) |
+| `biome.jsonc` | Biome | monorepo native（v2 以降）で 1 root config + `overrides` で完結 → [ADR 0018](../../docs/adr/0018-biome-for-tooling.md) |
 | `turbo.jsonc` | Turborepo | モノレポ全体のオーケストレータ、root 固定 |
 | `lefthook.yml` | lefthook | Git フックは repo-global、1 つしか持てない |
 | `commitlint.config.ts` | commitlint | commit 単位の検証、root 固定 |
-| `.syncpackrc.ts` | syncpack | 全 `package.json` を再帰スキャンする横断ツール → [ADR 0029](../../docs/adr/0029-syncpack-package-json-consistency.md) |
+| `.syncpackrc.ts` | syncpack | 全 `package.json` を再帰スキャンする横断ツール → [ADR 0024](../../docs/adr/0024-syncpack-package-json-consistency.md) |
 | `tsconfig.json`（ルート） | TypeScript | `tsc --noEmit -p tsconfig.json` のエントリ（中身は将来 `packages/config/tsconfig/base.json` を `extends` する想定） |
 | `pnpm-workspace.yaml` | pnpm | workspace 定義、root 固定 |
 
@@ -58,7 +58,7 @@ R0 現状はまだ消費者（`apps/*`）が存在しないため、本パッケ
 
 - 標準的な Layer 2 住人である **tsconfig は消費者（`apps/*`）が R0 時点で存在しない**ため、未投入
 - **Vitest は R2 以降の導入予定**のため、未投入
-- 「**ハコだけ先に置けば、消費者が現れた時に追加するだけで済む**」という設計（[ADR 0018](../../docs/adr/0018-phase-0-tooling-discipline.md) の系譜）
+- 「**ハコだけ先に置けば、消費者が現れた時に追加するだけで済む**」という設計（[ADR 0021](../../docs/adr/0021-r0-tooling-discipline.md) の系譜）
 
 R1 で `apps/*` が追加されたタイミングで `tsconfig/base.json` を投入するのが第一歩。
 
@@ -95,7 +95,7 @@ R1 で `apps/*` が追加されたタイミングで `tsconfig/base.json` を投
 
 | トリガー事象 | 切り出し候補 |
 |---|---|
-| Biome の `overrides` で per-workspace ルール差を表現できなくなった（[ADR 0013](../../docs/adr/0013-biome-for-tooling.md) L99 の「workspace 固有上書きが 3 つ以上」相当） | `biome/base.jsonc`（ルートから base 部分を切り出し、workspace 側は extends） |
+| Biome の `overrides` で per-workspace ルール差を表現できなくなった（[ADR 0018](../../docs/adr/0018-biome-for-tooling.md) L99 の「workspace 固有上書きが 3 つ以上」相当） | `biome/base.jsonc`（ルートから base 部分を切り出し、workspace 側は extends） |
 
 **採用しないトリガー**：
 
@@ -117,7 +117,7 @@ R1 で `apps/*` が追加されたタイミングで `tsconfig/base.json` を投
 
 ### 設定ファイル形式
 
-[ADR 0028: 設定ファイル形式の選定方針](../../docs/adr/0028-config-file-format-priority.md) に従い、自由選択時は **TS > JSONC > YAML** の優先順位：
+[ADR 0022: 設定ファイル形式の選定方針](../../docs/adr/0022-config-file-format-priority.md) に従い、自由選択時は **TS > JSONC > YAML** の優先順位：
 
 - 型 export があるツール（Vitest 等）→ `.ts` でフィールド typo を保存時に弾く
 - 純データ設定（tsconfig 等）→ JSONC（コメント可）
@@ -164,7 +164,7 @@ R1 で `apps/*` が追加されたタイミングで `tsconfig/base.json` を投
 }
 ```
 
-`workspace:*` プロトコルでローカル参照を強制（→ [ADR 0029](../../docs/adr/0029-syncpack-package-json-consistency.md)、syncpack で機械検証）。
+`workspace:*` プロトコルでローカル参照を強制（→ [ADR 0024](../../docs/adr/0024-syncpack-package-json-consistency.md)、syncpack で機械検証）。
 
 ### tsconfig の extends
 
@@ -202,10 +202,10 @@ R1 で `apps/*` が追加されたタイミングで `tsconfig/base.json` を投
 
 ## 関連ドキュメント
 
-- [ADR 0013: Biome を採用](../../docs/adr/0013-biome-for-tooling.md)：「ルート直接配置 / 必要時 packages/config に切り出す **2 層構造**」を定めた本パッケージの根拠
-- [ADR 0012: Turborepo + pnpm workspaces](../../docs/adr/0012-turborepo-pnpm-monorepo.md)：モノレポ構造（本パッケージの位置づけの基盤）
-- [ADR 0018: 補完ツールを R0 から導入](../../docs/adr/0018-phase-0-tooling-discipline.md)：「ハコだけ先に置く」設計の系譜
-- [ADR 0028: 設定ファイル形式の選定方針](../../docs/adr/0028-config-file-format-priority.md)：TS > JSONC > YAML の優先順位（切り出し時の選定基準）
-- [ADR 0029: syncpack で package.json 整合性を機械強制](../../docs/adr/0029-syncpack-package-json-consistency.md)：`workspace:*` プロトコル強制
+- [ADR 0018: Biome を採用](../../docs/adr/0018-biome-for-tooling.md)：「ルート直接配置 / 必要時 packages/config に切り出す **2 層構造**」を定めた本パッケージの根拠
+- [ADR 0023: Turborepo + pnpm workspaces](../../docs/adr/0023-turborepo-pnpm-monorepo.md)：モノレポ構造（本パッケージの位置づけの基盤）
+- [ADR 0021: 補完ツールを R0 から導入](../../docs/adr/0021-r0-tooling-discipline.md)：「ハコだけ先に置く」設計の系譜
+- [ADR 0022: 設定ファイル形式の選定方針](../../docs/adr/0022-config-file-format-priority.md)：TS > JSONC > YAML の優先順位（切り出し時の選定基準）
+- [ADR 0024: syncpack で package.json 整合性を機械強制](../../docs/adr/0024-syncpack-package-json-consistency.md)：`workspace:*` プロトコル強制
 - [docs/requirements/2-foundation/06-dev-workflow.md](../../docs/requirements/2-foundation/06-dev-workflow.md)：開発フロー全体での本パッケージの位置づけ
 - [プロジェクトルート CLAUDE.md](../../.claude/CLAUDE.md)：プロジェクト全体のガイダンス

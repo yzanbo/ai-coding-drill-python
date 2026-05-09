@@ -45,7 +45,7 @@ flowchart TB
 - 実線 = 同期 HTTP / SQL、点線 = 非同期通知（LISTEN/NOTIFY）または最初の HTTPS リクエスト経路
 - 青 = ストア、緑 = コンピュート、橙 = エッジ
 - `★` 注記は配置種別を示す（マネージドサービス / 単一 VM 等）
-- `jobs ★（ジョブキュー兼任）` は Postgres 内のテーブルでありながらジョブキューを兼任（→ [ADR 0001](docs/adr/0001-postgres-as-job-queue.md)）
+- `jobs ★（ジョブキュー兼任）` は Postgres 内のテーブルでありながらジョブキューを兼任（→ [ADR 0004](docs/adr/0004-postgres-as-job-queue.md)）
 
 ---
 

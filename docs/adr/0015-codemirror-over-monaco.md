@@ -1,4 +1,4 @@
-# 0003. コードエディタに CodeMirror 6 を採用（Monaco Editor 不採用）
+# 0015. コードエディタに CodeMirror 6 を採用（Monaco Editor 不採用）
 
 - **Status**: Accepted
 - **Date**: 2026-04-25

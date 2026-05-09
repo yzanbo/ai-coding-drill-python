@@ -42,12 +42,12 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 
 [02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md) と [docs/adr/](../../../docs/adr/) の代表的な ADR を紹介：
 
-- [ADR 0001: Postgres ジョブキュー](../../../docs/adr/0001-postgres-as-job-queue.md) — なぜ Redis Streams ではないか
-- [ADR 0003: CodeMirror 6 採用](../../../docs/adr/0003-codemirror-over-monaco.md) — なぜ Monaco ではないか
-- [ADR 0005: Go 採点ワーカー](../../../docs/adr/0005-go-for-grading-worker.md) — なぜ Node ではないか
-- [ADR 0008: 使い捨てコンテナ](../../../docs/adr/0008-disposable-sandbox-container.md) — なぜウォームプールではないか
-- [ADR 0011: LLM プロバイダ抽象化](../../../docs/adr/0011-llm-provider-abstraction.md) — なぜ特定モデルに固定しないか
-- [ADR 0014: JSON Schema を SSoT](../../../docs/adr/0014-json-schema-as-single-source-of-truth.md) — 多言語間の型整合性
+- [ADR 0004: Postgres ジョブキュー](../../../docs/adr/0004-postgres-as-job-queue.md) — なぜ Redis Streams ではないか
+- [ADR 0015: CodeMirror 6 採用](../../../docs/adr/0015-codemirror-over-monaco.md) — なぜ Monaco ではないか
+- [ADR 0016: Go 採点ワーカー](../../../docs/adr/0016-go-for-grading-worker.md) — なぜ Node ではないか
+- [ADR 0009: 使い捨てコンテナ](../../../docs/adr/0009-disposable-sandbox-container.md) — なぜウォームプールではないか
+- [ADR 0007: LLM プロバイダ抽象化](../../../docs/adr/0007-llm-provider-abstraction.md) — なぜ特定モデルに固定しないか
+- [ADR 0006: JSON Schema を SSoT](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md) — 多言語間の型整合性
 
 担当領域に応じて、特に関わりの深い ADR を重点的に紹介する。
 
@@ -55,7 +55,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 
 [01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md) の ER 図をもとに：
 
-- `users` + `auth_providers`（プロバイダ非依存設計、→ [ADR 0015](../../../docs/adr/0015-github-oauth-with-extensible-design.md)）
+- `users` + `auth_providers`（プロバイダ非依存設計、→ [ADR 0011](../../../docs/adr/0011-github-oauth-with-extensible-design.md)）
 - `problems`（カテゴリ・難易度・テストケース・模範解答・LLM Judge スコア）
 - `submissions`（ユーザー解答、採点結果）
 - `generation_requests`（問題生成の非同期リクエスト）

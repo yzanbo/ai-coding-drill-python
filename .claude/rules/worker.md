@@ -5,7 +5,7 @@ paths:
 
 # 採点ワーカー開発ルール（Go）
 
-採点ワーカーは Go で実装する独立プロセス。Postgres `jobs` テーブルからジョブを取得し、Docker でサンドボックス採点を実行する。詳細な選定理由は [ADR 0005](../../docs/adr/0005-go-for-grading-worker.md)。
+採点ワーカーは Go で実装する独立プロセス。Postgres `jobs` テーブルからジョブを取得し、Docker でサンドボックス採点を実行する。詳細な選定理由は [ADR 0016](../../docs/adr/0016-go-for-grading-worker.md)。
 
 ## モジュール構成
 
@@ -203,7 +203,7 @@ slog.InfoContext(ctx, "job claimed",
 
 ### コードスタイル
 
-- `gofmt` でフォーマット、`golangci-lint` でリント（→ [ADR 0020](../../docs/adr/0020-go-code-quality.md)）
+- `gofmt` でフォーマット、`golangci-lint` でリント（→ [ADR 0019](../../docs/adr/0019-go-code-quality.md)）
 - `golangci-lint` の有効リンター：`errcheck`, `govet`, `staticcheck`, `ineffassign`, `unused`, `gofumpt`, `gosec`
 - 命名：パッケージは小文字 1 単語、エクスポートは `PascalCase`、内部は `camelCase`
 - インターフェースは小さく分割、`io.Reader` 級の単一メソッドが理想

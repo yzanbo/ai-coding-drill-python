@@ -1,4 +1,4 @@
-# 0013. TypeScript のコード品質ツールに Biome を採用し、設定はリポジトリルートに直接配置する
+# 0018. TypeScript のコード品質ツールに Biome を採用し、設定はリポジトリルートに直接配置する
 
 - **Status**: Accepted
 - **Date**: 2026-04-25
@@ -10,14 +10,14 @@ TypeScript のリンタ・フォーマッタ選定と、モノレポにおける
 
 - TypeScript は本プロジェクトの主言語（フロント / バックエンドの 2 アプリ + 共有パッケージ群）
 - ESLint + Prettier の組み合わせは設定ファイル乱立・実行速度・依存ツリーの肥大化が常態化している
-- モノレポ規模：MVP で 5〜10 パッケージ、Phase 7 で 8〜12 パッケージ
+- モノレポ規模：MVP で 5〜10 パッケージ、R7 で 8〜12 パッケージ
 - CI 時間を抑えたい
 - 「3 言語に等価な品質ゲートを設計した」と語れる構成にしたい（Go / Python の同様 ADR は別ファイル）
 
 関連：
 
-- Go の品質ツール → [ADR 0020](./0020-go-code-quality.md)
-- Python の品質ツール → [ADR 0021](./0021-python-code-quality.md)
+- Go の品質ツール → [ADR 0019](./0019-go-code-quality.md)
+- Python の品質ツール → [ADR 0020](./0020-python-code-quality.md)
 
 ## Decision（決定内容）
 
@@ -100,10 +100,10 @@ TypeScript のリンタ・フォーマッタ選定と、モノレポにおける
 
 ## References
 
-- [05-runtime-stack.md: コード品質ツール](../requirements/2-foundation/05-runtime-stack.md)
-- [ADR 0020: Go のコード品質ツール](./0020-go-code-quality.md)
-- [ADR 0021: Python のコード品質ツール](./0021-python-code-quality.md)
-- [ADR 0018: Phase 0 ツール導入規律](./0018-phase-0-tooling-discipline.md)
+- [06-dev-workflow.md: コード品質ツール](../requirements/2-foundation/06-dev-workflow.md#コード品質ツール)
+- [ADR 0019: Go のコード品質ツール](./0019-go-code-quality.md)
+- [ADR 0020: Python のコード品質ツール](./0020-python-code-quality.md)
+- [ADR 0021: R0 ツール導入規律](./0021-r0-tooling-discipline.md)
 - [biome.jsonc](../../biome.jsonc) — 統合後の設定本体
 - [turbo.jsonc](../../turbo.jsonc) — lint / format を Turbo 非経由とする方針コメント
 - [Biome 公式](https://biomejs.dev/)

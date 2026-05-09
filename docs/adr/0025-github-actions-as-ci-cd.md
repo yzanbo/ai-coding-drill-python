@@ -1,4 +1,4 @@
-# 0023. CI/CD ツールに GitHub Actions を採用
+# 0025. CI/CD ツールに GitHub Actions を採用
 
 - **Status**: Accepted
 - **Date**: 2026-05-05
@@ -6,7 +6,7 @@
 
 ## Context（背景・課題）
 
-[ADR 0022](./0022-github-actions-incremental-scope.md) で「CI のスコープを段階拡張する」という方針は決めたが、**そもそもどの CI/CD ツールを採用するか** という選定判断自体は明文化されていない。
+[ADR 0026](./0026-github-actions-incremental-scope.md) で「CI のスコープを段階拡張する」という方針は決めたが、**そもそもどの CI/CD ツールを採用するか** という選定判断自体は明文化されていない。
 
 CI/CD ツールは大きく以下の三類型に分かれる：
 
@@ -26,7 +26,7 @@ CI/CD ツールは大きく以下の三類型に分かれる：
 
 **CI/CD ツールに GitHub Actions を採用する。** デプロイ（CD）部分も当面は GitHub Actions 上で完結させる。
 
-- ワークフローは `.github/workflows/` 配下に配置し、SSoT は `ci.yml`（[ADR 0022](./0022-github-actions-incremental-scope.md)）
+- ワークフローは `.github/workflows/` 配下に配置し、SSoT は `ci.yml`（[ADR 0026](./0026-github-actions-incremental-scope.md)）
 - ランナーは `ubuntu-latest`（GitHub-hosted）を既定とする
 - AWS への認証は `aws-actions/configure-aws-credentials` で OIDC を使う（長期 IAM キーをシークレットに保存しない）
 - 個別領域で専用ツールに切り出す可能性は将来再評価する（下記「将来の見直しトリガー」）
@@ -54,7 +54,7 @@ CI/CD ツールは大きく以下の三類型に分かれる：
 | **Earthly Cloud** | 独立 SaaS | `Earthfile` でビルドを宣言、ローカルと CI で同じスクリプト | ビルド再現性は魅力だが、本プロジェクト規模では学習コストが上回る。R3 以降にビルド再現性が課題化したら再評価 |
 | **Dagger** | パイプライン記述基盤 | コードでパイプラインを書く（SDK 経由）、CI ツール非依存 | 概念的には正しい方向だが、現時点では学習コストと採用事例の薄さが上回る |
 | **Jenkins** | セルフホスト OSS | プラグイン資産膨大、何でもできる | サーバ運用負荷が個人規模に見合わない。プラグイン更新追従コストも高い |
-| **Tekton / Argo Workflows** | セルフホスト OSS | k8s ネイティブ | k8s クラスタを採用していない（[ADR 0008](./0008-disposable-sandbox-container.md) では ECS/Fargate 想定）ので前提が成り立たない |
+| **Tekton / Argo Workflows** | セルフホスト OSS | k8s ネイティブ | k8s クラスタを採用していない（[05-runtime-stack: デプロイ先](../requirements/2-foundation/05-runtime-stack.md#デプロイ先) では Backend API を ECS Fargate、採点ワーカーを EC2 で運用）ので前提が成り立たない |
 | **GitHub Actions Self-hosted Runner** | セルフホスト | Actions の YAML のまま、ランナーだけ自前 | 無料枠超過の兆候はなく、現時点では運用負荷を負う理由がない |
 | **AWS CodePipeline / CodeDeploy（CD のみ切り出し）** | クラウドネイティブ | AWS への ECS / Lambda デプロイ統合 | Actions の `aws-actions/*` でほぼ同等のことが可能。ツール 2 本に分ける運用負荷の方が大きい |
 | **Terraform Cloud / Atlantis（CD のうち IaC のみ切り出し）** | IaC 専用 | plan/apply の承認フロー、状態管理 | R3 以降 `infra/` 着手時に再評価する。R0〜R2 の段階で先取りで導入する理由がない |
@@ -87,8 +87,8 @@ CI/CD ツールは大きく以下の三類型に分かれる：
 ## References
 
 - [ADR 0002](./0002-aws-single-cloud.md)：AWS 単独クラウドの前提
-- [ADR 0018](./0018-phase-0-tooling-discipline.md)：補完ツールを R0 から導入
-- [ADR 0022](./0022-github-actions-incremental-scope.md)：CI スコープの段階拡張方針（本 ADR の前提）
+- [ADR 0021](./0021-r0-tooling-discipline.md)：補完ツールを R0 から導入
+- [ADR 0026](./0026-github-actions-incremental-scope.md)：CI スコープの段階拡張方針（本 ADR の前提）
 - [.github/workflows/ci.yml](../../.github/workflows/ci.yml)：本 ADR の実装
 - [GitHub Actions の料金体系](https://docs.github.com/ja/billing/managing-billing-for-your-products/managing-billing-for-github-actions/about-billing-for-github-actions)
 - [`aws-actions/configure-aws-credentials`（OIDC 連携）](https://github.com/aws-actions/configure-aws-credentials)

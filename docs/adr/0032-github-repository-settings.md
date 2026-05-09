@@ -1,8 +1,8 @@
-# 0031. GitHub リポジトリ設定の方針
+# 0032. GitHub リポジトリ設定の方針
 
 - **Status**: Accepted
 - **Date**: 2026-05-06
-- **Decision-makers**: yzanbo
+- **Decision-makers**: 神保 陽平
 
 ## Context（背景・課題）
 
@@ -23,10 +23,10 @@
 
 GitHub リポジトリ設定で**デフォルトから変更している項目**を 5 つの領域で構成する。各設定の値（What）は [07-github-settings.md](../requirements/2-foundation/07-github-settings.md) を参照、選定理由は次節 [Why](#why採用理由) に集約する。
 
-1. **ブランチ保護**：Repository ruleset `protect-main` を main 単独に新規作成。`deletion` / `non_fast_forward` / `pull_request` / `required_status_checks` の 4 ルール、bypass_actors は空。詳細仕様と判断経緯は [ADR 0030](./0030-ci-success-umbrella-job.md) に集約
+1. **ブランチ保護**：Repository ruleset `protect-main` を main 単独に新規作成。`deletion` / `non_fast_forward` / `pull_request` / `required_status_checks` の 4 ルール、bypass_actors は空。詳細仕様と判断経緯は [ADR 0031](./0031-ci-success-umbrella-job.md) に集約
 2. **Pull Request / マージ動作**：auto-merge / Always suggest update / Auto delete head branches を有効化
 3. **GitHub Actions**：`default_workflow_permissions: read`（最小権限）
-4. **Security（Dependabot）**：alerts / security updates を有効化（version updates は [ADR 0024](./0024-dependabot-auto-update-policy.md) で別途規定）
+4. **Security（Dependabot）**：alerts / security updates を有効化（version updates は [ADR 0028](./0028-dependabot-auto-update-policy.md) で別途規定）
 5. **Features**：Wiki を無効化
 
 ## Why（採用理由）
@@ -39,7 +39,7 @@ GitHub リポジトリ設定で**デフォルトから変更している項目**
 
 ### 1. ブランチ保護
 
-詳細は [ADR 0030](./0030-ci-success-umbrella-job.md) に集約。本 ADR の文脈では「main への直接 push / force-push / 削除 / CI 失敗マージのいずれも機械的に阻止される」状態が確立していることを確認するに留める。
+詳細は [ADR 0031](./0031-ci-success-umbrella-job.md) に集約。本 ADR の文脈では「main への直接 push / force-push / 削除 / CI 失敗マージのいずれも機械的に阻止される」状態が確立していることを確認するに留める。
 
 ### 2. Pull Request / マージ動作
 
@@ -54,7 +54,7 @@ GitHub リポジトリ設定で**デフォルトから変更している項目**
 ### 4. Security（Dependabot）
 
 - **alerts / security updates をともに有効化**：public リポジトリで脆弱性を放置することはリスクとリピュテーションの両面で割に合わない。alerts は通知を出すだけ、security updates はそれに対する修正 PR を自動生成。両者は依存関係で、alerts なしでは security updates も動かない
-- **version updates は ADR 0024 で導入済み**。本 ADR ではその前提で「3 機能の役割が直交していること」と「`.github/dependabot.yml` の `commit-message` / `labels` / `groups` / `ignore` が security updates にも継承されること」を再確認する
+- **version updates は ADR 0028 で導入済み**。本 ADR ではその前提で「3 機能の役割が直交していること」と「`.github/dependabot.yml` の `commit-message` / `labels` / `groups` / `ignore` が security updates にも継承されること」を再確認する
 
 ### 5. Features
 
@@ -100,7 +100,7 @@ GitHub リポジトリ設定で**デフォルトから変更している項目**
 
 | 候補 | 概要 | 採用しなかった理由 |
 |---|---|---|
-| H. `allowed_actions` を許可リスト方式に絞る | サードパーティアクションを限定 | Dependabot の自動 PR が許可リスト外で止まり、運用が回らなくなる。SHA ピン止め（[ADR 0026](./0026-github-actions-sha-pinning.md)）と PR レビューで攻撃面を担保する方針 |
+| H. `allowed_actions` を許可リスト方式に絞る | サードパーティアクションを限定 | Dependabot の自動 PR が許可リスト外で止まり、運用が回らなくなる。SHA ピン止め（[ADR 0027](./0027-github-actions-sha-pinning.md)）と PR レビューで攻撃面を担保する方針 |
 | I. `sha_pinning_required` をサーバー側で強制 | SHA ピン止めの形式チェックを機械化 | Dependabot の自動 PR が SHA 形式チェックに引っかかって壊れる可能性がある。慣習を PR レビューで担保 |
 
 ### DCO 署名強制 / Private vulnerability reporting
@@ -116,7 +116,7 @@ GitHub リポジトリ設定で**デフォルトから変更している項目**
 
 - リポジトリ設定の現状（What）と理由（Why）が要件定義書 + ADR の 2 層で参照可能になる
 - 設定項目の漏れ・退行に対するチェックリストが揃う
-- 1 人運用 → 複数人運用移行時の見直し範囲が明確（本 ADR と [ADR 0030](./0030-ci-success-umbrella-job.md) の Alternatives / 見直しトリガー）
+- 1 人運用 → 複数人運用移行時の見直し範囲が明確（本 ADR と [ADR 0031](./0031-ci-success-umbrella-job.md) の Alternatives / 見直しトリガー）
 - 機械強制で守られる主要シナリオ：
   - main 直接 push 阻止（Ruleset `pull_request`）
   - main force-push 阻止（Ruleset `non_fast_forward`）
@@ -141,10 +141,10 @@ GitHub リポジトリ設定で**デフォルトから変更している項目**
 ## References
 
 - [07-github-settings.md](../requirements/2-foundation/07-github-settings.md) — GitHub 設定の現行仕様（What）
-- [ADR 0024: Dependabot 自動更新ポリシー](./0024-dependabot-auto-update-policy.md)
-- [ADR 0025: コミット scope 規約](./0025-commit-scope-convention.md)
-- [ADR 0026: GitHub Actions のサードパーティアクションを SHA でピン止め](./0026-github-actions-sha-pinning.md)
-- [ADR 0030: ci-success umbrella job で Required status checks を 1 本化](./0030-ci-success-umbrella-job.md)
+- [ADR 0028: Dependabot 自動更新ポリシー](./0028-dependabot-auto-update-policy.md)
+- [ADR 0029: コミット scope 規約](./0029-commit-scope-convention.md)
+- [ADR 0027: GitHub Actions のサードパーティアクションを SHA でピン止め](./0027-github-actions-sha-pinning.md)
+- [ADR 0031: ci-success umbrella job で Required status checks を 1 本化](./0031-ci-success-umbrella-job.md)
 - [GitHub Docs - About rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)
 - [GitHub Docs - About Dependabot alerts](https://docs.github.com/en/code-security/dependabot/dependabot-alerts/about-dependabot-alerts)
 - [GitHub Docs - Managing security and analysis settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-security-and-analysis-settings-for-your-repository)

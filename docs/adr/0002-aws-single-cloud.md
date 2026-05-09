@@ -10,7 +10,7 @@
 
 - 就活ターゲットは国内 Web 系・AI 系の中堅〜大手
 - ポートフォリオで「動くこと」「設計判断ができること」を見せたい
-- 月額コストは $30 以内に抑えたい
+- 月額コストは $30 以内に抑えたい（コスト目標とコンポーネント別内訳の SSoT は [01-non-functional.md: コスト](../requirements/2-foundation/01-non-functional.md#コスト)）
 - マルチクラウド構成にも興味があった
 
 ## Decision（決定内容）
@@ -31,7 +31,7 @@
 4. **エコシステム・情報量の優位**
    - Terraform モジュール・Claude Code のサポート・公式ドキュメントが AWS で最も厚い
    - トラブル時の調査コストが最小
-5. **Phase 7 での部分併用余地は残す**
+5. **R7 での部分併用余地は残す**
    - Vertex AI / BigQuery が必要になった場合は「その範囲だけ GCP」と限定すれば、原則と整合した拡張が可能
    - 最初から二系統に分けるより、必要箇所だけ追加する方が判断順序として健全
 
@@ -43,7 +43,7 @@
 | GCP 単独 | Cloud Run の scale-to-zero でコスト優位 | 求人での評価が AWS より一段低い、既知度が低い |
 | AWS + GCP ハイブリッド（役割分担あり） | 各クラウドの強みを使い分け | 役割分担が明確でないと「無理に複雑にした」と見られる、egress コスト発生、IAM/Terraform/CI が 2 系統 |
 | AWS + GCP ハイブリッド（無秩序分散） | DB は GCP、API は AWS 等 | 設計判断の意図が薄い、最も避けるべき構成 |
-| Vercel + Fly.io + Supabase 等の SaaS 寄せ集め | 各 SaaS の無料枠で運用 | クラウド選定の見せ場が薄い、IAM/IaC の練習機会が減る |
+| Vercel + Fly.io + Supabase 等の SaaS 寄せ集め | 各 SaaS の無料枠で運用 | クラウド選定の見せ場が薄い、IAM/IaC の練習機会が減る（コアの設計判断は AWS で行いつつ、Frontend / Redis のみ無料枠 SaaS を活用する判断は別途 [ADR 0012](./0012-upstash-redis-over-elasticache.md) / [ADR 0013](./0013-vercel-for-frontend-hosting.md) で正当化） |
 
 ## Consequences（結果・トレードオフ）
 
@@ -57,9 +57,10 @@
 - GCP 固有のサービス（Cloud Run scale-to-zero、Vertex AI、BigQuery）を直接触る経験が得られない
 - ベンダーロックインの一定の受容
 - AWS の最小構成では Cloud Run のような完全な scale-to-zero が難しく、多少の固定費が発生
+- **「AWS 単独」の原則は維持しつつ、適合性とコスト効率の観点から個別に正当化された逸脱を 2 つ受け入れている**：Redis ホスティングの Upstash（[ADR 0012](./0012-upstash-redis-over-elasticache.md)）と Frontend ホスティングの Vercel（[ADR 0013](./0013-vercel-for-frontend-hosting.md)）。Backend API / 採点ワーカー / DB / IAM / 観測性のコア設計はすべて AWS 上で完結している
 
 ### 将来の見直しトリガー
-- Phase 7（Python 評価・分析パイプライン）で GCP の Vertex AI / BigQuery を活用したくなった場合は、その範囲だけ GCP を併用する余地を残す
+- R7（Python 評価・分析パイプライン）で GCP の Vertex AI / BigQuery を活用したくなった場合は、その範囲だけ GCP を併用する余地を残す
 - AWS の特定サービスでコストが大幅に膨らんだ場合
 
 ## References

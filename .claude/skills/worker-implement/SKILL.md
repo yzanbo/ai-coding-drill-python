@@ -14,7 +14,7 @@ argument-hint: "[feature-name] (例: grading, regrading)"
 
 - 機能要件：`docs/requirements/4-features/$ARGUMENTS.md`
 - ベース要件：[02-architecture.md: ジョブキュー](../../../docs/requirements/2-foundation/02-architecture.md#ジョブキューpostgres-select-for-update-skip-locked)、[01-data-model.md: jobs テーブル](../../../docs/requirements/3-cross-cutting/01-data-model.md)
-- 関連 ADR：[ADR 0001](../../../docs/adr/0001-postgres-as-job-queue.md)、[ADR 0005](../../../docs/adr/0005-go-for-grading-worker.md)、[ADR 0008](../../../docs/adr/0008-disposable-sandbox-container.md)
+- 関連 ADR：[ADR 0004](../../../docs/adr/0004-postgres-as-job-queue.md)、[ADR 0016](../../../docs/adr/0016-go-for-grading-worker.md)、[ADR 0009](../../../docs/adr/0009-disposable-sandbox-container.md)
 - ワーカールール：[.claude/rules/worker.md](../../rules/worker.md)
 - 共有スキーマ：`packages/shared-types/schemas/job.schema.json`
 
@@ -79,7 +79,7 @@ argument-hint: "[feature-name] (例: grading, regrading)"
 - 新規ジョブペイロード型 → `packages/shared-types/schemas/job.schema.json` を拡張
 - `pnpm shared-types:generate` で Go 型再生成（`internal/schema/`）
 - TS 側（NestJS Producer）の Zod 型も自動再生成される
-- 詳細は [ADR 0014](../../../docs/adr/0014-json-schema-as-single-source-of-truth.md)
+- 詳細は [ADR 0006](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md)
 
 ### 6. サンドボックスイメージ変更時
 

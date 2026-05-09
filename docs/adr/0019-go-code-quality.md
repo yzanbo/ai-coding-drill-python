@@ -1,4 +1,4 @@
-# 0020. Go のコード品質ツールに gofmt + golangci-lint を採用
+# 0019. Go のコード品質ツールに gofmt + golangci-lint を採用
 
 - **Status**: Accepted
 - **Date**: 2026-04-25
@@ -6,7 +6,7 @@
 
 ## Context（背景・課題）
 
-採点ワーカーを Go で実装する（→ [ADR 0005](./0005-go-for-grading-worker.md)）にあたり、Go 側のコード品質ツール（フォーマット・lint・型チェック）を決める必要がある。
+採点ワーカーを Go で実装する（→ [ADR 0016](./0016-go-for-grading-worker.md)）にあたり、Go 側のコード品質ツール（フォーマット・lint・型チェック）を決める必要がある。
 
 - Go は本プロジェクトで採点ワーカーに使う言語
 - 「3 言語に等価な品質ゲートを設計した」と語れる構成にしたい
@@ -15,8 +15,8 @@
 
 関連：
 
-- TS の品質ツール → [ADR 0013](./0013-biome-for-tooling.md)
-- Python の品質ツール → [ADR 0021](./0021-python-code-quality.md)
+- TS の品質ツール → [ADR 0018](./0018-biome-for-tooling.md)
+- Python の品質ツール → [ADR 0020](./0020-python-code-quality.md)
 
 ## Decision（決定内容）
 
@@ -73,11 +73,11 @@
 
 ## References
 
-- [05-runtime-stack.md: コード品質ツール](../requirements/2-foundation/05-runtime-stack.md)
-- [ADR 0013: TypeScript のコード品質ツール](./0013-biome-for-tooling.md)
-- [ADR 0021: Python のコード品質ツール](./0021-python-code-quality.md)
-- [ADR 0005: 採点ワーカーを Go で実装](./0005-go-for-grading-worker.md)
-- [ADR 0018: Phase 0 ツール導入規律](./0018-phase-0-tooling-discipline.md)
+- [06-dev-workflow.md: コード品質ツール](../requirements/2-foundation/06-dev-workflow.md#コード品質ツール)
+- [ADR 0018: TypeScript のコード品質ツール](./0018-biome-for-tooling.md)
+- [ADR 0020: Python のコード品質ツール](./0020-python-code-quality.md)
+- [ADR 0016: 採点ワーカーを Go で実装](./0016-go-for-grading-worker.md)
+- [ADR 0021: R0 ツール導入規律](./0021-r0-tooling-discipline.md)
 - [golangci-lint 公式](https://golangci-lint.run/)
 - [gofmt 公式](https://pkg.go.dev/cmd/gofmt)
 - [govulncheck 公式](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck)

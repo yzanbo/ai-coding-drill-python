@@ -89,7 +89,7 @@ export class AppModule {}
 5. **共有スキーマ（JSON Schema）が必要な場合**：
    - `packages/shared-types/schemas/$ARGUMENTS.schema.json` 追加
    - `pnpm shared-types:generate` で型再生成
-   - 詳細は [ADR 0014](../../../docs/adr/0014-json-schema-as-single-source-of-truth.md)
+   - 詳細は [ADR 0006](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md)
 
 6. 作成したファイルの一覧をユーザーに提示する
 

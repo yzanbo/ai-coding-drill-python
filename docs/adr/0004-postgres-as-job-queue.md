@@ -1,4 +1,4 @@
-# 0001. ジョブキューに Postgres `SELECT FOR UPDATE SKIP LOCKED` を採用
+# 0004. ジョブキューに Postgres `SELECT FOR UPDATE SKIP LOCKED` を採用
 
 - **Status**: Accepted
 - **Date**: 2026-04-25
@@ -12,7 +12,7 @@
 - Consumer：採点ワーカー（Go）
 - 規模：数百ジョブ/日（ポートフォリオ運用）
 - 制約：TS と Go の両方からネイティブに扱える必要がある（言語ロックインを避ける）
-- コスト目標：月 $0〜10 で運用したい
+- コスト目標：DB 兼ジョブキューは AWS インフラ内訳に含まれる（目安 $0〜10/月、AWS インフラ全体は $10〜15/月。SSoT は [01-non-functional.md: コスト](../requirements/2-foundation/01-non-functional.md#コスト)）
 - 既に Postgres をアプリ DB として採用予定
 
 ## Decision（決定内容）
@@ -36,7 +36,8 @@
 5. **`SKIP LOCKED` + `LISTEN/NOTIFY` の組み合わせで十分な性能**
    - 通常時は `NOTIFY` で即時取得、フォールバックの 30 秒ポーリングで取りこぼしを防ぐ
    - 想定規模（数百ジョブ/日）の 1000 倍以上のスループット余力があり、過剰設計を避けつつ将来余裕も確保
-6. **コスト目標（月 $0〜10）に適合**
+6. **コスト最小化（AWS インフラ内訳の範囲に収まる）**
+   - 既存 RDS の流用で追加サービス費が発生しない
    - マネージドキュー SaaS（Inngest / Trigger.dev）は TS 中心で Go 連携が弱く、ポリグロット訴求も消える
 
 ## Alternatives Considered（検討した代替案）

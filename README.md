@@ -44,10 +44,10 @@
 | 評価したい観点 | 推奨閲覧 |
 |---|---|
 | 設計判断・トレードオフの言語化能力 | [docs/adr/](docs/adr/) — 全 ADR の索引 |
-| アーキテクチャ設計力 | [02-architecture.md](docs/requirements/2-foundation/02-architecture.md) + [ADR 0001](docs/adr/0001-postgres-as-job-queue.md) / [0008](docs/adr/0008-disposable-sandbox-container.md) / [0017](docs/adr/0017-w3c-trace-context-in-job-payload.md) |
-| LLM アプリ設計力 | [03-llm-pipeline.md](docs/requirements/2-foundation/03-llm-pipeline.md) + [ADR 0009](docs/adr/0009-custom-llm-judge.md) / [0011](docs/adr/0011-llm-provider-abstraction.md) |
-| セキュリティ・サンドボックス設計 | [ADR 0008](docs/adr/0008-disposable-sandbox-container.md) + [F-04 自動採点](docs/requirements/4-features/F-04-auto-grading.md) |
-| 観測性設計（分散トレース連携） | [04-observability.md](docs/requirements/2-foundation/04-observability.md) + [ADR 0017](docs/adr/0017-w3c-trace-context-in-job-payload.md) |
+| アーキテクチャ設計力 | [02-architecture.md](docs/requirements/2-foundation/02-architecture.md) + [ADR 0004](docs/adr/0004-postgres-as-job-queue.md) / [0009](docs/adr/0009-disposable-sandbox-container.md) / [0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) |
+| LLM アプリ設計力 | [03-llm-pipeline.md](docs/requirements/2-foundation/03-llm-pipeline.md) + [ADR 0008](docs/adr/0008-custom-llm-judge.md) / [0007](docs/adr/0007-llm-provider-abstraction.md) |
+| セキュリティ・サンドボックス設計 | [ADR 0009](docs/adr/0009-disposable-sandbox-container.md) + [F-04 自動採点](docs/requirements/4-features/F-04-auto-grading.md) |
+| 観測性設計（分散トレース連携） | [04-observability.md](docs/requirements/2-foundation/04-observability.md) + [ADR 0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) |
 | ドキュメント設計力 | [docs/requirements/README.md](docs/requirements/README.md)（5 バケット時系列構造） |
 | アジャイル運用力 | [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md)（DoR / DoD / バックログ / リスクレジスタ） |
 
@@ -59,35 +59,35 @@
 
 1. **LLM 生成 × サンドボックス検証 × 多層品質保証パイプライン**
    生成された問題は、模範解答がサンドボックスで動作することを確認するまで DB に保存されない。「動かないコードが混入する」既存サービスの根本問題を構造的に解決。
-   → 詳細：[03-llm-pipeline.md](docs/requirements/2-foundation/03-llm-pipeline.md) / [ADR 0008](docs/adr/0008-disposable-sandbox-container.md)
+   → 詳細：[03-llm-pipeline.md](docs/requirements/2-foundation/03-llm-pipeline.md) / [ADR 0009](docs/adr/0009-disposable-sandbox-container.md)
 
 2. **品質評価の 4 レイヤ防御**（決定論チェック / LLM-as-a-Judge / ユーザー行動シグナル / 集合的評価）
    ミューテーションテスト・複数モデルによる多軸評価・人間評価との相関分析を組み合わせ、LLM 生成物の品質を継続的に担保。
-   → 詳細：[ADR 0009: LLM-as-a-Judge を自前実装](docs/adr/0009-custom-llm-judge.md)
+   → 詳細：[ADR 0008: LLM-as-a-Judge を自前実装](docs/adr/0008-custom-llm-judge.md)
 
 3. **TypeScript + Go のポリグロット構成**（R7 で Python 追加）
    実装速度（NestJS）・採点ワーカーの軽量並列性（Go）・LLM/評価エコシステム（Python）を、フェーズに応じて適材適所で導入。
-   → 詳細：[ADR 0010: 言語の段階導入](docs/adr/0010-phased-language-introduction.md)
+   → 詳細：[ADR 0003: 言語の段階導入](docs/adr/0003-phased-language-introduction.md)
 
 4. **Postgres ジョブキュー**（`SELECT FOR UPDATE SKIP LOCKED` + `LISTEN/NOTIFY`）
    外部キューミドルウェア不要、解答登録とジョブ登録を同一トランザクションで処理。Outbox パターン回避。
-   → 詳細：[ADR 0001: Postgres をジョブキューに採用](docs/adr/0001-postgres-as-job-queue.md) / [ADR 0006](docs/adr/0006-redis-not-for-job-queue.md)
+   → 詳細：[ADR 0004: Postgres をジョブキューに採用](docs/adr/0004-postgres-as-job-queue.md) / [ADR 0005](docs/adr/0005-redis-not-for-job-queue.md)
 
 5. **使い捨てコンテナによるサンドボックス**（Docker → gVisor → Firecracker の段階強化）
    ジョブごとにコンテナを生成・破棄。前回実行の影響が原理的に残らない強い隔離。
-   → 詳細：[ADR 0008: 使い捨てサンドボックスコンテナ](docs/adr/0008-disposable-sandbox-container.md)
+   → 詳細：[ADR 0009: 使い捨てサンドボックスコンテナ](docs/adr/0009-disposable-sandbox-container.md)
 
 6. **LLM プロバイダ抽象化レイヤ**（Anthropic / Google / OpenAI / OpenRouter を差し替え可能）
    モデル選定はベンチマークに基づき適時更新。「アーキテクチャ判断とモデル選定を分離する」設計原則を実装。
-   → 詳細：[ADR 0011: LLM プロバイダ抽象化戦略](docs/adr/0011-llm-provider-abstraction.md)
+   → 詳細：[ADR 0007: LLM プロバイダ抽象化戦略](docs/adr/0007-llm-provider-abstraction.md)
 
 7. **W3C Trace Context をジョブペイロードに埋め込んだプロセス境界トレース連携**
    NestJS（Producer）→ Postgres → Go ワーカー（Consumer）が単一 trace_id で連結可視化。標準仕様準拠でベンダー非依存。
-   → 詳細：[ADR 0017: W3C Trace Context をジョブペイロードに埋め込む](docs/adr/0017-w3c-trace-context-in-job-payload.md)
+   → 詳細：[ADR 0010: W3C Trace Context をジョブペイロードに埋め込む](docs/adr/0010-w3c-trace-context-in-job-payload.md)
 
 8. **JSON Schema を SSoT とする 3 言語横断型生成**（TS / Go / Python）
    スキーマ変更が 1 箇所で全言語追従。新言語追加コスト最小。
-   → 詳細：[ADR 0014: JSON Schema を SSoT に](docs/adr/0014-json-schema-as-single-source-of-truth.md)
+   → 詳細：[ADR 0006: JSON Schema を SSoT に](docs/adr/0006-json-schema-as-single-source-of-truth.md)
 
 9. **AWS 単独 + IaC（Terraform）+ 観測性（OTel + Grafana + Sentry）**
    コスト最適化（月 $10〜30）・無料枠活用・運用設計まで含めたエンドツーエンドの構成。
@@ -97,61 +97,62 @@
 
 ## 📚 設計判断（ADR）索引
 
-複数案を検討して 1 つを選んだ判断は、すべて [docs/adr/](docs/adr/) に **1 ファイル 1 決定 / Append-only** で記録しています。
+複数案を検討して 1 つを選んだ判断は、すべて [docs/adr/](docs/adr/) に **1 ファイル 1 決定**で記録しています。判断が変わった場合は ADR 本文を直接書き換えて最新状態に保ち、変更経緯は git log で辿ります。
 
 ### 🏗️ アーキテクチャ判断
 
 | ADR | タイトル | キーワード |
 |---|---|---|
-| [0001](docs/adr/0001-postgres-as-job-queue.md) | Postgres をジョブキューに採用 | SKIP LOCKED / LISTEN/NOTIFY / Outbox 不要 |
-| [0006](docs/adr/0006-redis-not-for-job-queue.md) | Redis をジョブキューでは使わない | 役割の明確化 |
-| [0008](docs/adr/0008-disposable-sandbox-container.md) | 使い捨てサンドボックスコンテナ | セキュリティ × スループット |
-| [0009](docs/adr/0009-custom-llm-judge.md) | LLM-as-a-Judge を自前実装 | DeepEval / Ragas 不採用 |
-| [0010](docs/adr/0010-phased-language-introduction.md) | 言語の段階導入（TS+Go → Python） | ポリグロット戦略 |
-| [0011](docs/adr/0011-llm-provider-abstraction.md) | LLM プロバイダ抽象化戦略 | ベンダーロックイン回避 |
-| [0017](docs/adr/0017-w3c-trace-context-in-job-payload.md) | W3C Trace Context をジョブペイロードに埋め込む | プロセス境界トレース連携 |
+| [0004](docs/adr/0004-postgres-as-job-queue.md) | Postgres をジョブキューに採用 | SKIP LOCKED / LISTEN/NOTIFY / Outbox 不要 |
+| [0005](docs/adr/0005-redis-not-for-job-queue.md) | Redis をジョブキューでは使わない | 役割の明確化 |
+| [0009](docs/adr/0009-disposable-sandbox-container.md) | 使い捨てサンドボックスコンテナ | セキュリティ × スループット |
+| [0008](docs/adr/0008-custom-llm-judge.md) | LLM-as-a-Judge を自前実装 | DeepEval / Ragas 不採用 |
+| [0003](docs/adr/0003-phased-language-introduction.md) | 言語の段階導入（TS+Go → Python） | ポリグロット戦略 |
+| [0007](docs/adr/0007-llm-provider-abstraction.md) | LLM プロバイダ抽象化戦略 | ベンダーロックイン回避 |
+| [0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) | W3C Trace Context をジョブペイロードに埋め込む | プロセス境界トレース連携 |
 
 ### 🔧 技術スタック判断
 
 | ADR | タイトル | キーワード |
 |---|---|---|
-| [0003](docs/adr/0003-codemirror-over-monaco.md) | CodeMirror 6 採用（Monaco 不採用） | バンドル軽量化 |
-| [0004](docs/adr/0004-nestjs-for-backend.md) | バックエンドに NestJS 採用 | DI / Module / レイヤード設計 |
-| [0005](docs/adr/0005-go-for-grading-worker.md) | 採点ワーカーを Go で実装 | シングルバイナリ / goroutine |
-| [0015](docs/adr/0015-github-oauth-with-extensible-design.md) | GitHub OAuth + 拡張可能設計 | Strategy パターン |
-| [0016](docs/adr/0016-drizzle-orm-over-prisma.md) | ORM に Drizzle 採用（Prisma 不採用） | 型推論 / 生 SQL 親和性 |
+| [0015](docs/adr/0015-codemirror-over-monaco.md) | CodeMirror 6 採用（Monaco 不採用） | バンドル軽量化 |
+| [0014](docs/adr/0014-nestjs-for-backend.md) | バックエンドに NestJS 採用 | DI / Module / レイヤード設計 |
+| [0016](docs/adr/0016-go-for-grading-worker.md) | 採点ワーカーを Go で実装 | シングルバイナリ / goroutine |
+| [0011](docs/adr/0011-github-oauth-with-extensible-design.md) | GitHub OAuth + 拡張可能設計 | Strategy パターン |
+| [0017](docs/adr/0017-drizzle-orm-over-prisma.md) | ORM に Drizzle 採用（Prisma 不採用） | 型推論 / 生 SQL 親和性 |
 
 ### ☁️ インフラ判断
 
 | ADR | タイトル | キーワード |
 |---|---|---|
 | [0002](docs/adr/0002-aws-single-cloud.md) | クラウドは AWS 単独 | マルチクラウド不採用 |
-| [0007](docs/adr/0007-upstash-redis-over-elasticache.md) | Upstash Redis 採用 | サーバレス / 無料枠 |
+| [0012](docs/adr/0012-upstash-redis-over-elasticache.md) | Upstash Redis 採用 | サーバレス / 無料枠 |
+| [0013](docs/adr/0013-vercel-for-frontend-hosting.md) | Frontend ホスティングに Vercel を採用 | Next.js ファーストパーティ統合 / 無料枠 |
 
 ### 📋 開発規律判断
 
 | ADR | タイトル | キーワード |
 |---|---|---|
-| [0012](docs/adr/0012-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces | モノレポ運用 |
-| [0013](docs/adr/0013-biome-for-tooling.md) | TS のコード品質ツールに Biome を採用、設定はルート直接配置 | Rust 製 / 高速 / 単一設定 |
-| [0014](docs/adr/0014-json-schema-as-single-source-of-truth.md) | JSON Schema を SSoT に | 3 言語型自動生成 |
-| [0018](docs/adr/0018-phase-0-tooling-discipline.md) | 補完ツールを R0 から導入 | Knip / lefthook / commitlint / syncpack |
-| [0019](docs/adr/0019-requirements-as-5-buckets.md) | 要件定義書を 5 バケット時系列構造に再編 | ドキュメント設計 / SSoT / 読む順序 vs 書く順序 |
-| [0020](docs/adr/0020-go-code-quality.md) | Go のコード品質ツール（gofmt + golangci-lint） | Go 標準 / メタリンター |
-| [0021](docs/adr/0021-python-code-quality.md) | Python のコード品質ツール（ruff、型チェッカーは Phase 7 着手時決定） | Astral 統合 / 可逆な判断の遅延 |
-| [0022](docs/adr/0022-github-actions-incremental-scope.md) | GitHub Actions のスコープを段階的に拡張（R0 は最小） | YAGNI / 段階拡張 / 無料枠節約 |
-| [0023](docs/adr/0023-github-actions-as-ci-cd.md) | CI/CD ツールに GitHub Actions を採用 | コードホスト統合 / OIDC キーレス |
-| [0024](docs/adr/0024-dependabot-auto-update-policy.md) | 依存関係の自動更新ポリシー（Dependabot） | 週次 / メジャー除外 / グループ化 |
-| [0025](docs/adr/0025-commit-scope-convention.md) | コミット scope 規約（モノレポ領域 + 自動更新用 deps / deps-dev） | scope-enum / Dependabot 連携 |
-| [0026](docs/adr/0026-github-actions-sha-pinning.md) | サードパーティアクションを SHA でピン止め | サプライチェーン攻撃耐性 |
-| [0027](docs/adr/0027-commitlint-base-commit-fetch.md) | commitlint の base コミット取得を iterative deepen 方式で | shallow-exclude 不可 / `--deepen=20` |
-| [0028](docs/adr/0028-config-file-format-priority.md) | 設定ファイル形式の選定方針（TS > JSONC > YAML） | ツール強制 / ecosystem 慣習 |
-| [0029](https://github.com/yzanbo/ai-coding-drill/pull/15) | syncpack によるモノレポ `package.json` 整合性ゲート（**PR #15 マージ予定**） | バージョン揃え / `workspace:*` 強制 |
-| [0030](docs/adr/0030-ci-success-umbrella-job.md) | CI Required status checks を集約ジョブ `ci-success` で 1 本化 | umbrella job / `needs.*.result` |
-| [0031](docs/adr/0031-github-repository-settings.md) | GitHub リポジトリ設定の方針（Ruleset / マージ動作 / Actions / Security） | デフォルト変更項目の棚卸し |
+| [0023](docs/adr/0023-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces | モノレポ運用 |
+| [0018](docs/adr/0018-biome-for-tooling.md) | TS のコード品質ツールに Biome を採用、設定はルート直接配置 | Rust 製 / 高速 / 単一設定 |
+| [0006](docs/adr/0006-json-schema-as-single-source-of-truth.md) | JSON Schema を SSoT に | 3 言語型自動生成 |
+| [0021](docs/adr/0021-r0-tooling-discipline.md) | 補完ツールを R0 から導入 | Knip / lefthook / commitlint / syncpack |
+| [0001](docs/adr/0001-requirements-as-5-buckets.md) | 要件定義書を 5 バケット時系列構造に再編 | ドキュメント設計 / SSoT / 読む順序 vs 書く順序 |
+| [0019](docs/adr/0019-go-code-quality.md) | Go のコード品質ツール（gofmt + golangci-lint） | Go 標準 / メタリンター |
+| [0020](docs/adr/0020-python-code-quality.md) | Python のコード品質ツール（ruff、型チェッカーは R7 着手時決定） | Astral 統合 / 可逆な判断の遅延 |
+| [0026](docs/adr/0026-github-actions-incremental-scope.md) | GitHub Actions のスコープを段階的に拡張（R0 は最小） | YAGNI / 段階拡張 / 無料枠節約 |
+| [0025](docs/adr/0025-github-actions-as-ci-cd.md) | CI/CD ツールに GitHub Actions を採用 | コードホスト統合 / OIDC キーレス |
+| [0028](docs/adr/0028-dependabot-auto-update-policy.md) | 依存関係の自動更新ポリシー（Dependabot） | 週次 / メジャー除外 / グループ化 |
+| [0029](docs/adr/0029-commit-scope-convention.md) | コミット scope 規約（モノレポ領域 + 自動更新用 deps / deps-dev） | scope-enum / Dependabot 連携 |
+| [0027](docs/adr/0027-github-actions-sha-pinning.md) | サードパーティアクションを SHA でピン止め | サプライチェーン攻撃耐性 |
+| [0030](docs/adr/0030-commitlint-base-commit-fetch.md) | commitlint の base コミット取得を iterative deepen 方式で | shallow-exclude 不可 / `--deepen=20` |
+| [0022](docs/adr/0022-config-file-format-priority.md) | 設定ファイル形式の選定方針（TS > JSONC > YAML） | ツール強制 / ecosystem 慣習 |
+| [0024](docs/adr/0024-syncpack-package-json-consistency.md) | syncpack によるモノレポ `package.json` 整合性ゲート | バージョン揃え / `workspace:*` 強制 |
+| [0031](docs/adr/0031-ci-success-umbrella-job.md) | CI Required status checks を集約ジョブ `ci-success` で 1 本化 | umbrella job / `needs.*.result` |
+| [0032](docs/adr/0032-github-repository-settings.md) | GitHub リポジトリ設定の方針（Ruleset / マージ動作 / Actions / Security） | デフォルト変更項目の棚卸し |
 
 → 索引一覧：[docs/adr/README.md](docs/adr/README.md)
-→ ADR 運用ルール：1 決定 1 ファイル / Append-only / 代替案・トレードオフ・将来見直しトリガーを必ず記録
+→ ADR 運用ルール：1 決定 1 ファイル / 判断更新時は本文を直接書き換えて最新状態に保つ（履歴は git log）/ 代替案・トレードオフ・将来見直しトリガーを必ず記録
 
 ---
 
@@ -250,9 +251,9 @@
 - **可逆な判断は遅延させる**：LLM モデル選定・Python 型チェッカー選定など、市場が変化する領域は実装着手時に決定
 - **過剰設計を避ける**：使うか分からない抽象化を先取りで作らない（YAGNI）
 - **ただし拡張容易性は構造的に確保**：認証プロバイダ・LLM プロバイダ・サンドボックスランタイムは差し替え可能に
-- **遅延の不可逆性が高い判断には YAGNI を適用しない**：プロセス境界トレース連携や補完ツールは R0 から導入（[ADR 0017](docs/adr/0017-w3c-trace-context-in-job-payload.md) / [ADR 0018](docs/adr/0018-phase-0-tooling-discipline.md)）
+- **遅延の不可逆性が高い判断には YAGNI を適用しない**：プロセス境界トレース連携や補完ツールは R0 から導入（[ADR 0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) / [ADR 0021](docs/adr/0021-r0-tooling-discipline.md)）
 - **規模に応じた選定**：このプロジェクト規模（小〜中）に最適なツールを選ぶ。Bazel・Kafka・Nx 等の "本格派" は不採用
-- **設計判断を ADR で記録**：「なぜそう決めたか」「他案は何だったか」を Append-only で残す
+- **設計判断を ADR で記録**：「なぜそう決めたか」「他案は何だったか」を残す（判断更新時は ADR 本文を直接書き換え、変更経緯は git log で辿る）
 
 ---
 

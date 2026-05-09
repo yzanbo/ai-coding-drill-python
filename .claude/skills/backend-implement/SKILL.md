@@ -33,7 +33,7 @@ argument-hint: "[feature-name] (例: problem-generation, grading)"
 - 変更するファイルの一覧
 - 新規作成するファイルの一覧
 - スキーマ変更の有無（Drizzle マイグレーション必要か）
-- LLM プロバイダ抽象化への影響（→ [ADR 0011](../../../docs/adr/0011-llm-provider-abstraction.md)）
+- LLM プロバイダ抽象化への影響（→ [ADR 0007](../../../docs/adr/0007-llm-provider-abstraction.md)）
 - ジョブキュー（jobs テーブル）への影響
 - 実装の順序（スキーマ → サービス → コントローラ → DTO → テスト）
 

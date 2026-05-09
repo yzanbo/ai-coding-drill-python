@@ -116,7 +116,7 @@
 
 ジョブの内部フロー（NestJS → Postgres → Go ワーカー → サンドボックス）は [02-architecture.md: 1 ジョブが流れる完全な経路](../2-foundation/02-architecture.md#1-ジョブが流れる完全な経路) を参照。
 
-ジョブ全体を通じた `trace_id` の連結は [ADR 0017](../../adr/0017-w3c-trace-context-in-job-payload.md) を参照。
+ジョブ全体を通じた `trace_id` の連結は [ADR 0010](../../adr/0010-w3c-trace-context-in-job-payload.md) を参照。
 
 ---
 

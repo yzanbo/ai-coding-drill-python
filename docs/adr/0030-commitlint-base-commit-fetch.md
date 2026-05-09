@@ -1,4 +1,4 @@
-# 0027. commitlint の base コミット取得を iterative deepen 方式で行う
+# 0030. commitlint の base コミット取得を iterative deepen 方式で行う
 
 - **Status**: Accepted
 - **Date**: 2026-05-05
@@ -6,7 +6,7 @@
 
 ## Context（背景・課題）
 
-[ADR 0022](./0022-github-actions-incremental-scope.md) で導入した GitHub Actions 上の commitlint ジョブは、PR / push の **base..head（または before..after）の範囲**でコミットメッセージを検証する。具体的には：
+[ADR 0026](./0026-github-actions-incremental-scope.md) で導入した GitHub Actions 上の commitlint ジョブは、PR / push の **base..head（または before..after）の範囲**でコミットメッセージを検証する。具体的には：
 
 - 経路 A：`pull_request` イベント → `git log <base.sha>..<head.sha>` を commitlint に流す
 - 経路 B：`push` イベント → `git log <before>..<after>` を commitlint に流す
@@ -80,7 +80,7 @@ fatal: expected 'acknowledgments'
 | 100 コミット PR | 100 |
 | **リポジトリ全体の累積コミット数** | **取得量とは無関係** |
 
-つまり取得量は「PR の規模 × 20 単位の切り上げ」で決まり、リポジトリ運用期間に依存しない。これは `--shallow-exclude` で得られる特性（ADR 0022 で求めていた性質）と等価。
+つまり取得量は「PR の規模 × 20 単位の切り上げ」で決まり、リポジトリ運用期間に依存しない。これは `--shallow-exclude` で得られる特性（ADR 0026 で求めていた性質）と等価。
 
 ### 適用箇所
 
@@ -114,7 +114,7 @@ fatal: expected 'acknowledgments'
 
 | 候補 | 概要 | 採用しなかった理由 |
 |---|---|---|
-| A. `fetch-depth: 0` | 全履歴を取得 | リポジトリ運用期間に比例して劣化（[ADR 0022](./0022-github-actions-incremental-scope.md) の「累積コミット数に依存しない」目標に反する） |
+| A. `fetch-depth: 0` | 全履歴を取得 | リポジトリ運用期間に比例して劣化（[ADR 0026](./0026-github-actions-incremental-scope.md) の「累積コミット数に依存しない」目標に反する） |
 | B. `fetch-depth: 50` 等の固定値 | 大きめの定数で取得 | 50 を超える PR で破綻、根拠が薄い、小さい PR でも過剰取得 |
 | C. `--shallow-exclude=<sha>` | SHA 指定で境界 fetch | **GitHub Git プロトコル v2 で acknowledgments 機能が未対応**、`fatal: expected 'acknowledgments'` で実 CI 落ち（commit `a8d4eea` で実装、`e6757f2` で撤去） |
 | D. **iterative deepen（採用）** | base 到達まで `--deepen=20` ループ + 最大 10 回の安全弁 | プロトコル依存なし、規模に応じた取得量、決定的 |
@@ -150,6 +150,6 @@ fatal: expected 'acknowledgments'
 - [.github/workflows/ci.yml](../../.github/workflows/ci.yml)：本 ADR の実装
 - [commit `e6757f2`](https://github.com/yzanbo/ai-coding-drill/commit/e6757f2)：iterative deepen に切り替えた fix コミット
 - [commit `a8d4eea`](https://github.com/yzanbo/ai-coding-drill/commit/a8d4eea)：先行実装（`--shallow-exclude` 方式、撤去済み）
-- [ADR 0022](./0022-github-actions-incremental-scope.md)：GitHub Actions 段階拡張（commitlint ジョブの所属 ADR）
-- [ADR 0023](./0023-github-actions-as-ci-cd.md)：GitHub Actions を CI/CD として採用
+- [ADR 0026](./0026-github-actions-incremental-scope.md)：GitHub Actions 段階拡張（commitlint ジョブの所属 ADR）
+- [ADR 0025](./0025-github-actions-as-ci-cd.md)：GitHub Actions を CI/CD として採用
 - [Git Documentation: `git-fetch --deepen`](https://git-scm.com/docs/git-fetch)

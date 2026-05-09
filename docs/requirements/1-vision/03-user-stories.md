@@ -48,8 +48,8 @@
 | README から設計判断（ADR）を辿って、なぜその技術を選んだか理解したい — 候補者の論理的説明力を評価するため | [README.md](../../../README.md) / [docs/adr/](../../adr/) |
 | サービスを実際に触って、問題生成 → 解答 → 採点が一気通貫で動くことを確認したい — ポートフォリオが動作する成果物であることを確認するため | 公開サービス（R5 完了後） |
 | ダッシュボードで観測性が機能していることを見たい — 運用設計まで考えられているかを評価するため | [2-foundation/04-observability.md](../2-foundation/04-observability.md) / 公開ダッシュボード |
-| プロセス境界を跨ぐトレース連携の設計が見たい — 分散システム設計力を評価するため | [docs/adr/0017-w3c-trace-context-in-job-payload.md](../../adr/0017-w3c-trace-context-in-job-payload.md) |
-| サンドボックス隔離の段階的進化（Docker → gVisor → Firecracker）を見たい — セキュリティ設計力を評価するため | [docs/adr/0008-disposable-sandbox-container.md](../../adr/0008-disposable-sandbox-container.md) |
+| プロセス境界を跨ぐトレース連携の設計が見たい — 分散システム設計力を評価するため | [docs/adr/0010-w3c-trace-context-in-job-payload.md](../../adr/0010-w3c-trace-context-in-job-payload.md) |
+| サンドボックス隔離の段階的進化（Docker → gVisor → Firecracker）を見たい — セキュリティ設計力を評価するため | [docs/adr/0009-disposable-sandbox-container.md](../../adr/0009-disposable-sandbox-container.md) |
 
 ---
 

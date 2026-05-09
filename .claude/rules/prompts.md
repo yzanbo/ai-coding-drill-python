@@ -8,7 +8,7 @@ paths:
 
 `packages/prompts/` 配下で LLM プロンプトを YAML として管理する。プロンプトはコード資産であり、バージョン管理・A/B テスト可能な構造を維持する。
 
-詳細は [03-llm-pipeline.md](../../docs/requirements/2-foundation/03-llm-pipeline.md) と [ADR 0011](../../docs/adr/0011-llm-provider-abstraction.md)。
+詳細は [03-llm-pipeline.md](../../docs/requirements/2-foundation/03-llm-pipeline.md) と [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md)。
 
 ## ファイル構成
 
@@ -112,7 +112,7 @@ metadata:
 
 ### 出力スキーマの変更
 
-- スキーマ自体は `packages/shared-types/schemas/` で管理（→ [ADR 0014](../../docs/adr/0014-json-schema-as-single-source-of-truth.md)）
+- スキーマ自体は `packages/shared-types/schemas/` で管理（→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 - スキーマ変更は破壊的なので、プロンプトと出力スキーマをセットでバージョンアップする
 
 ## 変数の埋め込み
@@ -124,7 +124,7 @@ metadata:
 ## モデル指定の方針
 
 - **プロンプト YAML 自体に具体的なモデル名（claude-haiku-4-5 等）を書かない**
-- モデル指定は `LlmProvider` 設定（別 YAML or 環境変数）で行う（→ [ADR 0011](../../docs/adr/0011-llm-provider-abstraction.md)）
+- モデル指定は `LlmProvider` 設定（別 YAML or 環境変数）で行う（→ [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md)）
 - 同じプロンプトを複数モデルで動かせる構造を維持する
 
 ## キャッシュキー

@@ -8,12 +8,12 @@ paths:
 
 DB は Postgres、ORM は Drizzle。
 
-- ジョブキューを Postgres に乗せる判断 → [ADR 0001](../../docs/adr/0001-postgres-as-job-queue.md)
-- ORM に Drizzle を採用した判断（Prisma 不採用） → [ADR 0016](../../docs/adr/0016-drizzle-orm-over-prisma.md)
+- ジョブキューを Postgres に乗せる判断 → [ADR 0004](../../docs/adr/0004-postgres-as-job-queue.md)
+- ORM に Drizzle を採用した判断（Prisma 不採用） → [ADR 0017](../../docs/adr/0017-drizzle-orm-over-prisma.md)
 
 ## 採用バージョンの確定タイミング（実装着手時に必ず実施）
 
-[ADR 0016](../../docs/adr/0016-drizzle-orm-over-prisma.md) 起票時点（2026-05-03）で Drizzle は **v1.0 stable 未到達**（npm `latest` は v0.45.x、v1.0 は RC 段階）。**1.0 ベータ・RC 期間中に複数の破壊的変更**（`.enableRLS()` 廃止、casing API リワーク等）が発生しているため、実装着手時に以下を必ず実施する。
+[ADR 0017](../../docs/adr/0017-drizzle-orm-over-prisma.md) 起票時点（2026-05-03）で Drizzle は **v1.0 stable 未到達**（npm `latest` は v0.45.x、v1.0 は RC 段階）。**1.0 ベータ・RC 期間中に複数の破壊的変更**（`.enableRLS()` 廃止、casing API リワーク等）が発生しているため、実装着手時に以下を必ず実施する。
 
 ### チェックリスト
 
@@ -64,7 +64,7 @@ DB は Postgres、ORM は Drizzle。
 
 ### `jobs` テーブル
 
-ジョブキュー実装の中核（→ [01-data-model.md](../../docs/requirements/3-cross-cutting/01-data-model.md)、[ADR 0001](../../docs/adr/0001-postgres-as-job-queue.md)）。
+ジョブキュー実装の中核（→ [01-data-model.md](../../docs/requirements/3-cross-cutting/01-data-model.md)、[ADR 0004](../../docs/adr/0004-postgres-as-job-queue.md)）。
 
 - `id BIGSERIAL` — その他のテーブルが UUID を使うのに対し、ジョブだけ数値 ID（処理順序を直感的に扱うため）
 - `payload JSONB` — ジョブごとのデータ。スキーマは `packages/shared-types/schemas/job.schema.json`

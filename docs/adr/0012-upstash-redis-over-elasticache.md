@@ -1,4 +1,4 @@
-# 0007. Redis ホスティングに Upstash を採用（ElastiCache 不採用）
+# 0012. Redis ホスティングに Upstash を採用（ElastiCache 不採用）
 
 - **Status**: Accepted
 - **Date**: 2026-04-25
@@ -8,10 +8,10 @@
 
 [ADR 0002](./0002-aws-single-cloud.md) で AWS 単独に決めたが、Redis のホスティングを検討した結果、**Redis だけは外部 SaaS の方が合理的**と判断する局面が出た。
 
-- Redis の用途：キャッシュ・セッション・レート制限（[ADR 0006](./0006-redis-not-for-job-queue.md)）
+- Redis の用途：キャッシュ・セッション・レート制限（[ADR 0005](./0005-redis-not-for-job-queue.md)）
 - 「消えても再取得可」な性質
 - 想定トラフィック：数百ユーザー × 数十リクエスト/日
-- コスト目標：Redis 部分で月 $0〜3
+- コスト目標：Redis 部分で月 $0〜3（プロジェクト全体目標 $30/月の内訳、SSoT は [01-non-functional.md: コスト](../requirements/2-foundation/01-non-functional.md#コスト)）
 
 ## Decision（決定内容）
 
@@ -23,7 +23,7 @@
    - サーバレス・リクエスト課金・無料枠で本プロジェクトのトラフィック（数百ユーザー × 数十リクエスト/日）を十分カバー
    - ElastiCache の最小構成（`cache.t4g.micro` で月 ~$10）は本用途には過剰
 2. **用途と耐久性要件の一致**
-   - Redis の用途は「消えても再取得可」なキャッシュ・セッション・レート制限（→ ADR 0006）
+   - Redis の用途は「消えても再取得可」なキャッシュ・セッション・レート制限（→ ADR 0005）
    - ElastiCache の高耐久性・マルチ AZ は本用途に対して過剰スペックで、価格に反映される
 3. **運用負荷ゼロ**
    - サーバレスのためパッチ・スケール・バックアップが不要、個人プロジェクトの運用コストを最小化
@@ -63,4 +63,4 @@
 
 - [02-architecture.md: キャッシュ](../requirements/2-foundation/02-architecture.md#インフラの論理配置)
 - [05-runtime-stack.md: キャッシュ / セッション](../requirements/2-foundation/05-runtime-stack.md#キャッシュ--セッション)
-- [ADR 0002](./0002-aws-single-cloud.md)、[ADR 0006](./0006-redis-not-for-job-queue.md)
+- [ADR 0002](./0002-aws-single-cloud.md)、[ADR 0005](./0005-redis-not-for-job-queue.md)

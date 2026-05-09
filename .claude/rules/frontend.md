@@ -19,7 +19,7 @@ Next.js 16+（App Router）+ React + TypeScript のフロントエンド。
 - Biome（lint / format）
 - Vitest + Testing Library（テスト）
 
-詳細な選定理由は [05-runtime-stack.md](../../docs/requirements/2-foundation/05-runtime-stack.md#フロントエンド) と [ADR 0003](../../docs/adr/0003-codemirror-over-monaco.md)。
+詳細な選定理由は [05-runtime-stack.md](../../docs/requirements/2-foundation/05-runtime-stack.md#フロントエンド) と [ADR 0015](../../docs/adr/0015-codemirror-over-monaco.md)。
 
 ## ディレクトリ構成
 
@@ -181,7 +181,7 @@ const form = useForm({
 
 - API 通信は必ずカスタムフック（`_hooks/_fetch/`）に切り出す。コンポーネントから直接 `fetch` しない
 - フック名は HTTP メソッド対応：`useGet*` / `usePost*` / `usePatch*` / `useDelete*`
-- 型は `packages/shared-types/generated/ts/` から import（→ [ADR 0014](../../docs/adr/0014-json-schema-as-single-source-of-truth.md)）
+- 型は `packages/shared-types/generated/ts/` から import（→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 
 ### エラーハンドリング
 

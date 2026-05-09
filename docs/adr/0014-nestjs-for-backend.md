@@ -1,4 +1,4 @@
-# 0004. バックエンド API に NestJS を採用
+# 0014. バックエンド API に NestJS を採用
 
 - **Status**: Accepted
 - **Date**: 2026-04-25
@@ -35,7 +35,7 @@ API 層のフレームワークを 1 つに決める必要がある。
    - tRPC はフロント・バック密結合になり、API 公開や Go ワーカー連携を見せにくい
    - Next.js Route Handlers のみだとフロントと API の責務が混ざり、ジョブ投入・LLM 呼び出しの増加で破綻する
 6. **Drizzle との直接呼び出しと相性が良い**
-   - Service 層から Drizzle を直接呼ぶ方針（→ ADR 0016）でも、Module / DI が Drizzle インスタンスの提供・テスト時のモック差し替えに自然に効く
+   - Service 層から Drizzle を直接呼ぶ方針（→ ADR 0017）でも、Module / DI が Drizzle インスタンスの提供・テスト時のモック差し替えに自然に効く
 
 ## Alternatives Considered（検討した代替案）
 

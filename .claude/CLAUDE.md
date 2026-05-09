@@ -35,14 +35,14 @@
 
 ### 主要な規約
 
-- パッケージマネージャは **pnpm**、モノレポは **Turborepo**（→ [ADR 0012](../docs/adr/0012-turborepo-pnpm-monorepo.md)）
-- TS のリント・フォーマットは **Biome**、型チェックは `tsc --noEmit`（→ [ADR 0013](../docs/adr/0013-biome-for-tooling.md)）
-- Go は `gofmt` + `golangci-lint`（→ [ADR 0020](../docs/adr/0020-go-code-quality.md)）
-- DB は **Postgres + Drizzle ORM**（→ [ADR 0001](../docs/adr/0001-postgres-as-job-queue.md)、[ADR 0016](../docs/adr/0016-drizzle-orm-over-prisma.md)）
+- パッケージマネージャは **pnpm**、モノレポは **Turborepo**（→ [ADR 0023](../docs/adr/0023-turborepo-pnpm-monorepo.md)）
+- TS のリント・フォーマットは **Biome**、型チェックは `tsc --noEmit`（→ [ADR 0018](../docs/adr/0018-biome-for-tooling.md)）
+- Go は `gofmt` + `golangci-lint`（→ [ADR 0019](../docs/adr/0019-go-code-quality.md)）
+- DB は **Postgres + Drizzle ORM**（→ [ADR 0004](../docs/adr/0004-postgres-as-job-queue.md)、[ADR 0017](../docs/adr/0017-drizzle-orm-over-prisma.md)）
 - ジョブキューは **Postgres `SELECT FOR UPDATE SKIP LOCKED` + LISTEN/NOTIFY**（外部キューミドルウェア不使用）
-- Redis は **キャッシュ・セッション・レート制限のみ**、ジョブキュー用途では使わない（→ [ADR 0006](../docs/adr/0006-redis-not-for-job-queue.md)）
-- LLM プロバイダは **抽象化レイヤ経由**で呼び出し、設定で差し替え可能（→ [ADR 0011](../docs/adr/0011-llm-provider-abstraction.md)）
-- 共有データ型は **JSON Schema を SSoT** とし各言語向けに自動生成（→ [ADR 0014](../docs/adr/0014-json-schema-as-single-source-of-truth.md)）
+- Redis は **キャッシュ・セッション・レート制限のみ**、ジョブキュー用途では使わない（→ [ADR 0005](../docs/adr/0005-redis-not-for-job-queue.md)）
+- LLM プロバイダは **抽象化レイヤ経由**で呼び出し、設定で差し替え可能（→ [ADR 0007](../docs/adr/0007-llm-provider-abstraction.md)）
+- 共有データ型は **JSON Schema を SSoT** とし各言語向けに自動生成（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 
 ## よく使うコマンド
 
@@ -139,7 +139,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 ### コミットメッセージ
 
-- 日本語で記載、commitlint で機械強制（SSoT: [commitlint.config.mjs](../commitlint.config.mjs)）
+- 日本語で記載、commitlint で機械強制（SSoT: [commitlint.config.ts](../commitlint.config.ts)）
 - 形式は `<type>(<scope>): <subject>` / scope 任意 / ヘッダー 100 文字以内 / 本文 1 行 200 文字以内
 - 複数領域はカンマ区切り（例：`feat(api,worker): ...`）
 
@@ -217,7 +217,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 ### 設計原則
 
-- **可逆な判断は遅延させる**：LLM モデル選定・Python 型チェッカー選定など、市場が変化する領域は実装着手時に決定（→ [ADR 0011](../docs/adr/0011-llm-provider-abstraction.md)、[ADR 0021](../docs/adr/0021-python-code-quality.md)）
+- **可逆な判断は遅延させる**：LLM モデル選定・Python 型チェッカー選定など、市場が変化する領域は実装着手時に決定（→ [ADR 0007](../docs/adr/0007-llm-provider-abstraction.md)、[ADR 0020](../docs/adr/0020-python-code-quality.md)）
 - **YAGNI**：使うか分からない抽象化を先取りで作らない
 - **拡張容易性は構造的に確保**：認証プロバイダ・LLM プロバイダ・サンドボックスランタイムは差し替え可能に
 - **規模に応じた選定**：このプロジェクト規模（小〜中）に最適なツールを選ぶ。Bazel・Kafka・Nx 等の "本格派" は不採用
@@ -232,7 +232,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 ### 設定ファイル形式の優先順位
 
-ツールの設定ファイル形式は以下の優先順位で選ぶ（→ [ADR 0028](../docs/adr/0028-config-file-format-priority.md)）：
+ツールの設定ファイル形式は以下の優先順位で選ぶ（→ [ADR 0022](../docs/adr/0022-config-file-format-priority.md)）：
 
 **前提原則**：設定ファイルには「なぜこのルールがあるか」をインラインコメントで残す。コメントが書けない純 JSON は他形式が受容される限り採用しない。
 
@@ -257,4 +257,4 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 これらは ecosystem 慣習でファイル名が固定されており、**改名すると周辺ツールが壊れる**ため `.jsonc` 拡張子に変更しない。代わりに該当ファイル冒頭に「JSONC として扱われる」旨のコメントを残して混乱を防ぐ。
 
-詳細・判断フローチャート・代替案は [ADR 0028](../docs/adr/0028-config-file-format-priority.md) を参照。
+詳細・判断フローチャート・代替案は [ADR 0022](../docs/adr/0022-config-file-format-priority.md) を参照。
