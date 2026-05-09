@@ -17,7 +17,7 @@ argument-hint: "[feature-name] [概要の説明]"
 
 - ベース要件 [docs/requirements/1-vision/01-overview.md](../../../docs/requirements/1-vision/01-overview.md) を読み、F-01〜F-08 の既存機能との重複・関連を把握
 - 既存の `docs/requirements/4-features/` 配下があれば確認し、粒度とスタイルの参考にする
-- ベース要件の編集ルール [.claude/rules/requirements-docs.md](../../rules/requirements-docs.md) に従う
+- ベース要件の編集ルール [.claude/rules/docs-rules.md](../../rules/docs-rules.md) に従う
 
 ### 2. 概要からの深掘り（対話フェーズ）
 

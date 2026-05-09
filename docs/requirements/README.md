@@ -137,4 +137,4 @@ docs/adr/                        各種設計判断の根拠
 - **守備範囲の遵守**：各ディレクトリ・ファイルの担当を超えない
 - **冒頭に守備範囲を明記**：各ファイル先頭に「このドキュメントの守備範囲」と「関連トピックの参照先」を引用ブロックで宣言
 
-詳細は [.claude/rules/requirements-docs.md](../../.claude/rules/requirements-docs.md) を参照。
+詳細は [.claude/rules/docs-rules.md](../../.claude/rules/docs-rules.md) を参照。

@@ -80,7 +80,7 @@ docs/requirements/
    - 機能ベース完全フラットでは横断テーマが散逸し、ドキュメント設計が成立しない
 6. **テンプレ運用で構造的に SSoT 違反を防げる**
    - 4 バケットに専用 `_template.md` を配置することで、新規ドキュメント作成時に役割逸脱が起きにくい
-   - `requirements-docs.md` の編集ルールと合わせて二重に SSoT を保護できる
+   - `docs-rules.md` の編集ルールと合わせて二重に SSoT を保護できる
 7. **ポートフォリオ価値**
    - 「ドキュメント構造そのものを設計判断の対象として ADR 化した」事例は珍しく、採用担当者へのアピール軸になる
 
@@ -126,7 +126,7 @@ docs/requirements/
 
 - [docs/requirements/README.md](../requirements/README.md) — 5 バケット構造の全体マップ・読む順序・書く順序ガイド
 - [docs/requirements/1-vision/README.md](../requirements/1-vision/README.md) — 各バケット README の例
-- [.claude/rules/requirements-docs.md](../../.claude/rules/requirements-docs.md) — 編集ルール（重複禁止・守備範囲遵守・SSoT 原則）
+- [.claude/rules/docs-rules.md](../../.claude/rules/docs-rules.md) — 編集ルール（重複禁止・守備範囲遵守・SSoT 原則）
 - [ADR 0010: W3C Trace Context をジョブペイロードに埋め込む](./0010-w3c-trace-context-in-job-payload.md) — 「遅延の不可逆性が高い判断」シリーズ
 - [ADR 0021: 補完ツールを R0 から導入](./0021-r0-tooling-discipline.md) — 同上、メタ方針の確立
 - [Architectural Decision Records: Best Practices](https://adr.github.io/) — ADR の基本方針

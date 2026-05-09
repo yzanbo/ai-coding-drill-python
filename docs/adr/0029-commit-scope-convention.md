@@ -28,38 +28,9 @@
 
 ## Decision（決定内容）
 
-**scope は列挙制とし、以下 10 種類を `commitlint.config.ts` の `scope-enum` で機械強制する。`scope-empty` は許容する（リポジトリ横断の変更で scope 不要なケースのため）。**
+**scope は列挙制とし、領域 scope（web / api / worker / shared / config / infra / docs / db）8 種 + 自動更新 scope（deps / deps-dev）2 種の計 10 種を `commitlint.config.ts` の `scope-enum` で機械強制する。`scope-empty` は許容する**（リポジトリ横断の変更で scope 不要なケースのため）。
 
-### 領域 scope（人間が手動コミット時に選ぶ、8 種）
-
-| scope | 対応領域 |
-|---|---|
-| `web` | `apps/web`（フロントエンド / Next.js） |
-| `api` | `apps/api`（NestJS API） |
-| `worker` | `apps/grading-worker`（Go 採点ワーカー） |
-| `shared` | `packages/shared-types`、`packages/prompts` 等の共有パッケージ |
-| `config` | tooling 設定ファイル群（ルート直接配置 + `packages/config/` の両方を含む、→ [packages/config/README.md](../../packages/config/README.md)） |
-| `infra` | `infra/`（Terraform） |
-| `docs` | `docs/`（要件定義 / ADR） |
-| `db` | Drizzle スキーマ・マイグレーション |
-
-### 自動更新 scope（Dependabot が自動付与、2 種）
-
-| scope | 用途 | 付与経路 |
-|---|---|---|
-| `deps` | production 依存 / github-actions / grouped PR | Dependabot の `include: scope`（人間が手で書くこともあり、その場合は production 依存更新） |
-| `deps-dev` | devDependencies 単発更新 | Dependabot の `prefix-development` + `include: scope` |
-
-### SSoT の所在
-
-- **正（機械強制）**：`commitlint.config.ts` の `scope-enum`
-- **副（人間向け解説）**：`.claude/CLAUDE.md` の scope 表
-- 副を更新する際は必ず正と整合させる。差分は CI（commitlint）が検知する
-
-### 複数領域に跨る変更
-
-- カンマ区切りで併記（例：`feat(api,worker): ...`）
-- ブランチ名には詰めず commit 側で表現する（[`.claude/CLAUDE.md`](../../.claude/CLAUDE.md) のブランチ運用ルール）
+**運用詳細（type / scope の完全一覧 / 複数領域跨りの書き方 / scope 追加変更時の手順）の SSoT は [06-dev-workflow.md: コミットメッセージ規約](../requirements/2-foundation/06-dev-workflow.md#コミットメッセージ規約) を参照**（運用ルール型 ADR、→ [`.claude/rules/docs-rules.md` §2](../../.claude/rules/docs-rules.md)）。機械強制 SSoT は [`commitlint.config.ts`](../../commitlint.config.ts)。本 ADR は採用根拠（§Why）と代替案（§Alternatives Considered）を扱う。
 
 ## Why（採用理由）
 

@@ -3,9 +3,9 @@
 <!--
 配置先：`docs/requirements/2-foundation/`
 ファイル名規則：`NN-kebab-case-name.md`（例：`01-overview.md`、`02-architecture.md`）
-連番 NN は採番順、欠番不可。新規追加時は README.md と requirements-docs.md の章立て表も更新する。
+連番 NN は採番順、欠番不可。新規追加時は README.md と docs-rules.md の章立て表も更新する。
 
-このテンプレは [requirements-docs.md](../../../.claude/rules/requirements-docs.md) のルールを構造的に強制するためのもの。
+このテンプレは [docs-rules.md](../../../.claude/rules/docs-rules.md) のルールを構造的に強制するためのもの。
 features/ 用テンプレは [../4-features/_template.md](../4-features/_template.md)、ADR 用テンプレは [../../adr/template.md](../../adr/template.md) を使う。
 -->
 
@@ -15,7 +15,7 @@ features/ 用テンプレは [../4-features/_template.md](../4-features/_templat
 > - {ADR}：{設計判断のうちこの章に関連するもの} → [ADR XXXX](../../adr/XXXX-...md)
 
 <!--
-守備範囲記述は **必須**（[requirements-docs.md §4](../../../.claude/rules/requirements-docs.md) のルール）。
+守備範囲記述は **必須**（[docs-rules.md §7](../../../.claude/rules/docs-rules.md) のルール）。
 - 自ファイルが扱う領域を明示する
 - 関連するが他章で扱うトピックを参照先と共に列挙する
 - これにより読者の認知負荷を下げ、執筆者が他章への漏れを防ぐ
@@ -41,7 +41,7 @@ features/ 用テンプレは [../4-features/_template.md](../4-features/_templat
 本文は章ごとの主題に応じて自由構造で書く。
 ただし以下を守る：
 - 具体ライブラリ・サービス名は原則 05-runtime-stack.md に集約し、こちらにはリンクで誘導
-- ただし 04（責務）と 07（技術選定）の使い分けには特に注意（[requirements-docs.md §2](../../../.claude/rules/requirements-docs.md)）
+- ただし 04（責務）と 07（技術選定）の使い分けには特に注意（[docs-rules.md §5](../../../.claude/rules/docs-rules.md)）
 - 重要な設計判断には ADR リンクを必ず添える
 -->
 

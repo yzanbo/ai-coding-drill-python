@@ -29,7 +29,7 @@ argument-hint: "[feature-name] [変更内容の説明]"
 - 変更差分をユーザーに提示して承認を得る
 - ビジネスルール、機能一覧、データモデル、API 仕様のいずれかに変更が生じるか判断
 - API 変更がある場合は、画面一覧の「使用 API」セクションも更新対象に含める
-- ベース要件の編集ルール [.claude/rules/requirements-docs.md](../../rules/requirements-docs.md) に従い、重複を避けてリンクで参照
+- ベース要件の編集ルール [.claude/rules/docs-rules.md](../../rules/docs-rules.md) に従い、重複を避けてリンクで参照
 - 承認後に要件 .md を保存
 
 ### 3. ベース要件への波及確認

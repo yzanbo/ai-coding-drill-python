@@ -67,7 +67,7 @@
 | **06-dev-workflow.md** | **CI/CD のジョブ設計**（lint / typecheck / test 等のジョブ定義、テストフレームワーク選定）。`.github/workflows/*.yml` の中身 |
 | **07-github-settings.md** | **GitHub の管理画面 / API で設定するもの**（Ruleset / Pull Request 動作 / Actions 権限 / Security / Features）。コードリポジトリには含まれず GitHub 側に保存される設定 |
 
-詳細は [.claude/rules/requirements-docs.md](../../../.claude/rules/requirements-docs.md) を参照。
+詳細は [.claude/rules/docs-rules.md](../../../.claude/rules/docs-rules.md) を参照。
 
 ---
 
