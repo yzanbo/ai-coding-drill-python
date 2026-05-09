@@ -42,7 +42,7 @@ paths:
 **運用詳細の SSoT は [<要件定義書ファイル>: <セクション名>](<相対パス>) を参照**（運用ルール型 ADR、→ `.claude/rules/docs-rules.md` §2）。本 ADR は採用根拠（§Why）と代替案（§Alternatives Considered）を扱う。
 ```
 
-ADR 本文には「なぜ・代替案・見直しトリガー」だけを残し、表・運用ルールは要件定義書 / 機械強制設定（`commitlint.config.ts` / `.syncpackrc.ts` 等）にだけ書く。
+ADR 本文には「なぜ・代替案・見直しトリガー」だけを残し、表・運用ルールは要件定義書 / 機械強制設定（`commitlint.config.mjs` / `apps/web/.syncpackrc.ts` 等）にだけ書く。
 
 ### 判定基準
 

@@ -1,6 +1,6 @@
 # 0017. ORM に Drizzle を採用（Prisma 不採用）
 
-- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md)
+- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md), [0037](./0037-sqlalchemy-alembic-for-database.md)
 - **Date**: 2026-05-09
 - **Decision-makers**: 神保 陽平
 

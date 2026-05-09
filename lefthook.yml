@@ -6,9 +6,9 @@
 #   root では言語横断のチェック（commitlint）のみを扱う。
 #   各言語（TS / Python / Go）固有の lint / format / typecheck は、
 #   各 app 着手時に `mise run <task>` 経由で本ファイルに pre-commit フックとして追加する：
-#     - apps/web 着手時：biome / typecheck / knip フックを `mise run web-*` で接続
-#     - apps/api 着手時：ruff / pyright / pip-audit / deptry フックを `mise run api-*` で接続
-#     - apps/grading-worker 着手時：golangci-lint / go-mod-tidy フックを `mise run worker-*` で接続
+#     - apps/web 着手時：biome / typecheck / knip フックを `mise run web:*` で接続
+#     - apps/api 着手時：ruff / pyright / pip-audit / deptry フックを `mise run api:*` で接続
+#     - apps/workers/<name>/ 着手時：golangci-lint / go-mod-tidy フックを `mise run worker:<name>:*` で接続（ADR 0040）
 #   これにより各言語ツールの実行経路は ADR 0039（mise）に統一される。
 
 commit-msg:

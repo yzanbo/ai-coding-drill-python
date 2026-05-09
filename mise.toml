@@ -7,15 +7,20 @@
 #
 # 起動例：
 #   mise install              # tools セクションの全ツールを一括インストール
-#   mise run api-test         # apps/api 配下で uv run pytest を実行
+#   mise run api:test         # apps/api 配下で uv run pytest を実行
 #   mise run lint             # 全言語の lint を直列実行
 #   mise tasks                # 利用可能タスク一覧（mise CLI 標準）
+#
+# タスク命名規約：`<scope>:<sub>:<verb>` 階層コロン形式（scope-first）
+#   - 単一 scope：`api:test` / `web:lint`
+#   - ネスト scope：`worker:grading:dev` / `worker:generation:test`
+#   - 横断（root レベル）：`lint` / `test` / `git:clean`
 #
 # 注意：
 #   - apps/<name>/ ディレクトリは実装着手時に作成される。それまで該当タスクは実行時にエラー
 #     （定義自体はあるので app 着手時に即起動可能）
 #   - root の TS ツーリング（biome / knip / syncpack）は apps/web/ 配下に閉じる方針（ADR 0036）。
-#     web-* タスクは apps/web 着手時に有効化される
+#     web:* タスクは apps/web 着手時に有効化される
 #   - 詳細な選定根拠は各 ADR を参照（commit メッセージや本ファイル冒頭の ADR 番号から辿れる）
 
 # ============================================================================
@@ -62,52 +67,52 @@ experimental = true
 # pip-audit / deptry を devDep として定義する。
 # ============================================================================
 
-[tasks.api-dev]
+[tasks."api:dev"]
 description = "FastAPI 開発サーバ起動"
 dir = "apps/api"
 run = "uv run fastapi dev"
 
-[tasks.api-test]
+[tasks."api:test"]
 description = "Backend テスト（pytest + httpx + asyncio）"
 dir = "apps/api"
 run = "uv run pytest"
 
-[tasks.api-lint]
+[tasks."api:lint"]
 description = "Python lint + format 検証（ruff check）"
 dir = "apps/api"
 run = "uv run ruff check ."
 
-[tasks.api-format]
+[tasks."api:format"]
 description = "Python format 自動修正（ruff format）"
 dir = "apps/api"
 run = "uv run ruff format ."
 
-[tasks.api-typecheck]
+[tasks."api:typecheck"]
 description = "Python 型チェック（pyright、basic で開始）"
 dir = "apps/api"
 run = "uv run pyright"
 
-[tasks.api-audit]
+[tasks."api:audit"]
 description = "Python 脆弱性スキャン（pip-audit、uv.lock 入力源）"
 dir = "apps/api"
 run = "uv run pip-audit"
 
-[tasks.api-deps-check]
+[tasks."api:deps-check"]
 description = "Python 依存衛生（deptry：未使用 / 未宣言 / transitive 検出）"
 dir = "apps/api"
 run = "uv run deptry ."
 
-[tasks.api-openapi-export]
+[tasks."api:openapi-export"]
 description = "FastAPI から OpenAPI 3.1 を apps/api/openapi.json に書き出し（ADR 0006）"
 dir = "apps/api"
 run = "uv run python -m scripts.export_openapi"
 
-[tasks.db-migrate]
+[tasks."api:db-migrate"]
 description = "DB マイグレーション適用（alembic upgrade head、ADR 0037）"
 dir = "apps/api"
 run = "uv run alembic upgrade head"
 
-[tasks.db-revision]
+[tasks."api:db-revision"]
 description = "DB マイグレーション生成（alembic revision --autogenerate）"
 dir = "apps/api"
 run = ["uv run alembic revision --autogenerate -m"]
@@ -120,47 +125,47 @@ run = ["uv run alembic revision --autogenerate -m"]
 # devDep として定義する。
 # ============================================================================
 
-[tasks.web-dev]
+[tasks."web:dev"]
 description = "Next.js 開発サーバ起動"
 dir = "apps/web"
 run = "pnpm dev"
 
-[tasks.web-test]
+[tasks."web:test"]
 description = "Frontend テスト（Vitest + RTL）"
 dir = "apps/web"
 run = "pnpm test"
 
-[tasks.web-lint]
+[tasks."web:lint"]
 description = "TS lint + format 検証（Biome check）"
 dir = "apps/web"
 run = "pnpm exec biome check ."
 
-[tasks.web-format]
+[tasks."web:format"]
 description = "TS format 自動修正（Biome --write）"
 dir = "apps/web"
 run = "pnpm exec biome check --write ."
 
-[tasks.web-typecheck]
+[tasks."web:typecheck"]
 description = "TS 型チェック（tsc --noEmit）"
 dir = "apps/web"
 run = "pnpm exec tsc --noEmit"
 
-[tasks.web-knip]
+[tasks."web:knip"]
 description = "未使用 export / file / dep 検出（Knip、apps/web 内）"
 dir = "apps/web"
 run = "pnpm exec knip"
 
-[tasks.web-syncpack]
+[tasks."web:syncpack"]
 description = "package.json 整合性（syncpack lint、3 ルールに縮小、ADR 0024 Note）"
 dir = "apps/web"
 run = "pnpm exec syncpack lint"
 
-[tasks.web-types-gen]
+[tasks."web:types-gen"]
 description = "Hey API で OpenAPI から TS / Zod / HTTP クライアント生成（ADR 0006）"
 dir = "apps/web"
 run = "pnpm exec openapi-ts"
 
-[tasks.web-e2e]
+[tasks."web:e2e"]
 description = "Playwright E2E"
 dir = "apps/web"
 run = "pnpm exec playwright test"
@@ -173,54 +178,54 @@ run = "pnpm exec playwright test"
 
 # --- 採点 Worker（apps/workers/grading/、grading + judge LLM） ---
 
-[tasks.grading-worker-dev]
+[tasks."worker:grading:dev"]
 description = "採点 Worker 起動"
 dir = "apps/workers/grading"
 run = "go run ./cmd/grading"
 
-[tasks.grading-worker-test]
+[tasks."worker:grading:test"]
 description = "採点 Worker テスト（testing + testify）"
 dir = "apps/workers/grading"
 run = "go test ./..."
 
-[tasks.grading-worker-lint]
+[tasks."worker:grading:lint"]
 description = "Go lint（gofmt + golangci-lint、unused linter で未使用検出）"
 dir = "apps/workers/grading"
 run = "golangci-lint run"
 
-[tasks.grading-worker-deps-check]
+[tasks."worker:grading:deps-check"]
 description = "Go 依存整理確認（go mod tidy 後の差分が無いこと）"
 dir = "apps/workers/grading"
 run = "go mod tidy && git diff --exit-code go.mod go.sum"
 
-[tasks.grading-worker-audit]
+[tasks."worker:grading:audit"]
 description = "Go 脆弱性スキャン（govulncheck、Worker 着手時に正式採用）"
 dir = "apps/workers/grading"
 run = "govulncheck ./..."
 
-[tasks.grading-worker-types-gen]
+[tasks."worker:grading:types-gen"]
 description = "quicktype で OpenAPI から Go struct 生成（ADR 0006）"
 dir = "apps/workers/grading"
 run = "quicktype --src-lang openapi --src ../../api/openapi.json --out internal/jobtypes/types.go --lang go --package jobtypes"
 
 # --- 問題生成 Worker（apps/workers/generation/、ADR 0040、将来追加） ---
 
-[tasks.generation-worker-dev]
+[tasks."worker:generation:dev"]
 description = "問題生成 Worker 起動（apps/workers/generation 着手時に有効化）"
 dir = "apps/workers/generation"
 run = "go run ./cmd/generation"
 
-[tasks.generation-worker-test]
+[tasks."worker:generation:test"]
 description = "問題生成 Worker テスト"
 dir = "apps/workers/generation"
 run = "go test ./..."
 
-[tasks.generation-worker-lint]
+[tasks."worker:generation:lint"]
 description = "Go lint（apps/workers/generation）"
 dir = "apps/workers/generation"
 run = "golangci-lint run"
 
-[tasks.generation-worker-deps-check]
+[tasks."worker:generation:deps-check"]
 description = "Go 依存整理確認（apps/workers/generation）"
 dir = "apps/workers/generation"
 run = "go mod tidy && git diff --exit-code go.mod go.sum"
@@ -235,32 +240,52 @@ run = "go mod tidy && git diff --exit-code go.mod go.sum"
 [tasks.lint]
 description = "全言語 lint（Backend + Frontend + Workers）"
 depends = [
-  "api-lint",
-  "web-lint",
-  "grading-worker-lint",
+  "api:lint",
+  "web:lint",
+  "worker:grading:lint",
 ]
 
 [tasks.test]
 description = "全言語 test"
 depends = [
-  "api-test",
-  "web-test",
-  "grading-worker-test",
+  "api:test",
+  "web:test",
+  "worker:grading:test",
 ]
 
 [tasks.typecheck]
 description = "全言語 typecheck"
 depends = [
-  "api-typecheck",
-  "web-typecheck",
+  "api:typecheck",
+  "web:typecheck",
 ]
 
-[tasks.types-gen]
+[tasks."types-gen"]
 description = "OpenAPI → 各言語の型生成パイプライン（CI で drift 検出、ADR 0006）"
 depends = [
-  "api-openapi-export",
-  "web-types-gen",
-  "grading-worker-types-gen",
+  "api:openapi-export",
+  "web:types-gen",
+  "worker:grading:types-gen",
+]
+
+[tasks."worker:test"]
+description = "全 Worker の go test"
+depends = [
+  "worker:grading:test",
+  # "worker:generation:test",  # apps/workers/generation 着手時に追加
+]
+
+[tasks."worker:lint"]
+description = "全 Worker の golangci-lint"
+depends = [
+  "worker:grading:lint",
+  # "worker:generation:lint",  # apps/workers/generation 着手時に追加
+]
+
+[tasks."worker:types-gen"]
+description = "全 Worker の Go struct 生成（quicktype、ADR 0006）"
+depends = [
+  "worker:grading:types-gen",
 ]
 
 # ============================================================================
@@ -271,7 +296,7 @@ depends = [
 description = "コミットメッセージ規約検証（mise 経由 commitlint、commit-msg フックから起動）"
 run = "commitlint --edit"
 
-[tasks.g-clean]
+[tasks."git:clean"]
 description = "マージ済みでリモートが消えたローカルブランチを掃除"
 run = "bash scripts/cleanup-merged-branches.sh"
 

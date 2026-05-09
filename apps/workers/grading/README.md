@@ -24,4 +24,4 @@ Go 採点ワーカー。**コード実装着手前の skeleton（プロンプト
 
 ## 起動
 
-`mise run grading-worker-dev` 等は実装着手後に有効化される（タスク定義は [mise.toml](../../../mise.toml) に既記載）。
+`mise run worker:grading:dev` 等は実装着手後に有効化される（タスク定義は [mise.toml](../../../mise.toml) に既記載）。

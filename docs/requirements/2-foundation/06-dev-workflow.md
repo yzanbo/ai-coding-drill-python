@@ -77,7 +77,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 各補完ツール（Biome / `tsc --noEmit` / commitlint / syncpack / Knip）が **lefthook のどのフックで動くか** と **CI（GitHub Actions）のどのジョブで動くか** の SSoT。
 
-設定実体：[lefthook.yml](../../../lefthook.yml) / [.github/workflows/ci.yml](../../../.github/workflows/ci.yml) / [knip.config.ts](../../../knip.config.ts) / [.syncpackrc.ts](../../../.syncpackrc.ts) / [biome.jsonc](../../../biome.jsonc) / [commitlint.config.ts](../../../commitlint.config.ts)。
+設定実体：[lefthook.yml](../../../lefthook.yml) / [.github/workflows/ci.yml](../../../.github/workflows/ci.yml) / `apps/web/knip.config.ts` / `apps/web/.syncpackrc.ts` / `apps/web/biome.jsonc` / [commitlint.config.mjs](../../../commitlint.config.mjs)（apps/web/ 配下のツール設定は実装着手時に投入、→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md)）。
 
 対象範囲：**Frontend（TS）/ Backend（Python）/ Worker（Go）に対し、それぞれ lint+format / 型チェックを揃える**。Python / Go の lefthook 統合詳細はバックエンド・ワーカー実装着手時に確定。
 
@@ -215,7 +215,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 コミットメッセージは **Conventional Commits** に従い、commitlint で機械強制する。採用根拠と scope の付与方針は [ADR 0029](../../adr/0029-commit-scope-convention.md) を参照。
 
-**真の SSoT は [`commitlint.config.ts`](../../../commitlint.config.ts) の `type-enum` / `scope-enum`**（CI と lefthook commit-msg フックで違反を弾く）。本セクションは人間向け解説。
+**真の SSoT は [`commitlint.config.mjs`](../../../commitlint.config.mjs) の `type-enum` / `scope-enum`**（CI と lefthook commit-msg フックで違反を弾く）。本セクションは人間向け解説。
 
 ### 形式
 
@@ -258,7 +258,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 ### scope を追加・変更する時
 
-1. `commitlint.config.ts` の `scope-enum` を更新（**SSoT、ここを更新しないと CI で弾かれない**）
+1. `commitlint.config.mjs` の `scope-enum` を更新（**SSoT、ここを更新しないと CI で弾かれない**）
 2. 上記「領域 scope」表に行を追加
 3. CLAUDE.md / CONTRIBUTING.md 等の補助ドキュメントは本セクションへのリンクで足りるため、原則更新不要（リンクが正しく追従していれば自動同期する）
 

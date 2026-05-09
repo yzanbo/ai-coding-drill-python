@@ -92,4 +92,4 @@
 
 - [01-overview.md: F-01 ユーザー認証](../requirements/1-vision/01-overview.md)
 - [01-data-model.md: users / auth_providers](../requirements/3-cross-cutting/01-data-model.md)
-- [02-architecture.md: AuthModule](../requirements/2-foundation/02-architecture.md#backend-apinestjs)
+- [02-architecture.md: Backend API](../requirements/2-foundation/02-architecture.md#backend-apifastapi--python)

@@ -1,6 +1,6 @@
 # 0014. バックエンド API に NestJS を採用
 
-- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md)
+- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md), [0034](./0034-fastapi-for-backend.md)
 - **Date**: 2026-05-09
 - **Decision-makers**: 神保 陽平
 

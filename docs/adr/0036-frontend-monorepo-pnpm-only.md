@@ -148,7 +148,7 @@ Turborepo の主要価値は以下 3 点：
   1. ~~外部依存の全 workspace 同一バージョン~~（apps/web 1 個のため）
   2. ~~内部 workspace パッケージ `workspace:*` 固定~~（内部 pkg 不在のため）
 - **配置**：`apps/web/.syncpackrc.ts`（apps/web の devDep として syncpack を投入）
-- **起動経路**：`mise run web-syncpack`（apps/web 着手時に `mise.toml` + `lefthook.yml` + `ci.yml` に追加）
+- **起動経路**：`mise run web:syncpack`（apps/web 着手時に `mise.toml` + `lefthook.yml` + `ci.yml` に追加）
 
 詳細は [ADR 0024](./0024-syncpack-package-json-consistency.md) の Note を参照。
 

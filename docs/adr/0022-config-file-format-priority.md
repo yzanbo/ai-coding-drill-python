@@ -18,10 +18,12 @@
 | `lefthook.yml` | YAML | lefthook の慣習 |
 | `tsconfig.json` | JSONC | TypeScript の慣習（拡張子は `.json` だが JSONC 解釈） |
 | `biome.jsonc` | JSONC | Biome 公式が推奨 |
-| `turbo.jsonc` | JSONC | Turborepo の慣習 |
+| `turbo.jsonc` ※2 | JSONC | Turborepo の慣習 |
 | `commitlint.config.mjs` ※ | MJS | 自由選択（JS / TS / JSON / YAML 可） |
 
-> ※ 上記テーブルは**本 ADR を起票した時点のスナップショット**である。本 ADR の Decision「即時適用」により、本 PR で `commitlint.config.mjs` は `commitlint.config.ts` に変換され、ADR 0022 の方針が第 1 例として実適用される。詳細は後述の「本 ADR の即時適用」を参照。
+> ※ 上記テーブルは**本 ADR を起票した時点のスナップショット**である。`commitlint.config.mjs` は本 ADR 起票時の検討では一度 `.ts` に変換されたが、その後 [ADR 0036](./0036-frontend-monorepo-pnpm-only.md) 拡張で root から TypeScript ツーリングを排除する方針に転換した結果、再度 `.mjs` に戻された。最終形は `commitlint.config.mjs`。詳細は後述「root 配置設定ファイルの例外」を参照。
+>
+> ※2 `turbo.jsonc` は本 ADR 起票時には Turborepo を採用していたが、その後 [ADR 0036](./0036-frontend-monorepo-pnpm-only.md) で Turborepo 不採用が確定し、本ファイルは削除済み。スナップショットとしてのみ残置。
 
 ツール側の制約は 3 種類に分けられる：
 
@@ -37,9 +39,9 @@
 
 **運用詳細（前提原則 / 優先順位の Tier 表 / JSONC として扱われる `.json` 例外リスト / 適用フローチャート）の SSoT は [06-dev-workflow.md: 設定ファイル形式の優先順位](../requirements/2-foundation/06-dev-workflow.md#設定ファイル形式の優先順位) を参照**（運用ルール型 ADR、→ [`.claude/rules/docs-rules.md` §2](../../.claude/rules/docs-rules.md)）。本 ADR は採用根拠（§Why）と代替案（§Alternatives Considered）を扱う。
 
-### 本 ADR の即時適用：`commitlint.config.mjs` → `commitlint.config.ts`（適用済み）
+### 起票時の即時適用と、その後の差し戻し：`commitlint.config.mjs` 維持に決着
 
-本方針の適用第 1 例として、本 ADR と同じ PR で `commitlint.config.mjs` を `commitlint.config.ts` に変換した。`@commitlint/types` の `UserConfig` 型を import することで、`type-enum` / `scope-enum` / `level` 等のフィールドと値の typo を config 書き時点で検知できる。
+本方針の適用第 1 例として、本 ADR 起票 PR では `commitlint.config.mjs` を `commitlint.config.ts` に変換した（`@commitlint/types` の `UserConfig` 型による typo 検知が動機）。ただしその後の [ADR 0036](./0036-frontend-monorepo-pnpm-only.md) 拡張で root から TypeScript ツーリング（`typescript` パッケージ / `tsconfig.json`）を排除する方針が確定したため、root に置く `commitlint.config` は TS を使えなくなり **`.mjs` に差し戻された**。本 ADR の優先順位そのものは維持され、root 配置という条件下で Tier 3-3（自由選択：JS 系）が選ばれる例外として後述「root 配置設定ファイルの例外」に記録する。
 
 ## Why（採用理由）
 
@@ -83,7 +85,7 @@
 
 - **将来ツール追加時の判断コスト削減**：「TS / JSONC / YAML どれ？」の議論が初動で終わる
 - **設定ファイル全体の選択ロジックが説明可能**：新規メンバー・LLM が「なぜこの形式？」と問われたら本 ADR を参照できる
-- **TS 化できる config は型安全の恩恵を受ける**：`commitlint.config.ts` で `UserConfig` 型を活用、本 PR で実適用
+- **TS 化できる config は型安全の恩恵を受ける**：`apps/web/.syncpackrc.ts` 等、apps/web/ 配下の設定では `UserConfig` 型を活用できる（root の `commitlint.config` は ADR 0036 拡張で TS 不可となり `.mjs` に差し戻し）
 - **強制 / 慣習を尊重**：GitHub Actions / Biome / Turborepo 等のドキュメント・サンプルとの整合が保たれる
 
 ### 失うもの・受容するリスク

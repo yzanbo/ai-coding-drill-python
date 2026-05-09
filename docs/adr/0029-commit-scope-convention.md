@@ -22,15 +22,15 @@
    - これらを領域 scope と同列の `scope-enum` に登録しないと、Dependabot の自動 PR が commitlint で弾かれて運用が破綻する
 
 3. **scope 定義の SSoT をどこに置くか**
-   - 機械強制は `commitlint.config.ts` の `scope-enum`
+   - 機械強制は `commitlint.config.mjs` の `scope-enum`
    - 人間向けの説明は `.claude/CLAUDE.md`（と過去には PR テンプレート等にも書かれがち）
    - 複数箇所に書くと不可避的にずれが生じる
 
 ## Decision（決定内容）
 
-**scope は列挙制とし、領域 scope（web / api / worker / shared / config / infra / docs / db）8 種 + 自動更新 scope（deps / deps-dev）2 種の計 10 種を `commitlint.config.ts` の `scope-enum` で機械強制する。`scope-empty` は許容する**（リポジトリ横断の変更で scope 不要なケースのため）。
+**scope は列挙制とし、領域 scope（web / api / worker / shared / config / infra / docs / db）8 種 + 自動更新 scope（deps / deps-dev）2 種の計 10 種を `commitlint.config.mjs` の `scope-enum` で機械強制する。`scope-empty` は許容する**（リポジトリ横断の変更で scope 不要なケースのため）。
 
-**運用詳細（type / scope の完全一覧 / 複数領域跨りの書き方 / scope 追加変更時の手順）の SSoT は [06-dev-workflow.md: コミットメッセージ規約](../requirements/2-foundation/06-dev-workflow.md#コミットメッセージ規約) を参照**（運用ルール型 ADR、→ [`.claude/rules/docs-rules.md` §2](../../.claude/rules/docs-rules.md)）。機械強制 SSoT は [`commitlint.config.ts`](../../commitlint.config.ts)。本 ADR は採用根拠（§Why）と代替案（§Alternatives Considered）を扱う。
+**運用詳細（type / scope の完全一覧 / 複数領域跨りの書き方 / scope 追加変更時の手順）の SSoT は [06-dev-workflow.md: コミットメッセージ規約](../requirements/2-foundation/06-dev-workflow.md#コミットメッセージ規約) を参照**（運用ルール型 ADR、→ [`.claude/rules/docs-rules.md` §2](../../.claude/rules/docs-rules.md)）。機械強制 SSoT は [`commitlint.config.mjs`](../../commitlint.config.mjs)。本 ADR は採用根拠（§Why）と代替案（§Alternatives Considered）を扱う。
 
 ## Why（採用理由）
 
@@ -58,7 +58,7 @@
 - **リポジトリ横断の変更で scope を強制すると違和感が出る**：例えば `chore: lefthook を導入` のような全体に関わる変更で、無理に scope を付けるとミスリードになる
 - **CLAUDE.md のリポジトリ規律変更等もこのケース**
 
-### SSoT を `commitlint.config.ts` に置く理由
+### SSoT を `commitlint.config.mjs` に置く理由
 
 - **commitlint が CI で検証する唯一の真実**：人間が読む `.claude/CLAUDE.md` は説明用の写しに過ぎない
 - **設定ファイルが複数ある場合、機械強制される側を正とする**が原則
@@ -96,7 +96,7 @@
 
 ## References
 
-- [commitlint.config.ts](../../commitlint.config.ts)：本 ADR の機械強制実装（SSoT）
+- [commitlint.config.mjs](../../commitlint.config.mjs)：本 ADR の機械強制実装（SSoT）
 - [.claude/CLAUDE.md](../../.claude/CLAUDE.md)：人間向け scope 表（副 SSoT）
 - [.github/dependabot.yml](../../.github/dependabot.yml)：自動 PR が `include: scope` で `deps` / `deps-dev` を生成する設定
 - [ADR 0021](./0021-r0-tooling-discipline.md)：commitlint を R0 から導入
