@@ -1,10 +1,12 @@
-# AI Coding Drill
+# AI Coding Drill（Python 版）
 
 > LLM が自動生成したプログラミング問題を、サンドボックス環境で検証・採点する学習サイト。
 > 「LLM の出力を信用せず、サンドボックスで動作保証する」設計思想を実装したポートフォリオプロジェクト。
 
+> **このリポジトリは Python 版です**。TS 版（[`yzanbo/ai-coding-drill`](https://github.com/yzanbo/ai-coding-drill)）を [`v1.0.0-typescript`](https://github.com/yzanbo/ai-coding-drill/releases/tag/v1.0.0-typescript) タグ時点で fork し、バックエンド API を Python に pivot した派生版です。Frontend (Next.js) と採点ワーカー (Go) は維持し、バックエンドのみ言語を切り替えます。判断の背景は [ADR 0033](docs/adr/0033-backend-language-pivot-to-python.md) を参照。
+
 🚀 **デモ**：_（デプロイ後に追記予定。R5 完了時に公開）_
-📊 **ステータス**：**設計フェーズ完了 / R1 着手予定**（[ロードマップ](docs/requirements/5-roadmap/01-roadmap.md) 参照）
+📊 **ステータス**：**Python pivot 起票中**（設計フェーズは TS 版で完了済み、Python 版ロードマップは別途再構成予定）
 📚 **設計判断**：[ADR](docs/adr/) として体系的に記録（最新件数は [索引](docs/adr/README.md) を参照）
 🛠️ **セットアップして動かしたい場合**：[CONTRIBUTING.md](CONTRIBUTING.md) を参照
 
@@ -12,20 +14,19 @@
 
 ## 📊 現在の進捗（2026-05 時点）
 
-| フェーズ | 状態 | 完了内容 |
+| フェーズ | 状態 | 内容 |
 |---|---|---|
-| **設計フェーズ** | ✅ **完了** | ADR / 要件定義書 5 バケット（うち R0 で `06-dev-workflow` / `07-github-settings` を新設） / アーキテクチャ図 3 種 / プロダクトバックログ |
-| **R0** 基盤整備 | ⏳ **着手予定** | モノレポ・Docker Compose・CI 雛形・補完ツール一式 |
-| **R1** MVP（最小貫通） | ⏳ 未着手 | F-01〜F-05 の一気通貫動作 |
-| **R2〜R5** 仕上げ | ⏳ 未着手 | 品質保証 / サンドボックス強化 / 観測性 / 公開 |
+| **設計フェーズ（TS 版）** | ✅ **完了** | ADR / 要件定義書 5 バケット / アーキテクチャ図 3 種 / プロダクトバックログ — `v1.0.0-typescript` タグで凍結 |
+| **Python pivot** | ⏳ **起票中** | バックエンド言語切替判断（[ADR 0033](docs/adr/0033-backend-language-pivot-to-python.md)）/ FastAPI 採用（[ADR 0034](docs/adr/0034-fastapi-for-backend.md)）/ 影響 ADR の Status 整理 / README 改訂 |
+| **R0**〜 Python 版ロードマップ再構成 | ⏳ 未着手 | Python スタック確定（ORM / 型チェッカー / モノレポ管理）+ 各 ADR 起票 + R0〜R5 リリース計画再構成 |
 
 > **ポートフォリオとしての位置づけ**：
-> 現時点では **設計力・ドキュメント力**が成果物の中心です。実装フェーズ（R1〜）が進むにつれ、動くサービス・スクリーンショット・デモ動画・ベンチマーク結果を順次追加していきます。
+> 現時点では **設計力・ドキュメント力**が成果物の中心です。Python pivot により、同じ設計を 2 言語で実装した経験そのものを差別化軸にしていきます。実装フェーズが進むにつれ、動くサービス・スクリーンショット・デモ動画・ベンチマーク結果を順次追加します。
 >
-> - **設計シニア / アーキテクト枠**：現時点で十分に評価可能（[ADR](docs/adr/) を中心に閲覧推奨）
-> - **フルスタック枠**：R1（MVP 動作）完成までお待ちいただくか、設計判断の議論を中心に評価をお願いします
+> - **設計シニア / アーキテクト枠**：現時点で十分に評価可能（[ADR](docs/adr/) を中心に閲覧推奨。設計の言語非依存性は TS 版（`v1.0.0-typescript`）と本リポジトリの差分で確認可能）
+> - **フルスタック枠（Python）**：実装着手・MVP 動作完成までお待ちいただくか、設計判断の議論を中心に評価をお願いします
 >
-> 進捗は [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) で更新します。
+> 進捗は [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) で更新します（Python 版に追従して再構成予定）。
 
 ---
 
@@ -65,9 +66,9 @@
    ミューテーションテスト・複数モデルによる多軸評価・人間評価との相関分析を組み合わせ、LLM 生成物の品質を継続的に担保。
    → 詳細：[ADR 0008: LLM-as-a-Judge を自前実装](docs/adr/0008-custom-llm-judge.md)
 
-3. **TypeScript + Go のポリグロット構成**（R7 で Python 追加）
-   実装速度（NestJS）・採点ワーカーの軽量並列性（Go）・LLM/評価エコシステム（Python）を、フェーズに応じて適材適所で導入。
-   → 詳細：[ADR 0003: 言語の段階導入](docs/adr/0003-phased-language-introduction.md)
+3. **Python + Go のポリグロット構成**
+   バックエンド API（Python / FastAPI）・採点ワーカー（Go）・フロントエンド（TypeScript / Next.js）を、レイヤごとに適材適所で導入。
+   → 詳細：[ADR 0033: バックエンドを Python に pivot](docs/adr/0033-backend-language-pivot-to-python.md) / [ADR 0003: 言語の段階導入](docs/adr/0003-phased-language-introduction.md)
 
 4. **Postgres ジョブキュー**（`SELECT FOR UPDATE SKIP LOCKED` + `LISTEN/NOTIFY`）
    外部キューミドルウェア不要、解答登録とジョブ登録を同一トランザクションで処理。Outbox パターン回避。
@@ -99,6 +100,12 @@
 
 複数案を検討して 1 つを選んだ判断は、すべて [docs/adr/](docs/adr/) に **1 ファイル 1 決定**で記録しています。判断が変わった場合は ADR 本文を直接書き換えて最新状態に保ち、変更経緯は git log で辿ります。
 
+### 🌐 戦略判断（Python pivot）
+
+| ADR | タイトル | キーワード |
+|---|---|---|
+| [0033](docs/adr/0033-backend-language-pivot-to-python.md) | バックエンドを Python に pivot（NestJS → Python） | 言語切替 / 設計の言語非依存性 / 採用面接駆動 |
+
 ### 🏗️ アーキテクチャ判断
 
 | ADR | タイトル | キーワード |
@@ -116,10 +123,11 @@
 | ADR | タイトル | キーワード |
 |---|---|---|
 | [0015](docs/adr/0015-codemirror-over-monaco.md) | CodeMirror 6 採用（Monaco 不採用） | バンドル軽量化 |
-| [0014](docs/adr/0014-nestjs-for-backend.md) | バックエンドに NestJS 採用 | DI / Module / レイヤード設計 |
+| [0034](docs/adr/0034-fastapi-for-backend.md) | バックエンド API に FastAPI 採用 | Python / 型ヒント駆動 / OpenAPI 自動生成 |
+| [0014](docs/adr/0014-nestjs-for-backend.md) | バックエンドに NestJS 採用 *(Superseded by 0033)* | DI / Module / レイヤード設計（移行判断軌跡として保持） |
 | [0016](docs/adr/0016-go-for-grading-worker.md) | 採点ワーカーを Go で実装 | シングルバイナリ / goroutine |
 | [0011](docs/adr/0011-github-oauth-with-extensible-design.md) | GitHub OAuth + 拡張可能設計 | Strategy パターン |
-| [0017](docs/adr/0017-drizzle-orm-over-prisma.md) | ORM に Drizzle 採用（Prisma 不採用） | 型推論 / 生 SQL 親和性 |
+| [0017](docs/adr/0017-drizzle-orm-over-prisma.md) | ORM に Drizzle 採用（Prisma 不採用）*(Superseded by 0033)* | 型推論 / 生 SQL 親和性（移行判断軌跡として保持） |
 
 ### ☁️ インフラ判断
 
@@ -133,8 +141,8 @@
 
 | ADR | タイトル | キーワード |
 |---|---|---|
-| [0023](docs/adr/0023-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces | モノレポ運用 |
-| [0018](docs/adr/0018-biome-for-tooling.md) | TS のコード品質ツールに Biome を採用、設定はルート直接配置 | Rust 製 / 高速 / 単一設定 |
+| [0023](docs/adr/0023-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces *(Superseded by 0033)* | モノレポ運用（Python 用に置換予定） |
+| [0018](docs/adr/0018-biome-for-tooling.md) | TS のコード品質ツールに Biome を採用、設定はルート直接配置 *(Superseded by 0033)* | Rust 製 / 高速 / 単一設定（Python 用 lint/format に置換予定） |
 | [0006](docs/adr/0006-json-schema-as-single-source-of-truth.md) | JSON Schema を SSoT に | 3 言語型自動生成 |
 | [0021](docs/adr/0021-r0-tooling-discipline.md) | 補完ツールを R0 から導入 | Knip / lefthook / commitlint / syncpack |
 | [0001](docs/adr/0001-requirements-as-5-buckets.md) | 要件定義書を 5 バケット時系列構造に再編 | ドキュメント設計 / SSoT / 読む順序 vs 書く順序 |
@@ -161,18 +169,25 @@
 | レイヤ | 採用技術 |
 |---|---|
 | **フロントエンド** | Next.js（App Router）+ Tailwind CSS + CodeMirror 6 + TanStack Query |
-| **バックエンド API** | NestJS（TypeScript）+ Passport（GitHub OAuth）+ Drizzle ORM |
+| **バックエンド API** | Python + **FastAPI**（[ADR 0034](docs/adr/0034-fastapi-for-backend.md)） |
+| **ORM** | 実装着手時に確定 + ADR 起票 |
+| **マイグレーション** | 実装着手時に確定 + ADR 起票 |
+| **パッケージ管理** | 実装着手時に確定 + ADR 起票 |
+| **Lint / Format** | 実装着手時に確定 + ADR 起票 |
+| **型チェッカー** | 実装着手時に確定 + ADR 起票 |
 | **採点ワーカー** | Go + Docker クライアント（公式）+ pgx |
 | **データストア** | PostgreSQL 16（DB + ジョブキュー兼任）+ Upstash Redis（キャッシュ・セッション） |
 | **LLM** | プロバイダ抽象化（Anthropic / Gemini / OpenAI / OpenRouter 差し替え可） |
 | **サンドボックス** | Docker（使い捨てコンテナ）→ R3 で gVisor → R9 で Firecracker |
-| **モノレポ** | Turborepo + pnpm workspaces |
-| **コード品質** | Biome（lint+format）+ TypeScript（tsc）+ gofmt + golangci-lint |
+| **モノレポ管理** | 実装着手時に確定 + ADR 起票 |
+| **Go コード品質** | gofmt + golangci-lint |
 | **インフラ** | AWS（ECS Fargate + EC2 + RDS + ECR + Route 53）+ Terraform |
 | **観測性** | OpenTelemetry + Grafana + Loki + Tempo + Sentry |
 | **CI/CD** | GitHub Actions |
 
-詳細は [2-foundation/05-runtime-stack.md](docs/requirements/2-foundation/05-runtime-stack.md) を参照。
+> Python スタックは [ADR 0033](docs/adr/0033-backend-language-pivot-to-python.md) の方針に基づく。Web framework は **FastAPI を採用**（[ADR 0034](docs/adr/0034-fastapi-for-backend.md)）、その他（ORM / 型チェッカー / モノレポ管理 等）は**実装着手時に決定し、それぞれ別 ADR で起票**する（可逆な判断の遅延）。
+
+詳細は [2-foundation/05-runtime-stack.md](docs/requirements/2-foundation/05-runtime-stack.md) を参照（Python 版に追従して再構成予定）。
 
 ---
 
@@ -183,7 +198,7 @@
      ↓
 [Next.js (Vercel)]
      ↓
-[NestJS API (ECS Fargate)]
+[Python API (FastAPI, ECS Fargate)]
      ├── PostgreSQL (RDS) ← jobs テーブルが LISTEN/NOTIFY でワーカーに通知
      ├── Upstash Redis（キャッシュ・セッション）
      └── LLM API（プロバイダ抽象化レイヤ経由）
@@ -199,17 +214,19 @@
 
 ## リリース計画
 
+> **note**：以下は TS 版時点のリリース計画。**Python 版ではロードマップ自体を再構成予定**（Python スタック確定 ADR の起票・R0 ツーリングの Python 用置換等を盛り込み）。Python 版ロードマップは [ADR 0033](docs/adr/0033-backend-language-pivot-to-python.md) 後続作業として整備する。
+
 | リリース | アウトカム | 状態 |
 |---|---|---|
-| R0 | 基盤整備（モノレポ・Docker Compose・CI 雛形・補完ツール一式） | _未着手_ |
+| R0 | 基盤整備（モノレポ・Docker Compose・CI 雛形・補完ツール一式） | _未着手 / Python 版で再構成予定_ |
 | R1 | MVP（認証・問題生成・採点・最低限フロント・一気通貫動作） | _未着手_ |
 | R2 | 品質保証パイプライン（Judge・ミューテーションテスト・非同期ジョブ完成） | _未着手_ |
 | R3 | サンドボックス強化（gVisor + ベンチマーク） | _未着手_ |
 | R4 | 観測性（OTel・Grafana・Sentry・管理ダッシュボード） | _未着手_ |
 | R5 | 仕上げ（IaC・E2E・本番デプロイ・README 完成） | _未着手_ |
-| R6 以降 | 任意（適応型出題・LLM ヒント・Python 評価パイプライン・多言語化・Firecracker） | _任意_ |
+| R6 以降 | 任意（適応型出題・LLM ヒント・多言語化・Firecracker 等） | _任意_ |
 
-詳細は [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) を参照。
+詳細は [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) を参照（Python 版に追従して再構成予定）。
 
 ---
 
