@@ -1,8 +1,10 @@
 # 0016. 採点ワーカーを Go で実装
 
 - **Status**: Accepted
-- **Date**: 2026-04-25
+- **Date**: 2026-05-09 <!-- ADR 0040 で apps/grading-worker → apps/workers/grading にリネーム、Worker 群への拡張方針を明記 -->
 - **Decision-makers**: 神保 陽平
+
+> **2026-05-09 追記**：[ADR 0040](./0040-worker-grouping-and-llm-in-worker.md) で Worker のディレクトリ構造が **`apps/grading-worker/` → `apps/workers/grading/`** にリネームされ、`apps/workers/<name>/` グループ配下パターンに統一された。Go 採用判断そのものは維持。本文中の「採点ワーカー」「`apps/grading-worker`」は新パスに読み替える。新規 Worker（generation 等）も同じ Go 採用パターンを継承する想定（ADR 0040 §将来の見直しトリガー参照）。
 
 ## Context（背景・課題）
 

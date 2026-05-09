@@ -18,8 +18,8 @@
 
 | レイヤ | 言語 | 役割 |
 |---|---|---|
-| **バックエンド API** | **Python**（FastAPI） | 認証・問題 CRUD・LLM 呼び出し・ジョブ投入。LLM / データ系エコシステムの恩恵を受ける（→ [ADR 0034](./0034-fastapi-for-backend.md)） |
-| **採点ワーカー** | **Go** | Postgres ジョブ受信 + Docker SDK で使い捨てサンドボックスを起動・採点。軽量・並列・システム制御（→ [ADR 0016](./0016-go-for-grading-worker.md)） |
+| **バックエンド API** | **Python**（FastAPI） | 認証・問題 CRUD・ジョブ enqueue。LLM 呼び出しは Worker 側に委譲（→ [ADR 0034](./0034-fastapi-for-backend.md) / [ADR 0040](./0040-worker-grouping-and-llm-in-worker.md)） |
+| **Worker 群（採点 / 問題生成 / …）** | **Go** | `apps/workers/<name>/` 配下に独立 Go module として配置（→ [ADR 0040](./0040-worker-grouping-and-llm-in-worker.md)）。Postgres ジョブ受信 + Docker SDK + LLM 呼び出し。軽量・並列・システム制御（→ [ADR 0016](./0016-go-for-grading-worker.md)） |
 | **フロントエンド** | **TypeScript**（Next.js） | ユーザ向け UI、CodeMirror エディタ、React Query。型駆動の開発体験 |
 | 将来の拡張 | （言語アダプタ層経由） | 採点対象言語の多言語化（Python / Next.js コンポーネント等）に対応する設計余地を残す |
 

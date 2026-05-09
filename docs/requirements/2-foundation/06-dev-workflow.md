@@ -228,7 +228,7 @@ Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住
 |---|---|
 | `web` | `apps/web`（フロントエンド / Next.js） |
 | `api` | `apps/api`（FastAPI / Python バックエンド） |
-| `worker` | `apps/grading-worker`（Go 採点ワーカー） |
+| `worker` | `apps/workers/*`（grading / generation 等の Go Worker 群、→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)） |
 | `shared` | `packages/shared-types`、`packages/prompts` 等の共有パッケージ |
 | `config` | tooling 設定ファイル群（ルート直接配置 + `packages/config/` の両方を含む、→ [packages/config/README.md](../../../packages/config/README.md)） |
 | `infra` | `infra/`（Terraform） |

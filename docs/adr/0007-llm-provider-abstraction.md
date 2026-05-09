@@ -1,8 +1,11 @@
 # 0007. LLM プロバイダ抽象化戦略（特定モデルへの依存を排除する）
 
 - **Status**: Accepted
-- **Date**: 2026-04-25
+- **Date**: 2026-05-09 <!-- ADR 0040 で LLM 呼び出しを全て Worker 側に集約する判断を反映 -->
 - **Decision-makers**: 神保 陽平
+
+> **2026-05-09 追記**：[ADR 0040](./0040-worker-grouping-and-llm-in-worker.md) で **LLM 呼び出しは全て Worker 側（`apps/workers/<name>/`）に集約**することが決定した。本 ADR の `LlmProvider` 抽象化レイヤの実装場所は **Worker 側（Go）** となり、Backend API（Python / FastAPI）からは LLM 呼び出しが無くなる（API はジョブ enqueue のみ）。本文の「実装」「呼び出し元」を **Worker 側** と読み替える。プロバイダ抽象化方針そのものは維持。
+
 
 ## Context（背景・課題）
 

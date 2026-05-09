@@ -21,17 +21,20 @@
 
 | ディレクトリ | 役割 | 言語 |
 |---|---|---|
-| `apps/web/` | Next.js 16+（App Router、フロント専用、`pnpm workspaces` 単独管理） | TypeScript |
-| `apps/api/` | FastAPI（認証・問題 CRUD・LLM 呼び出し・ジョブ投入、Pydantic SSoT） | Python |
-| `apps/grading-worker/` | 採点ワーカー（Postgres ジョブを取得して Docker で実行） | Go |
-| `packages/prompts/` | LLM プロンプト（YAML、バージョン管理） | — |
+| `apps/web/` | Next.js 16+（App Router、Frontend ツーリング（Biome / Knip / syncpack / tsconfig）も同 app 配下に閉じる） | TypeScript |
+| `apps/api/` | FastAPI（**認証・問題 CRUD・ジョブ enqueue のみ**、LLM 呼び出しは Worker に委譲、Pydantic SSoT） | Python |
+| `apps/workers/grading/` | 採点ワーカー（Postgres ジョブ取得 + Docker サンドボックス + judge LLM 呼び出し） | Go |
+| `apps/workers/generation/` | 問題生成ワーカー（Postgres ジョブ取得 + 問題生成 LLM 呼び出し、将来追加） | Go |
 | `infra/` | Terraform（AWS） | HCL |
 | `docs/requirements/` | 要件定義書（時系列 5 バケット：1-vision / 2-foundation / 3-cross-cutting / 4-features / 5-roadmap） | Markdown |
 | `docs/adr/` | Architecture Decision Records | Markdown |
 
-> **注**：`packages/shared-types/` と `packages/config/` は不採用：
+> **注**：以下のディレクトリは不採用：
 > - `packages/shared-types/`：作らない。共有データ型は **`apps/api/` の Pydantic を SSoT** とし、FastAPI 自動生成 OpenAPI 3.1（`apps/api/openapi.json`）を単一伝送路として TS / Go に展開する（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 > - `packages/config/`：廃止。Frontend が単一 Next.js app（→ [ADR 0036](../docs/adr/0036-frontend-monorepo-pnpm-only.md)）のため multi-consumer 前提が成立せず、tsconfig / vitest.config.ts は `apps/web/` 直下に直接配置する
+> - `packages/prompts/`：廃止。LLM プロンプトは消費する Worker 内に閉じる（→ [ADR 0040](../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）：
+>   - judge プロンプト → `apps/workers/grading/prompts/judge/`
+>   - generation プロンプト → `apps/workers/generation/prompts/generation/`
 
 詳細は [SYSTEM_OVERVIEW.md](../SYSTEM_OVERVIEW.md) と [docs/requirements/2-foundation/02-architecture.md](../docs/requirements/2-foundation/02-architecture.md) を参照。
 
@@ -72,11 +75,13 @@ mise run web-dev          # next dev
 mise run web-test         # vitest
 mise run web-types-gen    # Hey API で OpenAPI から TS / Zod / HTTP クライアントを生成
 
-# Worker (Go)
-mise run worker-dev       # go run
-mise run worker-test      # go test
-mise run worker-lint      # golangci-lint
-mise run worker-types-gen # quicktype --src-lang openapi で apps/api/openapi.json から Go struct を生成
+# Workers (Go) — apps/workers/<name>/ ごとに mise タスクを定義（ADR 0040）
+mise run grading-worker-dev    # apps/workers/grading の go run
+mise run grading-worker-test   # apps/workers/grading の go test
+mise run grading-worker-lint   # apps/workers/grading の golangci-lint
+mise run generation-worker-dev # apps/workers/generation（将来追加）
+# 横断
+mise run worker-types-gen      # quicktype --src-lang openapi で apps/api/openapi.json から各 Worker 内に Go struct 生成
 
 # 横断
 mise run lint             # 全言語 lint
@@ -170,7 +175,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 |---|---|
 | `web` | apps/web |
 | `api` | apps/api |
-| `worker` | apps/grading-worker |
+| `worker` | apps/workers/*（grading / generation 等、ADR 0040） |
 | `shared` | packages/shared-types, packages/prompts 等 |
 | `config` | packages/config |
 | `infra` | infra/ |
