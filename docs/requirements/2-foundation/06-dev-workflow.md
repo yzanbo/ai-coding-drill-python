@@ -10,9 +10,10 @@
 
 3 言語ポリグロット構成（[ADR 0003](../../adr/0003-phased-language-introduction.md)）に対し、各言語の標準ツール 1 本でモノレポ管理する。
 
-- **Frontend（Next.js / TS）**：**`pnpm workspaces` のみ採用、Turborepo は不採用**（→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md)）。`apps/web` 単一 + `packages/*` 構成では Turborepo の並列ビルド・依存グラフ・リモートキャッシュが効かないため
-- **Backend（Python / FastAPI）**：**`uv`** を採用（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）。パッケージ管理 / 仮想環境 / Python バージョン / lockfile / workspace を 1 ツールで統合。lockfile が依存整合性を保証するため syncpack 相当の追加ツールは不要
-- **Worker（Go）**：`go mod`（標準）
+- **Frontend（Next.js / TS）**：**`apps/web/` 内に閉じる**（→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md) 拡張）。pnpm / Biome / Knip / syncpack / tsconfig は全て `apps/web/` 配下に配置、Turborepo / pnpm workspaces は不採用。単一 Next.js app では並列ビルド・依存グラフ・リモートキャッシュ等の価値ドライバが効かないため
+- **Backend（Python / FastAPI）**：`apps/api/` 内で **`uv`** を採用（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）。パッケージ管理 / 仮想環境 / Python バージョン / lockfile / workspace を 1 ツールで統合。lockfile が依存整合性を保証するため syncpack 相当の追加ツールは不要
+- **Workers（Go）**：`apps/workers/<name>/` 配下で **独立 Go module**（`go mod`、Go 標準）。grading + generation の各 Worker が独立 module（→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）
+- **root**：orchestration 専用層（`mise.toml` / `lefthook.yml` / `commitlint.config.mjs` のみ）。`packages/` は全て廃止済み（shared-types は不採用、config と prompts は移動 / 廃止、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) / [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md) / [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）
 
 ## タスクランナー兼 tool 版数管理
 
@@ -125,8 +126,8 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 | Tier | 条件 | 形式 |
 |---|---|---|
-| **1. ツール強制** | 該当ツールが特定形式しか受け付けない | その形式（GitHub Actions / Dependabot / pnpm workspace → YAML） |
-| **2. ecosystem 慣習** | ツールが複数形式を受容しても、公式 / 大多数のユーザが特定形式を使っている | その形式（Biome → `biome.jsonc` / Turborepo → `turbo.jsonc` / TypeScript → `tsconfig.json`） |
+| **1. ツール強制** | 該当ツールが特定形式しか受け付けない | その形式（GitHub Actions / Dependabot → YAML） |
+| **2. ecosystem 慣習** | ツールが複数形式を受容しても、公式 / 大多数のユーザが特定形式を使っている | その形式（Biome → `biome.jsonc` / TypeScript → `tsconfig.json` / mise → `mise.toml` / Python ecosystem → `pyproject.toml`） |
 | **3-1. 自由選択：TS** | ツールが型を公式 export している（`RcFile` / `UserConfig` / `defineConfig` 等） | `.ts`（typo を保存時に IDE / `tsc` が即時に弾く） |
 | **3-2. 自由選択：JSONC** | 設定がほぼ純データ、`$schema` で IDE 補完が効く | `.jsonc`（VS Code が native 認識） |
 | **3-3. 自由選択：JS 系** | TS が使えず JSONC も合わない（条件分岐 / 環境変数参照などが必要） | `.mjs` ＞ `.cjs` ＞ `.js`（曖昧さ回避のため明示拡張子を優先） |
