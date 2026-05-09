@@ -204,105 +204,16 @@ jobs:
             --to "${{ github.event.after }}"
 
   # ====================================================================
-  # job 2: lint
-  #   Biome の lint + format 検証（書き込みなし、差分があれば失敗）。
-  #   ローカルの lefthook では `--write` で自動修正するが、CI では純粋な検証のみ。
-  # ====================================================================
-  lint:
-    name: Biome
-    runs-on: ubuntu-latest
-    steps:
-      # ソース取得（ここは差分検証ではないので fetch-depth は既定の 1 で十分）。
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      # 環境セットアップを Composite Action に委譲。
-      - uses: ./.github/actions/setup-node-pnpm
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          pnpm-version: ${{ env.PNPM_VERSION }}
-
-      # Biome check: ルート package.json の `lint` スクリプト = `biome check .` を実行。
-      # `--write` を付けないため、フォーマット差分・lint 違反があれば exit 1 となり CI が失敗する。
-      - name: Biome check
-        run: pnpm lint
-
-  # ====================================================================
-  # job 3: typecheck
-  #   TypeScript の型チェックを 2 段階で実行する。
-  #   ローカル lefthook の typecheck フックと対称になるよう、CI でも root tsc と
-  #   workspace tsc を独立したステップとして表示する（失敗時にどちらかが原因か即判別できる）。
-  # ====================================================================
-  typecheck:
-    name: typecheck
-    runs-on: ubuntu-latest
-    steps:
-      # ソース取得。
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      # 環境セットアップを Composite Action に委譲。
-      - uses: ./.github/actions/setup-node-pnpm
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          pnpm-version: ${{ env.PNPM_VERSION }}
-
-      # ルート直下の TS 設定ファイル（commitlint.config.ts、.syncpackrc.ts、knip.config.ts 等）の型チェック。
-      # tsconfig.json の include パターン（"*.ts" / ".*.ts"）に合致するファイル群を tsc が検証。
-      # 同等のチェックは lefthook の pre-commit `typecheck` ステップでもローカル実行される
-      # （ADR 0022 / 設定ファイル形式の選定方針 参照）。
-      #
-      # 注：apps/web の workspace 単位 typecheck は ADR 0036（Turborepo 不採用、Frontend 単一 app）に従い、
-      #     apps/web 着手時に `mise run web-typecheck` 経由で別 job として追加する（ADR 0026 拡張）。
-      - name: tsc --noEmit (root configs)
-        run: pnpm exec tsc --noEmit -p tsconfig.json
-
-  # ====================================================================
-  # job 4: syncpack
-  #   モノレポ内 package.json の整合性検証（バージョン揃え / semver 範囲統一 /
-  #   workspace:* 強制 / dep 重複検知）。規約 SSoT は .syncpackrc.ts。
-  #   違反があれば exit 1 となり CI が失敗する。
-  #   詳細: ADR 0029
-  # ====================================================================
-  syncpack:
-    name: syncpack
-    runs-on: ubuntu-latest
-    steps:
-      # ソース取得。
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      # 環境セットアップを Composite Action に委譲。
-      - uses: ./.github/actions/setup-node-pnpm
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          pnpm-version: ${{ env.PNPM_VERSION }}
-
-      # syncpack lint: .syncpackrc.ts に従って package.json 群を検証。
-      # 修正は `pnpm syncpack fix-mismatches` / `pnpm syncpack format` をローカルで実行。
-      - name: syncpack lint
-        run: pnpm exec syncpack lint
-
-  # ====================================================================
-  # job 5: knip
-  #   未使用 export / 未使用ファイル / 未使用 dependency を検出。
-  #   規約 SSoT は knip.config.ts。違反があれば exit 1 となり CI が失敗する。
-  #   詳細: ADR 0021（補完ツールを R0 から導入）
-  # ====================================================================
-  knip:
-    name: knip
-    runs-on: ubuntu-latest
-    steps:
-      # ソース取得。
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      # 環境セットアップを Composite Action に委譲。
-      - uses: ./.github/actions/setup-node-pnpm
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          pnpm-version: ${{ env.PNPM_VERSION }}
-
-      # knip: knip.config.ts に従って未使用 export / file / dependency を検出。
-      # 修正は `pnpm knip:fix` をローカルで実行（自動修正は手動レビュー前提）。
-      - name: knip
-        run: pnpm knip
+  # 各言語固有のチェックジョブ（biome / typecheck / knip / ruff / pyright /
+  # pip-audit / deptry / golangci-lint / pytest / vitest / go test 等）は、
+  # 各 app 着手時に `mise run <task>` 経由で本ファイルに追加する（ADR 0036 拡張 + ADR 0039）：
+  #
+  #   - apps/web 着手時：`mise run web-lint` / `mise run web-typecheck` / `mise run web-knip`
+  #   - apps/api 着手時：`mise run api-lint` / `mise run api-typecheck` / `mise run api-audit` / `mise run api-deps-check`
+  #   - apps/grading-worker 着手時：`mise run worker-lint` / `mise run worker-deps-check`
+  #
+  # 追加するジョブは `ci-success.needs` にも 1 行加えることで Required status checks の
+  # 網に自動で組み込まれる（ADR 0031 の umbrella job パターン）。
 
   # ====================================================================
   # 【集約ジョブ】ci-success （umbrella / aggregator）
@@ -323,7 +234,7 @@ jobs:
     # 逆に「成功扱い」と誤認される事故の温床になる。always() で必ず起動させ、
     # 結果は steps 内で明示的に判定する。
     if: always()
-    needs: [commitlint, lint, typecheck, syncpack, knip]
+    needs: [commitlint]
     runs-on: ubuntu-latest
     steps:
       # needs.*.result は 'success' / 'failure' / 'cancelled' / 'skipped' のいずれか。

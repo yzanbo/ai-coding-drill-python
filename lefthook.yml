@@ -2,82 +2,27 @@
 # Git フックを管理し、commit / push 時に自動チェックを実行する。
 # 公式: https://lefthook.dev/configuration/
 #
-pre-commit:
-  parallel: true
-  commands:
-    biome:
-      # ステージ済みの TS/JS/JSON 系ファイルに対し Biome の lint + format を実行。
-      # --write でフォーマット差分は自動修正、--no-errors-on-unmatched で対象ゼロ時もエラーにしない。
-      # stage_fixed: true で Biome が書き換えたファイルを自動再ステージし、
-      # フォーマット差分のためにコミットがブロックされ続ける現象を防ぐ。
-      glob: "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}"
-      run: pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
-      stage_fixed: true
-
-    typecheck:
-      # ルート直下の TS 設定ファイル（commitlint.config.ts、将来の .syncpackrc.ts 等）の型チェック。
-      # `tsc` はプロジェクト単位で動作するため、ファイル単位の起動はできない。
-      # `.ts` ファイルが 1 つでも staged にあれば tsconfig.json 全体を検証する。
-      # 根拠：ADR 0028（設定ファイルは TS 化により型安全を機械保証する方針）。
-      # 注：workspace 配下の TS 型チェックは Turborepo 経由で別途実行される（pnpm typecheck）。
-      #
-      # glob パターン：
-      #   "*.ts"  ─ 通常 TS ファイル（commitlint.config.ts 等）
-      #   ".*.ts" ─ dotfile TS ファイル（.syncpackrc.ts 等。`*` は dotfile を拾わないため別パターン）
-      #   tsconfig.json の include と対称（同じ範囲をトリガする）。
-      glob: "{*.ts,.*.ts}"
-      run: pnpm exec tsc --noEmit -p tsconfig.json
-
-    syncpack:
-      # モノレポ内 package.json の整合性を検証（バージョン揃え / `^` 統一 / workspace:* 強制 /
-      # dependencies/devDependencies 重複検知）。規約 SSoT は .syncpackrc.ts。
-      # 根拠：ADR 0029（syncpack 採用）。
-      #
-      # glob: "package.json" — package.json 系ファイルが staged の時だけ走る。
-      #   - 開発者がコード（.tsx 等）だけ編集した時には走らず、commit がスムーズ
-      #   - 依存追加・版変更などの「違反を入れる/触る瞬間」に限り即時検知
-      #
-      # 自動修正 (fix-mismatches) は走らせない：
-      #   - syncpack の自動修正は他ファイルの package.json も書き換えうる
-      #   - pnpm-lock.yaml との整合保守が pre-commit のような気軽なタイミングで起きるべきではない
-      #   - 修正は `pnpm syncpack:fix` を開発者が手動実行する半自動運用
-      #
-      # 注：CI 側にも独立した `syncpack` ジョブがあり、pre-commit を skip された場合の最終 gate になる。
-      glob: "package.json"
-      run: pnpm exec syncpack lint
-
-    knip:
-      # 未使用 export / file / dependency を検出。規約 SSoT は knip.config.ts。
-      # 根拠：ADR 0021（補完ツールを R0 から導入）。
-      #
-      # glob: TS/JS 系または package.json が staged の時だけ走る（syncpack と同パターン）。
-      #   - 開発者がドキュメント（.md）だけ編集した時には走らず、commit がスムーズ
-      #   - コード追加・削除や依存変更などの「未使用 export / dep を入れる瞬間」に限り即時検知
-      #
-      # Knip はファイル単位起動ができない（全プロジェクトの import グラフ解析が必要）ため、
-      # {staged_files} を渡さず `pnpm knip` で全体スキャンする。
-      # glob トリガー条件下では起動頻度が抑制されるため許容コスト（5〜15 秒）。
-      #
-      # 自動修正 (--fix) は走らせない：
-      #   - 削除可否は人間レビューが必要（未公開機能の足跡 vs dead code の判別）
-      #   - 修正は `pnpm knip:fix` を開発者が手動実行する半自動運用
-      #
-      # 注：CI 側にも独立した `knip` ジョブがあり、pre-commit を skip された場合の最終 gate になる。
-      glob: "*.{ts,tsx,js,jsx,mjs,cjs,json}"
-      run: pnpm exec knip
+# 設計方針（ADR 0036 拡張版）：
+#   root では言語横断のチェック（commitlint）のみを扱う。
+#   各言語（TS / Python / Go）固有の lint / format / typecheck は、
+#   各 app 着手時に `mise run <task>` 経由で本ファイルに pre-commit フックとして追加する：
+#     - apps/web 着手時：biome / typecheck / knip フックを `mise run web-*` で接続
+#     - apps/api 着手時：ruff / pyright / pip-audit / deptry フックを `mise run api-*` で接続
+#     - apps/grading-worker 着手時：golangci-lint / go-mod-tidy フックを `mise run worker-*` で接続
+#   これにより各言語ツールの実行経路は ADR 0039（mise）に統一される。
 
 commit-msg:
   commands:
     commitlint:
       # commit-msg フックで commitlint を実行し、コミットメッセージが
-      # Conventional Commits 規約（commitlint.config.ts）に従っているかを検証する。
+      # Conventional Commits 規約（commitlint.config.mjs）に従っているかを検証する。
       #
       # コマンド分解:
-      #   pnpm exec   ─ プロジェクトの node_modules/.bin から実行可能ファイルを起動
-      #                  （グローバルインストール不要、devDependencies の commitlint を使う）
+      #   pnpm exec   ─ root の node_modules/.bin から起動可能ファイルを呼ぶ
+      #                  （root は package.json + commitlint + lefthook のみ保持、
+      #                  Frontend ツーリングは apps/web 配下に閉じる、ADR 0036 拡張）
       #   commitlint  ─ @commitlint/cli の本体
       #   --edit      ─ 「ファイルパスを引数に取り、その中身をコミットメッセージとして検証する」モード
-      #                  （--edit が無いと stdin やオプションでメッセージを渡す必要がある）
       #   {1}         ─ lefthook が commit-msg フックの第 1 引数を埋め込むプレースホルダ
       #                  Git が commit-msg フックに渡す引数 = .git/COMMIT_EDITMSG（編集中のメッセージファイル）
       #
@@ -97,10 +42,10 @@ commit-msg:
           <type>(<scope>): <subject>
           └─┬──┘ └──┬──┘   └───┬───┘
             │       │          └ subject : 変更内容を簡潔に（日本語可、ヘッダー全体 100 文字以内）
-            │       └──────────- scope   : web / api / worker / shared / config / infra / docs / db / deps （省略可、複数はカンマ区切り）
+            │       └──────────- scope   : web / api / worker / shared / config / infra / docs / db / deps / deps-dev （省略可、複数はカンマ区切り）
             └──────────────────- type    : feat / fix / docs / refactor / test / chore / ci / build / perf / style / revert （必須）
 
         詳細は以下を参照:
           - .claude/CLAUDE.md「コミットメッセージ」セクション
-          - commitlint.config.ts（許可リストの SSoT）
+          - commitlint.config.mjs（許可リストの SSoT）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -1,44 +1,19 @@
 {
+  "//": "root package.json は orchestration 専用に縮小（ADR 0036 拡張）。Frontend ツーリング（biome / knip / syncpack / typescript）は apps/web 着手時に apps/web/ 配下へ投入する。tool 版数の SSoT は mise.toml（ADR 0039）で `node` / `pnpm` も管理するため、volta / packageManager / engines は明示しない。",
   "name": "ai-coding-drill",
   "version": "0.0.0",
-  "description": "LLM が自動生成したプログラミング問題をサンドボックスで動作保証してから提供する TypeScript 練習サービス",
+  "description": "LLM が自動生成したプログラミング問題をサンドボックスで動作保証してから提供するプログラミング練習サービス",
   "private": true,
   "license": "MIT",
   "author": "Yohei Jinbo",
-  "packageManager": "pnpm@9.15.4",
-  "engines": {
-    "node": ">=22"
-  },
-  "volta": {
-    "node": "22.20.0",
-    "pnpm": "9.15.4"
-  },
   "scripts": {
     "prepare": "lefthook install",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
     "commitlint": "commitlint",
-    "knip": "knip",
-    "knip:fix": "knip --fix",
-    "syncpack:lint": "syncpack lint",
-    "syncpack:fix": "syncpack fix-mismatches",
-    "syncpack:format": "syncpack format",
     "g-clean": "bash scripts/cleanup-merged-branches.sh"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.14",
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
-    "@commitlint/types": "^20.5.0",
-    "knip": "^6.12.2",
-    "lefthook": "^2.1.6",
-    "syncpack": "^15.0.0",
-    "typescript": "^6.0.3"
-  },
-  "pnpm": {
-    "overrides": {
-      "fast-uri": "^3.1.2"
-    }
+    "lefthook": "^2.1.6"
   }
 }
