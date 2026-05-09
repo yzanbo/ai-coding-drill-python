@@ -8,10 +8,11 @@
 
 ## リポジトリ・モノレポ構成
 
-- **Frontend（Next.js / TS）**：`pnpm workspaces` を採用（[ADR 0023](../../adr/0023-turborepo-pnpm-monorepo.md) は Python pivot により Superseded by 0033、Turborepo の採用是非を含めて Frontend 着手時に再評価）
-  - pnpm workspaces：JS/TS パッケージの依存解決・リンク（土台）
-- **Backend（Python / FastAPI）**：パッケージ管理・モノレポ管理ツール（uv / Poetry / Hatch 等）はバックエンド着手時に確定し、別 ADR を起票する（→ [ADR 0033 §4](../../adr/0033-backend-language-pivot-to-python.md)）
-- **Worker（Go）**：`go mod`
+3 言語ポリグロット構成（[ADR 0003](../../adr/0003-phased-language-introduction.md)）に対し、各言語の標準ツール 1 本でモノレポ管理する。
+
+- **Frontend（Next.js / TS）**：**`pnpm workspaces` のみ採用、Turborepo は不採用**（→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md)）。`apps/web` 単一 + `packages/*` 構成では Turborepo の並列ビルド・依存グラフ・リモートキャッシュが効かないため
+- **Backend（Python / FastAPI）**：**`uv`** を採用（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）。パッケージ管理 / 仮想環境 / Python バージョン / lockfile / workspace を 1 ツールで統合。lockfile が依存整合性を保証するため syncpack 相当の追加ツールは不要
+- **Worker（Go）**：`go mod`（標準）
 
 ---
 
@@ -26,7 +27,7 @@
   - `typeCheckingMode = "basic"` で開始 → 安定後に `"strict"` への段階的引き上げを検討
   - 設定は `pyproject.toml` の `[tool.pyright]` に集約
 - **将来の乗り換え候補**：Pyrefly（Meta）/ ty（Astral）。GA + 型仕様準拠率 95% 超で再評価（→ [ADR 0020 §見直しトリガー](../../adr/0020-python-code-quality.md)）
-- 任意追加：`pip-audit`（脆弱性スキャン）
+- **`pip-audit`**：依存パッケージの脆弱性スキャン（PyPA 公式、`uv.lock` を入力源、PyPI Advisory + OSV.dev を照会、→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）
 
 ### TypeScript（フロントエンド、→ [ADR 0018](../../adr/0018-biome-for-tooling.md) — Superseded by 0033、Frontend 用途として継続採用）
 
@@ -43,7 +44,7 @@
 - **lefthook**：Git フック管理（言語横断）。フック × チェック × CI の対応は [#フック × チェック × CI 対応表](#フック--チェック--ci-対応表) を参照。設定 SSoT は [lefthook.yml](../../../lefthook.yml)
 - **commitlint**（Conventional Commits、言語横断）：コミットメッセージ規約の機械的検証。**過去のコミット履歴は遡及修正できない**ため、最初から規約を効かせる必要がある
 - **Knip**（TS / Frontend 限定）：未使用 export / 依存 / ファイルの検出。蓄積後の一斉検出は削除可否の個別判断で時間を消費する
-- **syncpack**（TS / Frontend 限定、→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) — Superseded by 0033）：モノレポ内 `package.json` のバージョン整合性を強制。Python 用の依存整合性ツールはバックエンド着手時に決定する（uv / Poetry / Hatch の lockfile 機構で代替する想定）
+- **syncpack**（TS / Frontend 限定、→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) — Superseded by 0033、Frontend 用途として継続採用）：モノレポ内 `package.json` のバージョン整合性を強制。Python 側は uv の単一 lockfile（`uv.lock`）が同等機能を内蔵するため追加ツール不要（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）
 
 ### 設定ファイルの物理配置
 
@@ -66,6 +67,7 @@ Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住
 | **`ruff check` / `ruff format`** | Python（Backend） | pre-commit（着手時に組込） | `*.py` | `ruff` | format は自動修正、lint は検証のみ。設定 SSoT は `pyproject.toml` の `[tool.ruff]` |
 | **`pyright`**（型チェック） | Python（Backend） | pre-commit（着手時に組込） | `*.py` | `pyright` | `typeCheckingMode = "basic"` 開始、設定 SSoT は `pyproject.toml` の `[tool.pyright]` |
 | **`gofmt` / `golangci-lint`** | Go（Worker） | pre-commit（実装時に組込） | `*.go` | `golangci-lint` | `go build` 内蔵の型チェックで型ゲートも兼ねる |
+| **`pip-audit`**（脆弱性スキャン） | Python（Backend） | （pre-commit には組込まない、CI のみ） | `uv.lock` 変更時 | `pip-audit` | `uv.lock` を入力源、PyPI Advisory + OSV.dev を照会。Dependabot との二重ゲート（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)） |
 | **commitlint** | 言語横断 | commit-msg | （glob なし、毎回） | `commitlint`（PR は base..head、push は before..after） | 過去履歴は遡及修正不可のため hook と CI の両方で常時起動 |
 | **syncpack** | TS（Frontend 限定） | pre-commit | `package.json` | `syncpack` | pre-commit は `lint` のみ。自動修正は `pnpm syncpack:fix` を手動実行（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)） |
 | **Knip** | TS（Frontend 限定） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json}` | `knip` | ファイル単位起動できないため glob トリガー時に全プロジェクト解析。自動修正は `pnpm knip:fix` を手動実行 |
@@ -155,7 +157,7 @@ Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住
 
 ## モノレポ依存整合性（syncpack ルールセット）
 
-> **適用範囲**：Frontend（TS / pnpm workspaces）限定。Python バックエンド側の依存整合性ツールはバックエンド着手時に確定する（→ [ADR 0033 §4](../../adr/0033-backend-language-pivot-to-python.md)）。
+> **適用範囲**：Frontend（TS / pnpm workspaces）限定。Python バックエンドは uv の単一 lockfile（`uv.lock`）が同等機能を提供するため syncpack 相当の追加ツールは不要（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）。
 
 モノレポ内 `package.json` の整合性（バージョン揃え / `^` 統一 / `workspace:*` 強制 / dep 重複検知）の機械強制ルールセット。採用根拠は [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) を参照（Superseded by 0033 だが Frontend 用途として継続採用）。
 
@@ -220,7 +222,7 @@ Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住
 | `config` | tooling 設定ファイル群（ルート直接配置 + `packages/config/` の両方を含む、→ [packages/config/README.md](../../../packages/config/README.md)） |
 | `infra` | `infra/`（Terraform） |
 | `docs` | `docs/`（要件定義 / ADR） |
-| `db` | DB スキーマ・マイグレーション（具体の ORM / マイグレーションツールはバックエンド着手時に確定） |
+| `db` | DB スキーマ・マイグレーション（SQLAlchemy 2.0 モデル + Alembic マイグレーション、→ [ADR 0037](../../adr/0037-sqlalchemy-alembic-for-database.md)） |
 
 ### 自動更新 scope（Dependabot が自動付与、2 種）
 
@@ -320,11 +322,13 @@ rules:
 
 ## テスト
 
-- **Backend（Python / FastAPI）**：`pytest`（+ `pytest-asyncio` / `pytest-cov`）。具体構成はバックエンド着手時に確定
-- **Frontend（TS / Next.js）**：`Vitest`（ユニット）+ `Playwright`（E2E）。具体構成は Frontend 着手時に確定
-- **Worker（Go）**：Go 標準 `testing` + `testify`
-- **ミューテーションテスト**：着手レイヤごとに選定（Python なら `mutmut` / `cosmic-ray`、TS なら `stryker-js` 等を実装着手時に評価）
-- テストカバレッジ：Codecov
+レイヤごとに各エコシステムのデファクトを採用（→ [ADR 0038](../../adr/0038-test-frameworks.md)）。
+
+- **Backend（Python / FastAPI）**：`pytest` + `pytest-asyncio` + `httpx.AsyncClient` + `pytest-cov`。FastAPI の `app.dependency_overrides` で DB / 外部 API をモック差し替え
+- **Frontend（TS / Next.js）**：`Vitest`（ユニット）+ `@testing-library/react`（コンポーネント）+ `Playwright`（E2E、クロスブラウザ）+ `@vitest/coverage-v8`
+- **Worker（Go）**：Go 標準 `testing` + `testify` + `go test -cover`（`-race` で goroutine レース検出）
+- **ミューテーションテスト**：MVP では採用しない。R2 以降に必要性を再判断（Python なら `mutmut`、TS なら `stryker-js` 等が候補）
+- テストカバレッジ：Codecov に各言語のレポートを集約
 
 ---
 
@@ -334,6 +338,10 @@ rules:
 - [02-architecture.md](./02-architecture.md) — コンポーネントの責務・データフロー
 - [ADR 0033: バックエンドを Python に pivot](../../adr/0033-backend-language-pivot-to-python.md)
 - [ADR 0034: バックエンド API に FastAPI を採用](../../adr/0034-fastapi-for-backend.md)
+- [ADR 0035: Python のパッケージ管理・モノレポ管理に uv を採用](../../adr/0035-uv-for-python-package-management.md)
+- [ADR 0036: Frontend モノレポ管理を pnpm workspaces のみに縮小（Turborepo 不採用）](../../adr/0036-frontend-monorepo-pnpm-only.md)
+- [ADR 0037: DB ORM・マイグレーションに SQLAlchemy 2.0 + Alembic を採用](../../adr/0037-sqlalchemy-alembic-for-database.md)
+- [ADR 0038: テストフレームワーク確定（pytest / Vitest / Playwright / Go testing）](../../adr/0038-test-frameworks.md)
 - [ADR 0020: Python のコード品質ツールに ruff + pyright を採用](../../adr/0020-python-code-quality.md)
 - [ADR 0019: Go のコード品質ツール（gofmt + golangci-lint）](../../adr/0019-go-code-quality.md)
 - [ADR 0018: TypeScript のコード品質ツールに Biome](../../adr/0018-biome-for-tooling.md)（Superseded by 0033、Frontend 用途として継続採用）
