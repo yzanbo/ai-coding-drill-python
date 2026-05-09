@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-05-06
-- **Decision-makers**: yzanbo
+- **Decision-makers**: 神保 陽平
 
 ## Context（背景・課題）
 
