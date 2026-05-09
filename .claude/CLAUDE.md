@@ -21,54 +21,67 @@
 
 | ディレクトリ | 役割 | 言語 |
 |---|---|---|
-| `apps/web/` | Next.js 16+（App Router、フロント専用） | TypeScript |
-| `apps/api/` | NestJS API（認証・問題 CRUD・LLM 呼び出し・ジョブ投入） | TypeScript |
+| `apps/web/` | Next.js 16+（App Router、フロント専用、`pnpm workspaces` 単独管理） | TypeScript |
+| `apps/api/` | FastAPI（認証・問題 CRUD・LLM 呼び出し・ジョブ投入、Pydantic SSoT） | Python |
 | `apps/grading-worker/` | 採点ワーカー（Postgres ジョブを取得して Docker で実行） | Go |
-| `packages/shared-types/` | JSON Schema を SSoT、TS/Go/Python 向けに型を自動生成 | — |
 | `packages/prompts/` | LLM プロンプト（YAML、バージョン管理） | — |
-| `packages/config/` | 多消費者前提の shared config 置き場（R0 現状空、R1 で tsconfig 投入）→ [packages/config/README.md](../packages/config/README.md) | — |
 | `infra/` | Terraform（AWS） | HCL |
 | `docs/requirements/` | 要件定義書（時系列 5 バケット：1-vision / 2-foundation / 3-cross-cutting / 4-features / 5-roadmap） | Markdown |
 | `docs/adr/` | Architecture Decision Records | Markdown |
+
+> **注**：`packages/shared-types/` と `packages/config/` は不採用：
+> - `packages/shared-types/`：作らない。共有データ型は **`apps/api/` の Pydantic を SSoT** とし、FastAPI 自動生成 OpenAPI 3.1（`apps/api/openapi.json`）を単一伝送路として TS / Go に展開する（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+> - `packages/config/`：廃止。Frontend が単一 Next.js app（→ [ADR 0036](../docs/adr/0036-frontend-monorepo-pnpm-only.md)）のため multi-consumer 前提が成立せず、tsconfig / vitest.config.ts は `apps/web/` 直下に直接配置する
 
 詳細は [SYSTEM_OVERVIEW.md](../SYSTEM_OVERVIEW.md) と [docs/requirements/2-foundation/02-architecture.md](../docs/requirements/2-foundation/02-architecture.md) を参照。
 
 ### 主要な規約
 
-- パッケージマネージャは **pnpm**、モノレポは **Turborepo**（→ [ADR 0023](../docs/adr/0023-turborepo-pnpm-monorepo.md)）
-- TS のリント・フォーマットは **Biome**、型チェックは `tsc --noEmit`（→ [ADR 0018](../docs/adr/0018-biome-for-tooling.md)）
-- Go は `gofmt` + `golangci-lint`（→ [ADR 0019](../docs/adr/0019-go-code-quality.md)）
-- DB は **Postgres + Drizzle ORM**（→ [ADR 0004](../docs/adr/0004-postgres-as-job-queue.md)、[ADR 0017](../docs/adr/0017-drizzle-orm-over-prisma.md)）
+- **タスクランナー兼 tool 版数管理は `mise`**（root 起動、3 言語横断、Turborepo 不採用）（→ [ADR 0039](../docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）
+- **Python 側**：パッケージ管理 / 仮想環境 / lockfile / workspace は **`uv`**（→ [ADR 0035](../docs/adr/0035-uv-for-python-package-management.md)）。lint+format は **`ruff`**、型は **`pyright`**、脆弱性は **`pip-audit`**、依存衛生は **`deptry`**（→ [ADR 0020](../docs/adr/0020-python-code-quality.md)）
+- **TS 側**：パッケージマネージャは **`pnpm workspaces`**（Turborepo 不採用、→ [ADR 0036](../docs/adr/0036-frontend-monorepo-pnpm-only.md)）。lint+format は **Biome**、型は `tsc --noEmit`（→ [ADR 0018](../docs/adr/0018-biome-for-tooling.md)、Frontend 用途として継続採用）
+- **Go 側**：`gofmt` + `golangci-lint`（→ [ADR 0019](../docs/adr/0019-go-code-quality.md)）。依存衛生は `go mod tidy`、脆弱性は `govulncheck`（Worker 着手時）
+- **バックエンド framework は FastAPI**（→ [ADR 0034](../docs/adr/0034-fastapi-for-backend.md)）
+- DB は **Postgres + SQLAlchemy 2.0（async）+ Alembic**（→ [ADR 0037](../docs/adr/0037-sqlalchemy-alembic-for-database.md)、[ADR 0004](../docs/adr/0004-postgres-as-job-queue.md)）
 - ジョブキューは **Postgres `SELECT FOR UPDATE SKIP LOCKED` + LISTEN/NOTIFY**（外部キューミドルウェア不使用）
 - Redis は **キャッシュ・セッション・レート制限のみ**、ジョブキュー用途では使わない（→ [ADR 0005](../docs/adr/0005-redis-not-for-job-queue.md)）
 - LLM プロバイダは **抽象化レイヤ経由**で呼び出し、設定で差し替え可能（→ [ADR 0007](../docs/adr/0007-llm-provider-abstraction.md)）
-- 共有データ型は **JSON Schema を SSoT** とし各言語向けに自動生成（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- 共有データ型は **`apps/api/` の Pydantic を SSoT** とし、FastAPI 自動生成 OpenAPI 3.1 を単一伝送路として Hey API（TS）/ quicktype（Go）で各言語に展開（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- **テスト**：pytest（Backend）/ Vitest + Playwright（Frontend）/ Go testing + testify（Worker）（→ [ADR 0038](../docs/adr/0038-test-frameworks.md)）
 
 ## よく使うコマンド
 
-リポジトリルートで実行する：
+リポジトリルートで `mise run <task>` 形式で実行する（→ [ADR 0039](../docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）。タスク定義の SSoT は `mise.toml`。代表例（実装着手後に整備、現状は ADR レベルの命名規約）：
 
 ```bash
-pnpm install              # 依存パッケージインストール
+mise install              # mise.toml の tools（Python / Node / Go / uv / pnpm）を一括インストール
 docker compose up -d      # ローカル DB / Redis 起動
-pnpm db:migrate           # Drizzle マイグレーション
-pnpm db:seed              # シードデータ投入
-pnpm dev                  # 全アプリを並列起動（Turborepo）
-pnpm build                # 全パッケージビルド
-pnpm test                 # 全テスト実行
-pnpm lint                 # Biome チェック
-pnpm format               # Biome フォーマット
-pnpm typecheck            # tsc --noEmit
-pnpm knip                 # 未使用 export / file / dependency を検出
-pnpm g-clean              # マージ済みでリモートが消えたローカルブランチを掃除（必要なら main へ切替・最新化）
-```
 
-個別アプリ：
+# Backend (Python / FastAPI)
+mise run api-dev          # FastAPI 開発サーバ
+mise run api-test         # pytest
+mise run api-lint         # ruff check + format
+mise run api-typecheck    # pyright
+mise run api-audit        # pip-audit
+mise run api-deps-check   # deptry
+mise run db-migrate       # alembic upgrade head
+mise run api-openapi-export  # FastAPI から OpenAPI 3.1 を apps/api/openapi.json に書き出し
 
-```bash
-pnpm --filter @ai-coding-drill/web dev
-pnpm --filter @ai-coding-drill/api dev
-pnpm --filter @ai-coding-drill/grading-worker dev
+# Frontend (Next.js / TS)
+mise run web-dev          # next dev
+mise run web-test         # vitest
+mise run web-types-gen    # Hey API で OpenAPI から TS / Zod / HTTP クライアントを生成
+
+# Worker (Go)
+mise run worker-dev       # go run
+mise run worker-test      # go test
+mise run worker-lint      # golangci-lint
+mise run worker-types-gen # quicktype --src-lang openapi で apps/api/openapi.json から Go struct を生成
+
+# 横断
+mise run lint             # 全言語 lint
+mise run test             # 全言語 test
+mise run g-clean          # マージ済みでリモートが消えたローカルブランチを掃除
 ```
 
 各レイヤ固有のコマンド・規約は `.claude/rules/` 配下の各ファイルを参照。
@@ -80,9 +93,10 @@ pnpm --filter @ai-coding-drill/grading-worker dev
 | サービス | URL |
 |---|---|
 | Web | http://localhost:3000 |
-| API ヘルスチェック | http://localhost:3001/healthz |
-| Swagger UI | http://localhost:3001/api/docs |
-| Drizzle Studio | `pnpm db:studio` で起動 |
+| API ヘルスチェック | http://localhost:8000/healthz |
+| Swagger UI（FastAPI 自動生成） | http://localhost:8000/docs |
+| Redoc（FastAPI 自動生成） | http://localhost:8000/redoc |
+| OpenAPI 3.1 JSON | http://localhost:8000/openapi.json |
 
 ### データベース接続
 
@@ -161,7 +175,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 | `config` | packages/config |
 | `infra` | infra/ |
 | `docs` | docs/ |
-| `db` | Drizzle スキーマ・マイグレーション |
+| `db` | DB スキーマ・マイグレーション（SQLAlchemy 2.0 モデル + Alembic、→ [ADR 0037](../docs/adr/0037-sqlalchemy-alembic-for-database.md)） |
 | `deps` | 依存パッケージ更新（production / github-actions、Dependabot 自動付与含む） |
 | `deps-dev` | 依存パッケージ更新（devDependencies、Dependabot 自動付与） |
 
@@ -186,9 +200,9 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 | `/new-requirements` | 要件 .md を対話的に新規作成（`docs/requirements/4-features/` 配下） |
 | `/update-requirements` | 要件を先に更新してから実装を修正 |
 | `/verify-requirements` | 要件と実装の整合性を検証 |
-| `/backend-implement` | 要件 .md を読んで NestJS 実装 |
+| `/backend-implement` | 要件 .md を読んで FastAPI 実装 |
 | `/backend-test` | バックエンドのユニットテスト生成・実行 |
-| `/backend-new-module` | NestJS モジュールをスキャフォールド |
+| `/backend-new-module` | FastAPI モジュール（router / schema / service / repository）をスキャフォールド |
 | `/frontend-implement` | 要件 .md を読んで Next.js 実装 |
 | `/frontend-test` | フロントエンドのテスト生成・実行 |
 | `/worker-implement` | Go 採点ワーカーの実装 |
@@ -204,9 +218,9 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 レイヤごとのルールは `.claude/rules/` 配下に分散：
 
 - フロントエンドに関すること → `.claude/rules/frontend.md`
-- バックエンド（NestJS API）に関すること → `.claude/rules/backend.md`
+- バックエンド（FastAPI / Python）に関すること → `.claude/rules/backend.md`
 - 採点ワーカー（Go）に関すること → `.claude/rules/worker.md`
-- Drizzle スキーマ・マイグレーションに関すること → `.claude/rules/drizzle.md`
+- SQLAlchemy / Alembic スキーマ・マイグレーションに関すること → `.claude/rules/drizzle.md`（旧名は Drizzle 採用時の名残、Python pivot により内容を SQLAlchemy + Alembic に書き換える対象）
 - LLM プロンプトに関すること → `.claude/rules/prompts.md`
 - 要件定義書（base）の編集ルール → `.claude/rules/docs-rules.md`
 - プロジェクト全体に関することはこのファイルに追記
@@ -242,7 +256,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 **前提原則**：設定ファイルには「なぜこのルールがあるか」をインラインコメントで残す。コメントが書けない純 JSON は他形式が受容される限り採用しない。
 
 1. **ツール強制があればそれに従う**：GitHub Actions / Dependabot / pnpm workspace は YAML 強制
-2. **ツール ecosystem 慣習が確立されていればそれに従う**：Biome → `biome.jsonc` / Turborepo → `turbo.jsonc` / TypeScript → `tsconfig.json`
+2. **ツール ecosystem 慣習が確立されていればそれに従う**：Biome → `biome.jsonc` / TypeScript → `tsconfig.json` / mise → `mise.toml` / Python ecosystem → `pyproject.toml`
 3. **自由選択時は以下の優先順位**：
    - **TS（`.ts`）**：ツールが型を export している場合（syncpack の `RcFile`、commitlint の `UserConfig` 等）。typo を保存時に IDE / `tsc` が即時に弾く
    - **JSONC（`.jsonc`）**：純データかつ `$schema` が IDE 補完を提供する場合

@@ -108,6 +108,16 @@ Turborepo の主要価値は以下 3 点：
 - **並列ビルド・キャッシュの恩恵を諦める**：app が 1 つのため影響は最小、CI ビルド時間は Next.js 単体の build 時間に支配される
 - **Turborepo の経験を portfolio で語る機会を失う**：ただし「**Turborepo を入れない判断ができた**」こと自体が「規模に応じた選定能力」の証明として portfolio に書ける
 
+### 派生：`packages/config/` の廃止
+
+本 ADR の「Frontend は単一 Next.js app」という現実から、`packages/config/`（multi-consumer 前提の TS 設定共有パッケージ、[ADR 0018](./0018-biome-for-tooling.md) で導入）も**廃止**する：
+
+- `packages/config/` の存在意義は「**複数 TS workspace が tsconfig / Vitest base を共有する**」こと
+- 本 ADR で TS app が `apps/web/` 1 個と確定した結果、**消費者が単一**になり multi-consumer 前提が成立しない
+- tsconfig / vitest.config.ts 等は `apps/web/` 直下に直接配置すれば足り、`packages/config/` の Layer 2 抽象は YAGNI 違反
+- 既存の `packages/config/`（現状中身は `package.json` + `README.md` のみ、実設定ファイル未投入）は本 ADR 反映時に削除する
+- 将来複数 TS app 構成に拡張された場合、Turborepo 復帰検討（上記 §将来の見直しトリガー）と一緒に `packages/config/` 復活も再評価する
+
 ### 将来の見直しトリガー
 
 - **Frontend が複数 app 構成に拡張される場合**（mobile app 追加 / web admin 分離 / Storybook 独立等）→ Turborepo 復帰を検討、新規 ADR を起票
