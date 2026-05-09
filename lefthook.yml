@@ -18,17 +18,15 @@ commit-msg:
       # Conventional Commits 規約（commitlint.config.mjs）に従っているかを検証する。
       #
       # コマンド分解:
-      #   pnpm exec   ─ root の node_modules/.bin から起動可能ファイルを呼ぶ
-      #                  （root は package.json + commitlint + lefthook のみ保持、
-      #                  Frontend ツーリングは apps/web 配下に閉じる、ADR 0036 拡張）
-      #   commitlint  ─ @commitlint/cli の本体
+      #   commitlint  ─ @commitlint/cli の本体（mise.toml の `npm:@commitlint/cli` で PATH に配置、
+      #                  ADR 0036 拡張で root の package.json + pnpm を完全廃止し mise 経由起動に統一）
       #   --edit      ─ 「ファイルパスを引数に取り、その中身をコミットメッセージとして検証する」モード
       #   {1}         ─ lefthook が commit-msg フックの第 1 引数を埋め込むプレースホルダ
       #                  Git が commit-msg フックに渡す引数 = .git/COMMIT_EDITMSG（編集中のメッセージファイル）
       #
-      # 結果として: pnpm exec commitlint --edit .git/COMMIT_EDITMSG が実行され、
+      # 結果として: commitlint --edit .git/COMMIT_EDITMSG が実行され、
       # 検証失敗時は exit 1 を返してコミットがブロックされる。
-      run: pnpm exec commitlint --edit {1}
+      run: commitlint --edit {1}
       fail_text: |
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

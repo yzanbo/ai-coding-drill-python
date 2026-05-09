@@ -8,6 +8,13 @@
 //   .mjs に置き換える。@commitlint/types の `RuleConfigSeverity` 列挙体に依存できなくなるため、
 //   level の値は数値（0=Disabled / 1=Warning / 2=Error）を直接指定する。
 //
+// extends を使わずインライン展開する理由：
+//   ADR 0036 拡張で root の package.json を廃止し、commitlint は mise の `npm:@commitlint/cli`
+//   経由でインストールされるが、mise の npm: backend は各 npm パッケージを別 prefix に展開する。
+//   このため `extends: ["@commitlint/config-conventional"]` の Node module 解決が失敗する。
+//   解決策として、@commitlint/config-conventional のルールセットを本ファイルに直接インライン展開する
+//   （conventional rules を踏襲しつつ本プロジェクト固有の上書きを統合した形）。
+//
 // level 値の凡例：
 //   0 = Disabled（ルール無効化）
 //   1 = Warning（警告のみ、コミットは通る）
@@ -16,21 +23,32 @@
 /** @type {import("@commitlint/types").UserConfig} */
 const config = {
   // ────────────────────────────────────────────────────────────────
-  // extends: ベースとなるルールセットを継承する。
-  // @commitlint/config-conventional は Conventional Commits 公式の
-  // 標準ルール一式（type 必須・許可 type リスト・subject 必須など）を提供。
-  // 自前で全ルールを書く代わりにこれを土台にして、必要箇所だけ rules で上書きする。
-  // ────────────────────────────────────────────────────────────────
-  extends: ["@commitlint/config-conventional"],
-
-  // ────────────────────────────────────────────────────────────────
-  // rules: 個別ルールの上書き。
+  // rules: ルールセット（@commitlint/config-conventional 由来 + 本プロジェクト固有上書き）
   // 値は [level, applicable, value?] の配列形式。
   //   level:      0 = Disabled / 1 = Warning / 2 = Error（commit を弾く）
   //   applicable: 'always' か 'never'
   //   value:      ルール固有の閾値（最大長など）
   // ────────────────────────────────────────────────────────────────
   rules: {
+    // ─── @commitlint/config-conventional 由来（インライン展開） ───────────────
+
+    // body-leading-blank: 本文の前に空行が必要（Warning）
+    "body-leading-blank": [1, "always"],
+    // footer-leading-blank: footer の前に空行が必要（Warning）
+    "footer-leading-blank": [1, "always"],
+    // footer-max-line-length: footer の 1 行最大文字数
+    "footer-max-line-length": [2, "always", 100],
+    // type-case: type は lower-case
+    "type-case": [2, "always", "lower-case"],
+    // type-empty: type 必須
+    "type-empty": [2, "never"],
+    // subject-empty: subject 必須
+    "subject-empty": [2, "never"],
+    // subject-full-stop: subject の末尾に "." を置かない
+    "subject-full-stop": [2, "never", "."],
+
+    // ─── 本プロジェクト固有の上書き ────────────────────────────────────
+
     // subject-case:
     //   既定では subject（コロン以降の本文）を kebab-case や lower-case など
     //   英語ケース規約に沿わせるよう要求する。

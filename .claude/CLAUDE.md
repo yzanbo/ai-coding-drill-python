@@ -29,12 +29,12 @@
 | `docs/requirements/` | 要件定義書（時系列 5 バケット：1-vision / 2-foundation / 3-cross-cutting / 4-features / 5-roadmap） | Markdown |
 | `docs/adr/` | Architecture Decision Records | Markdown |
 
-> **注**：以下のディレクトリは不採用：
-> - `packages/shared-types/`：作らない。共有データ型は **`apps/api/` の Pydantic を SSoT** とし、FastAPI 自動生成 OpenAPI 3.1（`apps/api/openapi.json`）を単一伝送路として TS / Go に展開する（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
-> - `packages/config/`：廃止。Frontend が単一 Next.js app（→ [ADR 0036](../docs/adr/0036-frontend-monorepo-pnpm-only.md)）のため multi-consumer 前提が成立せず、tsconfig / vitest.config.ts は `apps/web/` 直下に直接配置する
-> - `packages/prompts/`：廃止。LLM プロンプトは消費する Worker 内に閉じる（→ [ADR 0040](../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）：
->   - judge プロンプト → `apps/workers/grading/prompts/judge/`
->   - generation プロンプト → `apps/workers/generation/prompts/generation/`
+> **注**：`packages/` ディレクトリは廃止（中身が全て apps/ 配下に移動済み）：
+> - **packages/shared-types/**（未作成）：共有データ型は **`apps/api/` の Pydantic を SSoT** とし、FastAPI 自動生成 OpenAPI 3.1（`apps/api/openapi.json`）を単一伝送路として TS / Go に展開する（→ [ADR 0006](../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+> - **packages/config/**（廃止済み）：Frontend が単一 Next.js app（→ [ADR 0036](../docs/adr/0036-frontend-monorepo-pnpm-only.md)）のため multi-consumer 前提が成立せず、tsconfig / vitest.config.ts は `apps/web/` 直下に直接配置する
+> - **packages/prompts/**（apps/workers/<name>/ に移動済み、ADR 0040）：
+>   - judge プロンプト → [apps/workers/grading/prompts/judge/](../apps/workers/grading/prompts/judge/)
+>   - generation プロンプト → [apps/workers/generation/prompts/generation/](../apps/workers/generation/prompts/generation/)
 
 詳細は [SYSTEM_OVERVIEW.md](../SYSTEM_OVERVIEW.md) と [docs/requirements/2-foundation/02-architecture.md](../docs/requirements/2-foundation/02-architecture.md) を参照。
 

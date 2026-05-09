@@ -1,0 +1,286 @@
+# mise 設定ファイル（ADR 0039）
+#
+# 役割：
+#   1. tool 版数管理：Python / Node / Go / uv / pnpm を 1 ファイルで pin（pyenv / nvm / goenv 不採用）
+#   2. タスクランナー：3 言語横断のタスクを root から `mise run <task>` で統一起動（cd 不要）
+#   3. 環境変数管理：ディレクトリ移動時に自動ロード（[env] / .env）
+#
+# 起動例：
+#   mise install              # tools セクションの全ツールを一括インストール
+#   mise run api-test         # apps/api 配下で uv run pytest を実行
+#   mise run lint             # 全言語の lint を直列実行
+#   mise tasks                # 利用可能タスク一覧（mise CLI 標準）
+#
+# 注意：
+#   - apps/<name>/ ディレクトリは実装着手時に作成される。それまで該当タスクは実行時にエラー
+#     （定義自体はあるので app 着手時に即起動可能）
+#   - root の TS ツーリング（biome / knip / syncpack）は apps/web/ 配下に閉じる方針（ADR 0036）。
+#     web-* タスクは apps/web 着手時に有効化される
+#   - 詳細な選定根拠は各 ADR を参照（commit メッセージや本ファイル冒頭の ADR 番号から辿れる）
+
+# ============================================================================
+# tools — 言語ランタイム + パッケージマネージャ + orchestration ツールの版数 SSoT（ADR 0039）
+# ============================================================================
+# `mise install` で一括インストール。pyenv / nvm / goenv / volta は不採用、
+# package.json も削除済み（root は orchestration 専用層、ADR 0036 拡張）。
+[tools]
+# --- 言語ランタイム ---
+python = "3.13"                                   # apps/api（ADR 0033 / 0034）
+node = "22"                                       # apps/web の Frontend（ADR 0036）+ commitlint 用 Node 環境
+go = "1.23"                                       # apps/workers/*（ADR 0016 / 0040）
+
+# --- パッケージマネージャ ---
+uv = "latest"                                     # Python パッケージ管理（ADR 0035）
+pnpm = "latest"                                   # Frontend パッケージ管理（ADR 0036、apps/web 内で使う）
+
+# --- root orchestration ツール（root の package.json を不要にする、ADR 0036 拡張）---
+lefthook = "latest"                               # Git フック管理（ADR 0021）。native Go binary
+"npm:@commitlint/cli" = "latest"                  # コミットメッセージ検証（ADR 0029）。
+                                                  # 注：@commitlint/config-conventional は mise の npm: backend が
+                                                  # 別 prefix に展開するため Node module 解決不可。
+                                                  # 代わりに commitlint.config.mjs に conventional ルールをインライン展開。
+
+# ============================================================================
+# settings
+# ============================================================================
+[settings]
+# Monorepo Tasks 機能（ADR 0039）を含む新機能を有効化
+experimental = true
+
+# ============================================================================
+# env — ディレクトリ移動時に自動ロードされる環境変数
+# ============================================================================
+# 例：DATABASE_URL / REDIS_URL 等を実装着手時に追加。
+# 機密値は .env（gitignore 済）に置き、本ファイルは公開可能な値のみ扱う。
+[env]
+# 例：MISE_PROJECT_ROOT などの内蔵変数を活用する場合はここに追記
+
+# ============================================================================
+# Backend tasks（Python / FastAPI、ADR 0034 / 0035 / 0037 / 0038）
+# ----------------------------------------------------------------------------
+# apps/api/ 着手時に有効化。pyproject.toml に ruff / pyright / pytest / alembic /
+# pip-audit / deptry を devDep として定義する。
+# ============================================================================
+
+[tasks.api-dev]
+description = "FastAPI 開発サーバ起動"
+dir = "apps/api"
+run = "uv run fastapi dev"
+
+[tasks.api-test]
+description = "Backend テスト（pytest + httpx + asyncio）"
+dir = "apps/api"
+run = "uv run pytest"
+
+[tasks.api-lint]
+description = "Python lint + format 検証（ruff check）"
+dir = "apps/api"
+run = "uv run ruff check ."
+
+[tasks.api-format]
+description = "Python format 自動修正（ruff format）"
+dir = "apps/api"
+run = "uv run ruff format ."
+
+[tasks.api-typecheck]
+description = "Python 型チェック（pyright、basic で開始）"
+dir = "apps/api"
+run = "uv run pyright"
+
+[tasks.api-audit]
+description = "Python 脆弱性スキャン（pip-audit、uv.lock 入力源）"
+dir = "apps/api"
+run = "uv run pip-audit"
+
+[tasks.api-deps-check]
+description = "Python 依存衛生（deptry：未使用 / 未宣言 / transitive 検出）"
+dir = "apps/api"
+run = "uv run deptry ."
+
+[tasks.api-openapi-export]
+description = "FastAPI から OpenAPI 3.1 を apps/api/openapi.json に書き出し（ADR 0006）"
+dir = "apps/api"
+run = "uv run python -m scripts.export_openapi"
+
+[tasks.db-migrate]
+description = "DB マイグレーション適用（alembic upgrade head、ADR 0037）"
+dir = "apps/api"
+run = "uv run alembic upgrade head"
+
+[tasks.db-revision]
+description = "DB マイグレーション生成（alembic revision --autogenerate）"
+dir = "apps/api"
+run = ["uv run alembic revision --autogenerate -m"]
+
+# ============================================================================
+# Frontend tasks（TS / Next.js、ADR 0036）
+# ----------------------------------------------------------------------------
+# apps/web/ 着手時に有効化。apps/web/package.json に biome / knip / syncpack /
+# typescript / @hey-api/openapi-ts / vitest / @testing-library/react / playwright を
+# devDep として定義する。
+# ============================================================================
+
+[tasks.web-dev]
+description = "Next.js 開発サーバ起動"
+dir = "apps/web"
+run = "pnpm dev"
+
+[tasks.web-test]
+description = "Frontend テスト（Vitest + RTL）"
+dir = "apps/web"
+run = "pnpm test"
+
+[tasks.web-lint]
+description = "TS lint + format 検証（Biome check）"
+dir = "apps/web"
+run = "pnpm exec biome check ."
+
+[tasks.web-format]
+description = "TS format 自動修正（Biome --write）"
+dir = "apps/web"
+run = "pnpm exec biome check --write ."
+
+[tasks.web-typecheck]
+description = "TS 型チェック（tsc --noEmit）"
+dir = "apps/web"
+run = "pnpm exec tsc --noEmit"
+
+[tasks.web-knip]
+description = "未使用 export / file / dep 検出（Knip、apps/web 内）"
+dir = "apps/web"
+run = "pnpm exec knip"
+
+[tasks.web-syncpack]
+description = "package.json 整合性（syncpack lint、3 ルールに縮小、ADR 0024 Note）"
+dir = "apps/web"
+run = "pnpm exec syncpack lint"
+
+[tasks.web-types-gen]
+description = "Hey API で OpenAPI から TS / Zod / HTTP クライアント生成（ADR 0006）"
+dir = "apps/web"
+run = "pnpm exec openapi-ts"
+
+[tasks.web-e2e]
+description = "Playwright E2E"
+dir = "apps/web"
+run = "pnpm exec playwright test"
+
+# ============================================================================
+# Workers tasks（Go、ADR 0016 / 0040）
+# ----------------------------------------------------------------------------
+# apps/workers/<name>/ 着手時に有効化。各 Worker は独立 Go module。
+# ============================================================================
+
+# --- 採点 Worker（apps/workers/grading/、grading + judge LLM） ---
+
+[tasks.grading-worker-dev]
+description = "採点 Worker 起動"
+dir = "apps/workers/grading"
+run = "go run ./cmd/grading"
+
+[tasks.grading-worker-test]
+description = "採点 Worker テスト（testing + testify）"
+dir = "apps/workers/grading"
+run = "go test ./..."
+
+[tasks.grading-worker-lint]
+description = "Go lint（gofmt + golangci-lint、unused linter で未使用検出）"
+dir = "apps/workers/grading"
+run = "golangci-lint run"
+
+[tasks.grading-worker-deps-check]
+description = "Go 依存整理確認（go mod tidy 後の差分が無いこと）"
+dir = "apps/workers/grading"
+run = "go mod tidy && git diff --exit-code go.mod go.sum"
+
+[tasks.grading-worker-audit]
+description = "Go 脆弱性スキャン（govulncheck、Worker 着手時に正式採用）"
+dir = "apps/workers/grading"
+run = "govulncheck ./..."
+
+[tasks.grading-worker-types-gen]
+description = "quicktype で OpenAPI から Go struct 生成（ADR 0006）"
+dir = "apps/workers/grading"
+run = "quicktype --src-lang openapi --src ../../api/openapi.json --out internal/jobtypes/types.go --lang go --package jobtypes"
+
+# --- 問題生成 Worker（apps/workers/generation/、ADR 0040、将来追加） ---
+
+[tasks.generation-worker-dev]
+description = "問題生成 Worker 起動（apps/workers/generation 着手時に有効化）"
+dir = "apps/workers/generation"
+run = "go run ./cmd/generation"
+
+[tasks.generation-worker-test]
+description = "問題生成 Worker テスト"
+dir = "apps/workers/generation"
+run = "go test ./..."
+
+[tasks.generation-worker-lint]
+description = "Go lint（apps/workers/generation）"
+dir = "apps/workers/generation"
+run = "golangci-lint run"
+
+[tasks.generation-worker-deps-check]
+description = "Go 依存整理確認（apps/workers/generation）"
+dir = "apps/workers/generation"
+run = "go mod tidy && git diff --exit-code go.mod go.sum"
+
+# ============================================================================
+# 横断タスク — 全言語まとめ実行
+# ----------------------------------------------------------------------------
+# `depends` で複数タスクを順次実行（mise が依存順序を解決）。
+# 単言語のみ実行したい場合は個別の <name>-* タスクを直接呼ぶ。
+# ============================================================================
+
+[tasks.lint]
+description = "全言語 lint（Backend + Frontend + Workers）"
+depends = [
+  "api-lint",
+  "web-lint",
+  "grading-worker-lint",
+]
+
+[tasks.test]
+description = "全言語 test"
+depends = [
+  "api-test",
+  "web-test",
+  "grading-worker-test",
+]
+
+[tasks.typecheck]
+description = "全言語 typecheck"
+depends = [
+  "api-typecheck",
+  "web-typecheck",
+]
+
+[tasks.types-gen]
+description = "OpenAPI → 各言語の型生成パイプライン（CI で drift 検出、ADR 0006）"
+depends = [
+  "api-openapi-export",
+  "web-types-gen",
+  "grading-worker-types-gen",
+]
+
+# ============================================================================
+# root レベルタスク（言語横断、orchestration 専用層）
+# ============================================================================
+
+[tasks.commitlint]
+description = "コミットメッセージ規約検証（mise 経由 commitlint、commit-msg フックから起動）"
+run = "commitlint --edit"
+
+[tasks.g-clean]
+description = "マージ済みでリモートが消えたローカルブランチを掃除"
+run = "bash scripts/cleanup-merged-branches.sh"
+
+# ============================================================================
+# bootstrap — 新規参画者向け一発セットアップ
+# ============================================================================
+[tasks.bootstrap]
+description = "新規参画者向けセットアップ：tool 一括インストール + Git フック登録"
+run = [
+  "mise install",
+  "lefthook install",
+]
