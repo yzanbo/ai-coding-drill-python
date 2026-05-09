@@ -245,19 +245,15 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           pnpm-version: ${{ env.PNPM_VERSION }}
 
-      # ステップ 1: ルート直下の TS 設定ファイル（commitlint.config.ts、将来の .syncpackrc.ts 等）。
+      # ルート直下の TS 設定ファイル（commitlint.config.ts、.syncpackrc.ts、knip.config.ts 等）の型チェック。
       # tsconfig.json の include パターン（"*.ts" / ".*.ts"）に合致するファイル群を tsc が検証。
       # 同等のチェックは lefthook の pre-commit `typecheck` ステップでもローカル実行される
-      # （ADR 0028 / 設定ファイル形式の選定方針 参照）。
+      # （ADR 0022 / 設定ファイル形式の選定方針 参照）。
+      #
+      # 注：apps/web の workspace 単位 typecheck は ADR 0036（Turborepo 不採用、Frontend 単一 app）に従い、
+      #     apps/web 着手時に `mise run web-typecheck` 経由で別 job として追加する（ADR 0026 拡張）。
       - name: tsc --noEmit (root configs)
         run: pnpm exec tsc --noEmit -p tsconfig.json
-
-      # ステップ 2: 各 workspace の typecheck を Turborepo が集約して実行。
-      # turbo.jsonc の typecheck タスクが `dependsOn: ["^build"]` を持つため、
-      # 依存 workspace の .d.ts が先にビルドされてから型チェックされる。
-      # R0 時点では TS workspace が未追加なので no-op になるが、追加され次第そのまま有効化される。
-      - name: tsc --noEmit (workspaces, via Turborepo)
-        run: pnpm exec turbo run typecheck
 
   # ====================================================================
   # job 4: syncpack

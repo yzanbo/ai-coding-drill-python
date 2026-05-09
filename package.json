@@ -15,12 +15,9 @@
   },
   "scripts": {
     "prepare": "lefthook install",
-    "build": "turbo run build",
-    "dev": "turbo run dev",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "test": "turbo run test",
-    "typecheck": "tsc --noEmit -p tsconfig.json && turbo run typecheck",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "commitlint": "commitlint",
     "knip": "knip",
     "knip:fix": "knip --fix",
@@ -37,7 +34,6 @@
     "knip": "^6.12.2",
     "lefthook": "^2.1.6",
     "syncpack": "^15.0.0",
-    "turbo": "^2.9.9",
     "typescript": "^6.0.3"
   },
   "pnpm": {

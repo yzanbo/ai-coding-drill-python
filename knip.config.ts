@@ -11,8 +11,8 @@
 //   - apps/* はまだ存在しないため、workspaces 設定は **R1 で apps が追加された瞬間に効くハコ**
 //     として先行定義する（packages/config と同じ「ハコだけ先に置く」設計）。
 //   - 個別 plugin は **Knip の自動検出に委ねる** のを基本方針とする。
-//     Knip は package.json / 設定ファイルの存在を見て biome / turbo / commitlint / syncpack /
-//     lefthook / next / nestjs 等のプラグインを自動有効化するため、明示列挙は不要。
+//     Knip は package.json / 設定ファイルの存在を見て biome / commitlint / syncpack /
+//     lefthook / next 等のプラグインを自動有効化するため、明示列挙は不要。
 //   - 本ファイル自身（knip.config.ts）は Knip が暗黙的に entry として扱うため明示不要。
 //
 // 設定形式が `.ts` である理由：
@@ -32,7 +32,7 @@ const config: KnipConfig = {
   //   apps/web / apps/api / apps/grading-worker（Go なので対象外）が出現した瞬間に自動的に
   //   解析対象となる。
   workspaces: {
-    // ルート：lefthook.yml / commitlint.config.ts / .syncpackrc.ts / biome.jsonc / turbo.jsonc /
+    // ルート：lefthook.yml / commitlint.config.ts / .syncpackrc.ts / biome.jsonc /
     //         tsconfig.json / 本ファイル等が居る。Knip プラグインが大半を自動検出するため、
     //         明示 entry はゼロでよい（commitlint.config.ts は commitlint plugin が拾う）。
     ".": {
