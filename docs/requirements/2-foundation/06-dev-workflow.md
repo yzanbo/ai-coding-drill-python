@@ -14,6 +14,17 @@
 - **Backend（Python / FastAPI）**：**`uv`** を採用（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）。パッケージ管理 / 仮想環境 / Python バージョン / lockfile / workspace を 1 ツールで統合。lockfile が依存整合性を保証するため syncpack 相当の追加ツールは不要
 - **Worker（Go）**：`go mod`（標準）
 
+## タスクランナー兼 tool 版数管理
+
+3 言語横断のタスク実行と tool 版数管理に **`mise`** を採用（→ [ADR 0039](../../adr/0039-mise-for-task-runner-and-tool-versions.md)）。
+
+- **役割 1：タスクランナー**：`mise run <task>` でリポジトリルートから各レイヤのタスク（`api-test` / `web-dev` / `worker-test` / `db-migrate` 等）を起動。`cd` 不要
+- **役割 2：tool 版数管理**：Python / Node / Go / uv / pnpm 等のバージョンを `mise.toml` 1 ファイルに集約。`pyenv` / `nvm` / `goenv` は採用しない（mise に集約）
+- **役割 3：環境変数管理**：`.env` / `[env]` セクションをディレクトリ移動時に自動ロード（`direnv` 相当）
+- **設定 SSoT**：`mise.toml`（リポジトリルート）+ 必要に応じて各 app 配下の `.mise.toml`（Monorepo Tasks 機能で `mise run //api:test` 形式の呼び出しが可能）
+- **CI 統合**：GitHub Actions の `jdx/mise-action` で `mise install` → `mise run <task>` の流れ。[ADR 0031](../../adr/0031-ci-success-umbrella-job.md) の `ci-success` umbrella ジョブの各 needs を `mise run <task>` で統一呼び出しする
+- **Turborepo の orchestration 空席を埋める位置づけ**（→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md) と対の判断）
+
 ---
 
 ## コード品質ツール
@@ -340,6 +351,7 @@ rules:
 - [ADR 0034: バックエンド API に FastAPI を採用](../../adr/0034-fastapi-for-backend.md)
 - [ADR 0035: Python のパッケージ管理・モノレポ管理に uv を採用](../../adr/0035-uv-for-python-package-management.md)
 - [ADR 0036: Frontend モノレポ管理を pnpm workspaces のみに縮小（Turborepo 不採用）](../../adr/0036-frontend-monorepo-pnpm-only.md)
+- [ADR 0039: タスクランナー兼 tool 版数管理に mise を採用](../../adr/0039-mise-for-task-runner-and-tool-versions.md)
 - [ADR 0037: DB ORM・マイグレーションに SQLAlchemy 2.0 + Alembic を採用](../../adr/0037-sqlalchemy-alembic-for-database.md)
 - [ADR 0038: テストフレームワーク確定（pytest / Vitest / Playwright / Go testing）](../../adr/0038-test-frameworks.md)
 - [ADR 0020: Python のコード品質ツールに ruff + pyright を採用](../../adr/0020-python-code-quality.md)
