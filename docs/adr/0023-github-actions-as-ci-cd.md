@@ -54,7 +54,7 @@ CI/CD ツールは大きく以下の三類型に分かれる：
 | **Earthly Cloud** | 独立 SaaS | `Earthfile` でビルドを宣言、ローカルと CI で同じスクリプト | ビルド再現性は魅力だが、本プロジェクト規模では学習コストが上回る。R3 以降にビルド再現性が課題化したら再評価 |
 | **Dagger** | パイプライン記述基盤 | コードでパイプラインを書く（SDK 経由）、CI ツール非依存 | 概念的には正しい方向だが、現時点では学習コストと採用事例の薄さが上回る |
 | **Jenkins** | セルフホスト OSS | プラグイン資産膨大、何でもできる | サーバ運用負荷が個人規模に見合わない。プラグイン更新追従コストも高い |
-| **Tekton / Argo Workflows** | セルフホスト OSS | k8s ネイティブ | k8s クラスタを採用していない（[ADR 0008](./0008-disposable-sandbox-container.md) では ECS/Fargate 想定）ので前提が成り立たない |
+| **Tekton / Argo Workflows** | セルフホスト OSS | k8s ネイティブ | k8s クラスタを採用していない（[05-runtime-stack: デプロイ先](../requirements/2-foundation/05-runtime-stack.md#デプロイ先) では Backend API を ECS Fargate、採点ワーカーを EC2 で運用）ので前提が成り立たない |
 | **GitHub Actions Self-hosted Runner** | セルフホスト | Actions の YAML のまま、ランナーだけ自前 | 無料枠超過の兆候はなく、現時点では運用負荷を負う理由がない |
 | **AWS CodePipeline / CodeDeploy（CD のみ切り出し）** | クラウドネイティブ | AWS への ECS / Lambda デプロイ統合 | Actions の `aws-actions/*` でほぼ同等のことが可能。ツール 2 本に分ける運用負荷の方が大きい |
 | **Terraform Cloud / Atlantis（CD のうち IaC のみ切り出し）** | IaC 専用 | plan/apply の承認フロー、状態管理 | R3 以降 `infra/` 着手時に再評価する。R0〜R2 の段階で先取りで導入する理由がない |
