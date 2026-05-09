@@ -125,8 +125,8 @@ ai-coding-drill/
 ├── .github/workflows/          ← GitHub Actions
 ├── .env.example                ← 共有環境変数（DB URL 等）
 ├── pnpm-workspace.yaml
-├── turbo.json
-├── biome.json                  ← ルート Biome 設定
+├── turbo.jsonc
+├── biome.jsonc                 ← ルート Biome 設定
 ├── docker-compose.yml
 ├── README.md
 └── SYSTEM_OVERVIEW.md
