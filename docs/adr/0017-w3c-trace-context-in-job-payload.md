@@ -94,7 +94,7 @@ OpenTelemetry の自動計装は **同一プロセス内のスパン親子関係
 
 ## 補足（2026-05-03 追加）
 
-本 ADR の結論（W3C Trace Context をペイロードに埋め込む）は維持しつつ、**実装着手前に決めておくべき具体方針**を本文末尾に追記する。Append-only 原則のため Decision / Alternatives 本文は書き換えない。
+本 ADR の結論（W3C Trace Context をペイロードに埋め込む）は維持しつつ、**実装着手前に決めておくべき具体方針**を本文末尾に追記する。
 
 ### 1. Parent-Child リンク vs SpanLink の選択
 

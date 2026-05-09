@@ -74,7 +74,7 @@ docs/requirements/
 
 ### `docs/adr/` — 設計判断の履歴（参考）
 
-- 重要な技術・設計判断を **1 決定 1 ファイル、Append-only**で記録
+- 重要な技術・設計判断を **1 決定 1 ファイル**で記録（判断更新時は本文を直接書き換え、履歴は git log で辿る）
 - 新規決定が発生したら [`docs/adr/template.md`](../../docs/adr/template.md) を元に追加する
 - 索引：[`docs/adr/README.md`](../../docs/adr/README.md)
 

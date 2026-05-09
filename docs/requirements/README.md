@@ -125,7 +125,7 @@ docs/adr/                        各種設計判断の根拠
 
 ## 関連ドキュメント
 
-- [docs/adr/](../adr/) — Architecture Decision Records（設計判断の履歴、Append-only）
+- [docs/adr/](../adr/) — Architecture Decision Records（設計判断の記録、本文は判断更新時に直接書き換え）
 - [docs/runbook/](../runbook/) — 運用 Runbook（R4 以降で整備）
 - [README.md](../../README.md) — リポジトリ TOP
 
