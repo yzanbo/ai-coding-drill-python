@@ -135,10 +135,10 @@
 - 実行対象：TypeScript コード（`tsx` or `esbuild` でトランスパイル → Node.js で実行）
 - テストランナー：Vitest（ユーザー解答 + 生成テストケースを合成して実行）
 - 型チェック：`tsc --noEmit`（型パズル系カテゴリで使用）
-- ランタイムの段階的進化：
-  - フェーズ 1：Docker（`--network none`, `--read-only`, 各種制限）
-  - フェーズ 2：gVisor（runsc ランタイム）
-  - フェーズ 3（任意）：Firecracker microVM
+- ランタイムの段階的進化（段階番号は隔離強化のレイヤーを示し、リリース番号 RX とは独立）：
+  - 段階 1（MVP）：Docker（`--network none`, `--read-only`, 各種制限）
+  - 段階 2（R3）：gVisor（runsc ランタイム）
+  - 段階 3（R9、任意）：Firecracker microVM
 - 言語アダプタ層を抽象化し、将来的な Python・他言語追加に備える
 
 → 使い捨てコンテナ方式の根拠と隔離設計は [02-architecture.md: サンドボックスランナー](./02-architecture.md#サンドボックスランナーgo-ワーカー内で実行)
