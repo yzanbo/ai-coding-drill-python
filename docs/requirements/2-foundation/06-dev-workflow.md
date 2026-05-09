@@ -35,14 +35,8 @@
 
 ## 共有型・スキーマ（JSON Schema を SSoT）
 
-- **JSON Schema を Single Source of Truth とし、各言語向けの型を自動生成**する設計（→ [ADR 0014](../../adr/0014-json-schema-as-single-source-of-truth.md)）
-- 配置：`packages/shared-types/`
-  - `schemas/`：JSON Schema 本体（SSoT）
-  - `generated/ts/`：Zod スキーマ + TS 型（コミットする）
-  - `generated/go/`：Go struct（gitignore、build 時生成）
-  - `generated/python/`：Pydantic モデル（gitignore、build 時生成、R7）
-- 生成ツール候補：`json-schema-to-zod`（TS）、`quicktype`（Go）、`datamodel-code-generator`（Python）
-- 選定理由：3 言語間の型整合性を構造的に保証、スキーマ変更が 1 箇所で全言語追従、新言語追加コスト最小
+- **JSON Schema を Single Source of Truth とし、各言語向けの型を自動生成**する設計
+- 配置・生成ツール候補・コミット方針（言語別）・選定理由の SSoT は [ADR 0014](../../adr/0014-json-schema-as-single-source-of-truth.md) を参照
 
 ---
 
