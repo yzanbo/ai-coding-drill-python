@@ -140,7 +140,9 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 ### コミットメッセージ
 
-- 日本語で記載、commitlint で機械強制（SSoT: [commitlint.config.ts](../commitlint.config.ts)）
+> SSoT は [06-dev-workflow.md: コミットメッセージ規約](../docs/requirements/2-foundation/06-dev-workflow.md#コミットメッセージ規約)、機械強制は [commitlint.config.ts](../commitlint.config.ts)、採用根拠は [ADR 0029](../docs/adr/0029-commit-scope-convention.md)。本セクションは Claude が直接読む用の縮約版（SSoT 更新時はここも合わせて更新する）。
+
+- 日本語で記載、commitlint で機械強制
 - 形式は `<type>(<scope>): <subject>` / scope 任意 / ヘッダー 100 文字以内 / 本文 1 行 200 文字以内
 - 複数領域はカンマ区切り（例：`feat(api,worker): ...`）
 
@@ -233,7 +235,9 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 ### 設定ファイル形式の優先順位
 
-ツールの設定ファイル形式は以下の優先順位で選ぶ（→ [ADR 0022](../docs/adr/0022-config-file-format-priority.md)）：
+> SSoT は [06-dev-workflow.md: 設定ファイル形式の優先順位](../docs/requirements/2-foundation/06-dev-workflow.md#設定ファイル形式の優先順位)、採用根拠は [ADR 0022](../docs/adr/0022-config-file-format-priority.md)。本セクションは Claude が直接読む用の縮約版（SSoT 更新時はここも合わせて更新する）。
+
+ツールの設定ファイル形式は以下の優先順位で選ぶ：
 
 **前提原則**：設定ファイルには「なぜこのルールがあるか」をインラインコメントで残す。コメントが書けない純 JSON は他形式が受容される限り採用しない。
 
@@ -257,5 +261,3 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 | `package.json` / `package-lock.json` | **strict JSON**（コメント不可） | npm / pnpm / Node.js |
 
 これらは ecosystem 慣習でファイル名が固定されており、**改名すると周辺ツールが壊れる**ため `.jsonc` 拡張子に変更しない。代わりに該当ファイル冒頭に「JSONC として扱われる」旨のコメントを残して混乱を防ぐ。
-
-詳細・判断フローチャート・代替案は [ADR 0022](../docs/adr/0022-config-file-format-priority.md) を参照。
