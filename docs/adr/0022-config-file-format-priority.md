@@ -178,9 +178,9 @@ ecosystem 慣習に逆らう労力 vs 拡張子変更の利点を比較すると
 
 **前提原則の再確認**：上記すべての分岐は「設定ファイルにコメントで『なぜ』を残せる」を最低ラインとして扱う。コメントが書けない**純 JSON は最終手段**で、ツールが他形式を受容しない場合のみ選ぶ。
 
-### 本 ADR の即時適用：`commitlint.config.mjs` → `commitlint.config.ts`
+### 本 ADR の即時適用：`commitlint.config.mjs` → `commitlint.config.ts`（適用済み）
 
-本方針の適用第 1 例として、`commitlint.config.mjs` を `commitlint.config.ts` に変換する。`@commitlint/types` の `UserConfig` 型を import することで、`type-enum` / `scope-enum` / `level` 等のフィールドと値の typo を config 書き時点で検知できるようになる。
+本方針の適用第 1 例として、本 ADR と同じ PR で `commitlint.config.mjs` を `commitlint.config.ts` に変換した。`@commitlint/types` の `UserConfig` 型を import することで、`type-enum` / `scope-enum` / `level` 等のフィールドと値の typo を config 書き時点で検知できる。
 
 ## Why（採用理由）
 

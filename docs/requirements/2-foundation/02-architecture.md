@@ -311,7 +311,7 @@ flowchart LR
 | キャッシュ | Upstash Redis（サーバレス） | 消えても OK な高頻度アクセス、無料枠、ElastiCache よりコスト効率 |
 | シークレット | Secrets Manager / Parameter Store | API キー・OAuth Secret・SESSION_SECRET の集中管理 |
 | コンテナレジストリ | ECR | サンドボックスイメージ・API イメージのバージョニング |
-| コスト管理 | AWS Budgets | 月額上限アラート（[03 非機能要件: コスト](./01-non-functional.md#コスト) と連動） |
+| コスト管理 | AWS Budgets | 月額上限アラート（[01 非機能要件: コスト](./01-non-functional.md#コスト) と連動） |
 
 **API と採点ワーカーを別計算リソースに分けている設計上の意図**：
 
