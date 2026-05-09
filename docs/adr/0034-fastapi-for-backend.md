@@ -11,7 +11,7 @@
 選定にあたっての制約・要請：
 
 - **型安全性**：TS 版で享受していた型駆動開発体験（IDE 補完 / ビルド時エラー）に近い水準を Python でも維持したい
-- **OpenAPI スキーマ自動生成**：[ADR 0006](./0006-json-schema-as-single-source-of-truth.md) で確立した「スキーマを SSoT として各言語に自動配布」する思想を、API 仕様の自動生成にも拡張したい
+- **OpenAPI スキーマ自動生成**：[ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の Pydantic-first SSoT 設計により、FastAPI 自動 OpenAPI 3.1 を Frontend 向け型生成パスの起点として運用できる
 - **非同期 I/O**：[ADR 0007](./0007-llm-provider-abstraction.md) で扱う LLM プロバイダ呼び出しは I/O 待ちが支配的。`async/await` ネイティブで並列性を引き出したい
 - **エコシステム成熟度**：採用市場 / 求人需要 / 公式 SDK 親和性。ポートフォリオで「採用判断ができる」見せ方ができる framework であること
 - **本プロジェクト規模**：小〜中規模（→ [.claude/CLAUDE.md コーディング規約：規模に応じた選定](../../.claude/CLAUDE.md#設計原則)）。Django REST Framework 級の重量級 framework は不要
@@ -22,7 +22,7 @@
 
 - バージョン制約は付けない（実装着手時に最新安定版を採用）
 - Pydantic をリクエスト/レスポンスのバリデーション・スキーマ定義の前提とする（FastAPI が内部で必須依存しているため事実上一体）
-- OpenAPI スキーマは FastAPI が自動生成するものを SSoT として運用し、Frontend や採点ワーカー向けの型生成パイプラインに供給する（→ [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の SSoT 思想を継承）
+- OpenAPI スキーマは FastAPI が Pydantic から自動生成するものを Frontend 向け型生成の起点とする。Worker（Go）向けには Pydantic から `model.model_json_schema()` で JSON Schema を別途出力する（→ [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の Pydantic-first SSoT 設計）
 - DI（依存性注入）は FastAPI の `Depends` 方式を基本とし、明示的な Module / Provider 構造（NestJS 流）を再現する規律は実装側で別途定める
 
 ORM（SQLAlchemy 2.0 / SQLModel 等）・パッケージ管理（uv / poetry 等）・lint/format（ruff 等）・型チェッカー（mypy / pyright）等の周辺スタックは **本 ADR の対象外**。実装着手時にそれぞれ別 ADR を起票する（[ADR 0033](./0033-backend-language-pivot-to-python.md) の方針）。
@@ -39,7 +39,7 @@ ORM（SQLAlchemy 2.0 / SQLModel 等）・パッケージ管理（uv / poetry 等
 
 - ルート定義からそのまま OpenAPI 3.x スキーマが導出される（コード = 仕様）
 - Frontend 側の型生成（openapi-typescript 等）・採点ワーカー側の Go 型生成・Swagger UI / Redoc によるドキュメント提供を 1 ソースから配給可能
-- [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の「スキーマ SSoT」思想を API 層に拡張する形になり、設計原則と整合
+- [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の Pydantic-first SSoT 設計と一体化し、API 層と内部共有データの両方が同じ Pydantic モデルから派生する
 
 ### 3. async/await ネイティブ
 
@@ -72,7 +72,7 @@ ORM（SQLAlchemy 2.0 / SQLModel 等）・パッケージ管理（uv / poetry 等
 ### 得られるもの
 
 - **型安全 + OpenAPI 自動生成 + async ネイティブの揃い踏み**：3 要件を 1 framework で満たす数少ない選択肢
-- **Pydantic を共有データ型 SSoT 候補として活用可能**：[ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の「JSON Schema を SSoT」と Pydantic モデルが直結する。`model.model_json_schema()` で標準スキーマが取得でき、各言語向け生成パイプラインに連携できる
+- **Pydantic を共有データ型 SSoT として活用**：[ADR 0006](./0006-json-schema-as-single-source-of-truth.md) で Pydantic を Single Source of Truth と確定。FastAPI 自動 OpenAPI 3.1（Frontend 向け）と `model.model_json_schema()`（Worker 向け）の両出力が Pydantic 1 箇所定義から導出される
 - **LLM SDK との async 親和性**：プロバイダ抽象化レイヤ（[ADR 0007](./0007-llm-provider-abstraction.md)）の実装が `async def` で素直に書ける
 - **Swagger UI / Redoc を標準同梱**：開発時の API 探索・対外説明素材を追加コストなしで得られる
 
@@ -93,7 +93,7 @@ ORM（SQLAlchemy 2.0 / SQLModel 等）・パッケージ管理（uv / poetry 等
 
 - [ADR 0033: バックエンドを Python に pivot](./0033-backend-language-pivot-to-python.md)（本 ADR の前提となる言語選定）
 - [ADR 0014: バックエンド API に NestJS 採用](./0014-nestjs-for-backend.md)（Superseded by 0033、TS 版時点の対応判断）
-- [ADR 0006: JSON Schema を SSoT に](./0006-json-schema-as-single-source-of-truth.md)（OpenAPI 自動生成と整合する SSoT 思想）
+- [ADR 0006: Pydantic を SSoT に、用途別伝送路で各言語へ展開](./0006-json-schema-as-single-source-of-truth.md)（OpenAPI 自動生成 + JSON Schema 出力の運用方針）
 - [ADR 0007: LLM プロバイダ抽象化戦略](./0007-llm-provider-abstraction.md)（async I/O が支配的な実装の前提）
 - [ADR 0004: Postgres をジョブキューに採用](./0004-postgres-as-job-queue.md)（LISTEN/NOTIFY の async 利用を前提）
 - [FastAPI 公式](https://fastapi.tiangolo.com/)

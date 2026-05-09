@@ -254,10 +254,25 @@ Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住
 
 ---
 
-## 共有型・スキーマ（JSON Schema を SSoT）
+## 共有型・スキーマ（Pydantic を SSoT、用途別伝送路で各言語へ展開）
 
-- **JSON Schema を Single Source of Truth とし、各言語向けの型を自動生成**する設計
-- 配置・生成ツール候補・コミット方針（言語別）・選定理由の SSoT は [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) を参照
+Backend の Pydantic モデルを Single Source of Truth とし、用途別の伝送路で TS / Go に展開する（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）。
+
+| 言語 | 入力源 | 生成ツール | 出力 | コミット |
+|---|---|---|---|---|
+| Python（Backend） | （SSoT 自身） | — | Pydantic v2 モデル | ソースとしてコミット |
+| TypeScript（Frontend） | FastAPI 自動 OpenAPI 3.1 | **Hey API**（`@hey-api/openapi-ts` + Zod プラグイン） | TS 型 + Zod + 型付き HTTP クライアント | 生成物コミット |
+| Go（Worker） | Pydantic `model.model_json_schema()` 出力（ジョブペイロードのみ） | **quicktype** | Go struct + JSON タグ | gitignore（`go generate` で生成） |
+
+生成パイプラインは mise タスクで集約：
+
+- `mise run api-openapi-export`：FastAPI から OpenAPI 3.1 を書き出し
+- `mise run web-types-gen`：Hey API で TS / Zod / HTTP クライアント生成
+- `mise run api-job-schemas-export`：Pydantic から JSON Schema 書き出し
+- `mise run worker-types-gen`：quicktype で Go struct 生成
+- CI で `git diff --exit-code` により drift 検出（生成物コミット忘れの fail-closed）
+
+配置・生成ツール候補・コミット方針・選定理由・代替検討の詳細 SSoT は [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) を参照。
 
 ---
 
