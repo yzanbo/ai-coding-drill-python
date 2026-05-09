@@ -10,10 +10,10 @@
 
 **言語横断 / TS（Frontend）側**：
 
-- **lefthook**：Git フック管理（pre-commit / commit-msg、言語横断）
-- **commitlint**：Conventional Commits 規約に基づくコミットメッセージ検証（言語横断）
-- **Knip**：未使用の export / 依存 / ファイルの検出（TS / Frontend 限定）
-- **syncpack**：モノレポ内の `package.json` バージョン整合性強制（TS / Frontend 限定）
+- **lefthook**：Git フック管理（pre-commit / commit-msg、言語横断、root に配置）
+- **commitlint**：Conventional Commits 規約に基づくコミットメッセージ検証（言語横断、root に配置）
+- **Knip**：未使用の export / 依存 / ファイルの検出（TS / Frontend 限定、`apps/web/` 配下に配置 → [ADR 0036](./0036-frontend-monorepo-pnpm-only.md) 拡張）
+- **syncpack**：`package.json` 整合性強制（TS / Frontend 限定、`apps/web/.syncpackrc.ts` に配置）。multi-workspace 前提のルール 2 件は対象消滅により不採用、単一 package.json でも有効な 3 件（depType 重複検知 / キー順整形 / `^` 統一）は継続採用 → [ADR 0024](./0024-syncpack-package-json-consistency.md) Note 参照
 
 **Python（Backend）側**：
 
@@ -42,6 +42,8 @@
 ## Decision（決定内容）
 
 **補完ツール（lefthook / commitlint / Knip / syncpack / ruff / pyright / pip-audit / deptry）を R0（リポジトリ初期セットアップ時）から導入する。**
+
+syncpack はツール採用そのものは維持し、ADR 0036 拡張で **配置を root → `apps/web/` に移動 + ルールセットを 3/5 ルールに縮小**（→ [ADR 0024](./0024-syncpack-package-json-consistency.md) Note）。
 
 - 設定の物理配置：本 ADR で扱う補完ツールはすべてリポジトリルート直接配置（`pyproject.toml` の `[tool.*]` セクション含む）。詳細な配置方針は [packages/config/README.md](../../packages/config/README.md) を参照
 - **lefthook と CI で多層防御**：lefthook を `--no-verify` で skip された場合も CI が最終 gate になる

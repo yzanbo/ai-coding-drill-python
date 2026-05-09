@@ -1,8 +1,25 @@
 # 0024. モノレポ内 package.json の整合性を syncpack で機械強制
 
-- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md)
-- **Date**: 2026-05-09
+- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md), [0036](./0036-frontend-monorepo-pnpm-only.md)
+- **Date**: 2026-05-09 <!-- ADR 0036 拡張により syncpack を完全廃止（multi-workspace 対象が消滅） -->
 - **Decision-makers**: 神保 陽平
+
+> **Note**：syncpack 採用判断そのものは維持。配置とルールセットを変更：
+>
+> - **配置**：root の `.syncpackrc.ts` → `apps/web/.syncpackrc.ts`（[ADR 0036](./0036-frontend-monorepo-pnpm-only.md) 拡張により Frontend ツーリングを apps/web 内に閉じる方針）
+> - **ルールセット**：multi-workspace 前提のルール 2 件は対象消滅により不採用、単一 package.json でも有効な 3 件は継続採用
+>
+> | ルール | 旧（root multi-workspace） | 新（apps/web 単一 package.json） |
+> |---|---|---|
+> | `dependencies` / `devDependencies` の重複検知 | ✅ | ✅ 継続採用 |
+> | `package.json` キー順整形 | ✅ | ✅ 継続採用 |
+> | semver 範囲指定子 `^` 統一 | ✅ | ✅ 継続採用（単一ファイル内の一貫性として） |
+> | 外部依存の全 workspace 同一バージョン | ✅ | ❌ 対象消滅（apps/web 1 個のみ） |
+> | 内部 workspace パッケージ `workspace:*` 固定 | ✅ | ❌ 対象消滅（内部 pkg 不在） |
+>
+> **再拡張の余地**：将来 `apps/web/` 内部が multi-package 構成（例：`apps/web/packages/ui` + `apps/web/packages/app` のような UI ライブラリ分離 / Storybook 独立等）に拡張された場合、上記の 2 ルール（同一バージョン / `workspace:*`）も apps/web 内で復活させる判断は妥当。
+>
+> 本文の規約詳細は移行軌跡 + 再拡張時の参考情報として保持する。SSoT は apps/web 着手時に投入する `apps/web/.syncpackrc.ts` に移る。
 
 ## Context（背景・課題）
 

@@ -1,8 +1,10 @@
 # 0022. 設定ファイル形式の選定方針（TS > JSONC > YAML の優先順位）
 
 - **Status**: Accepted
-- **Date**: 2026-05-06
+- **Date**: 2026-05-09 <!-- ADR 0036 拡張により root の TS 設定（commitlint.config.ts 等）を .mjs に置き換える例外を追記 -->
 - **Decision-makers**: 神保 陽平
+
+> **2026-05-09 追記**：[ADR 0036](./0036-frontend-monorepo-pnpm-only.md) 拡張で **root には TS ツーリング（typescript / tsconfig.json）を置かない方針**に転換した結果、root に置く設定ファイル（commitlint.config 等）は `.ts` を使えなくなり `.mjs` に降格した。これは Tier 3-1（自由選択：TS）→ Tier 3-3（自由選択：JS 系）への明示的な後退で、本 ADR の優先順位そのものは維持しつつ「**root の制約として TS 不在**」という条件付きで Tier 3-3 が選択される例外として記録する。詳細は本文末尾の「root 配置設定ファイルの例外」セクション参照。
 
 ## Context（背景・課題）
 
@@ -98,10 +100,37 @@
 - **追加ツール（Knip / Vitest 等）の導入時に本方針が機能するか検証**：方針通りに選べない事例が複数出たら、フローチャートを再検討
 - **TypeScript が `tsconfig.jsonc` を auto-discovery 対象に追加した場合**：拡張子で実態を表現できるようになるので、リネーム検討の余地が出る（上記「例外ファイル」セクションを更新）
 
+## root 配置設定ファイルの例外（2026-05-09 追記）
+
+[ADR 0036](./0036-frontend-monorepo-pnpm-only.md) 拡張により、root から TypeScript ツーリング（`typescript` パッケージ / `tsconfig.json`）を排除し、`apps/web/` 配下に閉じ込める設計を採用した。これに伴い root に置かれる設定ファイル（`commitlint.config` 等）は **TS を使えない**。
+
+### 影響を受ける設定ファイル
+
+| ファイル | 旧形式（root TS 利用可） | 新形式（root TS 不在） | 根拠 |
+|---|---|---|---|
+| `commitlint.config.ts` | TS（Tier 3-1） | **`commitlint.config.mjs`**（Tier 3-3） | root に typescript / tsconfig が無い |
+
+### apps/web/ 配下は TS 設定を継続採用
+
+`apps/web/` 配下では typescript / tsconfig.json が設置されるため、apps/web/ 内の設定ファイル（`apps/web/.syncpackrc.ts` / `apps/web/knip.config.ts` 等）は引き続き **TS（Tier 3-1）を最優先**とする。本 ADR の優先順位そのものは維持。
+
+### 判断ロジック
+
+```
+設定ファイルを置きたい
+  │
+  ├─ root に置く必要がある？（lefthook 経由で起動 / Git フックから参照 等）
+  │     └─ Yes → root には TS が無いため Tier 3-1 を飛ばし Tier 3-2（JSONC）or Tier 3-3（JS 系）を選ぶ
+  │
+  └─ apps/web/ 配下に置ける？
+        └─ Yes → 通常通り Tier 3-1（TS）を最優先
+```
+
 ## References
 
 - [.claude/CLAUDE.md](../../.claude/CLAUDE.md)：本方針の運用ガイド（簡潔版）
 - [docs/requirements/2-foundation/06-dev-workflow.md](../requirements/2-foundation/06-dev-workflow.md)：開発フロー・品質保証技術の俯瞰
 - [ADR 0018: Biome を採用](./0018-biome-for-tooling.md)：JSONC を採用した先例
 - [ADR 0021: 補完ツールを R0 から導入](./0021-r0-tooling-discipline.md)：個別ツール導入の方針
-- `commitlint.config.ts`：本 ADR の方針が適用された具体例（本 PR で `.mjs` から変換）
+- [ADR 0036: Frontend ツーリングを apps/web 内に閉じる](./0036-frontend-monorepo-pnpm-only.md)：root の TS 不在を確定した契機
+- `commitlint.config.mjs`：本 ADR の root 例外が適用された具体例

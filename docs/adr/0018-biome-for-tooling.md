@@ -1,8 +1,15 @@
-# 0018. TypeScript のコード品質ツールに Biome を採用し、設定はリポジトリルートに直接配置する
+# 0018. TypeScript のコード品質ツールに Biome を採用し、設定は apps/web/ 配下に直接配置する
 
 - **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md)
-- **Date**: 2026-05-09
+- **Date**: 2026-05-09 <!-- ADR 0036 拡張により設定配置を root → apps/web/ に移動。Frontend 用途として継続採用 -->
 - **Decision-makers**: 神保 陽平
+
+> **Note**：Python pivot（[ADR 0033](./0033-backend-language-pivot-to-python.md)）+ ADR 0036 拡張により、設定の物理配置が **root → `apps/web/`** に変更された：
+>
+> - 旧：`/biome.jsonc`（root スキャン、全 TS workspace を見る）
+> - 新：`/apps/web/biome.jsonc`（apps/web 配下のみスキャン、Frontend 単一 app に閉じる）
+>
+> ツール選定（Biome 採用）は維持。本文中の「リポジトリルートに直接配置」記述は **`apps/web/` 配下に直接配置** と読み替える。詳細は [ADR 0036](./0036-frontend-monorepo-pnpm-only.md) を参照。
 
 ## Context（背景・課題）
 

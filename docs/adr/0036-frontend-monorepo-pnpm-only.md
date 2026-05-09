@@ -1,7 +1,7 @@
-# 0036. Frontend モノレポ管理を pnpm workspaces のみに縮小（Turborepo 不採用）
+# 0036. Frontend ツーリングを apps/web 内に閉じ、root を orchestration 専用層に縮小（Turborepo + pnpm workspaces 不採用）
 
 - **Status**: Accepted
-- **Date**: 2026-05-09
+- **Date**: 2026-05-09 <!-- 当初の「pnpm workspaces のみ採用」から「pnpm 自体を apps/web 内に閉じ、Biome / Knip / syncpack も apps/web 内に再配置」に拡張 -->
 - **Decision-makers**: 神保 陽平
 
 ## Context（背景・課題）
@@ -30,14 +30,32 @@
 
 ## Decision（決定内容）
 
-Frontend のモノレポ管理は **`pnpm workspaces` のみを採用**し、**Turborepo は不採用**とする。
+Frontend のモノレポ管理は **「pnpm を `apps/web/` 内に閉じる、root には Frontend ツーリングを置かない」** 設計を採用する。Turborepo と pnpm workspaces は不採用。Biome / Knip / syncpack は採用維持で配置を `apps/web/` に移動、syncpack はルールセットを縮小する。
 
-- **依存解決・パッケージリンク**：`pnpm workspaces`（`pnpm-workspace.yaml`）
-- **タスク実行**：`pnpm --filter <pkg> <script>` を直接使用、または npm scripts のチェーン
-- **キャッシュ**：Next.js 標準の `.next/cache` / Vercel デプロイ時の自動キャッシュに依存
-- **リモートキャッシュ**：採用しない（必要が生じた段階で再評価）
+### Frontend ツーリングの所在
 
-[ADR 0023](./0023-turborepo-pnpm-monorepo.md) は **Superseded by 0033** だが、`pnpm workspaces` 部分のみを継承する形となるため、本 ADR で**選択的継承の範囲を明確化**する。
+- **pnpm**：`apps/web/` 配下のみで動作。`apps/web/package.json` / `apps/web/pnpm-lock.yaml` / `apps/web/node_modules/`
+- **Biome / Knip / TypeScript / tsconfig.json**：`apps/web/` 配下に配置（`apps/web/biome.jsonc` 等）
+- **syncpack**：`apps/web/.syncpackrc.ts` に配置。ルールセットは単一 package.json でも有効な 3 件（depType 重複検知 / キー順整形 / `^` 統一）に縮小（→ [ADR 0024](./0024-syncpack-package-json-consistency.md) Note）
+- **Turborepo**：不採用（旧 ADR 0023 の Superseded、§Why 1 参照）
+- **pnpm workspaces**：不採用（Frontend が単一 app のため workspace 機能の価値ドライバが効かない、§Why 4 参照）
+
+### root の役割（orchestration 専用層）
+
+root には言語横断の orchestration / Git フック / コミット規約のみを置く：
+
+- `mise.toml`（タスク + tool 版数 SSoT、→ [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)）
+- `lefthook.yml`（Git フック、commit-msg のみ。pre-commit フックの言語別追加は app 着手時）
+- `commitlint.config.mjs`（`.ts` ではなく `.mjs`、root の TS 依存をゼロ化）
+- `package.json`（`@commitlint/cli` / `@commitlint/config-conventional` / `lefthook` のみの最小構成）
+- `.gitignore` / `README.md` / `LICENSE` / `CONTRIBUTING.md` / `SYSTEM_OVERVIEW.md`
+- `docs/` / `infra/` / `apps/` / `packages/prompts/`
+
+### タスク実行の経路
+
+すべて `mise run <task>` 経由（→ [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)）。`apps/web` 配下のタスクは mise.toml に `dir = "apps/web"` を指定し、`pnpm run dev` 等を delegate する形にする。
+
+[ADR 0023](./0023-turborepo-pnpm-monorepo.md) と [ADR 0024](./0024-syncpack-package-json-consistency.md) は本 ADR と [ADR 0033](./0033-backend-language-pivot-to-python.md) の組み合わせで Superseded。
 
 ## Why（採用理由）
 
@@ -108,19 +126,45 @@ Turborepo の主要価値は以下 3 点：
 - **並列ビルド・キャッシュの恩恵を諦める**：app が 1 つのため影響は最小、CI ビルド時間は Next.js 単体の build 時間に支配される
 - **Turborepo の経験を portfolio で語る機会を失う**：ただし「**Turborepo を入れない判断ができた**」こと自体が「規模に応じた選定能力」の証明として portfolio に書ける
 
-### 派生：`packages/config/` の廃止
+### 派生 1：`packages/config/` の廃止
 
-本 ADR の「Frontend は単一 Next.js app」という現実から、`packages/config/`（multi-consumer 前提の TS 設定共有パッケージ、[ADR 0018](./0018-biome-for-tooling.md) で導入）も**廃止**する：
+本 ADR の「Frontend は単一 Next.js app」という現実から、`packages/config/`（multi-consumer 前提の TS 設定共有パッケージ、[ADR 0018](./0018-biome-for-tooling.md) で導入）も**廃止**：
 
 - `packages/config/` の存在意義は「**複数 TS workspace が tsconfig / Vitest base を共有する**」こと
 - 本 ADR で TS app が `apps/web/` 1 個と確定した結果、**消費者が単一**になり multi-consumer 前提が成立しない
 - tsconfig / vitest.config.ts 等は `apps/web/` 直下に直接配置すれば足り、`packages/config/` の Layer 2 抽象は YAGNI 違反
-- 既存の `packages/config/`（現状中身は `package.json` + `README.md` のみ、実設定ファイル未投入）は本 ADR 反映時に削除する
-- 将来複数 TS app 構成に拡張された場合、Turborepo 復帰検討（上記 §将来の見直しトリガー）と一緒に `packages/config/` 復活も再評価する
+
+### 派生 2：`syncpack` を apps/web 内に移動 + ルールセット縮小
+
+[ADR 0024](./0024-syncpack-package-json-consistency.md) の syncpack はツール採用そのものは維持し、Biome と同じく **配置を root → `apps/web/` に移動**、**ルールセットを縮小**する：
+
+- **継続採用ルール（単一 package.json でも有効）**：
+  1. `dependencies` / `devDependencies` の重複検知（同じパッケージの両方定義を検出）
+  2. `package.json` キー順整形
+  3. semver 範囲指定子 `^` の統一
+- **不採用ルール（multi-workspace 必須、対象消滅）**：
+  1. ~~外部依存の全 workspace 同一バージョン~~（apps/web 1 個のため）
+  2. ~~内部 workspace パッケージ `workspace:*` 固定~~（内部 pkg 不在のため）
+- **配置**：`apps/web/.syncpackrc.ts`（apps/web の devDep として syncpack を投入）
+- **起動経路**：`mise run web-syncpack`（apps/web 着手時に `mise.toml` + `lefthook.yml` + `ci.yml` に追加）
+
+詳細は [ADR 0024](./0024-syncpack-package-json-consistency.md) の Note を参照。
+
+**再拡張の余地**：将来 `apps/web/` 内部が multi-package 構成（例：`apps/web/packages/ui` 等の UI ライブラリ分離 / Storybook 独立等）に拡張された場合、不採用にした 2 ルール（同一バージョン / `workspace:*`）も apps/web 内で復活させる判断は妥当（→ §将来の見直しトリガー）。
+
+### 派生 3：`pnpm workspaces` の不採用
+
+旧版の本 ADR では「pnpm workspaces のみ採用、Turborepo 不採用」だったが、上記 2 派生（`packages/config/` 廃止 + `packages/shared-types` 不採用 → ADR 0006）の結果、**workspace 構造そのものが消滅**した：
+
+- workspace member は `apps/web` のみで、root と apps/web は互いに `workspace:*` 参照しない（依存が完全に分離）
+- pnpm workspace 機能（hoisted node_modules / 単一 lockfile / `workspace:*` プロトコル）の価値ドライバが全て不発
+- `pnpm-workspace.yaml` を削除し、`apps/web/` を独立した pnpm プロジェクトとする
+- root には pnpm の orchestration-only パッケージ（commitlint + lefthook のみ）を残す
 
 ### 将来の見直しトリガー
 
 - **Frontend が複数 app 構成に拡張される場合**（mobile app 追加 / web admin 分離 / Storybook 独立等）→ Turborepo 復帰を検討、新規 ADR を起票
+- **`apps/web/` が内部 multi-package 構成に拡張される場合**（apps/web/packages/ui 等の UI ライブラリ分離）→ apps/web 内で `syncpack` 再導入を検討、ADR 0024 復活 or 新規 ADR 起票
 - **CI のビルド時間が運用 pain になる場合**（5 分超等）→ Turborepo + リモートキャッシュ採用を再検討
 - **チーム開発に移行した場合**（個人 portfolio から複数人開発に変化）→ リモートキャッシュ価値が出るので Turborepo 復帰を検討
 
