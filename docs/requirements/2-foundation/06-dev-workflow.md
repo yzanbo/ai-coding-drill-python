@@ -23,7 +23,7 @@
 - **TypeScript（`tsc --noEmit`）** で型チェック（Biome は型チェックを行わないため必須）
 - 補完ツール（**R0 / リポジトリ初期セットアップ時から導入**、→ [ADR 0021](../../adr/0021-r0-tooling-discipline.md)）：
   - **共通の根拠**：これらのツールは**途中導入のコストが線形的に膨張**する（蓄積したコードが規約違反だらけになり、後追いで全件修正する作業が発生する）。R0 で入れれば修正対象がほぼゼロ、R4 まで放置すると数百ファイル規模の整地 PR が必要になりレビュー不能。**初期導入が圧倒的に低コスト**
-  - **lefthook**：Git フック管理（pre-commit で Biome / 型チェック、commit-msg で commitlint を起動）。壊れたコードが main に入る前に弾く
+  - **lefthook**：Git フック管理。pre-commit で Biome / `tsc --noEmit` / syncpack lint / Knip、commit-msg で commitlint を起動。壊れたコードが main に入る前に弾く（フック構成 SSoT は [lefthook.yml](../../../lefthook.yml)、フック × チェック × CI の対応表は [ADR 0021: Decision](../../adr/0021-r0-tooling-discipline.md#decision決定内容) を参照）
   - **commitlint**（Conventional Commits）：コミットメッセージ規約の機械的検証。**過去のコミット履歴は遡及修正できない**ため、最初から規約を効かせる必要がある
   - **Knip**：未使用 export / 依存 / ファイルの検出。蓄積後の一斉検出は削除可否の個別判断で時間を消費する
   - **syncpack**：モノレポ内 `package.json` のバージョン整合性を強制（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)）。Turborepo + pnpm workspaces 構成で必須レベル。**バージョンずれは積もると一括修正に動作リスクが伴う**
@@ -43,9 +43,9 @@
 ## CI/CD
 
 - **GitHub Actions**
-- pre-commit（lint/format、lefthook 経由）
+- pre-commit（lefthook 経由で Biome / typecheck / syncpack / Knip。詳細表は [ADR 0021: Decision](../../adr/0021-r0-tooling-discipline.md#decision決定内容)）
 - Dependabot
-- PR 時：lint、型チェック、テスト
+- PR 時：commitlint / Biome / typecheck / syncpack / Knip（pre-commit を skip された場合の最終 gate）
 - main マージ時：Docker build → ECR push → デプロイ
 - Terraform plan/apply もワークフロー化
 

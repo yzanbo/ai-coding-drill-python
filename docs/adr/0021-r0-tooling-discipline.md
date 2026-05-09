@@ -31,9 +31,17 @@
 **補完ツール（Knip / lefthook / commitlint / syncpack）を R0（リポジトリ初期セットアップ時）から導入する。**
 
 - 設定の物理配置：本 ADR で扱う補完ツール（Knip / lefthook / commitlint / syncpack）はすべてリポジトリルート直接配置。詳細な配置方針は [packages/config/README.md](../../packages/config/README.md) を参照
-- lefthook の pre-commit フックで Biome / 型チェックを起動
-- lefthook の commit-msg フックで commitlint を起動
-- Knip / syncpack は CI（GitHub Actions）でも実行し、PR レベルで違反を弾く
+- 各フック・CI の役割分担は以下の通り（**lefthook と CI で多層防御**：lefthook を `--no-verify` で skip された場合も CI が最終 gate になる）：
+
+| 起動タイミング | 起動するチェック | glob トリガー |
+|---|---|---|
+| **lefthook pre-commit** | Biome / `tsc --noEmit` | TS/JS/JSON 系 |
+| **lefthook pre-commit** | syncpack lint | `package.json` |
+| **lefthook pre-commit** | Knip | TS/JS/JSON 系（全プロジェクト解析） |
+| **lefthook commit-msg** | commitlint | （glob なし、毎回） |
+| **GitHub Actions CI** | Biome / typecheck / syncpack / Knip / commitlint | （PR / push 時） |
+
+- 自動修正系（`syncpack fix` / `knip --fix`）は pre-commit に接続せず、`pnpm syncpack:fix` / `pnpm knip:fix` を開発者が手動実行する半自動運用（破壊的変更の混入を防ぐため）
 - 導入が遅れる場合でも **R1 完了時点までには必ず全ツールを稼働状態にする**
 
 ## Why（採用理由）
