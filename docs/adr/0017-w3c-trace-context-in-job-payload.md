@@ -21,14 +21,78 @@ OpenTelemetry の自動計装は **同一プロセス内のスパン親子関係
 
 ジョブペイロードのスキーマは R1 で確定し、確定後は JSON Schema を SSoT として TS / Go 両言語の型を自動生成する（→ [ADR 0014](./0014-json-schema-as-single-source-of-truth.md)）。**ペイロード構造を後から変更すると、進行中ジョブのマイグレーションと両言語のコード追従が必要**になるため、R1 着手前にトレース連携の方針を決めておく必要がある。
 
-## Decision（決定内容）
+## Decision（決定内容)
 
 ジョブペイロードに **W3C Trace Context**（[W3C 勧告](https://www.w3.org/TR/trace-context/)）の `traceparent` / `tracestate` を埋め込み、プロセス境界をまたいで OTel Context を伝播する。
 
+### スキーマ・伝播方式
+
 - 全ジョブ種別の JSON Schema に `traceContext` フィールドを **必須**として定義（[01-data-model.md: ジョブペイロードのスキーマ](../requirements/3-cross-cutting/01-data-model.md#ジョブペイロード共通フィールドtracecontext)）
 - NestJS（Producer）：ジョブ INSERT 時、現在の OTel Context から `traceparent` / `tracestate` をシリアライズして `payload.traceContext` に格納
-- Go ワーカー（Consumer）：ジョブ取得時、`payload.traceContext` から OTel Context を復元し、ワーカー側のスパン（`job.process`）を NestJS 側の親スパンにリンク
+- Go ワーカー（Consumer）：ジョブ取得時、`payload.traceContext` から OTel Context を復元し、ワーカー側のスパン（`jobs process`）を NestJS 側の親スパンに **SpanLink** で接続（理由は下記）
 - R1 で**最初のジョブ INSERT を書く時点で実装**する（後追加だと進行中ジョブのマイグレーション必要）
+
+### Parent-Child リンク vs SpanLink — SpanLink を採用
+
+[OpenTelemetry Messaging Spans 仕様](https://opentelemetry.io/docs/specs/semconv/messaging/messaging-spans/) によれば、メッセージキュー / ジョブキュー越しの Trace 連携は **「Producer スパンと Consumer スパンの時間関係」** で接続方式を選び分ける：
+
+| 状況 | 接続方式 | 理由 |
+|---|---|---|
+| 同期処理（Producer 完了直後に Consumer 開始） | **Parent-Child** | 親スパンがまだ open、子として参加できる |
+| **非同期処理**（Producer 完了から数秒以上空く） | **SpanLink** | 親スパンが既に close 済みのため、Parent として接続できない |
+
+このプロジェクトでの実態：
+
+- Producer（NestJS の `POST /submissions`）：INSERT 後 ~50ms でレスポンス返却 → スパン close
+- Consumer（Go ワーカーの `jobs process`）：数秒〜数十秒後に開始 → 親スパンは既に閉じている
+- → **SpanLink を採用**
+
+実装イメージ：
+
+```typescript
+// NestJS 側
+const carrier: Record<string, string> = {};
+otel.propagation.inject(otel.context.active(), carrier);
+// carrier.traceparent / carrier.tracestate を payload.traceContext に格納
+```
+
+```go
+// Go ワーカー側（ジョブ取得時）
+carrier := propagation.MapCarrier{
+    "traceparent": payload.TraceContext.Traceparent,
+    "tracestate":  payload.TraceContext.Tracestate,
+}
+producerCtx := otel.GetTextMapPropagator().Extract(context.Background(), carrier)
+producerSpanCtx := trace.SpanContextFromContext(producerCtx)
+
+// SpanLink として接続
+ctx, span := tracer.Start(context.Background(), "jobs process",
+    trace.WithLinks(trace.Link{SpanContext: producerSpanCtx}),
+    trace.WithSpanKind(trace.SpanKindConsumer),
+)
+```
+
+### OpenTelemetry Messaging Semantic Conventions への準拠
+
+スパン名・属性は [OTel Messaging Spans](https://opentelemetry.io/docs/specs/semconv/messaging/messaging-spans/) に準拠：
+
+| スパン側 | スパン名 | 必須属性 |
+|---|---|---|
+| Producer（NestJS） | `jobs send` | `messaging.system="postgresql"`、`messaging.destination.name="jobs"`、`messaging.message.id="<jobId>"`、`messaging.operation="publish"` |
+| Consumer（Go ワーカー） | `jobs process` | 上記同属性 + `messaging.operation="process"` |
+
+これにより Tempo / Jaeger 上で「`jobs` キュー全体のスループット」「キューイング遅延分布」「特定 `messaging.message.id` でのジョブ追跡」が可能になる。
+
+### Baggage の使い分け
+
+OTel には Trace Context と並列に伝播される **`baggage`**（ビジネスメタデータ用）がある。本 ADR の伝播対象は **`traceContext`（W3C Trace Context）のみ**で、`baggage` は本 ADR の伝播対象に**含めない**：
+
+| 種別 | 用途 | 例 | 本 ADR での扱い |
+|---|---|---|---|
+| **`traceContext`（W3C Trace Context）** | trace 親子関係の伝播 **専用** | `traceparent`、`tracestate` | 必須伝播 |
+| **`baggage`** | ビジネスメタデータをジョブ全体・スパン全体に自動伝播 | `user.id`、`llm.provider`、`prompt.version` | 本 ADR 範囲外（必要になった時点で payload の別フィールドとして追加検討） |
+
+両者を混同しない。`baggage` 採用時はペイロードの別フィールドに格納し、本 ADR の「将来の見直しトリガー」として再検討する。
 
 ## Why（採用理由）
 
@@ -89,75 +153,4 @@ OpenTelemetry の自動計装は **同一プロセス内のスパン親子関係
 - [ADR 0014: JSON Schema を Single Source of Truth に採用](./0014-json-schema-as-single-source-of-truth.md)
 - [W3C Trace Context（公式仕様）](https://www.w3.org/TR/trace-context/)
 - [OpenTelemetry: Context Propagation](https://opentelemetry.io/docs/concepts/context-propagation/)
-
----
-
-## 補足（2026-05-03 追加）
-
-本 ADR の結論（W3C Trace Context をペイロードに埋め込む）は維持しつつ、**実装着手前に決めておくべき具体方針**を本文末尾に追記する。
-
-### 1. Parent-Child リンク vs SpanLink の選択
-
-[OpenTelemetry Messaging Spans 仕様](https://opentelemetry.io/docs/specs/semconv/messaging/messaging-spans/) によれば、メッセージキュー / ジョブキュー越しの Trace 連携は **「Producer スパンと Consumer スパンの時間関係」** で接続方式を選び分ける：
-
-| 状況 | 接続方式 | 理由 |
-|---|---|---|
-| 同期処理（Producer 完了直後に Consumer 開始） | **Parent-Child** | 親スパンがまだ open、子として参加できる |
-| **非同期処理**（Producer 完了から数秒以上空く） | **SpanLink** | 親スパンが既に close 済みのため、Parent として接続できない |
-
-このプロジェクトでの実態：
-
-- Producer（NestJS の `POST /submissions`）：INSERT 後 ~50ms でレスポンス返却 → スパン close
-- Consumer（Go ワーカーの `job.process`）：数秒〜数十秒後に開始 → 親スパンは既に閉じている
-- → **SpanLink を採用**
-
-実装イメージ：
-
-```typescript
-// NestJS 側
-const carrier: Record<string, string> = {};
-otel.propagation.inject(otel.context.active(), carrier);
-// carrier.traceparent / carrier.tracestate を payload.traceContext に格納
-```
-
-```go
-// Go ワーカー側（ジョブ取得時）
-carrier := propagation.MapCarrier{
-    "traceparent": payload.TraceContext.Traceparent,
-    "tracestate":  payload.TraceContext.Tracestate,
-}
-producerCtx := otel.GetTextMapPropagator().Extract(context.Background(), carrier)
-producerSpanCtx := trace.SpanContextFromContext(producerCtx)
-
-// SpanLink として接続
-ctx, span := tracer.Start(context.Background(), "jobs process",
-    trace.WithLinks(trace.Link{SpanContext: producerSpanCtx}),
-    trace.WithSpanKind(trace.SpanKindConsumer),
-)
-```
-
-### 2. OpenTelemetry Messaging Semantic Conventions への準拠
-
-スパン名・属性は [OTel Messaging Spans](https://opentelemetry.io/docs/specs/semconv/messaging/messaging-spans/) に準拠：
-
-| スパン側 | スパン名 | 必須属性 |
-|---|---|---|
-| Producer（NestJS） | `jobs send` | `messaging.system="postgresql"`、`messaging.destination.name="jobs"`、`messaging.message.id="<jobId>"`、`messaging.operation="publish"` |
-| Consumer（Go ワーカー） | `jobs process` | 上記同属性 + `messaging.operation="process"` |
-
-これにより Tempo / Jaeger 上で「`jobs` キュー全体のスループット」「キューイング遅延分布」「特定 `messaging.message.id` でのジョブ追跡」が可能になる。
-
-### 3. Baggage の使い分け方針
-
-OTel には Trace Context と並列に伝播される **`baggage`**（ビジネスメタデータ用）がある。本プロジェクトでの使い分け：
-
-| 種別 | 用途 | 例 |
-|---|---|---|
-| **`traceContext`（W3C Trace Context）** | trace 親子関係の伝播 **専用** | `traceparent`、`tracestate` |
-| **`baggage`** | ビジネスメタデータをジョブ全体・スパン全体に自動伝播 | `user.id`、`llm.provider`、`prompt.version` |
-
-両者を混同しない。`baggage` 採用時はペイロードの `baggage` フィールドに別途格納（必要になった時点で本 ADR の「将来の見直しトリガー」として再検討）。
-
-### 4. 04-observability.md / 01-data-model.md への反映
-
-本補足の 1〜3 は実装着手時に [04-observability.md](../requirements/2-foundation/04-observability.md) の主要スパン記述および [01-data-model.md](../requirements/3-cross-cutting/01-data-model.md) の `traceContext` 共通フィールド記述に反映する（R1 の実装作業に含める）。
+- [OpenTelemetry: Messaging Spans Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/messaging/messaging-spans/)
