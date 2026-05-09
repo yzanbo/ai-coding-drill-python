@@ -25,7 +25,8 @@
   - 開始は `typeCheckingMode = "basic"`、コードベースが安定したら `"strict"` への段階的引き上げを検討
   - 設定は `pyproject.toml` の `[tool.pyright]` に集約
 - **`pyrefly`（Meta）/ `ty`（Astral）は将来の乗り換え候補**として watch する（§Consequences の見直しトリガー参照）
-- 任意追加：[`pip-audit`](https://github.com/pypa/pip-audit)（脆弱性スキャン）
+
+依存パッケージの脆弱性スキャン（`pip-audit`）は本 ADR の対象外。uv の lockfile を入力源とするため、[ADR 0035](./0035-uv-for-python-package-management.md) に集約する。
 
 ## Why（採用理由）
 
