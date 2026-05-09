@@ -65,7 +65,7 @@ R0 で同時に決めておく構造的事項：
 
 ### R0 に最小構成だけ入れる理由
 
-- **commitlint / Biome / typecheck は ADR 0018 で既に Phase 0 採用済み**：ローカル（lefthook）でしか動いていない状態だと、フックを bypass された PR を受け入れてしまう。CI 化して初めて規約遵守が保証される
+- **commitlint / Biome / typecheck は ADR 0018 で既に R0 採用済み**：ローカル（lefthook）でしか動いていない状態だと、フックを bypass された PR を受け入れてしまう。CI 化して初めて規約遵守が保証される
 - **commitlint は遡及修正不可**：R0 で CI 化しないと、規約違反コミットが PR で混入したときに main に入る。後から検出しても直せない（ADR 0018 と同じ非対称性）
 - **typecheck は R0 時点では no-op だが構造を先に置く**：ジョブ枠を作っておけば、最初の TS workspace が追加された時点で自動的に有効化される
 
@@ -101,7 +101,7 @@ R0 で同時に決めておく構造的事項：
 ## References
 
 - [ADR 0013](./0013-biome-for-tooling.md)：Biome を採用
-- [ADR 0018](./0018-phase-0-tooling-discipline.md)：補完ツールを Phase 0 から導入
-- [ADR 0019](./0019-requirements-as-5-buckets.md)：要件定義書のバケット構成（フェーズ R0〜R5）
+- [ADR 0018](./0018-phase-0-tooling-discipline.md)：補完ツールを R0 から導入
+- [ADR 0019](./0019-requirements-as-5-buckets.md)：要件定義書の 5 バケット時系列構造
 - [ADR 0023](./0023-github-actions-as-ci-cd.md)：CI/CD ツール選定（GitHub Actions 採用）
 - [.github/workflows/ci.yml](../../.github/workflows/ci.yml)：本 ADR の実装

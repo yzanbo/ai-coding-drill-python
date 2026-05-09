@@ -62,7 +62,7 @@
 | [0018](./0018-phase-0-tooling-discipline.md) | 補完ツール（Knip / lefthook / commitlint / syncpack）を R0 から導入 | YAGNI 例外条件 / 不可逆コスト膨張 |
 | [0019](./0019-requirements-as-5-buckets.md) | 要件定義書を「時系列 × 変更頻度」の 5 バケット構造に再編 | ドキュメント設計 / SSoT / 読む順序と書く順序 |
 | [0020](./0020-go-code-quality.md) | Go のコード品質ツールに gofmt + golangci-lint を採用 | Go 標準 / メタリンター / `go build` 内蔵型チェック |
-| [0021](./0021-python-code-quality.md) | Python のコード品質ツールに ruff を採用、型チェッカーは Phase 7 着手時に決定 | Astral 統合 / 可逆な判断の遅延 |
+| [0021](./0021-python-code-quality.md) | Python のコード品質ツールに ruff を採用、型チェッカーは R7 着手時に決定 | Astral 統合 / 可逆な判断の遅延 |
 | [0022](./0022-github-actions-incremental-scope.md) | GitHub Actions のスコープを段階的に拡張（R0 は commitlint + Biome + typecheck のみ） | YAGNI / 段階拡張 / 無料枠節約 |
 | [0023](./0023-github-actions-as-ci-cd.md) | CI/CD ツールに GitHub Actions を採用（CircleCI / Jenkins / Tekton 等を不採用） | コードホスト統合 / OIDC キーレス / 可逆性 |
 | [0024](./0024-dependabot-auto-update-policy.md) | 依存関係の自動更新ポリシー（Dependabot を採用、週次 / メジャー除外 / グループ化） | 脆弱性追従 / SHA ピン止め前提 / commitlint 規約準拠 |
@@ -102,7 +102,7 @@
 | [0018](./0018-phase-0-tooling-discipline.md) | 補完ツールを R0 から導入 | 📋 開発規律 |
 | [0019](./0019-requirements-as-5-buckets.md) | 要件定義書を 5 バケット時系列構造に再編 | 📋 開発規律 |
 | [0020](./0020-go-code-quality.md) | Go のコード品質ツール（gofmt + golangci-lint） | 📋 開発規律 |
-| [0021](./0021-python-code-quality.md) | Python のコード品質ツール（ruff、型チェッカーは Phase 7 着手時決定） | 📋 開発規律 |
+| [0021](./0021-python-code-quality.md) | Python のコード品質ツール（ruff、型チェッカーは R7 着手時決定） | 📋 開発規律 |
 | [0022](./0022-github-actions-incremental-scope.md) | GitHub Actions のスコープを段階的に拡張 | 📋 開発規律 |
 | [0023](./0023-github-actions-as-ci-cd.md) | CI/CD ツールに GitHub Actions を採用 | 📋 開発規律 |
 | [0024](./0024-dependabot-auto-update-policy.md) | 依存関係の自動更新ポリシー（Dependabot） | 📋 開発規律 |

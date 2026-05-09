@@ -28,7 +28,7 @@
   - **Knip**：未使用 export / 依存 / ファイルの検出。蓄積後の一斉検出は削除可否の個別判断で時間を消費する
   - **syncpack**：モノレポ内 `package.json` のバージョン整合性を強制（→ [ADR 0029](../../adr/0029-syncpack-package-json-consistency.md)）。Turborepo + pnpm workspaces 構成で必須レベル。**バージョンずれは積もると一括修正に動作リスクが伴う**
 - **Go**：`gofmt` + `golangci-lint`（→ [ADR 0020](../../adr/0020-go-code-quality.md)）
-- **Python（R7）**：`ruff`（Linter + Formatter 統合）。型チェッカーは Phase 7 着手時に決定（→ [ADR 0021](../../adr/0021-python-code-quality.md)）
+- **Python（R7）**：`ruff`（Linter + Formatter 統合）。型チェッカーは R7 着手時に決定（→ [ADR 0021](../../adr/0021-python-code-quality.md)）
 - **設定ファイルの物理配置**：Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住人・判断基準・投入タイミングは [packages/config/README.md](../../../packages/config/README.md) に集約
 
 ---
