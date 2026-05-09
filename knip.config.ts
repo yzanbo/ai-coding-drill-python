@@ -8,8 +8,8 @@
 //     （→ ADR 0021「補完ツールを R0 から導入」）
 //
 // 設計方針（R0 時点）：
-//   - apps/* はまだ存在しないため、workspaces 設定は **R1 で apps が追加された瞬間に効くハコ**
-//     として先行定義する（packages/config と同じ「ハコだけ先に置く」設計）。
+//   - apps/web はまだ存在しないため、workspaces 設定は **apps/web 追加時に効くハコ**
+//     として先行定義する（先取りで構造を置く設計）。
 //   - 個別 plugin は **Knip の自動検出に委ねる** のを基本方針とする。
 //     Knip は package.json / 設定ファイルの存在を見て biome / commitlint / syncpack /
 //     lefthook / next 等のプラグインを自動有効化するため、明示列挙は不要。

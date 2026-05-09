@@ -46,7 +46,7 @@ const config: RcFile = {
       //   "**" は glob で「全パッケージ」を意味し、以下のすべてを対象にする：
       //     - ルート package.json（"name": "ai-coding-drill"）
       //     - apps/* 配下の各パッケージ（@ai-coding-drill/web 等、将来追加分含む）
-      //     - packages/* 配下の各パッケージ（@ai-coding-drill/config 等）
+      //     - packages/* 配下の各パッケージ（packages/prompts は YAML のみで package.json 無し、ADR 0006 で packages/shared-types は不採用、ADR 0036 で packages/config は廃止）
       //   ルートも含む点に注意：syncpack v15 はワークスペースルートも scan 対象に含める。
       //   特定パッケージだけに適用したい場合は ["@ai-coding-drill/web"] のように name で指定する。
       packages: ["**"],
