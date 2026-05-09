@@ -25,7 +25,7 @@ flowchart TB
     Cache{Redis<br/>キャッシュ確認}
     CacheHit([キャッシュ返却])
     Gen[初回生成プロバイダで<br/>問題草案生成<br/>低コストモデル]
-    Parse[構造化出力パース<br/>JSON Schema + Zod]
+    Parse[構造化出力パース<br/>OpenAPI 由来の Go 型で検証]
     Sandbox{サンドボックスで<br/>模範解答を実行}
     Judge{LLM-as-a-Judge<br/>品質評価<br/>別プロバイダ・別モデル}
     Save([DB 保存])
@@ -68,7 +68,7 @@ flowchart TB
 | ステップ | 設計判断 |
 |---|---|
 | キャッシュ確認 | `prompt_hash` でキー化、TTL 7 日。プロバイダ非依存 |
-| 構造化出力パース | Zod でランタイムバリデーション。スキーマ違反は再生成へ |
+| 構造化出力パース | Pydantic v2 を SSoT として `apps/api/openapi.json` に出力し、Worker（Go）側は quicktype で生成した構造体でランタイムバリデーション。スキーマ違反は再生成へ（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)） |
 | サンドボックス検証 | 模範解答が**全テスト通過**しなければ即破棄（[ADR 0009](../../adr/0009-disposable-sandbox-container.md)）|
 | Judge 評価 | **生成と異なるプロバイダ**で評価し自己評価バイアス回避（[ADR 0008](../../adr/0008-custom-llm-judge.md)）|
 | 再生成戦略 | 試行ごとに**上位モデルへ昇格**（コスト最適化、最大 3 回）|
@@ -77,13 +77,15 @@ flowchart TB
 ## 各要素の要件
 
 ### プロンプト管理
-- プロンプトは YAML ファイルで管理（`prompts/` ディレクトリ）
+- プロンプトは YAML ファイルで管理し、**呼び出し元 Worker と同居**させる（→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）：
+  - `apps/workers/grading/prompts/judge/`：採点ワーカーの LLM-as-a-Judge 用
+  - `apps/workers/generation/prompts/generation/`：問題生成ワーカー用（R2 以降）
 - バージョン番号付与（`v1`, `v2`...）、Git 履歴と連動
 - A/B テスト：本番で複数バージョンを並行稼働、生成品質を比較
 
 ### 構造化出力
 - 各プロバイダの tool_use / function calling / JSON mode で以下を強制
-- プロバイダ差分は `LlmProvider` 抽象化レイヤで吸収し、Zod スキーマで最終バリデーション
+- プロバイダ差分は `LlmProvider` 抽象化レイヤ（Worker 内）で吸収し、OpenAPI 由来の Go 型で最終バリデーション
   ```json
   {
     "title": "string",
@@ -182,7 +184,7 @@ flowchart TB
     class Error errStyle;
 ```
 
-→ 詳細な採点ジョブの完全な経路（NestJS → Postgres → Go ワーカー → サンドボックス）は [02-architecture.md: 1 ジョブが流れる完全な経路](./02-architecture.md#1-ジョブが流れる完全な経路) を参照。
+→ 詳細な採点ジョブの完全な経路（FastAPI → Postgres → apps/workers/grading → サンドボックス）は [02-architecture.md: 1 ジョブが流れる完全な経路](./02-architecture.md#1-ジョブが流れる完全な経路) を参照。
 
 ## メトリクス（観測性と連動）
 - 生成成功率 = 保存された問題 / 生成リクエスト数

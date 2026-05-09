@@ -13,16 +13,17 @@
 - バージョン管理：URL に含めない、Breaking Change は `Accept` ヘッダで分岐するか新エンドポイントを生やす
 - 文字コード UTF-8、Content-Type は `application/json`
 - 認証：Cookie ベースのセッション（HttpOnly + Secure + SameSite=Lax）
-- 全ルートはデフォルト認証必須、`@Public()` デコレータで例外的に認証スキップ（→ [.claude/rules/backend.md](../../../.claude/rules/backend.md)）
+- 全ルートはデフォルト認証必須、明示的な公開ルートのみ FastAPI の依存（`Depends(get_current_user_optional)` 等）または `@public_route` ヘルパで認証をスキップ（→ [.claude/rules/backend.md](../../../.claude/rules/backend.md)）
 
 ---
 
 ## OpenAPI 自動生成
 
-- 実装コードから OpenAPI ドキュメントを **自動生成**（採用ライブラリは [05-runtime-stack.md: バックエンド API](../2-foundation/05-runtime-stack.md#バックエンド-apinestjs--typescript) を参照）
-- 生成された OpenAPI JSON を `/api/docs/openapi.json` で配信
-- Swagger UI を `/api/docs` で配信（開発・ステージング環境のみ）
-- 本ドキュメント（09）は **設計意図・共通方針** を残す位置づけで、最新の機械可読仕様は OpenAPI に従う
+- FastAPI は Pydantic モデルから **OpenAPI 3.1 ドキュメントを自動生成**（→ [ADR 0034](../../adr/0034-fastapi-for-backend.md)、[ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
+- 生成された OpenAPI JSON は `apps/api/openapi.json` にエクスポートし、ランタイムでは `/openapi.json` で配信
+- Swagger UI は FastAPI の `/docs`、ReDoc は `/redoc`（開発・ステージング環境のみ公開）
+- フロントエンドは **Hey API** で TS クライアントを自動生成、Go ワーカーは **quicktype --src-lang openapi** で型を生成（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
+- 本ドキュメントは **設計意図・共通方針** を残す位置づけで、最新の機械可読仕様は OpenAPI に従う
 - 個別エンドポイントの詳細は **[features/](../4-features/) が SSoT**（受け入れ条件・画面動作と直結する記述）
 
 ---
@@ -38,8 +39,8 @@
 
 ### 認証要否の制御
 
-- グローバルガード（`APP_GUARD`）でデフォルト認証必須
-- 例外（OAuth コールバック等）は `@Public()` デコレータで個別に解除
+- FastAPI の依存（`Depends(get_current_user)`）をルーター単位で適用し、デフォルト認証必須に揃える
+- 例外（OAuth コールバック・ヘルスチェック等）は依存を外す or `Depends(get_current_user_optional)` を使う
 - 認証フロー詳細は [F-01](../4-features/F-01-github-oauth-auth.md) を参照
 
 ---
@@ -114,7 +115,7 @@
 2. `GET /<resource>/:id` をポーリング（1〜2 秒間隔、指数バックオフ。クライアント側ライブラリは [05-runtime-stack.md: フロントエンド](../2-foundation/05-runtime-stack.md#フロントエンド) を参照）
 3. `status === 'graded' | 'completed'` になったら停止
 
-ジョブの内部フロー（NestJS → Postgres → Go ワーカー → サンドボックス）は [02-architecture.md: 1 ジョブが流れる完全な経路](../2-foundation/02-architecture.md#1-ジョブが流れる完全な経路) を参照。
+ジョブの内部フロー（FastAPI → Postgres → Go ワーカー（apps/workers/grading or generation）→ LLM / サンドボックス）は [02-architecture.md: 1 ジョブが流れる完全な経路](../2-foundation/02-architecture.md#1-ジョブが流れる完全な経路) を参照（→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）。
 
 ジョブ全体を通じた `trace_id` の連結は [ADR 0010](../../adr/0010-w3c-trace-context-in-job-payload.md) を参照。
 

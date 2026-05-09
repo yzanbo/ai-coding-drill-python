@@ -15,7 +15,7 @@
 -->
 
 > **このドキュメントの守備範囲**：{この章が扱う領域を 1〜2 行で}
-> **個別の詳細仕様の SSoT**：{Drizzle スキーマ / OpenAPI / packages/shared-types/ など、より低レベルの SSoT を明示}
+> **個別の詳細仕様の SSoT**：{SQLAlchemy 2.0 model（`apps/api/app/models/`）/ Pydantic schema（`apps/api/app/schemas/`）/ `apps/api/openapi.json`（FastAPI 自動生成、ADR 0006）など、より低レベルの SSoT を明示}
 > **関連トピックの参照先**：
 > - {他バケットや他ファイルへの誘導}
 
@@ -59,4 +59,4 @@
 - **関連する全体要件**：[2-foundation/NN-xxx.md](../2-foundation/NN-xxx.md)
 - **関連する個別機能**：[F-XX](../4-features/F-XX-...md)
 - **関連 ADR**：[ADR XXXX](../../adr/XXXX-...md)
-- **詳細仕様の SSoT**：Drizzle スキーマ / OpenAPI / `packages/shared-types/` 等
+- **詳細仕様の SSoT**：SQLAlchemy 2.0 model（`apps/api/app/models/`）/ Pydantic schema（`apps/api/app/schemas/`）/ FastAPI 自動生成 OpenAPI（`apps/api/openapi.json`、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）等

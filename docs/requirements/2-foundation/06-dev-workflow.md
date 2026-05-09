@@ -59,7 +59,16 @@
 
 ### 設定ファイルの物理配置
 
-Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住人・判断基準・投入タイミングは [packages/config/README.md](../../../packages/config/README.md) に集約。
+ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `lefthook.yml` / `commitlint.config.mjs`）を置き、各言語固有の設定は対応 app 配下に閉じる：
+
+| 配置先 | 例 |
+|---|---|
+| **root** | `mise.toml` / `lefthook.yml` / `commitlint.config.mjs` |
+| **`apps/web/`** | `package.json` / `tsconfig.json` / `biome.jsonc` / `knip.config.ts` / `.syncpackrc.ts` / `pnpm-lock.yaml` |
+| **`apps/api/`** | `pyproject.toml`（`[tool.ruff]` / `[tool.pyright]` / `[tool.deptry]` を集約）/ `uv.lock` |
+| **`apps/workers/<name>/`** | `go.mod` / `go.sum` / `.golangci.yml` |
+
+`packages/config/`（multi-consumer 前提の共有 TS 設定パッケージ）は**廃止**（→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md)）。
 
 ---
 
@@ -189,7 +198,7 @@ Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住
 - **lefthook pre-commit / CI**：[#フック × チェック × CI 対応表](#フック--チェック--ci-対応表) を参照
 - **自動修正**：pre-commit / CI には接続せず、`pnpm syncpack:fix`（mismatches 修正）/ `pnpm syncpack:format`（キー順）を開発者が手動実行する半自動運用
 - **設定ファイル形式**：`.ts`（→ [#設定ファイル形式の優先順位](#設定ファイル形式の優先順位) の Tier 3-1：型 export ありで typo を保存時に弾ける）
-- **設定の物理配置**：ルート直接配置（横断ツールのため Layer 1。配置方針は [packages/config/README.md](../../../packages/config/README.md)）
+- **設定の物理配置**：`apps/web/.syncpackrc.ts`（apps/web 内の multi-package 対象、ADR 0036 拡張で root から移動）
 
 ### ルールを追加・変更する時
 
@@ -229,8 +238,8 @@ Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住
 | `web` | `apps/web`（フロントエンド / Next.js） |
 | `api` | `apps/api`（FastAPI / Python バックエンド） |
 | `worker` | `apps/workers/*`（grading / generation 等の Go Worker 群、→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)） |
-| `shared` | `packages/shared-types`、`packages/prompts` 等の共有パッケージ |
-| `config` | tooling 設定ファイル群（ルート直接配置 + `packages/config/` の両方を含む、→ [packages/config/README.md](../../../packages/config/README.md)） |
+| `shared` | （共有パッケージ：現状は不採用。`packages/shared-types` は ADR 0006、`packages/config` は ADR 0036、`packages/prompts` は ADR 0040 で全廃。将来追加された場合に再度有効化） |
+| `config` | root 直接配置の tooling 設定ファイル群（`mise.toml` / `lefthook.yml` / `commitlint.config.mjs` 等。`packages/config/` は廃止、→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md)） |
 | `infra` | `infra/`（Terraform） |
 | `docs` | `docs/`（要件定義 / ADR） |
 | `db` | DB スキーマ・マイグレーション（SQLAlchemy 2.0 モデル + Alembic マイグレーション、→ [ADR 0037](../../adr/0037-sqlalchemy-alembic-for-database.md)） |

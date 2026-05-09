@@ -7,7 +7,7 @@
 ---
 
 ## セキュリティ（最重要）
-- サンドボックスはホストから隔離（→ [04: サンドボックスランナー](./02-architecture.md#サンドボックスランナーgo-ワーカー内で実行)）
+- サンドボックスはホストから隔離（→ [04: サンドボックスランナー](./02-architecture.md#サンドボックスランナーappsworkersgrading-内で実行)）
 - ネットワークアクセス遮断
 - ファイルシステム書き込み制限（/tmp のみ、サイズ上限）
 - 実行時間制限（例：5秒）、メモリ制限（例：256MB）
@@ -21,7 +21,7 @@
 ## パフォーマンス
 - 問題生成：非同期、ユーザーは生成完了を待たない（ジョブキュー）
 - 採点レスポンス：通常時 P95 < 3秒
-- サンドボックス起動オーバーヘッドの目標値（→ [02-architecture.md: サンドボックスランナー](./02-architecture.md#サンドボックスランナーgo-ワーカー内で実行) / [ADR 0009](../../adr/0009-disposable-sandbox-container.md)）：
+- サンドボックス起動オーバーヘッドの目標値（→ [02-architecture.md: サンドボックスランナー](./02-architecture.md#サンドボックスランナーappsworkersgrading-内で実行) / [ADR 0009](../../adr/0009-disposable-sandbox-container.md)）：
   - **段階 1（Docker、MVP）想定実測**：~200ms（採点本体 1〜3 秒に対しオーバーヘッド 5〜15%）
   - **段階 2 以降の上限目標**：< 500ms（gVisor / Firecracker への切替後も維持する上限）
 
@@ -44,7 +44,7 @@
 | コンポーネント | 目標 | 根拠 |
 |---|---|---|
 | LLM API（生成 + Judge 合算） | $5〜15/月 | キャッシュ・低コストモデル優先・段階的利用で抑制（→ [03-llm-pipeline.md: コスト最適化](./03-llm-pipeline.md#コスト最適化)） |
-| AWS インフラ（ECS Fargate / RDS / EC2 ワーカー / Secrets Manager / ECR / Route53 等） | $10〜15/月 | 最適化構成の試算（→ [05-runtime-stack: コスト目安](./05-runtime-stack.md#コスト目安)） |
+| AWS インフラ（ECS Fargate / RDS / EC2 Workers / Secrets Manager / ECR / Route53 等） | $10〜15/月 | 最適化構成の試算（→ [05-runtime-stack: コスト目安](./05-runtime-stack.md#コスト目安) / [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)） |
 | Upstash Redis | $0〜3/月 | サーバレス無料枠（→ [ADR 0012](../../adr/0012-upstash-redis-over-elasticache.md)） |
 | Vercel（Frontend） | $0/月 | Hobby 無料枠（→ [ADR 0013](../../adr/0013-vercel-for-frontend-hosting.md)） |
 | DB（兼ジョブキュー） | AWS インフラ内訳に含む | RDS PostgreSQL db.t4g.micro、無料枠活用（→ [ADR 0004](../../adr/0004-postgres-as-job-queue.md)） |
@@ -57,7 +57,7 @@
 - AWS Budgets で全体予算 $30/月のアラートを設定（→ [04-observability.md: アラート](./04-observability.md#アラート)）
 
 ## 拡張性
-- サンドボックスランタイムは差し替え可能な抽象化レイヤを通す（→ [04: サンドボックスランナー](./02-architecture.md#サンドボックスランナーgo-ワーカー内で実行)）
+- サンドボックスランタイムは差し替え可能な抽象化レイヤを通す（→ [04: サンドボックスランナー](./02-architecture.md#サンドボックスランナーappsworkersgrading-内で実行)）
 - 対応言語を後から追加できる構造（言語ごとの実行アダプタ）
 
 ## 観測性
