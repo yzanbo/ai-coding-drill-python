@@ -28,9 +28,31 @@
 - ジョブ失敗時のリトライ（最大3回、指数バックオフ）
 
 ## コスト
-- LLM API 月額上限を設定（例：$30/月）
-- キャッシュで同一プロンプトの重複呼び出しを回避
-- 低コストモデル → 高品質モデルの段階的利用でコスト最適化（→ [05: コスト最適化](./03-llm-pipeline.md#コスト最適化)）
+
+本セクションは月額コスト目標の SSoT。各 ADR と他章の数値はここに集約する。
+
+### プロジェクト全体目標
+
+**月額 $30 以内**（→ [ADR 0002](../../adr/0002-aws-single-cloud.md) 由来）。ポートフォリオ用途のため、これを超える構成は不採用。
+
+### コンポーネント別の内訳目標
+
+最適化構成を前提とした想定内訳（合計が全体目標 $30 を超えないよう設計）：
+
+| コンポーネント | 目標 | 根拠 |
+|---|---|---|
+| LLM API（生成 + Judge 合算） | $5〜15/月 | キャッシュ・低コストモデル優先・段階的利用で抑制（→ [03-llm-pipeline.md: コスト最適化](./03-llm-pipeline.md#コスト最適化)） |
+| AWS インフラ（ECS Fargate / RDS / EC2 ワーカー / Secrets Manager / ECR / Route53 等） | $10〜15/月 | 最適化構成の試算（→ [05-runtime-stack: コスト目安](./05-runtime-stack.md#コスト目安)） |
+| Upstash Redis | $0〜3/月 | サーバレス無料枠（→ [ADR 0007](../../adr/0007-upstash-redis-over-elasticache.md)） |
+| Vercel（Frontend） | $0/月 | Hobby 無料枠（→ [ADR 0032](../../adr/0032-vercel-for-frontend-hosting.md)） |
+| DB（兼ジョブキュー） | AWS インフラ内訳に含む | RDS PostgreSQL db.t4g.micro、無料枠活用（→ [ADR 0001](../../adr/0001-postgres-as-job-queue.md)） |
+
+### コスト最適化の前提
+
+- LLM 呼び出しのキャッシュで同一プロンプトの重複呼び出しを回避
+- 低コストモデル → 高品質モデルの段階的利用（→ [03-llm-pipeline.md: コスト最適化](./03-llm-pipeline.md#コスト最適化)）
+- 最適化なしの「標準構成」は AWS だけで $25〜50/月に膨らむため不採用（→ [05-runtime-stack: コスト目安](./05-runtime-stack.md#コスト目安) の参考値）
+- AWS Budgets で全体予算 $30/月のアラートを設定（→ [04-observability.md: アラート](./04-observability.md#アラート)）
 
 ## 拡張性
 - サンドボックスランタイムは差し替え可能な抽象化レイヤを通す（→ [04: サンドボックスランナー](./02-architecture.md#サンドボックスランナーgo-ワーカー内で実行)）

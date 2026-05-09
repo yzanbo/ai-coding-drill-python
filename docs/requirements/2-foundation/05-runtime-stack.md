@@ -174,9 +174,16 @@
 | DNS / SSL | Route 53 + ACM | |
 | コスト管理 | AWS Budgets | 月額上限アラート |
 
-### コスト目安
-- 標準構成：~$25〜50/月
-- 最適化構成（Upstash + Spot Instance 等）：~$10〜15/月
+### コスト目安（AWS インフラのみ）
+
+採点対象の AWS インフラ（ECS Fargate / RDS / EC2 ワーカー / Secrets Manager / ECR / Route53 等）の試算：
+
+| 構成 | 月額 | 用途 |
+|---|---|---|
+| **目標構成（最適化前提）** | ~$10〜15/月 | 本プロジェクトの採用構成（Upstash + Spot Instance 等） |
+| 参考値（最適化なしの標準構成） | ~$25〜50/月 | 採用しない（プロジェクト全体目標 $30/月を超過するため） |
+
+LLM API / Upstash Redis / Vercel を含むプロジェクト全体のコスト目標と内訳は [01-non-functional.md: コスト](./01-non-functional.md#コスト) を SSoT として参照。
 
 → 物理配置の論理と責務分離は [02-architecture.md: インフラの論理配置](./02-architecture.md#インフラの論理配置)
 

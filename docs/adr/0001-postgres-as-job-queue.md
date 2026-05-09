@@ -12,7 +12,7 @@
 - Consumer：採点ワーカー（Go）
 - 規模：数百ジョブ/日（ポートフォリオ運用）
 - 制約：TS と Go の両方からネイティブに扱える必要がある（言語ロックインを避ける）
-- コスト目標：月 $0〜10 で運用したい
+- コスト目標：DB 兼ジョブキュー部分で月 $0〜10（プロジェクト全体目標 $30/月の内訳、SSoT は [01-non-functional.md: コスト](../requirements/2-foundation/01-non-functional.md#コスト)）
 - 既に Postgres をアプリ DB として採用予定
 
 ## Decision（決定内容）

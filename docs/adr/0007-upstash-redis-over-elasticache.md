@@ -11,7 +11,7 @@
 - Redis の用途：キャッシュ・セッション・レート制限（[ADR 0006](./0006-redis-not-for-job-queue.md)）
 - 「消えても再取得可」な性質
 - 想定トラフィック：数百ユーザー × 数十リクエスト/日
-- コスト目標：Redis 部分で月 $0〜3
+- コスト目標：Redis 部分で月 $0〜3（プロジェクト全体目標 $30/月の内訳、SSoT は [01-non-functional.md: コスト](../requirements/2-foundation/01-non-functional.md#コスト)）
 
 ## Decision（決定内容）
 
