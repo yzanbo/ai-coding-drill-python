@@ -1,7 +1,7 @@
 # 0024. モノレポ内 package.json の整合性を syncpack で機械強制
 
-- **Status**: Accepted
-- **Date**: 2026-05-08
+- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md)
+- **Date**: 2026-05-09
 - **Decision-makers**: 神保 陽平
 
 ## Context（背景・課題）

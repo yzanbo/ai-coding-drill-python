@@ -1,7 +1,7 @@
 # 0017. ORM に Drizzle を採用（Prisma 不採用）
 
-- **Status**: Accepted
-- **Date**: 2026-05-03
+- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md)
+- **Date**: 2026-05-09
 - **Decision-makers**: 神保 陽平
 
 ## Context（背景・課題）
