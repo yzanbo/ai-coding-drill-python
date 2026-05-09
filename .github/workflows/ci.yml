@@ -1,143 +1,66 @@
 # ======================================================================
-# GitHub Actions ワークフロー定義ファイル：R0 最小構成（commitlint + Biome + typecheck）
+# GitHub Actions ワークフロー定義ファイル：R0 最小構成（commitlint のみ）
 # ======================================================================
 #
-# このファイルは GitHub Actions の「ワークフロー」を 1 つ定義する。
-# 配置場所のルール：リポジトリ直下の .github/workflows/ 配下に置いた *.yml / *.yaml が
-# 自動的にワークフローとして検出される（ファイル名は任意、ここでは ci.yml）。
-# 1 リポジトリに複数ワークフローを置ける（例：ci.yml / release.yml / deploy.yml）。
-#
-# 設計方針（ADR 0022）：
-#   - R0 はローカルの lefthook と同じチェックを CI でも実行するだけに留める。
-#   - test / build / docker / e2e / security scan 等は、対応する実装が始まる
-#     フェーズで段階的に追加する（ADR 0022 の表を参照）。
-#   - ジョブを目的別に分割しておき、後から追加するだけで済む構造にする。
-#
-# 共通化方針：
-#   - 「pnpm CLI → Node.js → pnpm install」の重複ステップは Composite Action
-#     `.github/actions/setup-node-pnpm` に切り出している。
+# 設計方針：
+#   - 全 job は `jdx/mise-action` で mise を起動し、`mise.toml` の [tools] に従って
+#     全ツール（python / node / go / uv / pnpm / lefthook / commitlint）を一括インストール（ADR 0039）
+#   - tool 版数の SSoT は `mise.toml`。本ファイルでは NODE_VERSION 等を直接持たない
+#   - 各言語固有のチェック（biome / ruff / pyright / golangci-lint 等）は app 着手時に
+#     `mise run <task>` 経由で本ファイルに job 追加する（ADR 0026 拡張 + ADR 0036 拡張）
+#   - 新規 job は `ci-success.needs` に 1 行追加するだけで Required status checks に
+#     自動的に組み込まれる（ADR 0031 の umbrella job パターン）
 # ----------------------------------------------------------------------
 
-# name: GitHub の Actions タブや PR の Checks 欄に表示されるワークフロー名。
-# 省略するとファイルパス（.github/workflows/ci.yml）が代わりに表示される。
 name: CI
 
-# ----------------------------------------------------------------------
-# on: ワークフローの起動トリガー（イベント）。
-#   GitHub Actions は「いつ動くか」を必ず明示する必要がある。
-#   主なイベント：push / pull_request / schedule（cron） / workflow_dispatch（手動実行） /
-#                 release / issues / workflow_run（他ワークフロー完了時） など。
-#   公式リファレンス: https://docs.github.com/actions/reference/events-that-trigger-workflows
-# ----------------------------------------------------------------------
 on:
-  # pull_request: PR が open / synchronize（新規 push）/ reopen された時に発火。
-  #   filter を書かない場合は全 PR で起動する。
-  #   このプロジェクトでは「全 PR でチェックを回す」運用のためフィルタなしで OK。
   pull_request:
-
-  # push: ブランチへの直接 push 時に発火。
-  #   branches で対象ブランチを絞らないと feature ブランチにも push の度に発火し、
-  #   pull_request イベントと二重実行になる（同じ commit に対して 2 回 CI が動く）。
-  #   そのため main への push（= マージ後の検証）だけに限定している。
   push:
     branches: [main]
 
-# ----------------------------------------------------------------------
-# concurrency: 同時実行制御。
-#   同じ group に属するワークフロー実行が複数走らないように調整する仕組み。
-#   - group: グルーピングのキー。ここでは「ci-<ref>」とすることで
-#     「同じブランチでの CI」を 1 グループにまとめる。
-#     ${{ github.ref }} は PR なら refs/pull/N/merge、push なら refs/heads/<branch>。
-#   - cancel-in-progress: true → 同じ group の古い実行を発見したら自動キャンセル。
-#     連続 push したときに古い CI が無駄に最後まで回るのを防ぎ、
-#     GitHub Actions の無料枠（分数）も節約できる。
-# ----------------------------------------------------------------------
+# concurrency: 同一ブランチでの古い実行を自動キャンセル（無料枠節約）。
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# ----------------------------------------------------------------------
-# permissions: GITHUB_TOKEN（各ジョブに自動付与される一時トークン）の権限スコープ。
-#   既定値は read/write が広めに付くため、最小権限の原則で明示的に絞る。
-#   ここでは「ソースコードの読み取りだけ」に制限している。
-#   後でリリース・デプロイ系のジョブ（タグ作成・PR コメント投稿・OIDC で AWS に入る等）を
-#   足すときは、そのジョブに `permissions:` ブロックを個別に書いて拡張する方針。
-#   主なスコープ：contents / pull-requests / issues / id-token（OIDC）/ packages など。
-#   公式リファレンス: https://docs.github.com/actions/reference/authentication-in-a-workflow
-# ----------------------------------------------------------------------
+# permissions: 最小権限の原則。デプロイ系 job 追加時は当該 job に個別追加。
 permissions:
   contents: read
 
-# ----------------------------------------------------------------------
-# env: ワークフロー全体で参照できる環境変数。
-#   ジョブ内では ${{ env.NAME }} で参照する。
-#   ジョブ単位・ステップ単位の env も書けるが、ここで定義したものは全ジョブから見える。
-# ----------------------------------------------------------------------
-env:
-  # actions/setup-node のキャッシュキーを安定させるため、Node / pnpm のバージョンは
-  # ルート package.json の volta / packageManager と一致させること。
-  # 不一致だと CI とローカルで挙動差が出る・キャッシュヒット率が落ちる。
-  NODE_VERSION: "22.20.0"
-  PNPM_VERSION: "9.15.4"
-
-# ----------------------------------------------------------------------
-# jobs: 実行単位の集合。
-#   - 各 job は独立した仮想マシン（runner）で起動し、デフォルトでは並列実行される。
-#   - 直列にしたい場合は `needs:` で依存先 job を指定する。
-#   - 各 job は steps の配列を持ち、steps は上から順に直列実行される。
-# ----------------------------------------------------------------------
 jobs:
   # ====================================================================
-  # job 1: commitlint
+  # job: commitlint
   #   コミットメッセージが Conventional Commits 規約（commitlint.config.mjs）に従うか検証。
-  #   PR では「base..head」の範囲、push では HEAD 1 件のみを対象にする。
+  #   PR では「base..head」、push では「before..after」の範囲を走査する。
   # ====================================================================
   commitlint:
-    # name: GitHub UI 上での表示名（省略時は job ID = "commitlint" がそのまま使われる）。
     name: commitlint
-    # runs-on: ジョブを動かすランナーの種類。
-    #   ubuntu-latest / macos-latest / windows-latest が標準。
-    #   macOS は分数 10 倍、Windows は 2 倍消費するので Linux を既定にする。
     runs-on: ubuntu-latest
     steps:
-      # actions/checkout: リポジトリをランナーにクローンする公式アクション。
-      # 既定（fetch-depth: 1）のシャロークローンで取得する。
-      # fetch-depth: 0（全履歴）にすると履歴量に比例して遅くなるため、commitlint が
-      # 必要とする base コミットだけ後続ステップで個別に取得する方式（深掘り）を採る。
-      # これにより所要時間がリポジトリの運用期間・コミット総数に依存しなくなる。
+      # actions/checkout: シャロークローン（fetch-depth: 1）。commitlint が必要とする
+      # base コミットだけ後続ステップで個別深掘りする方式（所要時間が累積コミット数に依存しない）。
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      # 環境セットアップ（pnpm CLI + Node.js + pnpm install）を Composite Action に委譲。
-      # 同一リポジトリ内のローカル Action は ./<path> 形式で参照する（先頭の `./` 必須）。
-      - uses: ./.github/actions/setup-node-pnpm
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          pnpm-version: ${{ env.PNPM_VERSION }}
+      # jdx/mise-action: mise.toml の [tools] を読んで全ツールを一括インストール（ADR 0039）。
+      # 本 job では特に commitlint（npm:@commitlint/cli）が必要。lefthook は CI では使わないが、
+      # mise install は tools 全体を取得する（キャッシュ済みなら高速）。
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
 
       # ──────────────────────────────────────────────────────────────
       # 経路 A：pull_request イベント時（PR レビューでの検証）
-      #   範囲: base.sha（main 側の根元） .. head.sha（PR の最新）
-      #   流れ: ① base が手元に届くまで深掘り → ② commitlint で範囲走査
+      #   範囲: base.sha .. head.sha
       #
       # 取得方針（iterative deepen）：
       #   - actions/checkout の depth=1 では base.sha と PR コミット群が手元に無く、
-      #     `git log base..head` が "Invalid revision range" で失敗する。
-      #   - 標準的回避策として `--shallow-exclude=<sha>` があるが、
-      #     GitHub の Git プロトコルでは SHA 指定での acknowledgments 機能が未対応で
-      #     "fatal: expected 'acknowledgments'" で失敗する（実 CI で確認済み）。
-      #   - そこで base.sha が `git cat-file -e` で到達可能になるまで
-      #     20 コミット単位で deepen を繰り返す方式を採る。
-      #   - 取得量は「PR コミット数を 20 単位に切り上げた値」で、リポジトリ全体の
-      #     運用期間・累積コミット数には依存しない。
-      #   - 万一 base.sha が永遠に届かない事故（GitHub 側の異常応答等）に備え、
-      #     最大 10 回（= 200 コミット）で打ち切る fail-fast の安全弁を入れる。
+      #     `git log base..head` が "Invalid revision range" で失敗する
+      #   - GitHub Git プロトコル制約により `--shallow-exclude=<sha>` も使えない
+      #     ("fatal: expected 'acknowledgments'"、ADR 0030 で実証済み)
+      #   - そこで `git cat-file -e` で base.sha 到達を確認できるまで `--deepen=20` を反復
+      #   - 取得量は PR コミット数を 20 単位で切り上げた値、運用期間に依存しない
+      #   - 最大 10 回（200 コミット）で打ち切り fail-fast（暴走防止）
       # ──────────────────────────────────────────────────────────────
 
-      # ① base.sha が手元に届くまで `--deepen=20` を繰り返す。
-      #    通常 PR は 1〜5 コミット程度なので 1 回（20 コミット）で十分届く。
-      #    深い PR でも数回のループで終わる。
-      #    10 回到達しても届かなければ ::error:: を出して非ゼロ終了し、
-      #    CI が無音で詰まることを防ぐ（チャンクサイズ・上限値は ADR 0027 参照）。
       - name: "[PR] Deepen until base reachable"
         if: github.event_name == 'pull_request'
         run: |
@@ -151,33 +74,21 @@ jobs:
           echo "::error::base.sha (${BASE_SHA}) not reachable after 10 deepen rounds (200 commits)"
           exit 1
 
-      # ② base..head の範囲のコミットメッセージを 1 件ずつ規約検証する。
-      #    base.sha / head.sha は GitHub が PR メタデータとして注入する範囲指定用 SHA。
       - name: "[PR] Validate commits"
         if: github.event_name == 'pull_request'
         run: |
-          pnpm exec commitlint \
+          commitlint \
             --from "${{ github.event.pull_request.base.sha }}" \
             --to "${{ github.event.pull_request.head.sha }}"
 
       # ──────────────────────────────────────────────────────────────
       # 経路 B：push イベント時（main への push 後の事後検証）
-      #   範囲: before .. after（この push で追加されたコミット全件）
-      #   流れ: ① before が手元に届くまで深掘り → ② commitlint で範囲走査
+      #   範囲: before .. after
       #
-      #   before / after は GitHub が push payload に注入する SHA：
-      #     before = push 前の HEAD（既存の main の最新）
-      #     after  = push 後の HEAD（push されたうちの最新）
-      #   この範囲を走査するので、1 件 push でも複数件まとめての push でも
-      #   全コミットが検証対象になる（経路 A と同じ「範囲指定」アプローチ）。
-      #
-      #   `if:` の `before != '0000...0000'` は初回 push（ブランチ作成と同時に push）の検出。
-      #   before が「空の歴史」を指す場合は fetch も走査も成立しないためスキップする。
-      #   通常 main は既存ブランチなのでこの分岐はほぼ通らない。
+      #   `before == 0000...` は初回 push（ブランチ作成と同時）の検出条件。
+      #   通常 main への push ではこの分岐は通らない。
       # ──────────────────────────────────────────────────────────────
 
-      # ① before が手元に届くまで `--deepen=20` を繰り返す（経路 A と同じパターン）。
-      #    10 回到達で打ち切り、明示エラー終了する fail-fast の安全弁を含む。
       - name: "[push] Deepen until before reachable"
         if: >-
           github.event_name == 'push' &&
@@ -193,52 +104,46 @@ jobs:
           echo "::error::before SHA (${BEFORE_SHA}) not reachable after 10 deepen rounds (200 commits)"
           exit 1
 
-      # ② before..after の範囲のコミットメッセージを 1 件ずつ規約検証する。
       - name: "[push] Validate commits"
         if: >-
           github.event_name == 'push' &&
           github.event.before != '0000000000000000000000000000000000000000'
         run: |
-          pnpm exec commitlint \
+          commitlint \
             --from "${{ github.event.before }}" \
             --to "${{ github.event.after }}"
 
   # ====================================================================
   # 各言語固有のチェックジョブ（biome / typecheck / knip / ruff / pyright /
   # pip-audit / deptry / golangci-lint / pytest / vitest / go test 等）は、
-  # 各 app 着手時に `mise run <task>` 経由で本ファイルに追加する（ADR 0036 拡張 + ADR 0039）：
+  # 各 app 着手時に `mise run <task>` 経由で本ファイルに追加する（ADR 0026 拡張 + ADR 0036 拡張 + ADR 0039）。
+  # 起動テンプレ：
   #
-  #   - apps/web 着手時：`mise run web-lint` / `mise run web-typecheck` / `mise run web-knip`
-  #   - apps/api 着手時：`mise run api-lint` / `mise run api-typecheck` / `mise run api-audit` / `mise run api-deps-check`
-  #   - apps/grading-worker 着手時：`mise run worker-lint` / `mise run worker-deps-check`
+  #   <job-name>:
+  #     name: <job-name>
+  #     runs-on: ubuntu-latest
+  #     steps:
+  #       - uses: actions/checkout@<sha> # vX.Y.Z
+  #       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+  #       - run: mise run <task>
   #
-  # 追加するジョブは `ci-success.needs` にも 1 行加えることで Required status checks の
+  # 追加する job は `ci-success.needs` にも 1 行加えることで Required status checks の
   # 網に自動で組み込まれる（ADR 0031 の umbrella job パターン）。
 
   # ====================================================================
-  # 【集約ジョブ】ci-success （umbrella / aggregator）
-  #   ※ 上記の job 1〜N とは性質が異なるため番号を付けない。
-  #   上記すべてのジョブの成否を集約する。
+  # 【集約ジョブ】ci-success（umbrella / aggregator）
   #   ブランチ保護（Ruleset）の Required status checks には、このジョブ 1 つだけを
-  #   登録すれば足りるようにする。狙い：
-  #     - 新規ジョブを追加した際は、本ジョブの `needs:` に 1 行追加するだけで
-  #       Required の網に組み込める（GitHub UI 側のルール編集が不要）。
-  #     - ジョブ名のリネームでも Ruleset 側の status check 名は不変に保てる。
+  #   登録すれば足りる：
+  #     - 新規 job 追加は `needs:` への 1 行追加で Required 網に組込
+  #     - ジョブ名リネームでも Ruleset 側 status check 名は不変
   #     - skip / cancelled / failure を `if: always()` で正しく失敗扱いにする
-  #       （`needs:` の失敗時にデフォルトでは集約ジョブが skipped になる挙動を回避）。
   # ====================================================================
   ci-success:
     name: ci-success
-    # if: always() を付けないと、いずれかの needs が失敗した瞬間に本ジョブが
-    # 「skipped」状態となり、保護ルール上は「未実行」扱いとなってマージできない／
-    # 逆に「成功扱い」と誤認される事故の温床になる。always() で必ず起動させ、
-    # 結果は steps 内で明示的に判定する。
     if: always()
     needs: [commitlint]
     runs-on: ubuntu-latest
     steps:
-      # needs.*.result は 'success' / 'failure' / 'cancelled' / 'skipped' のいずれか。
-      # success 以外を 1 つでも含めば失敗とみなす（skipped も「未検証」として失敗扱い）。
       - name: Verify all required jobs succeeded
         run: |
           if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] \
