@@ -74,7 +74,7 @@ describe('ProblemDetail', () => {
 ### 4. テスト実行
 
 ```bash
-pnpm --filter @ai-coding-drill/web test
+mise run web:test
 ```
 
 失敗したテストがあれば原因を分析し、テストまたは実装を修正する。

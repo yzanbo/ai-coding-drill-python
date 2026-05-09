@@ -68,7 +68,7 @@ argument-hint: "[user|admin] (省略時は両方検証)"
 #### 2-5. 採点まわりの仕様の差異
 
 - マニュアルに記載されているサンドボックスの制約値（タイムアウト・メモリ・CPU 上限）が実装と一致するか確認する
-- 採点ワーカー（`apps/grading-worker/internal/sandbox/`）の Docker クライアント設定と照合する
+- 採点 Worker（`apps/workers/grading/internal/sandbox/`）の Docker クライアント設定と照合する
 - 対応言語・カテゴリの一覧が実装と一致するか確認する
 
 #### 2-6. スクリーンショットの鮮度

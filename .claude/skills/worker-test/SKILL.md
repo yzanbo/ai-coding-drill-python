@@ -1,10 +1,10 @@
 ---
 name: worker-test
-description: 要件 .md に基づいて Go 採点ワーカーのテストを生成・実行する
-argument-hint: "[feature-name] (例: grading)"
+description: 要件 .md に基づいて Go Worker のテストを生成・実行する
+argument-hint: "[feature-name] (例: grading, generation)"
 ---
 
-# 要件ベースの採点ワーカーテスト
+# 要件ベースの Worker テスト
 
 引数 `$ARGUMENTS` を機能名として解釈する。
 
@@ -14,7 +14,7 @@ argument-hint: "[feature-name] (例: grading)"
 
 - `docs/requirements/4-features/$ARGUMENTS.md` を読み込む
 - [.claude/rules/worker.md](../../rules/worker.md) のテスト規約を確認する
-- 対象パッケージの実装コード（`apps/grading-worker/internal/<area>/`）を読み込む
+- 対象パッケージの実装コード（`apps/workers/<name>/internal/<area>/`）を読み込む
 
 ### 2. テスト方針の提示
 
@@ -135,8 +135,8 @@ package job_test
 ### 6. テスト実行
 
 ```bash
-# 単体テスト
-cd apps/grading-worker
+# 単体テスト（Go 直接、apps/workers/grading の例）
+cd apps/workers/grading
 go test ./...
 
 # 詳細表示
@@ -149,16 +149,19 @@ go test -cover ./...
 go test -tags=integration -v ./...
 ```
 
-または Turborepo 経由：
+または mise 経由：
 
 ```bash
-pnpm --filter @ai-coding-drill/grading-worker test
+mise run worker:grading:test     # 採点 Worker
+mise run worker:generation:test  # 問題生成 Worker（着手後）
+mise run worker:test             # 全 Worker 横断
 ```
 
 ### 7. golangci-lint との併用
 
 ```bash
-golangci-lint run apps/grading-worker/...
+mise run worker:grading:lint     # 採点 Worker（apps/workers/grading）
+mise run worker:lint             # 全 Worker 横断
 ```
 
 リント警告も即時修正する（→ [.claude/rules/worker.md](../../rules/worker.md)）。

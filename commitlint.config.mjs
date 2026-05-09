@@ -102,8 +102,8 @@ const config = {
       [
         "web", // apps/web（フロントエンド / Next.js）
         "api", // apps/api（FastAPI / Python バックエンド）
-        "worker", // apps/grading-worker（Go 採点ワーカー）
-        "shared", // packages/prompts 等の共有パッケージ（packages/shared-types は不採用、ADR 0006 で OpenAPI 単一伝送路化）
+        "worker", // apps/workers/*（Go 採点・問題生成ワーカー、ADR 0040）
+        "shared", // OpenAPI / JSON Schema artifact など複数 app から参照される共有 artifact（apps/api/openapi.json / apps/api/job-schemas/ 等。packages/ は廃止）
         "config", // ルート直接配置の tooling 設定ファイル群（mise.toml / lefthook.yml / commitlint.config.mjs 等。packages/config は廃止、ADR 0036）
         "infra", // infra/（Terraform）
         "docs", // docs/（要件定義 / ADR）

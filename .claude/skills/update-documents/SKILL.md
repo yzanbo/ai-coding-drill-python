@@ -134,7 +134,7 @@ async (page) => {
 
 - Playwright MCP を使ってローカル環境（`http://localhost:3000`）からキャプチャする
 - 撮影前に必ずログイン状態を確立する（GitHub OAuth はモック・テストアカウントを使用）
-- シードデータ（`pnpm db:seed`）が投入された状態で撮影する
+- シードデータ（`cd apps/api && uv run python -m app.db.seeds`）が投入された状態で撮影する
 - 管理画面（R4）の撮影には認証が必要なため、テスト用セッションで撮影する
 
 ### 7. 最終確認

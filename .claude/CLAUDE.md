@@ -235,7 +235,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 - フロントエンドに関すること → `.claude/rules/frontend.md`
 - バックエンド（FastAPI / Python）に関すること → `.claude/rules/backend.md`
 - 採点ワーカー（Go）に関すること → `.claude/rules/worker.md`
-- SQLAlchemy / Alembic スキーマ・マイグレーションに関すること → `.claude/rules/drizzle.md`（旧名は Drizzle 採用時の名残、Python pivot により内容を SQLAlchemy + Alembic に書き換える対象）
+- SQLAlchemy / Alembic スキーマ・マイグレーションに関すること → `.claude/rules/alembic-sqlalchemy.md`
 - LLM プロンプトに関すること → `.claude/rules/prompts.md`
 - 要件定義書（base）の編集ルール → `.claude/rules/docs-rules.md`
 - プロジェクト全体に関することはこのファイルに追記

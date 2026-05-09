@@ -43,7 +43,7 @@ apps/web/src/
 │   ├── parts/                       # ドメインロジックを含む再利用パーツ
 │   └── providers/                   # React プロバイダー
 ├── lib/
-│   ├── api/                         # NestJS API クライアント
+│   ├── api/                         # FastAPI クライアント（Hey API 生成、ADR 0006）
 │   ├── validation/                  # Zod スキーマ
 │   ├── utils/                       # ユーティリティ
 │   └── utils.ts                     # cn() ヘルパー
@@ -83,27 +83,34 @@ apps/web/src/
 - **採点結果ポーリング・ジョブステータス監視・解答送信は Client Component + TanStack Query**
 - 理由：データ取得方法を役割で分け、TanStack Query を「非同期ジョブ周り」に集中させる（→ [05-runtime-stack.md](../../docs/requirements/2-foundation/05-runtime-stack.md#フロントエンド)）
 
-## コマンド
+## コマンド（mise）
+
+タスク命名は `<scope>:<sub>:<verb>` 階層コロン形式（→ [ADR 0039](../../docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）：
 
 ```bash
-pnpm --filter @ai-coding-drill/web dev          # 開発サーバー
-pnpm --filter @ai-coding-drill/web build        # ビルド
-pnpm --filter @ai-coding-drill/web typecheck    # tsc --noEmit
-pnpm --filter @ai-coding-drill/web test         # Vitest
-pnpm lint                                        # Biome（ルートから全パッケージ）
-pnpm format                                      # Biome フォーマット
+mise run web:dev          # next dev
+mise run web:test         # vitest
+mise run web:lint         # biome check
+mise run web:format       # biome check --write
+mise run web:typecheck    # tsc --noEmit
+mise run web:knip         # 未使用検出
+mise run web:syncpack     # package.json 整合性
+mise run web:types-gen    # Hey API で OpenAPI から TS / Zod / HTTP クライアント生成
+mise run web:e2e          # Playwright E2E
 ```
+
+`apps/web/` 配下では pnpm を直接使う（pnpm workspaces 単一構成、→ [ADR 0036](../../docs/adr/0036-frontend-monorepo-pnpm-only.md)）。`mise` 経由が標準だが必要に応じて `cd apps/web && pnpm dev` 等も可。
 
 ## 環境変数
 
-- `NEXT_PUBLIC_API_URL`：NestJS API の URL（例：`http://localhost:3001`）
+- `NEXT_PUBLIC_API_URL`：FastAPI の URL（例：`http://localhost:8000`）
 - public 変数は `NEXT_PUBLIC_` プレフィックス必須
 
 ## CodeMirror 6 の使い方
 
 - `@codemirror/lang-javascript`（TypeScript ハイライト）
 - `@typescript/vfs` + `@valtown/codemirror-ts`（ブラウザ内型診断・補完）
-- 採点はサーバ側（Vitest）が正、ブラウザの型診断は UX 向上のための即時フィードバック
+- 採点はサーバ側（Worker のサンドボックス内 Vitest）が正、ブラウザの型診断は UX 向上のための即時フィードバック
 - 解答コンポーネントはコロケーションで `app/(authed)/problems/[id]/_components/code-editor/` に配置
 
 ## importパスの規則
@@ -181,7 +188,7 @@ const form = useForm({
 
 - API 通信は必ずカスタムフック（`_hooks/_fetch/`）に切り出す。コンポーネントから直接 `fetch` しない
 - フック名は HTTP メソッド対応：`useGet*` / `usePost*` / `usePatch*` / `useDelete*`
-- 型は `packages/shared-types/generated/ts/` から import（→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- 型・Zod スキーマ・HTTP クライアントは Hey API が `apps/api/openapi.json` から生成したコードを利用（既定の出力先は `apps/web/src/lib/api/generated/`、→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）。手書きの型定義は使わない
 
 ### エラーハンドリング
 

@@ -3,217 +3,210 @@ paths:
   - "apps/api/**/*"
 ---
 
-# バックエンド開発ルール（NestJS API）
+# バックエンド開発ルール（FastAPI）
 
-NestJS（TypeScript）の API サーバー。詳細な選定理由は [ADR 0014](../../docs/adr/0014-nestjs-for-backend.md)。ORM は Drizzle（→ [ADR 0017](../../docs/adr/0017-drizzle-orm-over-prisma.md)）。
+FastAPI（Python 3.13）の API サーバ。詳細な選定理由は [ADR 0034](../../docs/adr/0034-fastapi-for-backend.md)。ORM は SQLAlchemy 2.0（async）+ Alembic（→ [ADR 0037](../../docs/adr/0037-sqlalchemy-alembic-for-database.md)）。パッケージ管理は uv（→ [ADR 0035](../../docs/adr/0035-uv-for-python-package-management.md)）、コード品質は ruff + pyright + pip-audit + deptry（→ [ADR 0020](../../docs/adr/0020-python-code-quality.md)）。
 
-## モジュール構成（`apps/api/src/`）
+## ディレクトリ構成（`apps/api/app/`）
 
-機能別フラット構成（→ [02-architecture.md](../../docs/requirements/2-foundation/02-architecture.md#backend-apinestjs)）：
+機能別フラット構成（→ [02-architecture.md](../../docs/requirements/2-foundation/02-architecture.md#backend-apifastapi--python)）：
 
-- `auth/` — 認証（GitHub OAuth、Passport Strategy、セッション管理）
-- `users/` — ユーザー管理（プロバイダ非依存、`auth_providers` 経由で連携）
-- `problems/` — 問題 CRUD
-- `generation/` — LLM 呼び出し（生成・Judge）、プロンプト読み込み、`LlmProvider` 抽象化
-- `grading/` — 採点ジョブ投入（`jobs` テーブルへの INSERT + `NOTIFY new_job`）、結果取得 API
-- `submissions/` — 解答記録
-- `observability/` — OpenTelemetry セットアップ、構造化ログ、メトリクス
-- `drizzle/` — Drizzle Module（`@Global()` で全モジュールから利用可能）+ スキーマ + シード
-- `lib/` — どの機能モジュールにも属さない純粋なユーティリティ（共通 DTO、定数等）。サービス・ビジネスロジック禁止
+```
+apps/api/app/
+├── main.py                  # FastAPI アプリ生成 + ルータ束ねる
+├── core/                    # 設定 / セキュリティ / 例外ハンドラ等の横断ユーティリティ
+│   ├── config.py            # pydantic-settings ベース
+│   ├── security.py          # セッション・OAuth ユーティリティ
+│   └── exceptions.py        # 共通例外 + handler
+├── db/                      # SQLAlchemy エンジン / セッション / シード
+├── models/                  # SQLAlchemy モデル（機能別ファイル）
+├── schemas/                 # Pydantic モデル（**SSoT、HTTP API + Job キューの両境界に展開**、ADR 0006）
+├── routers/                 # APIRouter（機能別、controller 相当）
+│   ├── auth.py
+│   ├── problems.py
+│   ├── submissions.py
+│   ├── grading.py
+│   └── ...
+├── services/                # ビジネスロジック（router から呼ぶ）
+├── repositories/            # SQLAlchemy クエリの集約（service から呼ぶ）
+├── deps/                    # 依存性注入（Depends で使う関数群、認証ガード等）
+└── observability/           # OpenTelemetry セットアップ、構造化ログ、メトリクス
+```
 
 ### 設計方針
 
 - **「admin/customer」のような分割は採用しない**。同じリソースを扱うエンドポイントが分散しロジックが重複するため
-- 認証の有無は `@Public()` デコレータで制御する。エンドポイントのパス分割ではなく、ガードで認証要否を切り替える
-- **横断的な部品は所属する機能モジュールに置き、exports で公開する**。例：`@Public()` / `JwtAuthGuard` / `@CurrentUser()` → `auth/`
-- どの機能モジュールにも属さない純粋なユーティリティ（例：PaginationMetaDto）のみ `lib/` に配置する。サービスやビジネスロジックを `lib/` に置いてはならない
+- 認証の有無は `Depends` の差分で制御する。エンドポイントのパス分割ではなく、依存ガードで認証要否を切り替える
+- **横断的な部品は責務に近い場所に置く**。例：`get_current_user` は `app/deps/auth.py`、`get_async_session` は `app/deps/db.py`
+- 純粋なユーティリティ（共通レスポンスモデル / 定数）は `app/core/` または `app/schemas/common/` に。サービス・ビジネスロジックを `core/` に置いてはならない
 
 ### 循環依存の防止
 
 - **モジュール間の依存は一方向に保つ**。A → B かつ B → A の関係を作らない
-- 依存の方向：`grading/` → `submissions/`, `problems/` のように、上位の業務モジュールが下位のマスタ系モジュールを参照する
-- 副作用（通知送信等）は EventEmitter でトリガーし、直接の import を避ける
-- `forwardRef()` は使わない。循環が発生した場合は依存方向の設計を見直す
+- 依存の方向：`grading/` → `submissions/`, `problems/` のように上位の業務ロジックが下位のマスタ系を参照する
+- 副作用（通知送信等）は FastAPI の `BackgroundTasks` または domain event で発火し、router / service の直接 import を避ける
 
 ## API ルートと認証
 
 - REST リソース単位のパス設計（例：`/problems`, `/submissions`, `/auth/github`）
-- Swagger UI：`/api/docs`、OpenAPI JSON：`/api/docs/openapi.json`
-- 認証：Passport + GitHub OAuth、セッションは Cookie + Redis（→ [ADR 0011](../../docs/adr/0011-github-oauth-with-extensible-design.md)）
-- 全ルートデフォルト認証必須（`APP_GUARD` で `JwtAuthGuard` 相当をグローバル適用）
-- `@Public()` で認証スキップ、`@CurrentUser(key?)` で認証済みユーザー情報取得
-- レート制限：`@nestjs/throttler` + Redis ストレージ、Sliding Log 方式（→ [01-non-functional.md](../../docs/requirements/2-foundation/01-non-functional.md)）
+- Swagger UI：`/docs`、Redoc：`/redoc`、OpenAPI 3.1 JSON：`/openapi.json`（FastAPI 自動生成、→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- 認証：Authlib + GitHub OAuth、セッションは Cookie + Redis（→ [ADR 0011](../../docs/adr/0011-github-oauth-with-extensible-design.md)）
+- 全ルートデフォルト認証必須（`get_current_user` を APIRouter の `dependencies=[Depends(...)]` でグローバル適用）。public は個別 router で `dependencies=[]` 上書き
+- レート制限：`slowapi` + Redis ストレージ（Sliding Log 方式、→ [01-non-functional.md](../../docs/requirements/2-foundation/01-non-functional.md)）
 
-## データベース（Postgres + Drizzle ORM）
+## データベース（Postgres + SQLAlchemy 2.0 async）
 
-- Drizzle ORM + Postgres（`postgres-js` または `node-postgres` ドライバ）。`DrizzleService` を注入して `this.drizzle.db` でアクセス
-- タイムゾーン：`TIMESTAMPTZ` で UTC 保持、表示時に JST 変換（dayjs）
-- IDs：UUID（`gen_random_uuid()`）または BIGSERIAL（`jobs.id` のみ BIGSERIAL）
+- AsyncEngine + AsyncSession、Repository / Service レイヤは `async def`
+- セッション取得：`session: AsyncSession = Depends(get_async_session)`（リクエスト単位で生成・破棄）
+- タイムゾーン：`TIMESTAMP(timezone=True)` で UTC 保持、表示時に JST 変換（zoneinfo）
+- IDs：UUID（`server_default=text("gen_random_uuid()")`）または BigInteger（`jobs.id` のみ autoincrement）
 - 全テーブルに `created_at`、必要に応じて `updated_at`。**ハードデリート方針**（ソフトデリートは原則使わない、必要なら個別に検討）
-- スキーマ定義：`apps/api/src/drizzle/schema/` 配下に機能別ファイル
-- 詳細は [01-data-model.md](../../docs/requirements/3-cross-cutting/01-data-model.md)
-
-### Drizzle クエリパターン
-
-```typescript
-// リレーショナルクエリ
-this.drizzle.db.query.problems.findFirst({ where: eq(problems.id, id), with: { submissions: true } })
-this.drizzle.db.query.problems.findMany({ where: and(...conditions), columns: { id: true, title: true } })
-
-// INSERT（RETURNING で生成 ID 取得）
-this.drizzle.db.insert(submissions).values(data).returning({ id: submissions.id })
-
-// UPDATE
-this.drizzle.db.update(jobs).set({ state: 'running', locked_at: new Date() }).where(eq(jobs.id, id))
-
-// DELETE
-this.drizzle.db.delete(submissions).where(eq(submissions.id, id))
-
-// SELECT + count
-this.drizzle.db.select({ count: count() }).from(problems).where(...)
-
-// トランザクション（解答 INSERT + ジョブ INSERT を同時に → トランザクショナルなエンキュー）
-await this.drizzle.db.transaction(async (tx) => {
-  const [submission] = await tx.insert(submissions).values(...).returning({ id: submissions.id });
-  await tx.insert(jobs).values({ type: 'grade', payload: { submissionId: submission.id }, state: 'queued' });
-  await tx.execute(sql`NOTIFY new_job, ${submission.id.toString()}`);
-});
-
-// SKIP LOCKED でジョブ取得（参考、実際は Go ワーカー側で実行）
-this.drizzle.db
-  .select()
-  .from(jobs)
-  .where(and(eq(jobs.state, 'queued'), lte(jobs.run_at, new Date())))
-  .orderBy(jobs.run_at)
-  .limit(1)
-  .for('update', { skipLocked: true });
-```
+- スキーマ定義 / クエリパターン / Alembic 運用の詳細は [.claude/rules/alembic-sqlalchemy.md](./alembic-sqlalchemy.md) と [01-data-model.md](../../docs/requirements/3-cross-cutting/01-data-model.md)
 
 ### where 条件の必須ルール
 
-- 認証済みエンドポイントでは「自分のリソースか」をチェックする（例：`eq(submissions.user_id, currentUser.id)`）
-- `inArray(table.col, ids)` を使う前に `ids.length === 0` を必ずガードする
+- 認証済みエンドポイントでは「自分のリソースか」を必ずチェックする（例：`Submission.user_id == current_user.id`）
+- `col.in_(ids)` を使う前に `len(ids) == 0` を必ずガード
 
 ### ページネーションパターン
 
-`PaginationMetaDto`（`lib/dto/pagination-meta.dto.ts`）を使用：
+`PaginationMeta`（`app/schemas/common/pagination.py`）を Pydantic モデルとして定義し、レスポンスに同梱：
 
-```typescript
-return {
-  data: items,
-  meta: { total, page, limit, last_page: Math.ceil(total / limit) },
-};
+```python
+from app.schemas.common.pagination import PaginationMeta, Page
+
+return Page[ProblemResponse](
+    data=items,
+    meta=PaginationMeta(total=total, page=page, limit=limit, last_page=math.ceil(total / limit)),
+)
 ```
 
 ## ジョブキュー（Postgres `jobs` テーブル）
 
 - ジョブ投入は `INSERT INTO jobs` + `NOTIFY new_job, <jobId>` を**同一トランザクション**で実行（→ [ADR 0004](../../docs/adr/0004-postgres-as-job-queue.md)）
-- ペイロードは JSONB、スキーマは `packages/shared-types/schemas/job.schema.json` で管理（→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
-- ワーカー側の取得・処理は Go で実装（→ [.claude/rules/worker.md](./worker.md)）
+- ペイロードは JSONB、スキーマは `app/schemas/jobs/<job_type>.py` の Pydantic モデルで定義
+- Pydantic から `model.model_json_schema()` で個別 JSON Schema を `apps/api/job-schemas/` に書き出し、Worker 側 quicktype に渡す（→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- Worker 側の取得・処理は Go で実装（→ [.claude/rules/worker.md](./worker.md)）
 
 ## LLM 呼び出し
 
-- `generation/` モジュール内の `LlmProvider` インターフェース経由で呼び出す（→ [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md)）
-- 直接 `@anthropic-ai/sdk` 等を呼ぶ実装はしない。必ず抽象化レイヤを通す
-- プロンプトは `packages/prompts/` 配下の YAML から読み込む（→ [.claude/rules/prompts.md](./prompts.md)）
-- 構造化出力は Zod でランタイムバリデーション、スキーマは `packages/shared-types/schemas/` から自動生成
-- LLM-as-a-Judge は自前実装、生成と Judge は別プロバイダ・別モデル（→ [ADR 0008](../../docs/adr/0008-custom-llm-judge.md)）
+**LLM 呼び出しは Worker 側に閉じ込め、Backend は呼ばない**（→ [ADR 0040](../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）：
+
+- 採点 LLM（judge）→ `apps/workers/grading/`
+- 問題生成 LLM → `apps/workers/generation/`（将来追加）
+
+Backend の責務はジョブ enqueue + 結果取得 API のみ。`anthropic` / `google-genai` 等の LLM SDK を `apps/api/` 配下に置かない。
 
 ## コーディング規約
 
 ### コードスタイル
 
-- Biome（lint + format）。設定はリポジトリルートの `biome.jsonc`（→ [ADR 0018](../../docs/adr/0018-biome-for-tooling.md)）
-- 型チェックは `tsc --noEmit`
-- **`any` 利用不可**。Drizzle の推論型（`typeof problems.$inferSelect`）や独自 DTO で型付けする
-- モジュール名（ディレクトリ・クラス名）は単数形を使う（例：`problem/`, `ProblemModule`）。テーブル名は複数形のまま
+- ruff（lint + format）、設定は `apps/api/pyproject.toml`（→ [ADR 0020](../../docs/adr/0020-python-code-quality.md)）
+- 型チェックは pyright（basic で開始、コードが安定したら strict 化を検討）
+- **`Any` 利用不可**。SQLAlchemy の `Mapped[T]` / Pydantic モデル / `TypedDict` で型付けする
+- import は ruff の `isort` ルールで自動整列。手動整列禁止
+- モジュール名（ファイル・パッケージ名）は snake_case、クラス名は PascalCase。テーブル名は複数形のまま
 
-### コントローラ
+### Router
 
-- ビジネスロジックはサービスに委譲する。コントローラはリクエスト/レスポンスの橋渡しのみ
-- `@ApiTags('Problems')` で Swagger のグループ分けを付ける
-- `@ApiOperation({ summary: '...' })` + `@ApiOkResponse({ type: DtoClass })` を全エンドポイントに付ける
-- パスパラメータ：UUID は `@Param('id', ParseUUIDPipe) id: string`、整数は `ParseIntPipe`
-- `@Query()` の DTO が `main.ts` の `extraModels` に登録されていない場合、Swagger に型が出ないので追加する
+- ビジネスロジックは Service に委譲する。Router はリクエスト/レスポンスの橋渡しのみ
+- 各 router は `APIRouter(prefix="/problems", tags=["problems"])` で prefix + tags を付ける（Swagger グループ化）
+- パスパラメータ：UUID は `Annotated[UUID, Path(...)]`、整数は `Annotated[int, Path(ge=1)]`
+- レスポンスモデルは `response_model=ProblemResponse` で必ず明示（OpenAPI 出力に効く）
+- ステータスコードは `status_code=status.HTTP_201_CREATED` 等を明示
 
-### DTO
+### Pydantic スキーマ（SSoT）
 
-- 命名：`Create*Dto`, `Update*Dto`, `*ResponseDto`, `*ParamDto`, `*QueryDto`
-- `@ApiProperty()` で Swagger 定義、`class-validator` でバリデーション
-- クエリパラメータには `@Type(() => Number)` で型変換を付ける
-- `PartialType()`, `PickType()` で DTO 派生を活用する
-- `ValidationPipe({ transform: true })` は `APP_PIPE` でグローバル適用する
+- 命名：`<Model>Create`, `<Model>Update`, `<Model>Response`, `<Model>Query`（DTO の suffix）
+- すべての境界（HTTP request / response / Job payload）は `app/schemas/` 配下の Pydantic モデルが SSoT
+- `model_config = ConfigDict(from_attributes=True)` で SQLAlchemy モデルから組み立て可能に
+- バリデーションは `field_validator` / `model_validator` を使う。ベタな関数バリデータは避ける
 
-### サービス
+### Service
 
-- Drizzle は `this.drizzle.db.query.model.method()` でリレーショナルクエリ、`this.drizzle.db.insert/update/delete(table)` で CRUD 操作
-- トランザクション：`this.drizzle.db.transaction(async (tx) => { ... })`
-- 認証済みエンドポイントでは「自分のリソースか」を必ずチェックする
-- エラーは NestJS 組み込み例外（`NotFoundException`, `BadRequestException` 等）。メッセージは日本語
-- ロガー：`private readonly logger = new Logger(ClassName.name)`
+- Repository を呼び出してビジネスロジックを構築。直接 SQLAlchemy を呼ばない（Repository に集約）
+- トランザクション境界は Service が握る：`async with session.begin():`
+- 認証済みエンドポイントでは「自分のリソースか」を必ずチェック
+- エラーは FastAPI の `HTTPException` ではなくドメイン例外を投げ、`app/core/exceptions.py` の handler で HTTPException に変換する
+- ロガー：`logger = logging.getLogger(__name__)`（OpenTelemetry が自動で trace_id を注入）
+
+### Repository
+
+- SQLAlchemy のクエリはここに集約（Service から SQLAlchemy を直接触らない）
+- 戻り値は SQLAlchemy モデルのまま（Service / Router 側で Pydantic に詰め替える）
 
 ## 新規機能の追加パターン
 
-### 基本（CRUD 機能）
+`/backend-new-module` スキルを使うか、手動なら：
 
-1. `apps/api/src/<feature>/` にディレクトリ作成
-2. `module.ts`, `controller.ts`, `service.ts`, `dto/` を作成
-3. `app.module.ts` の imports に追加
-4. スキーマ変更があれば `apps/api/src/drizzle/schema/` に追加 → `pnpm db:generate` でマイグレーション生成
+1. `apps/api/app/models/<feature>.py` — SQLAlchemy モデル
+2. `apps/api/app/schemas/<feature>.py` — Pydantic スキーマ（Create/Update/Response/Query）
+3. `apps/api/app/repositories/<feature>.py` — クエリ集約
+4. `apps/api/app/services/<feature>.py` — ビジネスロジック
+5. `apps/api/app/routers/<feature>.py` — APIRouter
+6. `apps/api/app/main.py` で `app.include_router(...)`
+7. スキーマ変更があれば `mise run api:db-revision -- "<msg>"` でマイグレーション生成 → `mise run api:db-migrate`
 
 ```
-apps/api/src/problems/
-├── problems.module.ts
-├── problems.controller.ts        // @Controller('problems')
-├── problems.service.ts
-└── dto/
-    ├── create-problem.dto.ts
-    ├── update-problem.dto.ts
-    └── problem-response.dto.ts
+apps/api/app/
+├── models/problems.py         # class Problem(Base): ...
+├── schemas/problems.py        # ProblemCreate / ProblemUpdate / ProblemResponse / ProblemQuery
+├── repositories/problems.py   # async def list_problems(...) 等
+├── services/problems.py       # ProblemService
+└── routers/problems.py        # router = APIRouter(prefix="/problems", tags=["problems"])
 ```
 
 ### モジュール間の依存
 
-- 他モジュールのサービスを利用する場合は、提供元モジュールを imports に追加する
-- 提供元モジュールは service を exports に登録する
+- 他モジュールの service を利用する場合は import + `Depends(get_xxx_service)` で取得
+- service 側は他 service を import して直接呼ぶ（依存方向を一方向に保つ）
 
 ## テスト
 
-- ユニットテスト（`*.spec.ts`）：Jest + ts-jest（NestJS 標準）。DrizzleService 等はモックで注入
-- E2E テスト（`*.e2e-spec.ts`）：`test/jest-e2e.json` で設定。AppModule を import、supertest で HTTP リクエスト
-- テスト説明文は日本語（`正常系: ...`, `異常系: ...`）
+- ユニットテスト（`tests/unit/test_*.py`）：pytest + pytest-asyncio。Repository をモックで注入し Service を検証
+- 結合テスト（`tests/integration/test_*.py`）：pytest + httpx.AsyncClient + 実 DB（Testcontainers または docker-compose の test 環境）
+- E2E（`tests/e2e/`）：実 Postgres + 実 Redis を立てて FastAPI を起動、httpx で叩く
+- テスト関数名・docstring は日本語（`test_正常系_問題一覧取得` / `"""異常系: 不正な UUID は 422 を返す"""`）
 
 ### E2E テストの実行方法
 
-E2E は専用の Postgres / Redis を docker-compose で起動して実行する。テスト終了後に `-v` でボリューム破棄。
-
 ```bash
-pnpm e2e:up               # E2E 環境起動
-pnpm --filter @ai-coding-drill/api test:e2e
-pnpm e2e:down             # 環境破棄
+docker compose -f docker-compose.test.yml up -d   # 専用 Postgres / Redis を起動
+mise run api:test -- tests/e2e/                   # E2E のみ実行
+docker compose -f docker-compose.test.yml down -v # 環境破棄
 ```
 
 ## データベース操作
 
 ```bash
-pnpm db:migrate           # 未適用マイグレーションを適用
-pnpm db:generate          # スキーマ変更後にマイグレーション SQL 生成
-pnpm db:push              # スキーマを直接 DB に反映（ローカル開発の手軽な同期）
-pnpm db:seed              # シードデータ投入
-pnpm db:studio            # Drizzle Studio 起動
-pnpm db:reset             # DB を初期化（破壊的、ローカル専用）
+mise run api:db-migrate                  # alembic upgrade head（未適用 revision を適用）
+mise run api:db-revision -- "<msg>"      # alembic revision --autogenerate
 ```
 
-詳細は [.claude/rules/drizzle.md](./drizzle.md)。
+詳細は [.claude/rules/alembic-sqlalchemy.md](./alembic-sqlalchemy.md)。
 
 ## 技術選定
 
 新規コードで使うライブラリ：
 
-- 日付操作：`dayjs`
-- パスワードハッシュ：使わない（GitHub OAuth のみのため）
-- バリデーション（DTO）：`class-validator` + `class-transformer`
-- バリデーション（LLM 出力等のランタイム検証）：`zod`
-- HTTP クライアント：標準 `fetch` または `undici`
-- LLM SDK：`@anthropic-ai/sdk` / `@google/generative-ai` 等（プロバイダ抽象化レイヤ内でのみ）
+- HTTP framework：`fastapi`
+- ORM：`sqlalchemy[asyncio]` + `asyncpg`
+- マイグレーション：`alembic`
+- バリデーション / 設定：`pydantic` + `pydantic-settings`
+- 認証：`authlib`（GitHub OAuth）+ `itsdangerous`（セッション署名）
+- レート制限：`slowapi`
+- 日付操作：標準 `datetime` + `zoneinfo`（必要なら `pendulum`）
+- HTTP クライアント：`httpx`（async）
+- LLM SDK：使わない（Backend では呼ばない、Worker 側に閉じる、→ ADR 0040）
 - メール送信：MVP では不要（R6 以降で必要なら検討）
+
+## ツーリング
+
+| 用途 | ツール | mise タスク |
+|---|---|---|
+| パッケージ管理 / 仮想環境 | uv | `mise install` で投入、`uv add <pkg>` |
+| lint + format | ruff | `mise run api:lint` / `mise run api:format` |
+| 型チェック | pyright | `mise run api:typecheck` |
+| 脆弱性スキャン | pip-audit | `mise run api:audit` |
+| 依存衛生（未使用検出） | deptry | `mise run api:deps-check` |
+| テスト | pytest + pytest-asyncio + httpx | `mise run api:test` |

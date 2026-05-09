@@ -64,6 +64,6 @@ paths:
 | `.claude/CLAUDE.md` | プロジェクト全体に効かせたい横断規約（コミット形式 / ブランチ命名 / Git 操作禁止 / 設定ファイル形式の優先順位 / コード品質ツール一覧 等） |
 | `.claude/rules/claude-rules-authoring.md`（本ファイル） | `.claude/` 内ルールの書き方そのもの |
 | `.claude/rules/docs-rules.md` | `docs/adr/` と `docs/requirements/` の記述ルール（SSoT 原則 / ADR Decision の型分類 / 5 バケット構造 / Mermaid 規約 等） |
-| `.claude/rules/{backend,frontend,worker,drizzle,prompts}.md` | レイヤ別実装ルール |
+| `.claude/rules/{backend,frontend,worker,alembic-sqlalchemy,prompts}.md` | レイヤ別実装ルール |
 
 役割が重なるトピックが出てきたら、片方を「正」とし、他方からは「<役割名> は <ファイル名> を参照」と一文で誘導する（リンクではなくファイル名をテキストで明示し、Claude が直接そのファイルを開けるようにする）。
