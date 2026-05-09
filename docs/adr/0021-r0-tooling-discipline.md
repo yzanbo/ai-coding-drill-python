@@ -1,4 +1,4 @@
-# 0021. 補完ツール（lefthook / commitlint / Knip / syncpack / ruff / pyright / pip-audit）を R0 から導入
+# 0021. 補完ツール（lefthook / commitlint / Knip / syncpack / ruff / pyright / pip-audit / deptry）を R0 から導入
 
 - **Status**: Accepted
 - **Date**: 2026-05-09 <!-- Python pivot（ADR 0033）に追従して Python 側ツール（ruff / pyright / pip-audit）も同じ非対称性論理で R0 採用 -->
@@ -20,6 +20,7 @@
 - **ruff**：lint + format 違反の検出（→ [ADR 0020](./0020-python-code-quality.md)）
 - **pyright**：型ドリフトの検出（→ [ADR 0020](./0020-python-code-quality.md)）
 - **pip-audit**：`uv.lock` の脆弱性スキャン（→ [ADR 0035](./0035-uv-for-python-package-management.md)）
+- **deptry**：未使用 / 未宣言 / transitive 依存の検出（Knip の dep 検査に対称、→ [ADR 0035](./0035-uv-for-python-package-management.md)）
 
 このプロジェクトの設計原則 ([CLAUDE.md](../../.claude/CLAUDE.md)) は「YAGNI：使うか分からない抽象化を先取りで作らない」を掲げている。これに従えば「必要になってから導入」が自然な選択肢に見える。
 
@@ -32,6 +33,7 @@
 - **ruff**：lint 違反 / format 差分が Python ファイル蓄積後に検出されると、削除可否ではなく「規約違反だがコードとしては正しい」整地が大量発生する。Knip と同じ性質
 - **pyright**：型ドリフト（暗黙の `Any` / `Optional` 漏れ / `Mapped[T]` 不在）が積もると、`strict` モード引き上げが事実上不可能になる。「basic で開始 → 後で strict」（[ADR 0020](./0020-python-code-quality.md)）の戦略は R0 導入が前提
 - **pip-audit**：脆弱性混入は **Dependabot 待ち時間中に main に入る** リスクがある。Dependabot は更新 PR を提案する側、`pip-audit` は **混入の瞬間に PR を fail-closed する**側で、両者は補完関係（[ADR 0035](./0035-uv-for-python-package-management.md) の二重ゲート方針）
+- **deptry**：未使用 / 未宣言 / transitive 依存は積もるほど検出後の整地コストが増える。Knip と同じ「線形膨張」性質で、TS と Python で対称な dependency hygiene ゲートを揃える価値がある
 
 つまり「YAGNI で導入を遅延する」と「将来の修正コストに変換するだけ」になる、という非対称性がある。
 
@@ -39,7 +41,7 @@
 
 ## Decision（決定内容）
 
-**補完ツール（lefthook / commitlint / Knip / syncpack / ruff / pyright / pip-audit）を R0（リポジトリ初期セットアップ時）から導入する。**
+**補完ツール（lefthook / commitlint / Knip / syncpack / ruff / pyright / pip-audit / deptry）を R0（リポジトリ初期セットアップ時）から導入する。**
 
 - 設定の物理配置：本 ADR で扱う補完ツールはすべてリポジトリルート直接配置（`pyproject.toml` の `[tool.*]` セクション含む）。詳細な配置方針は [packages/config/README.md](../../packages/config/README.md) を参照
 - **lefthook と CI で多層防御**：lefthook を `--no-verify` で skip された場合も CI が最終 gate になる
