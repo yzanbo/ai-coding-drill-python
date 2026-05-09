@@ -100,8 +100,7 @@
   - ElastiCache は無料枠なし（最小 ~$10/月）、用途的に高耐久性は過剰
   - Upstash 無料枠で本プロジェクトのトラフィックを十分にカバー、サーバレスで運用負荷ゼロ
   - 「AWS 一本」を維持しつつ、コスト効率の合理的判断として一部 SaaS を採用
-- レート制限実装：Sliding Log 方式（Redis ZSET、`@nestjs/throttler` + Redis ストレージ）
-  - 大規模化時は Window Counter 方式への移行を検討
+- レート制限の実装ストレージ：Redis ZSET（`@nestjs/throttler` + Redis ストレージ）。採用方式（Sliding Log）と移行方針の SSoT は [01-non-functional.md: セキュリティ](./01-non-functional.md#セキュリティ最重要) を参照
 - トラフィック増で無料枠超過時は ElastiCache へ移行検討
 
 ---
@@ -140,6 +139,7 @@
   - 段階 2（R3）：gVisor（runsc ランタイム）
   - 段階 3（R9、任意）：Firecracker microVM
 - 言語アダプタ層を抽象化し、将来的な Python・他言語追加に備える
+- R7 以降で追加される実装ディレクトリ（`apps/rag-worker/`、`apps/eval-pipeline/`、`notebooks/` 等）の構成は [ADR 0012: 想定ディレクトリ構成](../../adr/0012-turborepo-pnpm-monorepo.md#想定ディレクトリ構成) を SSoT として参照
 
 → 使い捨てコンテナ方式の根拠と隔離設計は [02-architecture.md: サンドボックスランナー](./02-architecture.md#サンドボックスランナーgo-ワーカー内で実行)
 
