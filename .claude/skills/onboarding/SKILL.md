@@ -15,7 +15,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 
 引数が省略された場合、AskUserQuestion で確認する：
 
-- **担当領域**：バックエンド（FastAPI）／ フロントエンド（Next.js）／ 採点 Worker（Go）／ フルスタック
+- **担当領域**：バックエンド（FastAPI）／ フロントエンド（Next.js）／ Worker（採点 / 問題生成、Go、ADR 0040）／ フルスタック
 - **経験レベル**：使用技術（FastAPI, SQLAlchemy 2.0, Next.js, Go, Postgres 等）の経験有無
 
 ヒアリング結果に応じて、以降のステップで強調する内容を調整する。

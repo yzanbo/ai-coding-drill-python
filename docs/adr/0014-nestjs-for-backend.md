@@ -4,6 +4,8 @@
 - **Date**: 2026-05-09
 - **Decision-makers**: 神保 陽平
 
+> **Note**：本 ADR は `v1.0.0-typescript` 時点の判断軌跡として保持する。現行 Backend は **FastAPI（Python）** を採用しており、本文の NestJS 記述は適用されない。最新方針は [ADR 0033](./0033-backend-language-pivot-to-python.md) / [ADR 0034](./0034-fastapi-for-backend.md) を参照。
+
 ## Context（背景・課題）
 
 API 層のフレームワークを 1 つに決める必要がある。

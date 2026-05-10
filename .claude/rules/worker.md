@@ -24,7 +24,7 @@ apps/workers/
 │   │   │   └── reclaim.go      # スタックジョブ回収
 │   │   ├── sandbox/            # Docker クライアント、採点コンテナ管理
 │   │   │   ├── runner.go       # コンテナ作成・実行・破棄
-│   │   │   └── result.go       # 結果パース（pytest 出力）
+│   │   │   └── result.go       # 結果パース（Vitest JSON 出力。将来多言語対応時は言語別 adapter で切替、ADR 0009）
 │   │   ├── judge/              # judge LLM 呼び出し（ADR 0040）
 │   │   ├── db/                 # Postgres 接続（pgx）
 │   │   ├── jobtypes/           # JSON Schema → quicktype で生成された Go struct（gitignore）
@@ -158,7 +158,8 @@ defer cli.Close()
 // コンテナ作成
 resp, err := cli.ContainerCreate(ctx, &container.Config{
     Image: "ai-coding-drill-sandbox:latest",
-    Cmd:   []string{"pytest"},
+    // 初期 TS（tsx + Vitest）。将来多言語対応時は言語別 image / Cmd を adapter で切替（ADR 0009 / 01-overview.md）
+    Cmd:   []string{"vitest", "run", "--reporter=json"},
 }, &container.HostConfig{
     NetworkMode: "none",
     Resources: container.Resources{
@@ -216,6 +217,18 @@ slog.InfoContext(ctx, "job claimed",
   ├─ [sandbox.cleanup]          # Remove
   ├─ [judge.invoke]             # judge LLM 呼び出し（ADR 0040）
   └─ [job.complete]             # state='done' 更新
+```
+
+問題生成 1 件あたりのスパン構成（generation Worker、R7 以降。R1〜R6 は grading Worker が兼務）：
+
+```
+[generate_problem_job]
+  ├─ [job.claim]                # ジョブ取得 SQL
+  ├─ [generation.invoke]        # 生成 LLM 呼び出し（ADR 0040）
+  ├─ [schema.validate]          # JSON Schema → quicktype 生成 Go struct でバリデーション
+  ├─ [sandbox.run]              # 模範解答をサンドボックス検証
+  ├─ [judge.invoke]             # 別プロバイダ Judge 評価
+  └─ [job.complete]             # problems INSERT + state='done'
 ```
 
 ## コーディング規約

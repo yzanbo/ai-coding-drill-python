@@ -1,26 +1,30 @@
 ---
 paths:
-  - "packages/prompts/**/*"
-  - "packages/shared-types/schemas/**/*"
+  - "apps/workers/*/prompts/**/*"
+  - "apps/api/app/schemas/**/*"
+  - "apps/api/job-schemas/**/*"
 ---
 
 # LLM プロンプト管理ルール
 
-`packages/prompts/` 配下で LLM プロンプトを YAML として管理する。プロンプトはコード資産であり、バージョン管理・A/B テスト可能な構造を維持する。
+LLM プロンプトは各 Worker 配下 `apps/workers/<name>/prompts/` で YAML として管理する（→ [ADR 0040](../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）。プロンプトはコード資産であり、バージョン管理・A/B テスト可能な構造を維持する。
 
 詳細は [03-llm-pipeline.md](../../docs/requirements/2-foundation/03-llm-pipeline.md) と [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md)。
 
 ## ファイル構成
 
+プロンプトは利用 Worker と同居させる（ADR 0040）：
+
 ```
-packages/prompts/
-├── generation/                       # 問題生成プロンプト
-│   ├── typescript.v1.yaml            # TS 用汎用（全カテゴリ対応、{{category}} 変数）
-│   └── typescript.v2.yaml            # 改善版（追加時）
-├── judge/                            # LLM-as-a-Judge プロンプト
-│   ├── quality.v1.yaml               # 品質評価（5 軸スコアリング）
-│   └── quality.v2.yaml
-└── README.md                         # 運用ルール
+apps/workers/grading/prompts/judge/         # LLM-as-a-Judge プロンプト（採点 Worker が参照）
+├── quality.v1.yaml
+├── quality.v2.yaml
+└── README.md
+
+apps/workers/generation/prompts/generation/ # 問題生成プロンプト（生成 Worker が参照）
+├── typescript.v1.yaml
+├── typescript.v2.yaml
+└── README.md
 ```
 
 ## バージョン管理
@@ -38,7 +42,7 @@ packages/prompts/
 
 ## YAML スキーマ
 
-### 生成プロンプト（`generation/`）
+### 生成プロンプト（`apps/workers/generation/prompts/generation/`）
 
 ```yaml
 version: v1
@@ -52,7 +56,8 @@ user_template: |
   カテゴリ: {{category}}
   難易度: {{difficulty}}
 
-output_schema_ref: ../../shared-types/schemas/problem.schema.json
+# Job キュー境界 artifact（Pydantic SSoT 由来、ADR 0006）
+output_schema_ref: apps/api/job-schemas/problem.schema.json
 
 few_shot_examples:
   - input: { category: "配列操作", difficulty: "easy" }
@@ -68,7 +73,7 @@ metadata:
     バージョンの意図、変更点、評価結果のメモ
 ```
 
-### Judge プロンプト（`judge/`）
+### Judge プロンプト（`apps/workers/grading/prompts/judge/`）
 
 ```yaml
 version: v1
@@ -81,7 +86,7 @@ user_template: |
   ===== 問題 =====
   {{problem_json}}
 
-output_schema_ref: ../../shared-types/schemas/judge-result.schema.json
+output_schema_ref: apps/api/job-schemas/judge-result.schema.json
 
 evaluation:
   num_runs: 3            # 同じ問題を複数回評価して平均
@@ -112,13 +117,14 @@ metadata:
 
 ### 出力スキーマの変更
 
-- スキーマ自体は `packages/shared-types/schemas/` で管理（→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- スキーマの SSoT は `apps/api/app/schemas/` の Pydantic モデル（→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- Job キュー境界では `mise run api:job-schemas-export` で `apps/api/job-schemas/` に JSON Schema を書き出し、Worker 側は quicktype で Go struct を生成（`mise run worker:<name>:types-gen`）
 - スキーマ変更は破壊的なので、プロンプトと出力スキーマをセットでバージョンアップする
 
 ## 変数の埋め込み
 
 - 変数は `{{name}}` 形式（Mustache 風）
-- 実装側で安全な置換ライブラリ（例：`mustache`）を使う、文字列置換は使わない（インジェクション対策）
+- 実装側で安全な置換ライブラリ（例：Go の `cbroglie/mustache` 等）を使う、文字列置換は使わない（インジェクション対策）
 - 変数の必須・任意は `metadata` セクションに記載
 
 ## モデル指定の方針
@@ -146,7 +152,7 @@ llm:cache:<sha256(prompt_yaml_content + variables_json + model_id)>
 
 ## メタデータ・ログ
 
-実装側（`apps/api/src/generation/`）はプロンプト読み込み時に以下を OTel スパンに記録：
+実装側（各 Worker）はプロンプト読み込み時に以下を OTel スパンに記録：
 
 - `prompt.path`：YAML ファイルパス
 - `prompt.version`：v1 / v2 等

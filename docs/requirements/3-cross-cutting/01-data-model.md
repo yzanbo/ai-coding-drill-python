@@ -134,7 +134,7 @@ erDiagram
 - [ADR 0010: W3C Trace Context をジョブペイロードに埋め込む](../../adr/0010-w3c-trace-context-in-job-payload.md)（採用方式・代替案・実装方針）
 - [04-observability.md: プロセス境界をまたぐトレース連携](../2-foundation/04-observability.md#プロセス境界をまたぐトレース連携r1-で必須)
 
-具体的なペイロード定義は **`apps/api/app/schemas/jobs.py` の Pydantic モデル（実装着手時に作成）が SSoT**。OpenAPI 経由で Go ワーカー側にも型として配布する。本ドキュメントには共通フィールドの存在のみを示す。
+具体的なペイロード定義は **`apps/api/app/schemas/jobs.py` の Pydantic モデル（実装着手時に作成）が SSoT**。Job キュー境界では `model.model_json_schema()` で個別 JSON Schema を `apps/api/job-schemas/` に出力し、quicktype `--src-lang schema` で Go struct を生成して Worker 側に配布する（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) / [06-dev-workflow.md](../2-foundation/06-dev-workflow.md#共有データ型の伝送路)）。本ドキュメントには共通フィールドの存在のみを示す。
 
 ### 認証スキーマの分離
 

@@ -74,9 +74,9 @@ providers:
 |---|---|---|
 | 抽象化レイヤを採用、モデル選定は実装時 | （採用） | — |
 | 特定モデル（例：Claude Haiku 4.5）に固定 | シンプル | 半年で陳腐化、価格変動・新モデル登場に追従できない、ベンダーロックイン |
-| LangChain / LlamaIndex の Provider 抽象を使う | 既存フレームワーク利用 | TS 版（LangChain.js）は成熟度が低い、機能過多、`GenerationModule` の責務が肥大化 |
+| LangChain / LlamaIndex の Provider 抽象を使う | 既存フレームワーク利用 | 機能過多、Worker（Go）から呼ぶ採点経路では別言語ランタイム導入が割に合わない |
 | LiteLLM 等の LLM Gateway を導入 | OpenAI 互換プロキシ | 別サービス追加、規模に対して過剰、自前抽象化で十分 |
-| プロバイダごとに別 Module を作る | NestJS 流儀 | 用途（生成・Judge・再生成）で切替したいので Module 単位は不適、`LlmProvider` インターフェースの方が直交する |
+| プロバイダごとにパッケージ / モジュールを分ける | プロバイダ単位の責務分割 | 用途（生成・Judge・再生成）で切替したいのでプロバイダ単位は不適、`LlmProvider` インターフェースの方が直交する |
 
 ## Consequences（結果・トレードオフ）
 

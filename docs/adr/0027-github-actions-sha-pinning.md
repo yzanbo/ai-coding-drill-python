@@ -143,7 +143,7 @@ SHA ピン止めは **[ADR 0028](./0028-dependabot-auto-update-policy.md) の De
 ## References
 
 - [.github/workflows/ci.yml](../../.github/workflows/ci.yml)：本 ADR の実装
-- [.github/actions/setup-node-pnpm/action.yml](../../.github/actions/setup-node-pnpm/action.yml)：本 ADR の実装
+- `.github/actions/setup-node-pnpm/action.yml`：本 ADR の実装（CI 整備時に composite action として投入予定）
 - [ADR 0026: GitHub Actions の段階拡張](./0026-github-actions-incremental-scope.md)（SHA ピン止めはこの一部）
 - [ADR 0028: Dependabot 自動更新ポリシー](./0028-dependabot-auto-update-policy.md)（SHA ピン止めの運用前提）
 - [ADR 0039: タスクランナー兼 tool 版数管理に mise を採用](./0039-mise-for-task-runner-and-tool-versions.md)（jdx/mise-action 採用の根拠）

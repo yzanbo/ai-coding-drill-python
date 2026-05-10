@@ -182,7 +182,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 モノレポ内 `package.json` の整合性（バージョン揃え / `^` 統一 / `workspace:*` 強制 / dep 重複検知）の機械強制ルールセット。採用根拠は [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) を参照（Superseded by 0033 だが Frontend 用途として継続採用）。
 
-**真の SSoT は [`.syncpackrc.ts`](../../../.syncpackrc.ts)**（`syncpack` の `RcFile` 型を import して型安全を確保、コメントで規約の「なぜ」をインライン化）。本セクションは概観・人間向け解説。
+**真の SSoT は `apps/web/.syncpackrc.ts`**（apps/web 着手時に投入予定、ADR 0036 拡張で root から移動。`syncpack` の `RcFile` 型を import して型安全を確保、コメントで規約の「なぜ」をインライン化）。本セクションは概観・人間向け解説。
 
 ### 機械強制ポリシー（R0 の最小限ルールセット）
 

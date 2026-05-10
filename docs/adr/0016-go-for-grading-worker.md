@@ -4,7 +4,12 @@
 - **Date**: 2026-05-09 <!-- ADR 0040 で apps/grading-worker → apps/workers/grading にリネーム、Worker 群への拡張方針を明記 -->
 - **Decision-makers**: 神保 陽平
 
-> **2026-05-09 追記**：[ADR 0040](./0040-worker-grouping-and-llm-in-worker.md) で Worker のディレクトリ構造が **`apps/grading-worker/` → `apps/workers/grading/`** にリネームされ、`apps/workers/<name>/` グループ配下パターンに統一された。Go 採用判断そのものは維持。本文中の「採点ワーカー」「`apps/grading-worker`」は新パスに読み替える。新規 Worker（generation 等）も同じ Go 採用パターンを継承する想定（ADR 0040 §将来の見直しトリガー参照）。
+> **2026-05-09 追記**：[ADR 0040](./0040-worker-grouping-and-llm-in-worker.md) で以下が変更された。Go 採用判断そのものは維持。
+> - **ディレクトリ構造**：`apps/grading-worker/` → `apps/workers/grading/`（`apps/workers/<name>/` グループ配下パターンに統一）。本文中の「採点ワーカー」「`apps/grading-worker`」は新パスに読み替える
+> - **LLM 呼び出しの所在**：API 側集中ではなく **Worker 側で judge / generation の LLM を呼び出す** 方針に変更。本文 §Why 4 の「LLM 関連は API 側に集中」は ADR 0040 で覆ったため、§将来の見直しトリガーが発火済み。Go の Anthropic SDK 成熟度は当時より改善しており、Go から直接 LLM を呼ぶ構成で問題ないと判断
+> - 新規 Worker（generation 等）も同じ Go 採用パターンを継承する（ADR 0040 §将来の見直しトリガー参照）
+
+> **2026-05-09 追記（Backend pivot）**：[ADR 0033](./0033-backend-language-pivot-to-python.md) で API は NestJS → FastAPI（Python）に変更された。本文の「NestJS 開発との文脈切替」は「FastAPI（Python）開発との文脈切替」と読み替える。ポリグロット（Python / Go / TS）構成での Go 採用判断はむしろ強化された。
 
 ## Context（背景・課題）
 
@@ -33,7 +38,7 @@
    - Node.js に統一すると言語選定の見せ場が消える
 4. **採点対象コードが TS で確定しているため、ワーカー言語と採点対象言語を分離できる**
    - ワーカー側で LLM 呼び出しが発生しないため、Anthropic SDK 成熟度の差は影響しない
-   - LLM 関連は API 側（NestJS）に集中させ、ワーカーは「Docker 操作と DB アクセスに特化したシンプルな存在」に留められる
+   - LLM 関連は API 側（FastAPI / Python、→ [ADR 0034](./0034-fastapi-for-backend.md)）に集中させ、ワーカーは「Docker 操作と DB アクセスに特化したシンプルな存在」に留められる
 5. **過剰なフレームワーク採用を避ける判断も見せられる**
    - 標準 `net/http` + 必要最小ライブラリで構成し、Echo / Gin / Fiber のようなフレームワークは規模に対して不要と判断
    - 「規模に応じた選定」をワーカー単位でも体現
@@ -45,7 +50,7 @@
 | 候補 | 概要 | 採用しなかった理由 |
 |---|---|---|
 | Go | シングルバイナリ、低メモリ、Docker クライアント公式 | （採用） |
-| Node.js（NestJS と同言語に統一） | 言語統一でシンプル | メモリフットプリントが大きい、起動が遅い、Docker 操作の生態系が弱い、ポリグロットの見せ場が消える |
+| Node.js | 言語統一でシンプル（Backend が TS だった `v1.0.0-typescript` 時点での仮想代替案。Backend は ADR 0033 で Python に pivot 済） | メモリフットプリントが大きい、起動が遅い、Docker 操作の生態系が弱い、ポリグロットの見せ場が消える |
 | Rust | 高性能・型安全 | 学習コスト高、Docker クライアントの成熟度が Go より低い、Claude Code のサポートも Go ほど厚くない |
 | Python | LLM エコシステムと親和性 | メモリフットプリントが大きい、採点ワーカーの特性（軽量・並列）に合わない |
 
@@ -59,8 +64,8 @@
 - 標準ライブラリで十分な規模に保ち、過剰なフレームワーク採用を避ける判断も見せられる
 
 ### 失うもの・受容するリスク
-- 言語が増えることによる学習・運用コスト（NestJS 開発との文脈切替）
-- Anthropic SDK の成熟度は TS/Python に劣るが、本ワーカーでは LLM 呼び出しはしないので影響なし
+- 言語が増えることによる学習・運用コスト（FastAPI / Python 開発との文脈切替）
+- 各社 LLM SDK の Go 実装は TS/Python に比べて成熟度が劣る。ADR 0040 で LLM 呼び出しを Worker 側に集約したため、`net/http` 直接呼び出し + `LlmProvider` 抽象化レイヤで吸収する方針
 
 ### 将来の見直しトリガー
 - ワーカー側で複雑な LLM 呼び出しが必要になった場合（その時は LLM 関連のみ TS / Python に切り出す）

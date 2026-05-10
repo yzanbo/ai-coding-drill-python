@@ -23,8 +23,8 @@
 |---|---|---|
 | `apps/web/` | Next.js 16+（App Router、Frontend ツーリング（Biome / Knip / syncpack / tsconfig）も同 app 配下に閉じる） | TypeScript |
 | `apps/api/` | FastAPI（**認証・問題 CRUD・ジョブ enqueue のみ**、LLM 呼び出しは Worker に委譲、Pydantic SSoT） | Python |
-| `apps/workers/grading/` | 採点ワーカー（Postgres ジョブ取得 + Docker サンドボックス + judge LLM 呼び出し） | Go |
-| `apps/workers/generation/` | 問題生成ワーカー（Postgres ジョブ取得 + 問題生成 LLM 呼び出し、将来追加） | Go |
+| `apps/workers/grading/` | 採点 Worker（Postgres ジョブ取得 + Docker サンドボックス + judge LLM 呼び出し） | Go |
+| `apps/workers/generation/` | 問題生成 Worker（Postgres ジョブ取得 + 問題生成 LLM 呼び出し、R7 以降。R1〜R6 は grading Worker が兼務） | Go |
 | `infra/` | Terraform（AWS） | HCL |
 | `docs/requirements/` | 要件定義書（時系列 5 バケット：1-vision / 2-foundation / 3-cross-cutting / 4-features / 5-roadmap） | Markdown |
 | `docs/adr/` | Architecture Decision Records | Markdown |
@@ -67,7 +67,8 @@ docker compose up -d      # ローカル DB / Redis 起動
 # Backend (Python / FastAPI)
 mise run api:dev                  # FastAPI 開発サーバ
 mise run api:test                 # pytest
-mise run api:lint                 # ruff check + format
+mise run api:lint                 # ruff check
+mise run api:format               # ruff format
 mise run api:typecheck            # pyright
 mise run api:audit                # pip-audit
 mise run api:deps-check           # deptry
@@ -78,16 +79,22 @@ mise run api:job-schemas-export   # Pydantic Job payload から JSON Schema を 
 # Frontend (Next.js / TS)
 mise run web:dev          # next dev
 mise run web:test         # vitest
+mise run web:e2e          # playwright（E2E）
 mise run web:lint         # biome check
+mise run web:format       # biome format
 mise run web:typecheck    # tsc --noEmit
-mise run web:syncpack     # package.json 整合性 lint（syncpack lint、ADR 0024 Note）
+mise run web:knip         # 未使用 export / dependency 検出（ADR 0021、R0 必須）
+mise run web:syncpack     # package.json 整合性 lint（syncpack lint、ADR 0024）
 mise run web:types-gen    # Hey API で OpenAPI から TS / Zod / HTTP クライアントを生成
 
 # Workers (Go) — apps/workers/<name>/ ごとに mise タスクを定義（ADR 0040）
-mise run worker:grading:dev      # apps/workers/grading の go run
-mise run worker:grading:test     # apps/workers/grading の go test
-mise run worker:grading:lint     # apps/workers/grading の golangci-lint
-mise run worker:generation:dev   # apps/workers/generation（将来追加）
+mise run worker:grading:dev          # apps/workers/grading の go run
+mise run worker:grading:test         # apps/workers/grading の go test
+mise run worker:grading:lint         # apps/workers/grading の golangci-lint
+mise run worker:grading:audit        # govulncheck
+mise run worker:grading:deps-check   # go mod tidy 後の差分チェック
+mise run worker:grading:types-gen    # apps/api/job-schemas/ から quicktype で Go struct 生成
+mise run worker:generation:dev       # apps/workers/generation（将来追加）
 # 横断（全 worker）
 mise run worker:test             # 全 Worker の go test
 mise run worker:lint             # 全 Worker の golangci-lint
@@ -98,6 +105,8 @@ mise run lint             # 全言語 lint
 mise run test             # 全言語 test
 mise run git:clean        # マージ済みでリモートが消えたローカルブランチを掃除
 ```
+
+> 全タスクの SSoT は [mise.toml](../mise.toml)。一覧は `mise tasks` で確認できる。
 
 各レイヤ固有のコマンド・規約は `.claude/rules/` 配下の各ファイルを参照。
 
@@ -161,8 +170,8 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 |---|---|
 | `feature/web/<機能名>` | フロントエンドの機能開発 |
 | `feature/api/<機能名>` | バックエンドの機能開発 |
-| `feature/worker/<機能名>` | 採点ワーカーの機能開発 |
-| `feature/shared/<機能名>` | 共有パッケージ（types, prompts, config）の変更 |
+| `feature/worker/<機能名>` | Worker（採点 / 問題生成、Go）の機能開発 |
+| `feature/shared/<機能名>` | 共有 artifact（`apps/api/openapi.json` / `apps/api/job-schemas/` 等）の変更。`packages/` は ADR 0006 / 0036 / 0040 で全廃済み |
 | `feature/infra/<機能名>` | インフラ（Terraform）の変更 |
 | `fix/<scope>/<内容>` | バグ修正 |
 | `refactor/<scope>/<内容>` | リファクタリング |
@@ -222,8 +231,8 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 | `/backend-new-module` | FastAPI モジュール（router / schema / service / repository）をスキャフォールド |
 | `/frontend-implement` | 要件 .md を読んで Next.js 実装 |
 | `/frontend-test` | フロントエンドのテスト生成・実行 |
-| `/worker-implement` | Go 採点ワーカーの実装 |
-| `/worker-test` | Go ワーカーのテスト生成・実行 |
+| `/worker-implement` | Go Worker（採点 / 問題生成、ADR 0040）の実装 |
+| `/worker-test` | Go Worker（採点 / 問題生成）のテスト生成・実行 |
 | `/update-documents` | ユーザー / 管理者マニュアルを生成・更新（HTML + PDF） |
 | `/verify-documents` | マニュアルとアプリケーションの整合性検証 |
 | `/onboarding` | 新規参画者向けプロジェクト案内 |
@@ -236,7 +245,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 - フロントエンドに関すること → `.claude/rules/frontend.md`
 - バックエンド（FastAPI / Python）に関すること → `.claude/rules/backend.md`
-- 採点ワーカー（Go）に関すること → `.claude/rules/worker.md`
+- Worker（採点 / 問題生成、Go）に関すること → `.claude/rules/worker.md`
 - SQLAlchemy / Alembic スキーマ・マイグレーションに関すること → `.claude/rules/alembic-sqlalchemy.md`
 - LLM プロンプトに関すること → `.claude/rules/prompts.md`
 - 要件定義書（base）の編集ルール → `.claude/rules/docs-rules.md`

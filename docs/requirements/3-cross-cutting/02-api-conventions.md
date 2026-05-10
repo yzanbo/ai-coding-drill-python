@@ -144,11 +144,8 @@ FastAPI の `APIRouter` を機能単位で分割し、`apps/api/app/main.py` で
 | `routers/problems` | `/problems` | [F-02](../4-features/F-02-problem-generation.md) / [F-03](../4-features/F-03-problem-display-and-answer.md) | `/problems` / `/problems/:id` / `/problems/generate` / `/problems/generate/:requestId` |
 | `routers/submissions` | `/submissions` | [F-04](../4-features/F-04-auto-grading.md) | `/submissions` / `/submissions/:id` |
 | `routers/jobs` | `/jobs` | 横断（enqueue 内部 API） | API 内部でジョブ enqueue 用途。書き戻しは Worker が直接 DB に行うため公開エンドポイントは持たない |
+| `routers/me` | `/me` | [F-05](../4-features/F-05-learning-history.md) | `/me/stats` / `/me/weakness`（R1 MVP に含む、→ [01-roadmap.md](../5-roadmap/01-roadmap.md) R1-8） |
 | `routers/healthz` | `/` | 横断 | `/healthz` / `/readyz` |
-
-将来追加予定（R2 以降）：
-
-- `routers/me`（[F-05](../4-features/F-05-learning-history.md)）：`/me/stats` / `/me/weakness`
 
 router の物理配置・依存定義（`Depends(get_current_user)` 等）の詳細規約は [.claude/rules/backend.md](../../../.claude/rules/backend.md) を参照。
 

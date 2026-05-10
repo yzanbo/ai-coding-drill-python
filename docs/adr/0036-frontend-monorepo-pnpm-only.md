@@ -79,10 +79,10 @@ Turborepo の主要価値は以下 3 点：
 
 ### 3. pnpm workspaces 単体で本プロジェクトの要件は満たせる
 
-- `packages/shared-types` / `packages/prompts` / `packages/config` への symlink 解決：pnpm workspaces で自動
-- `workspace:*` プロトコルでの内部参照：pnpm workspaces ネイティブ
+- 単一 `apps/web/` 配下に Frontend ツーリングを閉じ込められる（`packages/shared-types` / `packages/prompts` / `packages/config` は本 ADR §派生 1 / [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) / [ADR 0040](./0040-worker-grouping-and-llm-in-worker.md) で全廃済み）
+- 将来 `apps/web` 以外の Node.js app（管理 UI 等）が追加された場合の `workspace:*` プロトコル：pnpm workspaces ネイティブ
 - Next.js の build：`next build` 単体で完結、Turborepo 経由の必要なし
-- 型生成パイプライン（[ADR 0006](./0006-json-schema-as-single-source-of-truth.md)）：npm scripts チェーンで十分
+- 型生成パイプライン（[ADR 0006](./0006-json-schema-as-single-source-of-truth.md)）：mise タスクチェーンで十分
 
 ### 4. ツール散逸の抑制
 

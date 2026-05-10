@@ -65,15 +65,17 @@
 
 本 pivot により以下の TS 系 ADR は失効・修正対象となる。**Status 変更と本文修正は本 ADR と同 PR 内で実施**する。
 
-### Superseded by 0033（5 件）
+### Superseded by 0033（5 件、以後の派生 ADR で追加 supersede 連鎖）
 
-| ADR | 元タイトル | 措置 |
-|---|---|---|
-| [0014](./0014-nestjs-for-backend.md) | NestJS for backend | Status を `Superseded by 0033` に。本文は移行判断軌跡として保持。代替判断は [ADR 0034](./0034-fastapi-for-backend.md) |
-| [0017](./0017-drizzle-orm-over-prisma.md) | Drizzle ORM over Prisma | Status を `Superseded by 0033` に。Python 用 ORM は実装着手時に別 ADR で起票 |
-| [0018](./0018-biome-for-tooling.md) | Biome for tooling | Status を `Superseded by 0033` に。Python 用 lint/format（ruff 候補）は実装着手時に別 ADR で起票 |
-| [0023](./0023-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces | Status を `Superseded by 0033` に。Python 用モノレポ管理は実装着手時に別 ADR で起票 |
-| [0024](./0024-syncpack-package-json-consistency.md) | syncpack | Status を `Superseded by 0033` に。Python 用依存整合性は実装着手時に別 ADR で起票 |
+> 本 ADR が起点。後続の派生 ADR（0034〜0040）で個別領域が再判断されると、各 ADR の Status は `Superseded by 0033, NNNN, ...` と複数連結される。最終的な Status は各 ADR 本体を参照。
+
+| ADR | 元タイトル | 最終 Status | 措置 |
+|---|---|---|---|
+| [0014](./0014-nestjs-for-backend.md) | NestJS for backend | `Superseded by 0033` | 本文は移行判断軌跡として保持。代替判断は [ADR 0034](./0034-fastapi-for-backend.md) |
+| [0017](./0017-drizzle-orm-over-prisma.md) | Drizzle ORM over Prisma | `Superseded by 0033, 0037` | 代替判断は [ADR 0037](./0037-sqlalchemy-alembic-for-database.md)（SQLAlchemy 2.0 + Alembic） |
+| [0018](./0018-biome-for-tooling.md) | Biome for tooling | `Superseded by 0033` | Frontend 用途（apps/web/）として継続採用、Python 側は [ADR 0020](./0020-python-code-quality.md)（ruff）で代替 |
+| [0023](./0023-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces | `Superseded by 0033, 0036` | Frontend モノレポは [ADR 0036](./0036-frontend-monorepo-pnpm-only.md)（pnpm のみ）、Python 側は [ADR 0035](./0035-uv-for-python-package-management.md)（uv workspace）、tool 版数 / タスクランナーは [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)（mise）に分離 |
+| [0024](./0024-syncpack-package-json-consistency.md) | syncpack | `Superseded by 0033, 0036` | 採用判断は維持、配置を `apps/web/.syncpackrc.ts` に移しルールセット縮小 |
 
 ### 本文修正（Status は維持）
 

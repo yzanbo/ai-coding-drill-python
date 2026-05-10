@@ -79,13 +79,13 @@ flowchart TB
 ### プロンプト管理
 - プロンプトは YAML ファイルで管理し、**呼び出し元 Worker と同居**させる（→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）：
   - `apps/workers/grading/prompts/judge/`：採点ワーカーの LLM-as-a-Judge 用
-  - `apps/workers/generation/prompts/generation/`：問題生成ワーカー用（R2 以降）
+  - `apps/workers/generation/prompts/generation/`：問題生成ワーカー用（R7 以降。R1〜R6 は `apps/workers/grading/prompts/generation/` 配下に置き、grading Worker が兼務）
 - バージョン番号付与（`v1`, `v2`...）、Git 履歴と連動
 - A/B テスト：本番で複数バージョンを並行稼働、生成品質を比較
 
 ### 構造化出力
 - 各プロバイダの tool_use / function calling / JSON mode で以下を強制
-- プロバイダ差分は `LlmProvider` 抽象化レイヤ（Worker 内）で吸収し、OpenAPI 由来の Go 型で最終バリデーション
+- プロバイダ差分は `LlmProvider` 抽象化レイヤ（Worker 内）で吸収し、Pydantic 由来の JSON Schema (`apps/api/job-schemas/`) → quicktype 生成 Go 型で最終バリデーション（Job キュー境界、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
   ```json
   {
     "title": "string",

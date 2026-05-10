@@ -17,7 +17,7 @@ Go 問題生成ワーカー。**コード実装着手前の skeleton（プロン
 - `go.mod` / `go.sum`（独立 Go module、grading とは別、[ADR 0040](../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）
 - `cmd/generation/main.go`（エントリポイント）
 - `internal/`（DB アクセス / ジョブキュー / OTel / LLM クライアント）
-- `internal/jobtypes/`（quicktype 生成物、`apps/api/openapi.json` 由来、gitignore、[ADR 0006](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- `internal/jobtypes/`（quicktype 生成物、`apps/api/job-schemas/` 由来（quicktype `--src-lang schema`）、gitignore、[ADR 0006](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 - `.golangci.yml`（[ADR 0019](../../../docs/adr/0019-go-code-quality.md)）
 - テスト：Go 標準 testing + testify（[ADR 0038](../../../docs/adr/0038-test-frameworks.md)）
 

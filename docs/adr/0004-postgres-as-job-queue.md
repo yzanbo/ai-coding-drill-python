@@ -8,10 +8,10 @@
 
 採点ジョブと問題生成ジョブを非同期処理する仕組みが必要。
 
-- Producer：NestJS（TypeScript）
-- Consumer：採点ワーカー（Go）
+- Producer：FastAPI（Python、→ [ADR 0034](./0034-fastapi-for-backend.md)）
+- Consumer：採点ワーカー / 問題生成ワーカー（Go、→ [ADR 0016](./0016-go-for-grading-worker.md)）
 - 規模：数百ジョブ/日（ポートフォリオ運用）
-- 制約：TS と Go の両方からネイティブに扱える必要がある（言語ロックインを避ける）
+- 制約：Python と Go の両方からネイティブに扱える必要がある（言語ロックインを避ける）
 - コスト目標：DB 兼ジョブキューは AWS インフラ内訳に含まれる（目安 $0〜10/月、AWS インフラ全体は $10〜15/月。SSoT は [01-non-functional.md: コスト](../requirements/2-foundation/01-non-functional.md#コスト)）
 - 既に Postgres をアプリ DB として採用予定
 
@@ -21,8 +21,8 @@
 
 ## Why（採用理由）
 
-1. **言語非依存性（TS Producer × Go Consumer の両立）**
-   - `pg`（Node）も `pgx`（Go）も生 SQL で行ロックを扱えるため、Producer / Consumer が異なる言語でもネイティブに連携できる
+1. **言語非依存性（Python Producer × Go Consumer の両立）**
+   - `asyncpg`（Python）も `pgx`（Go）も生 SQL で行ロックを扱えるため、Producer / Consumer が異なる言語でもネイティブに連携できる
    - BullMQ（TS 専用）/ asynq（Go 専用）/ graphile-worker / River のような言語ロックインを回避し、ポリグロット要件と整合
 2. **Outbox パターン不要（二重書き込み問題の根絶）**
    - 解答登録（`submissions` INSERT）とジョブ登録（`jobs` INSERT + `NOTIFY`）を同一 Postgres トランザクションで原子的に実行できる
@@ -51,7 +51,7 @@
 | RabbitMQ | 枯れた AMQP ブローカー | Erlang VM、規模に対して過剰 |
 | NATS JetStream | 軽量、Pub/Sub にも使える | 1 サービス追加が必要、現規模では Postgres で十分 |
 | Kafka / Redpanda | 高スループット | 規模に対して大幅に過剰 |
-| Inngest / Trigger.dev | マネージドジョブランナー | TS 中心で Go 連携が弱く、ポリグロット訴求が消える |
+| Inngest / Trigger.dev | マネージドジョブランナー | TS / Node 中心で Python / Go 連携が弱く、ポリグロット訴求が消える |
 | graphile-worker | TS 専用 Postgres ベース | TS 専用 |
 | River | Go 専用 Postgres ベース | Go 専用 |
 
@@ -60,7 +60,7 @@
 ### 得られるもの
 - 既存 Postgres を再利用 → インフラ追加なし、バックアップ/PITR 一元化
 - 解答登録とジョブ登録を同一トランザクションで実行（Outbox パターン不要、二重書き込み問題なし）
-- `pg`（Node）も `pgx`（Go）も生 SQL で操作 → ライブラリロックインなし
+- `asyncpg`（Python）も `pgx`（Go）も生 SQL で操作 → ライブラリロックインなし
 - `SELECT * FROM jobs WHERE state='failed'` で観測性最強
 - 想定規模の 1000 倍以上のスループット余力
 

@@ -8,6 +8,8 @@ argument-hint: "[feature-name] (例: notifications, ratings)"
 
 引数 `$ARGUMENTS` を機能名（単数形・スネークケース、例：`notification`）として解釈する。FastAPI ディレクトリ構成（→ [.claude/rules/backend.md](../../rules/backend.md)）に従い、機能別フラットでファイルを作成する。
 
+> **Note：Repository レイヤの要否は実装着手時に再判断**（保留）。要件側の SSoT は [02-architecture.md: Backend API 設計スタイル](../../../docs/requirements/2-foundation/02-architecture.md#backend-apifastapi--python) で「Repository レイヤは設けない」と書かれており、本 SKILL の Service + Repository 2 層スキャフォールドと齟齬がある。R1 着手時に決着。Repository を設けない方針が確定したら `repositories/$ARGUMENTS.py` の生成と Service 内 `self.repo` 注入を削除し、Service が `AsyncSession` から SQLAlchemy を直接呼ぶ単層構成に変更する。
+
 ## 手順
 
 1. [.claude/rules/backend.md](../../rules/backend.md) を読み、ディレクトリ構成・コーディング規約を確認する

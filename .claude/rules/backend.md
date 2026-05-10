@@ -28,10 +28,12 @@ apps/api/app/
 │   ├── grading.py
 │   └── ...
 ├── services/                # ビジネスロジック（router から呼ぶ）
-├── repositories/            # SQLAlchemy クエリの集約（service から呼ぶ）
+├── repositories/            # SQLAlchemy クエリの集約（service から呼ぶ、※下記 Note 参照）
 ├── deps/                    # 依存性注入（Depends で使う関数群、認証ガード等）
 └── observability/           # OpenTelemetry セットアップ、構造化ログ、メトリクス
 ```
+
+> **Note：Repository レイヤの要否は実装着手時に再判断**（保留）。要件側の SSoT は [02-architecture.md: Backend API 設計スタイル](../../docs/requirements/2-foundation/02-architecture.md#backend-apifastapi--python) で「Repository レイヤは設けない（Service が SQLAlchemy を直接呼ぶ）」と書かれており、本ファイルおよび `backend-new-module` SKILL の Repository 前提と齟齬がある。R1 着手時に決着させて片側に統一する。当面は本ファイルの Service / Repository 2 層構成を「目安」として読み、実装が要件側に寄せて確定したらこの Note を削除する。
 
 ### 設計方針
 

@@ -12,10 +12,11 @@ Python / FastAPI バックエンド。**実装着手前の skeleton**。
 ## 実装着手時に揃えるもの
 
 - `pyproject.toml`（uv 管理、[ADR 0035](../../docs/adr/0035-uv-for-python-package-management.md)）
-- `src/<package>/`（FastAPI app、Pydantic SSoT は `src/<package>/schemas/`、[ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
-- `alembic/`（マイグレーション、[ADR 0037](../../docs/adr/0037-sqlalchemy-alembic-for-database.md)）
+- `app/`（FastAPI アプリ本体、Pydantic SSoT は `app/schemas/`、機能別フラット構成は [.claude/rules/backend.md](../../.claude/rules/backend.md) と [02-architecture.md](../../docs/requirements/2-foundation/02-architecture.md#backend-apifastapi--python)、[ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- `alembic/`（マイグレーション、`apps/api/alembic/` 直下、[ADR 0037](../../docs/adr/0037-sqlalchemy-alembic-for-database.md)）
 - `tests/`（pytest + httpx、[ADR 0038](../../docs/adr/0038-test-frameworks.md)）
-- `openapi.json`（FastAPI 自動生成、Frontend / Worker 向け型生成の SSoT）
+- `openapi.json`（FastAPI 自動生成、HTTP API 境界の Frontend 向け型生成 SSoT、[ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- `job-schemas/`（Pydantic `model.model_json_schema()` 出力、Job キュー境界の Worker 向け型生成 SSoT、[ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 
 ## 起動
 

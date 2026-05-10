@@ -1,8 +1,10 @@
 # 0023. モノレポツールに Turborepo + pnpm workspaces を採用
 
-- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md), [0035](./0035-uv-for-python-package-management.md), [0036](./0036-frontend-monorepo-pnpm-only.md), [0039](./0039-mise-for-task-runner-and-tool-versions.md)
+- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md), [0036](./0036-frontend-monorepo-pnpm-only.md)
 - **Date**: 2026-05-09
 - **Decision-makers**: 神保 陽平
+
+> **Note**：本 ADR は `v1.0.0-typescript` 時点の判断軌跡として保持する。現行は **Turborepo を不採用**とし、タスクランナー兼 tool 版数管理は [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)（mise）、Frontend モノレポは [ADR 0036](./0036-frontend-monorepo-pnpm-only.md)（pnpm workspaces のみ）、Python は [ADR 0035](./0035-uv-for-python-package-management.md)（uv workspace）に分離している。
 
 ## Context（背景・課題）
 

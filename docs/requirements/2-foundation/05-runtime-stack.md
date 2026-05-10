@@ -52,7 +52,7 @@
 | ディレクトリ | 役割 | 投入時期 |
 |---|---|---|
 | `apps/workers/grading` | 採点（サンドボックス実行 + LLM-as-a-Judge） | R0 |
-| `apps/workers/generation` | 問題生成（生成 LLM 呼び出し → 検証 → 保存） | R2 以降 |
+| `apps/workers/generation` | 問題生成（生成 LLM 呼び出し → 検証 → 保存） | R7 以降（任意、Later 扱い、→ [01-roadmap.md](../5-roadmap/01-roadmap.md)） |
 
 - **決定**：Go（全 Worker 共通）
 - 選定理由：
