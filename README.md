@@ -178,7 +178,7 @@
 
 | レイヤ | 採用技術 |
 |---|---|
-| **言語ランタイム** | Python 3.13 / Node.js 22 / Go 1.23（mise で固定、[ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)） |
+| **言語ランタイム** | Python 3.14 / Node.js 22 / Go 1.23（mise で固定、[ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)） |
 | **フロントエンド** | Next.js 16+（App Router）+ Tailwind CSS + CodeMirror 6 + TanStack Query |
 | **バックエンド API** | Python + **FastAPI**（[ADR 0034](docs/adr/0034-fastapi-for-backend.md)） |
 | **ORM / マイグレーション** | SQLAlchemy 2.0（async）+ Alembic（[ADR 0037](docs/adr/0037-sqlalchemy-alembic-for-database.md)） |

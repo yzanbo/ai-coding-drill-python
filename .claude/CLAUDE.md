@@ -19,7 +19,7 @@
 
 ## 技術スタック（モノレポ）
 
-> **言語ランタイムバージョン**：Python 3.13 / Node.js 22 / Go 1.23（`mise.toml` で固定、→ [ADR 0039](../docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）
+> **言語ランタイムバージョン**：Python / Node.js / Go の具体版数は [mise.toml](../mise.toml) が SSoT（→ [ADR 0039](../docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）。版数を確認・更新する時は mise.toml を直接見る。
 
 | ディレクトリ | 役割 | 言語 |
 |---|---|---|

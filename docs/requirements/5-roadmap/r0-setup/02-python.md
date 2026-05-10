@@ -8,7 +8,7 @@
 
 ## 1. mise install python
 
-**目的**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-) の `mise.toml` で pin 済の Python 3.13 を実体化する。
+**目的**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-) の `mise.toml` で pin 済の Python（具体版数の SSoT は [mise.toml](../../../../mise.toml)）を実体化する。
 
 **コマンド**：
 ```bash
@@ -17,10 +17,10 @@ mise install python
 
 **完了確認**：
 ```bash
-python --version  # Python 3.13.x
+python --version  # mise.toml で pin した版数が表示される
 ```
 
-**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise.toml に `python = "3.13"` が pin されている）
+**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise.toml に `python = "<最新安定版>"` が pin されている）
 
 **関連 ADR**：[ADR 0039](../../../adr/0039-mise-for-task-runner-and-tool-versions.md)
 

@@ -26,17 +26,17 @@
 | Docker | サンドボックス + ローカル DB / Redis | Docker Desktop / Engine |
 | psql | DB クライアント（任意） | `brew install postgresql` 等 |
 
-`mise install` で `mise.toml` に固定された以下が自動投入される（個別インストール不要）：
+`mise install` で `mise.toml` に固定された以下が自動投入される（個別インストール不要）。**具体版数の SSoT は [mise.toml](mise.toml)**（更新時はそこ 1 箇所を変える）：
 
-| ランタイム / ツール | バージョン | 用途 |
-|---|---|---|
-| Python | 3.13 | apps/api（FastAPI、ADR 0034） |
-| Node.js | 22 | apps/web（Next.js、ADR 0036）+ commitlint |
-| Go | 1.23 | apps/workers/*（採点・問題生成、ADR 0016 / 0040） |
-| uv | latest | Python パッケージ管理（ADR 0035） |
-| pnpm | latest | Frontend パッケージ管理（apps/web 内、ADR 0036） |
-| lefthook | latest | Git フック管理（ADR 0021） |
-| `@commitlint/cli` | latest | コミットメッセージ検証（ADR 0029） |
+| ランタイム / ツール | 用途 |
+|---|---|
+| Python | apps/api（FastAPI、ADR 0034） |
+| Node.js | apps/web（Next.js、ADR 0036）+ commitlint |
+| Go | apps/workers/*（採点・問題生成、ADR 0016 / 0040） |
+| uv | Python パッケージ管理（ADR 0035） |
+| pnpm | Frontend パッケージ管理（apps/web 内、ADR 0036） |
+| lefthook | Git フック管理（ADR 0021） |
+| `@commitlint/cli` | コミットメッセージ検証（ADR 0029） |
 
 ### セットアップ
 

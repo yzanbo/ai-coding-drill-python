@@ -8,7 +8,7 @@
 
 ## 1. mise install node && mise install pnpm
 
-**目的**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-) の `mise.toml` で pin 済の Node.js 22 / pnpm を実体化する。
+**目的**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-) の `mise.toml` で pin 済の Node.js / pnpm（具体版数の SSoT は [mise.toml](../../../../mise.toml)）を実体化する。
 
 **コマンド**：
 ```bash
