@@ -304,19 +304,59 @@ mise exec -- lefthook run pre-push        # api-pytest exit 1 + fail_text 表示
 
 ## 12. dependabot.yml に Python（pip）エコシステムを追加
 
-**目的**：apps/api の Python 依存（`apps/api/pyproject.toml` + `apps/api/uv.lock`）を Dependabot の週次自動更新対象に含める。foundation で雛形（コメントアウト状態）を用意済の `pip` ブロックを有効化し、運用ポリシー（→ [ADR 0028](../../../adr/0028-dependabot-auto-update-policy.md)）に沿った設定値で書き換える。
+**目的**：apps/api の Python 依存（`apps/api/pyproject.toml` + `apps/api/uv.lock`）を Dependabot の週次自動更新対象に含める。
 
-**追記内容**（[.github/dependabot.yml](../../../../.github/dependabot.yml) の `updates:` 配下に `pip` エントリを追加）：
+**追記内容**：[.github/dependabot.yml](../../../../.github/dependabot.yml) の `updates:` 配列に以下のエントリを追加する。
 
-| 項目 | 値 | 意図 |
+```yaml
+updates:
+  # … 既存の他エコシステム（github-actions 等）はそのまま …
+
+  - package-ecosystem: pip
+    directory: /apps/api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - python
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+    groups:
+      # FastAPI / Starlette / Pydantic は連動して更新する必要がある
+      fastapi:
+        patterns:
+          - fastapi
+          - starlette
+          - pydantic
+          - pydantic-*
+      # SQLAlchemy / Alembic はペアで更新（ADR 0037）
+      sqlalchemy:
+        patterns:
+          - sqlalchemy
+          - alembic
+```
+
+**各設定値の意図**：
+
+| key | 値 | 意図 |
 |---|---|---|
 | `package-ecosystem` | `pip` | PEP 621 の `pyproject.toml` 経由で更新（Dependabot は uv.lock を完全には扱えないが、`pyproject.toml` の version 制約を上げる PR は作れる） |
 | `directory` | `/apps/api` | monorepo 内の apps/api を対象に限定 |
-| `schedule` | `weekly` / `monday` / `06:00` / `Asia/Tokyo` | 週次・月曜朝の集中レビュー運用 |
+| `schedule` | `weekly` / `monday` / `06:00 Asia/Tokyo` | 週次・月曜朝の集中レビュー運用 |
 | `open-pull-requests-limit` | `10` | レビュー処理量に対する上限 |
 | `labels` | `dependencies` / `python` | PR フィルタリング用 |
-| `commit-message` | `prefix: build` / `prefix-development: build` / `include: scope` | commit `build(deps)(api): ...` 形式に揃える |
-| `ignore` | `*` の `version-update:semver-major` | メジャー更新は破壊的変更を伴うため自動 PR から除外、手動運用（→ ADR 0028） |
+| `commit-message` | `prefix: build` / `prefix-development: build` / `include: scope` | commit `build(deps): ...` 形式に揃える（commitlint 互換） |
+| `ignore` | `*` の `version-update:semver-major` | メジャー更新は破壊的変更を伴うため自動 PR から除外、手動運用（→ [ADR 0028](../../../adr/0028-dependabot-auto-update-policy.md)） |
 | `groups.fastapi` | `fastapi` / `starlette` / `pydantic` / `pydantic-*` | FastAPI 系は連動更新が必要なため 1 PR にまとめる |
 | `groups.sqlalchemy` | `sqlalchemy` / `alembic` | ORM とマイグレーションはペア更新（→ [ADR 0037](../../../adr/0037-sqlalchemy-alembic-for-database.md)） |
 
