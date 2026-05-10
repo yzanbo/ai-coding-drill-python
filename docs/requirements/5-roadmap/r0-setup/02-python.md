@@ -302,14 +302,25 @@ mise exec -- lefthook run pre-push        # api-pytest exit 1 + fail_text 表示
 
 ---
 
-## 12. dependabot.yml の `pip` コメントアウト解除
+## 12. dependabot.yml に Python（pip）エコシステムを追加
 
-**目的**：apps/api の Python 依存（`apps/api/pyproject.toml` + `apps/api/uv.lock`）を Dependabot の週次自動更新対象に含める。
+**目的**：apps/api の Python 依存（`apps/api/pyproject.toml` + `apps/api/uv.lock`）を Dependabot の週次自動更新対象に含める。foundation で雛形（コメントアウト状態）を用意済の `pip` ブロックを有効化し、運用ポリシー（→ [ADR 0028](../../../adr/0028-dependabot-auto-update-policy.md)）に沿った設定値で書き換える。
 
-**作業内容**（[.github/dependabot.yml](../../../../.github/dependabot.yml)）：
-- `pip` ブロックのコメントアウトを解除
-- `directory: /apps/api` を指定
-- `version-update:semver-major` を `ignore` に追加（メジャー更新は手動運用、→ [ADR 0028](../../../adr/0028-dependabot-auto-update-policy.md)）
+**追記内容**（[.github/dependabot.yml](../../../../.github/dependabot.yml) の `updates:` 配下に `pip` エントリを追加）：
+
+| 項目 | 値 | 意図 |
+|---|---|---|
+| `package-ecosystem` | `pip` | PEP 621 の `pyproject.toml` 経由で更新（Dependabot は uv.lock を完全には扱えないが、`pyproject.toml` の version 制約を上げる PR は作れる） |
+| `directory` | `/apps/api` | monorepo 内の apps/api を対象に限定 |
+| `schedule` | `weekly` / `monday` / `06:00` / `Asia/Tokyo` | 週次・月曜朝の集中レビュー運用 |
+| `open-pull-requests-limit` | `10` | レビュー処理量に対する上限 |
+| `labels` | `dependencies` / `python` | PR フィルタリング用 |
+| `commit-message` | `prefix: build` / `prefix-development: build` / `include: scope` | commit `build(deps)(api): ...` 形式に揃える |
+| `ignore` | `*` の `version-update:semver-major` | メジャー更新は破壊的変更を伴うため自動 PR から除外、手動運用（→ ADR 0028） |
+| `groups.fastapi` | `fastapi` / `starlette` / `pydantic` / `pydantic-*` | FastAPI 系は連動更新が必要なため 1 PR にまとめる |
+| `groups.sqlalchemy` | `sqlalchemy` / `alembic` | ORM とマイグレーションはペア更新（→ [ADR 0037](../../../adr/0037-sqlalchemy-alembic-for-database.md)） |
+
+**運用補足**：Dependabot が `pyproject.toml` の version を上げた PR を作成したら、開発者側で `cd apps/api && uv lock --upgrade-package <pkg>` を実行して `uv.lock` を再生成・rebase する。
 
 **完了確認**：
 - 翌週月曜 06:00 JST に `build(deps)` / `build(deps-dev)` の自動 PR が生成される

@@ -52,48 +52,44 @@ updates:
       include: scope
 
   # ────────────────────────────────────────────────────────────────────
-  # Python（pip）エコシステム — apps/api 着手時に有効化
+  # Python（pip）エコシステム — apps/api（FastAPI / Pydantic / SQLAlchemy 等）
   # ────────────────────────────────────────────────────────────────────
   # apps/api/pyproject.toml + uv.lock を監視対象とする。Dependabot は uv.lock を
   # ネイティブにはまだ完全サポートしないが、PEP 621 の pyproject.toml 経由で
-  # production / dev 依存を更新する。
-  #
-  # 着手時の対応：
-  #   1. apps/api/pyproject.toml が存在する状態で本セクションのコメントを外す
-  #   2. uv.lock 更新は `uv lock --upgrade-package <pkg>` を Dependabot が実行（or 手動同期）
-  #
-  # - package-ecosystem: pip
-  #   directory: /apps/api
-  #   schedule:
-  #     interval: weekly
-  #     day: monday
-  #     time: "06:00"
-  #     timezone: Asia/Tokyo
-  #   open-pull-requests-limit: 10
-  #   labels:
-  #     - dependencies
-  #     - python
-  #   commit-message:
-  #     prefix: build
-  #     prefix-development: build
-  #     include: scope
-  #   ignore:
-  #     - dependency-name: "*"
-  #       update-types:
-  #         - version-update:semver-major
-  #   groups:
-  #     # FastAPI / Starlette / Pydantic は連動して更新する必要がある
-  #     fastapi:
-  #       patterns:
-  #         - fastapi
-  #         - starlette
-  #         - pydantic
-  #         - pydantic-*
-  #     # SQLAlchemy / Alembic はペアで更新（ADR 0037）
-  #     sqlalchemy:
-  #       patterns:
-  #         - sqlalchemy
-  #         - alembic
+  # production / dev 依存を更新する（uv.lock は Dependabot PR 受領後の rebase 時に
+  # `uv lock --upgrade-package <pkg>` で開発者側で同期する運用）。
+  - package-ecosystem: pip
+    directory: /apps/api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - python
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+    groups:
+      # FastAPI / Starlette / Pydantic は連動して更新する必要がある
+      fastapi:
+        patterns:
+          - fastapi
+          - starlette
+          - pydantic
+          - pydantic-*
+      # SQLAlchemy / Alembic はペアで更新（ADR 0037）
+      sqlalchemy:
+        patterns:
+          - sqlalchemy
+          - alembic
 
   # ────────────────────────────────────────────────────────────────────
   # npm（apps/web）エコシステム — apps/web 着手時に有効化
