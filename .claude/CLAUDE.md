@@ -266,6 +266,11 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 ### バージョン方針
 
 - **常に最新の安定版を採用する**：言語ランタイム（Python / Node.js / Go）、ミドルウェア（PostgreSQL / Redis）、ライブラリ（FastAPI / Pydantic / SQLAlchemy / Next.js / React 等）は、新規導入時もアップデート時も**最新の stable / LTS 版**を選ぶ。RC / beta / nightly は採用しない
+- **インストール / 追加の前に必ず最新版を Web で調査する**：`uv add` / `pnpm add` / `go get` / `mise install` / `docker pull` / `apt install` / `brew install` 等、何かを新規導入する前に、必ず公式サイト（python.org / nodejs.org / go.dev / pypi.org / npmjs.com / pkg.go.dev / Docker Hub 等）で**その時点の最新安定版を確認**してから実行する。SSoT ファイルに既に書かれている版数や記憶している版数に追従しない（陳腐化している可能性があるため）
+- **依存関係の互換性を確認してから pin する**：最新安定版を採用する前に、以下を確認し、互換性が取れた範囲で最も新しい版を選ぶ：
+  - 既存依存との **peer dependency / 必須最小版数**（例：Next.js X は React Y 以上を要求 / SQLAlchemy 2.0 は Python 3.7+ 等）
+  - **breaking changes / migration guide**（CHANGELOG・リリースノート・公式の "what's new" を確認、deprecated API を踏んでいないか）
+  - 互換性問題で最新版が採用できない場合は、その理由を ADR か該当 SSoT ファイルのコメントに残す
 - **具体版数の記載は SSoT 1 箇所のみ**：版数の数字は SSoT ファイルとリーダー向けサマリ（README.md）にだけ書き、他ドキュメントには重複記載しない。アップデート時に複数箇所を直す手間と齟齬を防ぐため
 - **SSoT の配置**（種別ごと）：
   - 言語ランタイム → `mise.toml`
