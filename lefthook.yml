@@ -22,12 +22,14 @@ pre-commit:
     # ruff は --fix 結果を stage_fixed: true で自動再ステージし、ローカル PR の
     # 「format / import 順違反だけのコミット」を発生させない。
 
+    # lint + format（ruff）
     api-ruff:
       glob: "apps/api/**/*.py"
       root: apps/api
       run: mise exec -- uv run ruff check --fix {staged_files}
       stage_fixed: true
 
+    # 型チェック（pyright）
     api-pyright:
       glob: "apps/api/**/*.py"
       root: apps/api
