@@ -41,7 +41,7 @@
 - **将来の乗り換え候補**：Pyrefly（Meta）/ ty（Astral）。GA + 型仕様準拠率 95% 超で再評価（→ [ADR 0020 §見直しトリガー](../../adr/0020-python-code-quality.md)）
 - **`pip-audit`**：依存パッケージの脆弱性スキャン（PyPA 公式、`uv.lock` を入力源、PyPI Advisory + OSV.dev を照会、→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）
 
-### TypeScript（フロントエンド、→ [ADR 0018](../../adr/0018-biome-for-tooling.md) — Superseded by 0033、Frontend 用途として継続採用）
+### TypeScript（フロントエンド、→ [ADR 0018](../../adr/0018-biome-for-tooling.md) — Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
 
 - **Biome**：lint + format（Rust 製で高速）。ESLint + Prettier は不採用
 - **`tsc --noEmit`**：型チェック（Biome は型チェックを行わないため必須）
@@ -56,7 +56,7 @@
 - **lefthook**：Git フック管理（言語横断）。フック × チェック × CI の対応は [#フック × チェック × CI 対応表](#フック--チェック--ci-対応表) を参照。設定 SSoT は [lefthook.yml](../../../lefthook.yml)
 - **commitlint**（Conventional Commits、言語横断）：コミットメッセージ規約の機械的検証。**過去のコミット履歴は遡及修正できない**ため、最初から規約を効かせる必要がある
 - **Knip**（TS / Frontend 限定）：未使用 export / 依存 / ファイルの検出。蓄積後の一斉検出は削除可否の個別判断で時間を消費する
-- **syncpack**（TS / Frontend 限定、→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) — Superseded by 0033、Frontend 用途として継続採用）：モノレポ内 `package.json` のバージョン整合性を強制。Python 側は uv の単一 lockfile（`uv.lock`）が同等機能を内蔵するため追加ツール不要（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）
+- **syncpack**（TS / Frontend 限定、→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) — Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）：モノレポ内 `package.json` のバージョン整合性を強制。Python 側は uv の単一 lockfile（`uv.lock`）が同等機能を内蔵するため追加ツール不要（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）
 
 ### 設定ファイルの物理配置
 
@@ -180,7 +180,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 > **適用範囲**：Frontend（TS / pnpm workspaces）限定。Python バックエンドは uv の単一 lockfile（`uv.lock`）が同等機能を提供するため syncpack 相当の追加ツールは不要（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）。
 
-モノレポ内 `package.json` の整合性（バージョン揃え / `^` 統一 / `workspace:*` 強制 / dep 重複検知）の機械強制ルールセット。採用根拠は [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) を参照（Superseded by 0033 だが Frontend 用途として継続採用）。
+モノレポ内 `package.json` の整合性（バージョン揃え / `^` 統一 / `workspace:*` 強制 / dep 重複検知）の機械強制ルールセット。採用根拠は [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) を参照（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）。
 
 **真の SSoT は `apps/web/.syncpackrc.ts`**（apps/web 着手時に投入予定、ADR 0036 拡張で root から移動。`syncpack` の `RcFile` 型を import して型安全を確保、コメントで規約の「なぜ」をインライン化）。本セクションは概観・人間向け解説。
 
@@ -402,8 +402,8 @@ rules:
 - [ADR 0038: テストフレームワーク確定（pytest / Vitest / Playwright / Go testing）](../../adr/0038-test-frameworks.md)
 - [ADR 0020: Python のコード品質ツールに ruff + pyright を採用](../../adr/0020-python-code-quality.md)
 - [ADR 0019: Go のコード品質ツール（gofmt + golangci-lint）](../../adr/0019-go-code-quality.md)
-- [ADR 0018: TypeScript のコード品質ツールに Biome](../../adr/0018-biome-for-tooling.md)（Superseded by 0033、Frontend 用途として継続採用）
+- [ADR 0018: TypeScript のコード品質ツールに Biome](../../adr/0018-biome-for-tooling.md)（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
 - [ADR 0023: Turborepo + pnpm workspaces](../../adr/0023-turborepo-pnpm-monorepo.md)（Superseded by 0033、Frontend 用途として継続検討）
-- [ADR 0024: syncpack による package.json 整合性](../../adr/0024-syncpack-package-json-consistency.md)（Superseded by 0033、Frontend 用途として継続採用）
+- [ADR 0024: syncpack による package.json 整合性](../../adr/0024-syncpack-package-json-consistency.md)（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
 - [ADR 0006: JSON Schema を SSoT に](../../adr/0006-json-schema-as-single-source-of-truth.md)
 - [ADR 0021: 補完ツールを R0 から導入](../../adr/0021-r0-tooling-discipline.md)

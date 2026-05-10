@@ -132,7 +132,7 @@ R0 で同時に決めておく構造的事項：
 
 - [ADR 0033: バックエンドを Python に pivot](./0033-backend-language-pivot-to-python.md)（R0 範囲拡張の契機）
 - [ADR 0021: 補完ツールを R0 から導入](./0021-r0-tooling-discipline.md)（言語横断の R0 機械強制方針）
-- [ADR 0018: TypeScript のコード品質ツールに Biome](./0018-biome-for-tooling.md)（Superseded by 0033、Frontend 用途として継続採用）
+- [ADR 0018: TypeScript のコード品質ツールに Biome](./0018-biome-for-tooling.md)（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
 - [ADR 0019: Go のコード品質ツール](./0019-go-code-quality.md)（Worker R0 skeleton の根拠）
 - [ADR 0020: Python のコード品質ツールに ruff + pyright を採用](./0020-python-code-quality.md)（Backend R0 baseline）
 - [ADR 0035: Python のパッケージ管理に uv を採用](./0035-uv-for-python-package-management.md)（pip-audit を R0 で組み込む根拠）

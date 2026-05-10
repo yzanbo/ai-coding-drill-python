@@ -73,9 +73,9 @@
 |---|---|---|---|
 | [0014](./0014-nestjs-for-backend.md) | NestJS for backend | `Superseded by 0033` | 本文は移行判断軌跡として保持。代替判断は [ADR 0034](./0034-fastapi-for-backend.md) |
 | [0017](./0017-drizzle-orm-over-prisma.md) | Drizzle ORM over Prisma | `Superseded by 0033, 0037` | 代替判断は [ADR 0037](./0037-sqlalchemy-alembic-for-database.md)（SQLAlchemy 2.0 + Alembic） |
-| [0018](./0018-biome-for-tooling.md) | Biome for tooling | `Superseded by 0033` | Frontend 用途（apps/web/）として継続採用、Python 側は [ADR 0020](./0020-python-code-quality.md)（ruff）で代替 |
+| [0018](./0018-biome-for-tooling.md) | Biome for tooling | `Accepted, Amended by 0033 / 0036` | Frontend 用途（apps/web/）として継続採用、Python 側は [ADR 0020](./0020-python-code-quality.md)（ruff）で代替 |
 | [0023](./0023-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces | `Superseded by 0033, 0036` | Frontend モノレポは [ADR 0036](./0036-frontend-monorepo-pnpm-only.md)（pnpm のみ）、Python 側は [ADR 0035](./0035-uv-for-python-package-management.md)（uv workspace）、tool 版数 / タスクランナーは [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)（mise）に分離 |
-| [0024](./0024-syncpack-package-json-consistency.md) | syncpack | `Superseded by 0033, 0036` | 採用判断は維持、配置を `apps/web/.syncpackrc.ts` に移しルールセット縮小 |
+| [0024](./0024-syncpack-package-json-consistency.md) | syncpack | `Accepted, Amended by 0033 / 0036` | 採用判断は維持、配置を `apps/web/.syncpackrc.ts` に移しルールセット縮小 |
 
 ### 本文修正（Status は維持）
 

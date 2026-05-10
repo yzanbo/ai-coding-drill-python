@@ -14,7 +14,7 @@
 
 関連：
 
-- TS の品質ツール → [ADR 0018](./0018-biome-for-tooling.md)（Superseded by 0033、移行軌跡として保持）
+- TS の品質ツール → [ADR 0018](./0018-biome-for-tooling.md)（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
 - Go の品質ツール → [ADR 0019](./0019-go-code-quality.md)
 - 「可逆な判断は遅延させる」原則 → [ADR 0007: LLM プロバイダ抽象化](./0007-llm-provider-abstraction.md)
 
@@ -34,7 +34,7 @@
 
 1. **`lint + format` を Rust で統合**
    - Astral 製で `flake8` / `black` / `isort` 等を 1 ツールに置換
-   - TS の Biome（[ADR 0018](./0018-biome-for-tooling.md)、Superseded by 0033 だが設計思想は継承）と対称的な設計思想（Rust 製・統合・高速）で、3 言語横断で「単一ツール統合」哲学が一貫する
+   - TS の Biome（[ADR 0018](./0018-biome-for-tooling.md)、Frontend 用途として継続採用）と対称的な設計思想（Rust 製・統合・高速）で、3 言語横断で「単一ツール統合」哲学が一貫する
 2. **CI 高速化**
    - 大規模コードベースで flake8 + black + isort の数十倍速、CI 時間を顕著に短縮
 3. **エコシステム集中**
@@ -114,7 +114,7 @@
 - [06-dev-workflow.md: コード品質ツール](../requirements/2-foundation/06-dev-workflow.md#コード品質ツール)
 - [ADR 0033: バックエンドを Python に pivot](./0033-backend-language-pivot-to-python.md)（本 ADR の役割を「R7 分析」から「バックエンド本体」に変更した契機）
 - [ADR 0034: バックエンド API に FastAPI を採用](./0034-fastapi-for-backend.md)
-- [ADR 0018: TypeScript のコード品質ツール](./0018-biome-for-tooling.md)（Superseded by 0033）
+- [ADR 0018: TypeScript のコード品質ツール](./0018-biome-for-tooling.md)（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
 - [ADR 0019: Go のコード品質ツール](./0019-go-code-quality.md)
 - [ADR 0003: レイヤ別ポリグロット構成](./0003-phased-language-introduction.md)
 - [ADR 0007: LLM プロバイダ抽象化（"可逆な判断は遅延させる" 原則）](./0007-llm-provider-abstraction.md)

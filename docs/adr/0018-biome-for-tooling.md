@@ -1,6 +1,6 @@
 # 0018. TypeScript のコード品質ツールに Biome を採用し、設定は apps/web/ 配下に直接配置する
 
-- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md)
+- **Status**: Accepted（Frontend 用途、Amended by [0033](./0033-backend-language-pivot-to-python.md) / [0036](./0036-frontend-monorepo-pnpm-only.md)）
 - **Date**: 2026-05-09 <!-- ADR 0036 拡張により設定配置を root → apps/web/ に移動。Frontend 用途として継続採用 -->
 - **Decision-makers**: 神保 陽平
 

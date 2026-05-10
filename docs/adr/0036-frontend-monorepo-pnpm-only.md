@@ -57,7 +57,7 @@ root には言語横断の orchestration / Git フック / コミット規約の
 
 すべて `mise run <task>` 経由（→ [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)）。`apps/web` 配下のタスクは mise.toml に `dir = "apps/web"` を指定し、`pnpm run dev` 等を delegate する形にする。
 
-[ADR 0023](./0023-turborepo-pnpm-monorepo.md) と [ADR 0024](./0024-syncpack-package-json-consistency.md) は本 ADR と [ADR 0033](./0033-backend-language-pivot-to-python.md) の組み合わせで Superseded。
+[ADR 0023](./0023-turborepo-pnpm-monorepo.md) は本 ADR と [ADR 0033](./0033-backend-language-pivot-to-python.md) の組み合わせで Superseded（Turborepo / pnpm workspaces 不採用）。[ADR 0024](./0024-syncpack-package-json-consistency.md) は採用維持で `apps/web/.syncpackrc.ts` に再配置・ルールセット縮小（`Accepted, Amended by 0033 / 0036`）。
 
 ## Why（採用理由）
 

@@ -117,7 +117,7 @@
 
 - [06-dev-workflow.md: コード品質ツール](../requirements/2-foundation/06-dev-workflow.md#コード品質ツール)
 - [ADR 0016: 採点ワーカーを Go で実装](./0016-go-for-grading-worker.md)
-- [ADR 0018: TypeScript のコード品質ツールに Biome](./0018-biome-for-tooling.md)（Superseded by 0033、Frontend 用途として継続採用）
+- [ADR 0018: TypeScript のコード品質ツールに Biome](./0018-biome-for-tooling.md)（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
 - [ADR 0020: Python のコード品質ツールに ruff + pyright を採用](./0020-python-code-quality.md)
 - [ADR 0021: 補完ツールを R0 から導入](./0021-r0-tooling-discipline.md)
 - [ADR 0026: GitHub Actions の段階拡張](./0026-github-actions-incremental-scope.md)（Go ジョブを R0 skeleton として先置きする根拠）

@@ -149,7 +149,7 @@
 | [0035](docs/adr/0035-uv-for-python-package-management.md) | Python パッケージ管理に uv を採用 | Astral 統合 / lockfile / workspace |
 | [0020](docs/adr/0020-python-code-quality.md) | Python のコード品質ツール（ruff + pyright + pip-audit + deptry） | Astral 統合 / 可逆な判断の遅延 |
 | [0023](docs/adr/0023-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces *(Superseded by 0033, 0036)* | モノレポ運用（軌跡として保持。Python 側は [ADR 0035](docs/adr/0035-uv-for-python-package-management.md)、タスクランナーは [ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md) で代替） |
-| [0018](docs/adr/0018-biome-for-tooling.md) | TS のコード品質ツールに Biome を採用、設定は `apps/web/` 配下に直接配置 *(Superseded by 0033)* | Rust 製 / 高速 / 単一設定（Frontend 用途として継続採用） |
+| [0018](docs/adr/0018-biome-for-tooling.md) | TS のコード品質ツールに Biome を採用、設定は `apps/web/` 配下に直接配置 *(Accepted, Amended by 0033 / 0036)* | Rust 製 / 高速 / 単一設定（Frontend 用途として継続採用） |
 | [0006](docs/adr/0006-json-schema-as-single-source-of-truth.md) | Pydantic を SSoT に、境界別 2 伝送路で各言語に展開 | Pydantic-first / FastAPI 自動 OpenAPI / Hey API + quicktype |
 | [0021](docs/adr/0021-r0-tooling-discipline.md) | 補完ツールを R0 から導入 | lefthook / commitlint / Knip / syncpack / ruff / pyright / pip-audit / deptry |
 | [0001](docs/adr/0001-requirements-as-5-buckets.md) | 要件定義書を 5 バケット時系列構造に再編 | ドキュメント設計 / SSoT / 読む順序 vs 書く順序 |
@@ -163,7 +163,7 @@
 | [0027](docs/adr/0027-github-actions-sha-pinning.md) | サードパーティアクションを SHA でピン止め | サプライチェーン攻撃耐性 |
 | [0030](docs/adr/0030-commitlint-base-commit-fetch.md) | commitlint の base コミット取得を iterative deepen 方式で | shallow-exclude 不可 / `--deepen=20` |
 | [0022](docs/adr/0022-config-file-format-priority.md) | 設定ファイル形式の選定方針（TS > JSONC > YAML） | ツール強制 / ecosystem 慣習 |
-| [0024](docs/adr/0024-syncpack-package-json-consistency.md) | syncpack による `package.json` 整合性ゲート *(Superseded by 0033, 0036)* | apps/web 配下に再配置 + 単一 package.json 用 3 ルールに縮小 |
+| [0024](docs/adr/0024-syncpack-package-json-consistency.md) | syncpack による `package.json` 整合性ゲート *(Accepted, Amended by 0033 / 0036)* | apps/web 配下に再配置 + 単一 package.json 用 3 ルールに縮小 |
 | [0031](docs/adr/0031-ci-success-umbrella-job.md) | CI Required status checks を集約ジョブ `ci-success` で 1 本化 | umbrella job / `needs.*.result` |
 | [0032](docs/adr/0032-github-repository-settings.md) | GitHub リポジトリ設定の方針（Ruleset / マージ動作 / Actions / Security） | デフォルト変更項目の棚卸し |
 
