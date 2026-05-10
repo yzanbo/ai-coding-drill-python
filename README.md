@@ -4,6 +4,8 @@
 > 「LLM の出力を信用せず、サンドボックスで動作保証する」設計思想を実装したポートフォリオプロジェクト。
 
 > **このリポジトリは Python 版です**。TS 版（[`yzanbo/ai-coding-drill`](https://github.com/yzanbo/ai-coding-drill)）を [`v1.0.0-typescript`](https://github.com/yzanbo/ai-coding-drill/releases/tag/v1.0.0-typescript) タグ時点で fork し、バックエンド API を Python に pivot した派生版です。Frontend (Next.js) と採点ワーカー (Go) は維持し、バックエンドのみ言語を切り替えます。判断の背景は [ADR 0033](docs/adr/0033-backend-language-pivot-to-python.md) を参照。
+>
+> なお TS 版（`v1.0.0-typescript`）では共有データ型を `packages/shared-types/` に集約していましたが、Python pivot に伴い **Pydantic を SSoT に統一**し（→ [ADR 0006](docs/adr/0006-json-schema-as-single-source-of-truth.md)）、`packages/shared-types/` は廃止しました。
 
 🚀 **デモ**：_（デプロイ後に追記予定。R5 完了時に公開）_
 📊 **ステータス**：**設計フェーズ完了・実装着手前**（Python pivot に伴う ADR 0033〜0040 起票完了、R0 ツーリング着手前）
@@ -152,7 +154,7 @@
 | [0021](docs/adr/0021-r0-tooling-discipline.md) | 補完ツールを R0 から導入 | Knip / lefthook / commitlint / syncpack |
 | [0001](docs/adr/0001-requirements-as-5-buckets.md) | 要件定義書を 5 バケット時系列構造に再編 | ドキュメント設計 / SSoT / 読む順序 vs 書く順序 |
 | [0019](docs/adr/0019-go-code-quality.md) | Go のコード品質ツール（gofmt + golangci-lint） | Go 標準 / メタリンター |
-| [0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md) | Worker を `apps/workers/<name>/` で系統別に分割、LLM 呼び出しは Worker 側に集約 | grading / generation / prompts 同居 |
+| [0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md) | Worker を `apps/workers/<name>/` で系統別に分割、LLM 呼び出しは Worker 側に集約 | judge プロンプトは `apps/workers/grading/prompts/judge/`、generation プロンプトは `apps/workers/generation/prompts/generation/` に同居 |
 | [0038](docs/adr/0038-test-frameworks.md) | テストフレームワーク（pytest / Vitest + Playwright / Go testing + testify） | 言語ごとに標準ツール |
 | [0026](docs/adr/0026-github-actions-incremental-scope.md) | GitHub Actions のスコープを段階的に拡張（R0 は最小） | YAGNI / 段階拡張 / 無料枠節約 |
 | [0025](docs/adr/0025-github-actions-as-ci-cd.md) | CI/CD ツールに GitHub Actions を採用 | コードホスト統合 / OIDC キーレス |

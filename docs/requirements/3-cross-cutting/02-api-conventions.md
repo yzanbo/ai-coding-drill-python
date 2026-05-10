@@ -134,6 +134,26 @@
 
 ---
 
+## APIRouter 構成
+
+FastAPI の `APIRouter` を機能単位で分割し、`apps/api/app/main.py` で `app.include_router()` する構成（→ [.claude/rules/backend.md](../../../.claude/rules/backend.md)）。R1 MVP 時点での router 一覧：
+
+| router モジュール | prefix | 担当 feature | 主なエンドポイント |
+|---|---|---|---|
+| `routers/auth` | `/auth` | [F-01](../4-features/F-01-github-oauth-auth.md) | `/auth/github` / `/auth/github/callback` / `/auth/logout` / `/auth/me` |
+| `routers/problems` | `/problems` | [F-02](../4-features/F-02-problem-generation.md) / [F-03](../4-features/F-03-problem-display-and-answer.md) | `/problems` / `/problems/:id` / `/problems/generate` / `/problems/generate/:requestId` |
+| `routers/submissions` | `/submissions` | [F-04](../4-features/F-04-auto-grading.md) | `/submissions` / `/submissions/:id` |
+| `routers/jobs` | `/jobs` | 横断（enqueue 内部 API） | API 内部でジョブ enqueue 用途。書き戻しは Worker が直接 DB に行うため公開エンドポイントは持たない |
+| `routers/healthz` | `/` | 横断 | `/healthz` / `/readyz` |
+
+将来追加予定（R2 以降）：
+
+- `routers/me`（[F-05](../4-features/F-05-learning-history.md)）：`/me/stats` / `/me/weakness`
+
+router の物理配置・依存定義（`Depends(get_current_user)` 等）の詳細規約は [.claude/rules/backend.md](../../../.claude/rules/backend.md) を参照。
+
+---
+
 ## 機能別エンドポイント一覧
 
 エンドポイントの **詳細仕様（リクエスト/レスポンス例・バリデーション・受け入れ条件）** は [features/](../4-features/) が SSoT。本一覧は俯瞰用：

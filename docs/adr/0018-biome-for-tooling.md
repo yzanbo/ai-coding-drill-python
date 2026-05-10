@@ -31,8 +31,8 @@ TypeScript のリンタ・フォーマッタ選定と、モノレポにおける
 - **lint + format に [Biome](https://biomejs.dev/)** を採用する（Rust 製、lint と format を統合）
 - **型チェックには `tsc --noEmit`** を併用する（Biome は型チェックをカバーしないため）
 - **ESLint + Prettier は採用しない**
-- **設定ファイルはリポジトリルート直下の `biome.jsonc` に直接配置**する。`packages/config/` 配下に共有 base ファイルを置く 2 段構成は採用しない
-- 将来 workspace 固有の上書きが必要になった場合のみ、`apps/<name>/biome.jsonc` を作成しルートを `extends` で継承する
+- **設定ファイルは `apps/web/biome.jsonc` に直接配置**する（Frontend 単一 app 化（→ [ADR 0036](./0036-frontend-monorepo-pnpm-only.md)）に伴い、root 直接配置から apps/web 配下へ移動）。`packages/config/` 配下に共有 base ファイルを置く 2 段構成は採用しない
+- 将来 apps/web 内の sub-package 固有の上書きが必要になった場合のみ、追加の `biome.jsonc` を作成し apps/web/biome.jsonc を `extends` で継承する
 
 ## Why（採用理由）
 
@@ -48,22 +48,20 @@ TypeScript のリンタ・フォーマッタ選定と、モノレポにおける
 4. **dprint より統合的**
    - dprint はフォーマット専業で linter 機能なし、Biome の方が用途を 1 ツールに集約できる
 
-### なぜルート直接配置か（`packages/config/biome-config/` を経由しない）
+### なぜ apps/web 直接配置か（`packages/config/biome-config/` を経由しない）
 
 1. **Biome は単一設定で全体を再帰スキャンする設計**
    - ESLint / Prettier のような「各 package 配下の `.eslintrc` を辿る」モデルとは前提が違う
-   - 主な消費者がルート 1 つに集中するため、共有 base を別ディレクトリに切り出す indirection の便益がない
+   - 消費者は apps/web 単一に集中するため、共有 base を別ディレクトリに切り出す indirection の便益がない
 2. **YAGNI**
    - `packages/config` を別 npm パッケージとして公開する未来は想定されない（個人ポートフォリオ）
    - 「将来別プロジェクトで再利用するかも」という抽象化を先取りしない
 3. **役割が見えやすい**
-   - 実際の規則がルート `biome.jsonc` に直接書かれていれば、新規参画者が 1 ファイルを読むだけで全体像を把握できる
+   - 実際の規則が `apps/web/biome.jsonc` に直接書かれていれば、新規参画者が 1 ファイルを読むだけで全体像を把握できる
 4. **業界実例**
-   - Vercel turborepo 公式テンプレートの Biome 版・Astro モノレポ・Bluesky social-app 等、主要モノレポは Biome をルート直接配置している
-5. **tsconfig との非対称は問題にならない**
-   - tsconfig は各 workspace から base を継承する **多消費者前提**のため `packages/config/tsconfig/` に置く意義が明確
-   - Biome は **単一消費者前提**で消費パターンが本質的に異なる
-   - 同じ `packages/config/` 配下に置こうとすると、消費パターンの違いを構造に反映できない
+   - Vercel turborepo 公式テンプレートの Biome 版・Astro モノレポ・Bluesky social-app 等、主要モノレポは Biome を単一場所に直接配置している
+5. **tsconfig との非対称は問題にならない**（旧理由）
+   - 旧設計では tsconfig が `packages/config/tsconfig/` の多消費者前提であり Biome は単一消費者前提という対比が成立していたが、ADR 0036 で `packages/config/` 自体が廃止され apps/web 単一 app に集約された結果、Biome / tsconfig はいずれも `apps/web/` 直下に並ぶ対称構造となり、この論点自体が解消された
 
 ## Alternatives Considered（検討した代替案）
 
@@ -79,9 +77,9 @@ TypeScript のリンタ・フォーマッタ選定と、モノレポにおける
 
 | 候補 | 採用しなかった理由 |
 |---|---|
-| ルート直接配置（採用） | — |
-| `packages/config/biome-config/biome.base.jsonc` ← `biome.jsonc`（extends 1 行）| indirection の便益が現状ゼロ。役割が見えづらく、共有 base と extends 元の二重メンテが発生 |
-| 各 workspace に `biome.jsonc` を必須化し `turbo run lint` で集約 | Biome は単一設定で全体スキャンする設計のため、workspace 増加でボイラープレートが嵩む。Biome 自身が並列化されており Turbo キャッシュの便益も限定的 |
+| `apps/web/biome.jsonc` 直接配置（採用） | — |
+| `packages/config/biome-config/biome.base.jsonc` ← `biome.jsonc`（extends 1 行）| indirection の便益が現状ゼロ。役割が見えづらく、共有 base と extends 元の二重メンテが発生（さらに ADR 0036 で `packages/config/` 自体が廃止） |
+| 各 workspace に `biome.jsonc` を必須化し `turbo run lint` で集約 | Biome は単一設定で全体スキャンする設計のため、workspace 増加でボイラープレートが嵩む。Turborepo 自体も ADR 0036 で不採用 |
 
 ## Consequences（結果・トレードオフ）
 
@@ -89,7 +87,7 @@ TypeScript のリンタ・フォーマッタ選定と、モノレポにおける
 
 - 設定統合（`biome.jsonc` 1 ファイル）で TS の lint / format / import 整理が完結
 - CI 高速化（ESLint + Prettier 比で大幅短縮見込み）
-- 新規参画者が Biome 設定の場所を探さなくて済む（リポジトリ直下にある）
+- 新規参画者が Biome 設定の場所を探さなくて済む（`apps/web/` 直下にある）
 - 型チェック（`tsc`）と構文・スタイル（Biome）の責務が明確
 - `packages/config/` の責務が「**多消費者前提の shared config**（tsconfig）専用」に絞られ、置く基準が明確になる
 

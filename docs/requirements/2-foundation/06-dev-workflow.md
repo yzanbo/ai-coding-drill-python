@@ -10,7 +10,7 @@
 
 3 言語ポリグロット構成（[ADR 0003](../../adr/0003-phased-language-introduction.md)）に対し、各言語の標準ツール 1 本でモノレポ管理する。
 
-- **Frontend（Next.js / TS）**：**`apps/web/` 内に閉じる**（→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md) 拡張）。pnpm / Biome / Knip / syncpack / tsconfig は全て `apps/web/` 配下に配置、Turborepo / pnpm workspaces は不採用。単一 Next.js app では並列ビルド・依存グラフ・リモートキャッシュ等の価値ドライバが効かないため
+- **Frontend（Next.js / TS）**：**`apps/web/` 内に閉じる**（→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md) 拡張）。pnpm / Biome / Knip / syncpack / tsconfig は全て `apps/web/` 配下に配置。**Turborepo は不採用**（並列ビルド・依存グラフ・リモートキャッシュ等の価値ドライバが単一 app 構成では効かないため）、**pnpm workspaces は `apps/web/` 内のみ採用**（apps/web 配下の package.json 群を 1 つの workspace として扱う）
 - **Backend（Python / FastAPI）**：`apps/api/` 内で **`uv`** を採用（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）。パッケージ管理 / 仮想環境 / Python バージョン / lockfile / workspace を 1 ツールで統合。lockfile が依存整合性を保証するため syncpack 相当の追加ツールは不要
 - **Workers（Go）**：`apps/workers/<name>/` 配下で **独立 Go module**（`go mod`、Go 標準）。grading + generation の各 Worker が独立 module（→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）
 - **root**：orchestration 専用層（`mise.toml` / `lefthook.yml` / `commitlint.config.mjs` のみ）。`packages/` は全て廃止済み（shared-types は不採用、config と prompts は移動 / 廃止、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) / [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md) / [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）
@@ -283,9 +283,27 @@ Backend の Pydantic モデル（`apps/api/app/schemas/`）を Single Source of 
 - `mise run api:job-schemas-export`：Pydantic Job payload から個別 JSON Schema を `apps/api/job-schemas/` に書き出し
 - `mise run web:types-gen`：Hey API で OpenAPI から TS / Zod / HTTP クライアント生成
 - `mise run worker:types-gen`：quicktype で `apps/api/job-schemas/` から Go struct 生成（横断、対象 Worker 全てに配布）
-- CI で `git diff --exit-code` により drift 検出（生成物コミット忘れの fail-closed）
 
 配置・生成ツール候補・コミット方針・選定理由・代替検討の詳細 SSoT は [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) を参照。
+
+### drift 検出（lefthook + CI 二軸）
+
+「Pydantic schema を変更したのに `apps/api/openapi.json` / `apps/api/job-schemas/` / `apps/web/src/__generated__/api/` の再エクスポートを忘れた PR」を構造的に防ぐため、**ローカル早期検出（lefthook）と最終ゲート（CI）の二軸**で守る。両者の役割は補完関係であり、片方だけでは不足する：
+
+| 軸 | 走る場所 | 役割 | 強制力 | 速度 |
+|---|---|---|---|---|
+| **lefthook** | 開発者ローカル（pre-commit / pre-push） | 早期 feedback、CI 待ち時間ゼロ | `--no-verify` で迂回可能 | 数秒（差分ファイル limited） |
+| **GitHub Actions CI** | PR / push | 迂回不可の最終ゲート、Required status checks に組込 | 強制（Ruleset で保護） | 数十秒〜分 |
+
+#### 起動条件と動作
+
+- **lefthook**：`apps/api/app/schemas/` 配下の `.py` がステージング差分に含まれるときだけ `mise run api:openapi-export && mise run api:job-schemas-export` を実行し、出力 artifact が未ステージなら abort（`git diff --exit-code` 相当）。glob フィルタで「無関係な commit に余計なコストを乗せない」設計
+- **CI**：PR / main push で `mise run api:openapi-export && mise run api:job-schemas-export && mise run web:types-gen && git diff --exit-code apps/api/openapi.json apps/api/job-schemas/ apps/web/src/__generated__/api/` を実行。`worker:types-gen` の出力は gitignore（→ ADR 0006）のため drift 検出対象外（CI 内で都度生成して使う）
+
+#### 配線タイミング
+
+- 本仕組みは **`apps/api/` 実装着手時**に lefthook（→ [#フック × チェック × CI 対応表](#フック--チェック--ci-対応表)）と CI workflow（→ [#ci-集約ジョブ-ci-success-umbrellaパターン](#ci-集約ジョブci-success-umbrellaパターン)）に同時配線する。実装前は `apps/api/openapi.json` 自体が存在せず空回りするため、配線を前倒ししない（→ [ADR 0026](../../adr/0026-github-actions-incremental-scope.md) 段階拡張原則と整合）
+- 採用根拠の SSoT は [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) を参照
 
 ---
 

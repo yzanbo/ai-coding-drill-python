@@ -12,7 +12,7 @@ flowchart TB
     CDN["Vercel CDN<br/>- Next.js"]
 
     subgraph aws["AWS"]
-        API["FastAPI / Python<br/>★ ECS Fargate<br/>- Auth<br/>- 問題 CRUD<br/>- ジョブ INSERT"]
+        API["FastAPI / Python<br/>★ ECS Fargate<br/>- Auth<br/>- 問題 CRUD<br/>- ジョブ enqueue<br/>- 結果読み取り"]
         DB[("Postgres（RDS）<br/>★ マネージド<br/>- users<br/>- problems<br/>- submissions<br/>- jobs（兼ジョブキュー）")]
         Redis[("Redis（Upstash）<br/>★ マネージド<br/>- LLM cache<br/>- sessions")]
 
@@ -74,10 +74,10 @@ flowchart TB
 
 ### FastAPI / Python（ECS Fargate）
 - APIRouter 構成：auth / problems / submissions / jobs（enqueue のみ）/ healthz
-- 認証（GitHub OAuth）、問題 CRUD、ジョブ INSERT、結果取得 API
+- 責務：**認証（GitHub OAuth）・問題 CRUD・ジョブ enqueue・結果読み取り**（Worker が `submissions` / `jobs` テーブルへの結果書き戻しを担当するため、API 側は読み取り専用）
 - **LLM 呼び出しは行わない**（Worker 側に集約、→ [ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)）
 - Docker 操作はしない
-- Pydantic を SSoT に、HTTP API 境界は OpenAPI 3.1（`apps/api/openapi.json`）/ Job キュー境界は JSON Schema（`apps/api/job-schemas/`）として書き出し（[ADR 0006](docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- 共有データ型は **Pydantic を SSoT** とし、**境界別の 2 伝送路**で TS / Go に展開（→ [ADR 0006](docs/adr/0006-json-schema-as-single-source-of-truth.md)）：HTTP API 境界は FastAPI 自動 OpenAPI 3.1（`apps/api/openapi.json`）→ Hey API で TS 型 + Zod + HTTP クライアント生成、Job キュー境界は Pydantic `model.model_json_schema()` で個別 JSON Schema を `apps/api/job-schemas/` に出力 → quicktype `--src-lang schema` で Go struct 生成
 
 ### Postgres（RDS）
 - アプリデータ（users, problems, submissions）
@@ -92,6 +92,7 @@ flowchart TB
 - 常駐プロセス、ループで動く
 - Postgres `jobs` を LISTEN/NOTIFY + ポーリングで監視
 - LLM 呼び出しは Worker 側に集約（プロンプトも `apps/workers/<name>/prompts/` に同居）
+- **LLM プロバイダ抽象化層は Go ワーカー内に実装**（Anthropic / Gemini / OpenAI / OpenRouter を差し替え可能、API 側からは独立、→ [ADR 0007](docs/adr/0007-llm-provider-abstraction.md) / [ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)）
 
 #### 採点ワーカー（`apps/workers/grading/`）
 - ジョブ取得 → judge LLM 呼び出し → Docker API でサンドボックス起動 → 結果回収 → 書き戻し

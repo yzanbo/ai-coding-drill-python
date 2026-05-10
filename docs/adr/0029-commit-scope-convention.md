@@ -14,7 +14,7 @@
    - 列挙制にすると、新しい領域を増やすときに commitlint 設定を更新する手間が出る
 
 2. **モノレポの「領域」と「依存更新」をどう識別子で区別するか**
-   - 領域 scope（`web` / `api` / `worker` / `shared` / `config` / `infra` / `docs` / `db`）はモノレポの作業対象を示す
+   - 領域 scope（`web` / `api` / `worker` / `shared` / `config` / `infra` / `docs` / `db`）はモノレポの作業対象を示す（`shared` は `apps/api/openapi.json` / `apps/api/job-schemas/` 等の共有 artifact、`config` は root 直接配置の tooling。`packages/` は廃止済み）
    - 一方で [ADR 0028](./0028-dependabot-auto-update-policy.md) で導入した Dependabot は `include: scope` 指定により、依存種別から自動的に scope を生成する：
      - production / github-actions → `(deps)`
      - devDependencies → `(deps-dev)`
@@ -43,7 +43,7 @@
 
 ### 領域 scope を 8 種に絞る理由
 
-- **モノレポの物理ディレクトリと一対一対応**：`apps/*` / `packages/*` / `infra/` / `docs/` の各ディレクトリが scope に対応する
+- **モノレポの物理ディレクトリと一対一対応**：`apps/*` / `infra/` / `docs/` の各ディレクトリが scope に対応する（`packages/` は ADR 0036 / 0040 で全廃済み。共有 artifact は `apps/api/openapi.json` / `apps/api/job-schemas/` 等の `apps/api/` 配下に集約され `shared` scope で表現、root tooling 設定は `config` scope で表現）
 - **`db` だけは物理ディレクトリでなく論理領域**：DB スキーマ・マイグレーションは `apps/api` 配下にあるが、DB スキーマ変更は影響範囲が API 単独でないため独立 scope を割り当てる（マイグレーションを伴う変更を後で `git log` で抽出しやすい）
 - **`config` は root 直接配置の tooling 設定群を対象**：`mise.toml` / `lefthook.yml` / `commitlint.config.mjs` 等。`packages/config/` は廃止済み（→ [ADR 0036](./0036-frontend-monorepo-pnpm-only.md)）のため、現状は root tooling 設定のみが対象
 
@@ -89,7 +89,7 @@
 
 ### 将来の見直しトリガー
 
-- **新規 workspace（`apps/*` / `packages/*`）追加時**：対応する scope を追加
+- **新規 workspace（`apps/*`）追加時**：対応する scope を追加（`packages/` は廃止済みのため対象外、→ ADR 0036 / 0040）
 - **Dependabot 仕様変更時**：自動付与される scope に変化があれば追従
 - **scope の数が 15 を超えた場合**：列挙制の維持コストが高まるため、グループ化（`apps-*` プレフィックス等）を再検討
 - **scope の意味がぶれ始めた場合**（例：`config` がルート設定とパッケージ設定で混在）：`config-root` / `config-pkg` への分割を検討
