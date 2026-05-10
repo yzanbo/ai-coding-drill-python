@@ -85,7 +85,7 @@
    → 詳細：[ADR 0007: LLM プロバイダ抽象化戦略](docs/adr/0007-llm-provider-abstraction.md)
 
 7. **W3C Trace Context をジョブペイロードに埋め込んだプロセス境界トレース連携**
-   FastAPI（Producer）→ Postgres → Go ワーカー（Consumer）が単一 trace_id で連結可視化。標準仕様準拠でベンダー非依存。
+   FastAPI（Producer）→ Postgres → Go Worker 群（採点 / 問題生成、Consumer）が単一 trace_id で連結可視化。標準仕様準拠でベンダー非依存。
    → 詳細：[ADR 0010: W3C Trace Context をジョブペイロードに埋め込む](docs/adr/0010-w3c-trace-context-in-job-payload.md)
 
 8. **Pydantic を SSoT に置いた境界別 2 伝送路型生成**（TS / Go）
@@ -116,7 +116,7 @@
 | [0005](docs/adr/0005-redis-not-for-job-queue.md) | Redis をジョブキューでは使わない | 役割の明確化 |
 | [0009](docs/adr/0009-disposable-sandbox-container.md) | 使い捨てサンドボックスコンテナ | セキュリティ × スループット |
 | [0008](docs/adr/0008-custom-llm-judge.md) | LLM-as-a-Judge を自前実装 | DeepEval / Ragas 不採用 |
-| [0003](docs/adr/0003-phased-language-introduction.md) | 言語の段階導入（TS+Go → Python） | ポリグロット戦略 |
+| [0003](docs/adr/0003-phased-language-introduction.md) | レイヤ別ポリグロット構成（Python + Go + TypeScript） | ポリグロット戦略 / 役割別配置 |
 | [0007](docs/adr/0007-llm-provider-abstraction.md) | LLM プロバイダ抽象化戦略 | ベンダーロックイン回避 |
 | [0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) | W3C Trace Context をジョブペイロードに埋め込む | プロセス境界トレース連携 |
 
@@ -145,13 +145,13 @@
 | ADR | タイトル | キーワード |
 |---|---|---|
 | [0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md) | タスクランナー / tool 版数管理に mise を採用 | Turborepo 不採用 / 3 言語横断 |
-| [0036](docs/adr/0036-frontend-monorepo-pnpm-only.md) | Frontend は pnpm workspaces 単独運用 | Turborepo 不採用 / `apps/web/` 直下で完結 |
+| [0036](docs/adr/0036-frontend-monorepo-pnpm-only.md) | Frontend ツーリングを `apps/web/` 内に閉じる（Turborepo + pnpm workspaces 不採用） | root を orchestration 専用層に / Biome / Knip / syncpack も apps/web 内 |
 | [0035](docs/adr/0035-uv-for-python-package-management.md) | Python パッケージ管理に uv を採用 | Astral 統合 / lockfile / workspace |
 | [0020](docs/adr/0020-python-code-quality.md) | Python のコード品質ツール（ruff + pyright + pip-audit + deptry） | Astral 統合 / 可逆な判断の遅延 |
 | [0023](docs/adr/0023-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces *(Superseded by 0033, 0035, 0036, 0039)* | モノレポ運用（軌跡として保持） |
-| [0018](docs/adr/0018-biome-for-tooling.md) | TS のコード品質ツールに Biome を採用、設定はルート直接配置 | Rust 製 / 高速 / 単一設定（Frontend 用途として継続採用） |
-| [0006](docs/adr/0006-json-schema-as-single-source-of-truth.md) | JSON Schema を SSoT に | 3 言語型自動生成 |
-| [0021](docs/adr/0021-r0-tooling-discipline.md) | 補完ツールを R0 から導入 | Knip / lefthook / commitlint / syncpack |
+| [0018](docs/adr/0018-biome-for-tooling.md) | TS のコード品質ツールに Biome を採用、設定は `apps/web/` 配下に直接配置 *(Superseded by 0033)* | Rust 製 / 高速 / 単一設定（Frontend 用途として継続採用） |
+| [0006](docs/adr/0006-json-schema-as-single-source-of-truth.md) | Pydantic を SSoT に、境界別 2 伝送路で各言語に展開 | Pydantic-first / FastAPI 自動 OpenAPI / Hey API + quicktype |
+| [0021](docs/adr/0021-r0-tooling-discipline.md) | 補完ツールを R0 から導入 | lefthook / commitlint / Knip / syncpack / ruff / pyright / pip-audit / deptry |
 | [0001](docs/adr/0001-requirements-as-5-buckets.md) | 要件定義書を 5 バケット時系列構造に再編 | ドキュメント設計 / SSoT / 読む順序 vs 書く順序 |
 | [0019](docs/adr/0019-go-code-quality.md) | Go のコード品質ツール（gofmt + golangci-lint） | Go 標準 / メタリンター |
 | [0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md) | Worker を `apps/workers/<name>/` で系統別に分割、LLM 呼び出しは Worker 側に集約 | judge プロンプトは `apps/workers/grading/prompts/judge/`、generation プロンプトは `apps/workers/generation/prompts/generation/` に同居 |
@@ -163,7 +163,7 @@
 | [0027](docs/adr/0027-github-actions-sha-pinning.md) | サードパーティアクションを SHA でピン止め | サプライチェーン攻撃耐性 |
 | [0030](docs/adr/0030-commitlint-base-commit-fetch.md) | commitlint の base コミット取得を iterative deepen 方式で | shallow-exclude 不可 / `--deepen=20` |
 | [0022](docs/adr/0022-config-file-format-priority.md) | 設定ファイル形式の選定方針（TS > JSONC > YAML） | ツール強制 / ecosystem 慣習 |
-| [0024](docs/adr/0024-syncpack-package-json-consistency.md) | syncpack によるモノレポ `package.json` 整合性ゲート | バージョン揃え / `workspace:*` 強制 |
+| [0024](docs/adr/0024-syncpack-package-json-consistency.md) | syncpack による `package.json` 整合性ゲート *(Superseded by 0033, 0036)* | apps/web 配下に再配置 + 単一 package.json 用 3 ルールに縮小 |
 | [0031](docs/adr/0031-ci-success-umbrella-job.md) | CI Required status checks を集約ジョブ `ci-success` で 1 本化 | umbrella job / `needs.*.result` |
 | [0032](docs/adr/0032-github-repository-settings.md) | GitHub リポジトリ設定の方針（Ruleset / マージ動作 / Actions / Security） | デフォルト変更項目の棚卸し |
 
@@ -189,7 +189,7 @@
 | **LLM** | プロバイダ抽象化（Anthropic / Gemini / OpenAI / OpenRouter 差し替え可、[ADR 0007](docs/adr/0007-llm-provider-abstraction.md)） |
 | **サンドボックス** | Docker（使い捨てコンテナ）→ R3 で gVisor → R9 で Firecracker |
 | **タスクランナー / 版数管理** | mise（3 言語横断、Turborepo 不採用、[ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)） |
-| **モノレポ管理** | pnpm workspaces（Frontend）+ uv workspace（Python）+ go modules（Worker）（[ADR 0036](docs/adr/0036-frontend-monorepo-pnpm-only.md)） |
+| **モノレポ管理** | apps 配下で言語ごとに完結：pnpm（`apps/web/`）+ uv workspace（`apps/api/`）+ go modules（`apps/workers/<name>/` ごとに独立）（[ADR 0036](docs/adr/0036-frontend-monorepo-pnpm-only.md) / [ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)） |
 | **テスト** | pytest（API）/ Vitest + Playwright（Web）/ Go testing + testify（Worker）（[ADR 0038](docs/adr/0038-test-frameworks.md)） |
 | **TS コード品質** | Biome（[ADR 0018](docs/adr/0018-biome-for-tooling.md)） |
 | **Go コード品質** | gofmt + golangci-lint（[ADR 0019](docs/adr/0019-go-code-quality.md)） |
@@ -211,13 +211,18 @@
 [Next.js (Vercel)]
      ↓
 [Python API (FastAPI, ECS Fargate)]
-     ├── PostgreSQL (RDS) ← jobs テーブルが LISTEN/NOTIFY でワーカーに通知
-     ├── Upstash Redis（キャッシュ・セッション）
-     └── LLM API（プロバイダ抽象化レイヤ経由）
-            ↓
-[Go 採点ワーカー (EC2)]
-     ├── Docker Engine
-     └── 使い捨て採点コンテナ（Vitest 実行）
+     ├── PostgreSQL (RDS)
+     │     └── jobs テーブル（LISTEN/NOTIFY で Worker 群に通知、Backend は enqueue のみ）
+     └── Upstash Redis（キャッシュ・セッション）
+
+LLM 呼び出しは Worker 側に集約（ADR 0040）：
+     ↓ jobs テーブル経由
+[Go Worker 群 (apps/workers/<name>/, 独立 Go module 群)]
+ ├─ apps/workers/grading/ (EC2)
+ │   ├── Docker Engine + 使い捨て採点コンテナ（pytest 実行）
+ │   └── judge LLM 呼び出し（プロバイダ抽象化レイヤ経由）
+ └─ apps/workers/generation/ (EC2、将来追加)
+     └── 問題生成 LLM 呼び出し
 ```
 
 詳細は [2-foundation/02-architecture.md](docs/requirements/2-foundation/02-architecture.md) を参照。
@@ -234,7 +239,7 @@
 | R3 | サンドボックス強化（gVisor + ベンチマーク） | _未着手_ |
 | R4 | 観測性（OTel・Grafana・Sentry・管理ダッシュボード） | _未着手_ |
 | R5 | 仕上げ（IaC・E2E・本番デプロイ・README 完成） | _未着手_ |
-| R6 以降 | 任意（適応型出題・問題生成 Worker 分離・多言語化・Firecracker 等） | _任意_ |
+| R6 以降 | 任意（適応型出題・`apps/workers/generation/` 追加・多言語化・Firecracker 等） | _任意_ |
 
 詳細は [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) を参照。
 

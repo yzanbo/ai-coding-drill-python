@@ -67,7 +67,7 @@
   - 構造化ログ：標準 `log/slog`
   - OpenTelemetry：`go.opentelemetry.io/otel`
   - LLM クライアント：プロバイダ各社の Go SDK or `net/http` 直接呼び出しを `LlmProvider` 抽象化レイヤで吸収
-  - 構造化出力の型：`apps/api/openapi.json` から quicktype で生成した Go 構造体
+  - 構造化出力の型：`apps/api/job-schemas/` の個別 JSON Schema から quicktype `--src-lang schema` で生成した Go 構造体（Job キュー境界、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
   - テスト：標準 `testing` + `testify`（詳細は [06-dev-workflow.md: テスト](./06-dev-workflow.md#テスト)、選定根拠は [ADR 0038](../../adr/0038-test-frameworks.md)）
   - 依存管理：`go mod`（→ [ADR 0039](../../adr/0039-mise-for-task-runner-and-tool-versions.md) で Go 版数を mise 管理）
 - grading 固有：
@@ -136,7 +136,7 @@
 
 ### 想定ライブラリ（Worker 側 / Go）
 - 各社プロバイダの Go SDK（提供がある場合）または `net/http` 直叩きを `LlmProvider` 抽象化で吸収（Anthropic / Google Gemini / OpenAI / OpenRouter 経由 DeepSeek 等）
-- 構造化出力の型：`apps/api/openapi.json`（Pydantic v2 由来、OpenAPI 3.1）から quicktype で生成した Go 構造体でバリデーション
+- 構造化出力の型：`apps/api/job-schemas/`（Pydantic v2 由来、個別 JSON Schema）から quicktype `--src-lang schema` で生成した Go 構造体でバリデーション（Job キュー境界、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
 - LLM 呼び出し位置：**Backend API ではなく Worker（apps/workers/grading・apps/workers/generation）に集約**（→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）
 
 ### LLM-as-a-Judge

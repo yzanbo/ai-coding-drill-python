@@ -115,7 +115,7 @@ FastAPI から採点・問題生成の仕事を登録し、Go ワーカー（app
 - リトライは `run_at = now() + exponential_backoff`、最大試行回数超過で `state='dead'`（DLQ）
 
 #### ペイロード
-JSONB 形式。ジョブスキーマは Pydantic v2 を SSoT とし（[ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）、`apps/api/openapi.json`（OpenAPI 3.1）経由で TS（Hey API）/ Go（quicktype）に型生成。
+JSONB 形式。ジョブスキーマは Pydantic v2 を SSoT とし（[ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）、境界別 2 伝送路で型生成：HTTP API 境界は `apps/api/openapi.json`（OpenAPI 3.1）→ TS（Hey API）、Job キュー境界は `apps/api/job-schemas/`（個別 JSON Schema）→ Go（quicktype `--src-lang schema`）。
 
 #### 取得方式
 Postgres `LISTEN/NOTIFY` によるプッシュ通知 + 低頻度ポーリング（30 秒）のハイブリッド。

@@ -103,9 +103,14 @@ dir = "apps/api"
 run = "uv run deptry ."
 
 [tasks."api:openapi-export"]
-description = "FastAPI から OpenAPI 3.1 を apps/api/openapi.json に書き出し（ADR 0006）"
+description = "FastAPI から OpenAPI 3.1 を apps/api/openapi.json に書き出し（HTTP API 境界 artifact、ADR 0006）"
 dir = "apps/api"
 run = "uv run python -m scripts.export_openapi"
+
+[tasks."api:job-schemas-export"]
+description = "Pydantic Job payload から個別 JSON Schema を apps/api/job-schemas/ に書き出し（Job キュー境界 artifact、ADR 0006）"
+dir = "apps/api"
+run = "uv run python -m scripts.export_job_schemas"
 
 [tasks."api:db-migrate"]
 description = "DB マイグレーション適用（alembic upgrade head、ADR 0037）"
@@ -204,9 +209,9 @@ dir = "apps/workers/grading"
 run = "govulncheck ./..."
 
 [tasks."worker:grading:types-gen"]
-description = "quicktype で OpenAPI から Go struct 生成（ADR 0006）"
+description = "quicktype --src-lang schema で apps/api/job-schemas/ から Go struct 生成（Job キュー境界、ADR 0006）"
 dir = "apps/workers/grading"
-run = "quicktype --src-lang openapi --src ../../api/openapi.json --out internal/jobtypes/types.go --lang go --package jobtypes"
+run = "quicktype --src-lang schema --src ../../api/job-schemas/ --out internal/jobtypes/types.go --lang go --package jobtypes"
 
 # --- 問題生成 Worker（apps/workers/generation/、ADR 0040、将来追加） ---
 #
@@ -271,9 +276,10 @@ depends = [
 ]
 
 [tasks."types-gen"]
-description = "OpenAPI → 各言語の型生成パイプライン（CI で drift 検出、ADR 0006）"
+description = "Pydantic SSoT → 各言語の型生成パイプライン（HTTP API + Job キュー両境界、CI で drift 検出、ADR 0006）"
 depends = [
   "api:openapi-export",
+  "api:job-schemas-export",
   "web:types-gen",
   "worker:grading:types-gen",
 ]

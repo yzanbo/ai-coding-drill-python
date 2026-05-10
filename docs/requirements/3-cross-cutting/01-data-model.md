@@ -124,7 +124,7 @@ erDiagram
 ### JSON カラム運用
 
 - 型は **JSONB**（高速・GIN インデックス可能）
-- 複数機能で共有するペイロードは **Pydantic モデルを SSoT** とし、FastAPI が配信する OpenAPI 3.1（`apps/api/openapi.json`）を介して TS（Hey API）・Go（quicktype --src-lang openapi）の型を自動生成（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
+- 複数機能で共有するペイロードは **Pydantic モデルを SSoT** とし、境界別 2 伝送路で型生成：HTTP API 境界は FastAPI 自動 OpenAPI 3.1（`apps/api/openapi.json`）→ TS（Hey API）、Job キュー境界は Pydantic `model.model_json_schema()` で個別 JSON Schema（`apps/api/job-schemas/`）→ Go（quicktype `--src-lang schema`）（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
 - 自由形式 JSON カラムでも、コメントまたは別ドキュメントでスキーマを文書化する
 
 ### ジョブペイロード共通フィールド：`traceContext`

@@ -68,7 +68,7 @@ flowchart TB
 | ステップ | 設計判断 |
 |---|---|
 | キャッシュ確認 | `prompt_hash` でキー化、TTL 7 日。プロバイダ非依存 |
-| 構造化出力パース | Pydantic v2 を SSoT として `apps/api/openapi.json` に出力し、Worker（Go）側は quicktype で生成した構造体でランタイムバリデーション。スキーマ違反は再生成へ（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)） |
+| 構造化出力パース | Pydantic v2 を SSoT として Job キュー境界用に個別 JSON Schema を `apps/api/job-schemas/` に出力し、Worker（Go）側は quicktype `--src-lang schema` で生成した構造体でランタイムバリデーション。スキーマ違反は再生成へ（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)） |
 | サンドボックス検証 | 模範解答が**全テスト通過**しなければ即破棄（[ADR 0009](../../adr/0009-disposable-sandbox-container.md)）|
 | Judge 評価 | **生成と異なるプロバイダ**で評価し自己評価バイアス回避（[ADR 0008](../../adr/0008-custom-llm-judge.md)）|
 | 再生成戦略 | 試行ごとに**上位モデルへ昇格**（コスト最適化、最大 3 回）|

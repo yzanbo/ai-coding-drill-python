@@ -2,7 +2,7 @@
 
 > **このドキュメントの守備範囲**：API 全体の基本方針、認証・セッションの仕組み、エラーフォーマット、ステータスコード方針、レート制限方針、非同期 API のクライアント実装パターン、ヘルスチェック・運用エンドポイント、OpenAPI 自動生成方針。
 > **個別エンドポイントの詳細（リクエスト/レスポンス例・受け入れ条件）** は [features/](../4-features/) を参照。
-> **機械可読の最新仕様** は OpenAPI（`/api/docs/openapi.json`）が SSoT。本ドキュメントは設計意図と共通方針を残す位置づけ。
+> **機械可読の最新仕様** は OpenAPI（artifact: `apps/api/openapi.json`、ランタイム: FastAPI の `/openapi.json`）が SSoT。本ドキュメントは設計意図と共通方針を残す位置づけ。
 > **データ構造**は [01-data-model.md](./01-data-model.md)、**コンポーネント責務**は [02-architecture.md](../2-foundation/02-architecture.md) を参照。
 
 ---
@@ -22,7 +22,7 @@
 - FastAPI は Pydantic モデルから **OpenAPI 3.1 ドキュメントを自動生成**（→ [ADR 0034](../../adr/0034-fastapi-for-backend.md)、[ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
 - 生成された OpenAPI JSON は `apps/api/openapi.json` にエクスポートし、ランタイムでは `/openapi.json` で配信
 - Swagger UI は FastAPI の `/docs`、ReDoc は `/redoc`（開発・ステージング環境のみ公開）
-- フロントエンドは **Hey API** で TS クライアントを自動生成、Go ワーカーは **quicktype --src-lang openapi** で型を生成（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
+- 境界別 2 伝送路で型生成：**HTTP API 境界（Frontend 向け）**は `apps/api/openapi.json` → **Hey API** で TS 型 + Zod + HTTP クライアント、**Job キュー境界（Worker 向け）**は Pydantic から `apps/api/job-schemas/` に個別 JSON Schema を出力 → **quicktype `--src-lang schema`** で Go struct 生成（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
 - 本ドキュメントは **設計意図・共通方針** を残す位置づけで、最新の機械可読仕様は OpenAPI に従う
 - 個別エンドポイントの詳細は **[features/](../4-features/) が SSoT**（受け入れ条件・画面動作と直結する記述）
 

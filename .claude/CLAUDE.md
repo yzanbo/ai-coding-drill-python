@@ -80,7 +80,7 @@ mise run web:dev          # next dev
 mise run web:test         # vitest
 mise run web:lint         # biome check
 mise run web:typecheck    # tsc --noEmit
-mise run web:syncpack     # apps/web/.syncpackrc.ts に基づく自動修正
+mise run web:syncpack     # package.json 整合性 lint（syncpack lint、ADR 0024 Note）
 mise run web:types-gen    # Hey API で OpenAPI から TS / Zod / HTTP クライアントを生成
 
 # Workers (Go) — apps/workers/<name>/ ごとに mise タスクを定義（ADR 0040）
