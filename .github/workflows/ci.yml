@@ -1,5 +1,6 @@
 # ======================================================================
-# GitHub Actions ワークフロー定義ファイル：R0 最小構成（commitlint のみ）
+# GitHub Actions ワークフロー定義ファイル
+# 現状の job：commitlint + apps/api（Python）品質ゲート 5 種
 # ======================================================================
 #
 # 設計方針：
@@ -131,6 +132,83 @@ jobs:
   # 網に自動で組み込まれる（ADR 0031 の umbrella job パターン）。
 
   # ====================================================================
+  # apps/api（Python / FastAPI）品質ゲート — ADR 0020 / 0026 / 0034 / 0035 / 0037 / 0038
+  # ----------------------------------------------------------------------
+  # 5 ジョブ構成：
+  #   - api-lint        : ruff check（lint + format 検証）
+  #   - api-typecheck   : pyright（型）
+  #   - api-audit       : pip-audit（脆弱性）
+  #   - api-deps-check  : deptry（依存衛生）
+  #   - api-test        : pytest（unit + integration、Postgres service 付き）
+  #
+  # api-test を CI に入れる理由：pre-push hook（lefthook）を `--no-verify` 等で
+  # バイパスされた場合の最後の砦。hook と CI の二重防御で「ローカル緑 = 全テスト通過」
+  # の保証を hook bypass 時にもリモートで再現する。
+  # ====================================================================
+
+  api-lint:
+    name: api-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run api:lint
+
+  api-typecheck:
+    name: api-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run api:typecheck
+
+  api-audit:
+    name: api-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run api:audit
+
+  api-deps-check:
+    name: api-deps-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run api:deps-check
+
+  # api-test は GitHub Actions の services 機能で Postgres を立てる（ローカルの
+  # docker-compose とは別レイヤ、CI 専用）。version は docker-compose.yml と揃える
+  # 運用：docker-compose.yml の image tag を更新したら本ファイルも追従する。
+  # （次フェーズで CI の Postgres / Redis service を docker-compose と同期させる
+  # 仕組みを検討する。R0 では手動同期で許容）
+  api-test:
+    name: api-test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env:
+          POSTGRES_DB: ai_coding_drill
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ai_coding_drill"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run api:db-migrate
+      - run: mise run api:test
+
+  # ====================================================================
   # 【集約ジョブ】ci-success（umbrella / aggregator）
   #   ブランチ保護（Ruleset）の Required status checks には、このジョブ 1 つだけを
   #   登録すれば足りる：
@@ -141,7 +219,13 @@ jobs:
   ci-success:
     name: ci-success
     if: always()
-    needs: [commitlint]
+    needs:
+      - commitlint
+      - api-lint
+      - api-typecheck
+      - api-audit
+      - api-deps-check
+      - api-test
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required jobs succeeded

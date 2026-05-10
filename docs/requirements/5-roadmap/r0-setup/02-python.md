@@ -283,18 +283,22 @@ mise exec -- lefthook run pre-push        # api-pytest exit 1 + fail_text 表示
 **目的**：[01-foundation.md: 4. GitHub Actions ワークフロー雛形](./01-foundation.md#4-github-actions-ワークフロー雛形-) で整備したワークフローに Python 用ジョブを追加し、hook bypass された逸脱もリモートで弾く。
 
 **追記内容**（[.github/workflows/ci.yml](../../../../.github/workflows/ci.yml)）：
-- 新規ジョブ：`api-lint`、`api-typecheck`、`api-audit`、`api-deps-check`
-  - 各ジョブで `mise install` → `mise run api:<task>` を実行
-  - `actions/checkout` + `jdx/mise-action` を SHA ピン止めで使用
-- `ci-success` の `needs:` に上記 4 ジョブを追加
+- 新規ジョブ 5 種：`api-lint` / `api-typecheck` / `api-audit` / `api-deps-check` / `api-test`
+  - 各ジョブで `actions/checkout` → `jdx/mise-action`（SHA pin、内部で `mise install` 実行）→ `mise run api:<task>`
+  - `api-test` のみ Postgres を **GitHub Actions の `services` 機能**で立て、`alembic upgrade head` 後に `pytest`（unit + integration）を実行
+- `ci-success` の `needs:` に上記 5 ジョブを追加
+
+**設計判断（`api-test` を CI に含める）**：pre-push hook は `--no-verify` でバイパスされ得るため、CI が **最後の砦**として integration テストも回す。hook と CI の二重防御で「ローカル緑 = 全テスト通過」の保証を hook bypass 時にもリモートで再現する。
+
+**Postgres 版数の同期**：CI の services の `image: postgres:<x.y>-alpine` は `docker-compose.yml` と版数を揃える運用とする（手動同期）。R0 時点では片方を更新したらもう片方も書き換える。後続フェーズで両者を同期する仕組みを検討。
 
 **完了確認**：
-- PR を作ると `api-lint` 〜 `api-deps-check` が走る
+- PR を作ると `api-lint` / `api-typecheck` / `api-audit` / `api-deps-check` / `api-test` の 5 ジョブが並列で走る
 - いずれかが失敗すると `ci-success` も赤になり、Branch protection で merge がブロックされる
 
 **前提**：本ファイルの「8. mise.toml の Python タスク稼働確認」+「9. lefthook.yml に Python 用 pre-commit 追加」+「10. lefthook.yml に Python 用 pre-push 追加」（CI ジョブは `mise run api:*` を呼ぶため、ローカルでタスクが動くことが必須）
 
-**関連 ADR**：[ADR 0026](../../../adr/0026-github-actions-incremental-scope.md) / [ADR 0031](../../../adr/0031-ci-success-umbrella-job.md)
+**関連 ADR**：[ADR 0026](../../../adr/0026-github-actions-incremental-scope.md) / [ADR 0031](../../../adr/0031-ci-success-umbrella-job.md) / [ADR 0038](../../../adr/0038-test-frameworks.md)
 
 ---
 
