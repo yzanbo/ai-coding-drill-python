@@ -6,21 +6,27 @@
 
 ---
 
-## 1. mise install python
+## 1. Python 最新安定版を調査して pin → mise install
 
-**目的**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-) の `mise.toml` で pin 済の Python（具体版数の SSoT は [mise.toml](../../../../mise.toml)）を実体化する。
+**目的**：Python の最新安定版（stable / GA、RC・beta は不採用）を調査し、`mise.toml` と `README.md` の 2 箇所のみを書き換えて pin 化、そのうえで実体化する。本プロジェクトのバージョン方針（[.claude/CLAUDE.md: バージョン方針](../../../../.claude/CLAUDE.md#バージョン方針)）に従い、**mise.toml に書かれた既存版数に追従するのではなく、毎回その時点の最新安定版を調査してから書き換える**。
 
-**コマンド**：
+**作業内容**：
+1. **最新安定版を調査**：[python.org/downloads](https://www.python.org/downloads/) で latest stable の minor 版（例 `3.14.x`）を確認
+2. **`mise.toml` を書き換え**：`[tools]` セクションの `python = "<X.Y>"` を最新の minor に更新（`X.Y` のみ pin、patch は mise が解決）
+3. **`README.md` を書き換え**：「技術スタック概要」表の言語ランタイム行の Python 版数を同じ minor に更新
+4. **`mise install python` を実行**：mise が patch 含む実 binary をダウンロード・展開
+5. **`python --version` で動作確認**：`<X.Y>.<patch>` が表示されることを確認
+
+**コマンド例**：
 ```bash
+# 1〜3. 最新安定版を調査して mise.toml と README.md を編集（手作業 or AI assist）
+# 4. インストール
 mise install python
+# 5. 動作確認
+python --version  # 例：Python 3.14.4
 ```
 
-**完了確認**：
-```bash
-python --version  # mise.toml で pin した版数が表示される
-```
-
-**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise.toml に `python = "<最新安定版>"` が pin されている）
+**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise CLI が動作）
 
 **関連 ADR**：[ADR 0039](../../../adr/0039-mise-for-task-runner-and-tool-versions.md)
 

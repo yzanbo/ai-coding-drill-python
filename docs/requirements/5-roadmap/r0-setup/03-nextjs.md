@@ -6,23 +6,29 @@
 
 ---
 
-## 1. mise install node && mise install pnpm
+## 1. Node.js 最新 Active LTS を調査して pin → mise install
 
-**目的**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-) の `mise.toml` で pin 済の Node.js / pnpm（具体版数の SSoT は [mise.toml](../../../../mise.toml)）を実体化する。
+**目的**：Node.js の最新 Active LTS（偶数メジャー、Current は不採用）と pnpm の最新版を調査し、`mise.toml` と `README.md` の 2 箇所のみを書き換えて pin 化、そのうえで実体化する。本プロジェクトのバージョン方針（[.claude/CLAUDE.md: バージョン方針](../../../../.claude/CLAUDE.md#バージョン方針)）に従い、**mise.toml に書かれた既存版数に追従するのではなく、毎回その時点の最新 Active LTS を調査してから書き換える**。
 
-**コマンド**：
+**作業内容**：
+1. **最新 Active LTS を調査**：[nodejs.org/en/about/previous-releases](https://nodejs.org/en/about/previous-releases) で Active LTS の最大メジャー版数（偶数、例 `24`）を確認。Current（最新メジャー）と Maintenance LTS は不採用
+2. **`mise.toml` を書き換え**：`[tools]` の `node = "<X>"` を最新 Active LTS のメジャー数値に更新
+3. **`README.md` を書き換え**：「技術スタック概要」表の Node.js 版数を同じメジャーに更新
+4. **`mise install node && mise install pnpm`** を実行：実 binary をダウンロード・展開
+5. **動作確認**：`node --version` / `pnpm --version` が想定版数を返すこと
+
+**コマンド例**：
 ```bash
+# 1〜3. 最新 Active LTS を調査して mise.toml と README.md を編集
+# 4. インストール
 mise install node
 mise install pnpm
+# 5. 動作確認
+node --version   # 例：v24.15.0
+pnpm --version
 ```
 
-**完了確認**：
-```bash
-node --version   # v22.x
-pnpm --version   # 11.x（または mise.toml 固定の版数）
-```
-
-**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise.toml に Node.js / pnpm が pin されている。具体版数の SSoT は [mise.toml](../../../../mise.toml)）
+**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise CLI が動作）
 
 **関連 ADR**：[ADR 0039](../../../adr/0039-mise-for-task-runner-and-tool-versions.md)
 
