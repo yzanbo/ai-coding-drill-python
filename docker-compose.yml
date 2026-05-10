@@ -22,7 +22,10 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # Postgres 18+ では major-version 別サブディレクトリ管理に変更されたため、
+      # 親ディレクトリ /var/lib/postgresql をマウントする（旧 18 未満の慣習
+      # /var/lib/postgresql/data だと起動不可、pg_upgrade --link 互換性のため）。
+      - postgres-data:/var/lib/postgresql
     healthcheck:
       # pg_isready：Postgres が接続を受け付ける状態かを確認（exit 0 なら ready）
       test: ["CMD-SHELL", "pg_isready -U postgres -d ai_coding_drill"]
