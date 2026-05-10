@@ -55,9 +55,13 @@ pre-push:
         ⚠️  pytest が失敗しました（push をブロック）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-        Postgres 未起動が原因の場合は以下で再試行：
-          docker compose up -d
-          git push
+        失敗の詳細は上の pytest ログを確認してください。
+
+        【よくある原因】
+          ・テストの修正漏れ / 実装変更の取り込み忘れ
+              → 上のエラーに従ってテスト or 実装を修正
+          ・Postgres / Redis 未起動（asyncpg ConnectionRefusedError 等）
+              → docker compose up -d してから再 push
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
