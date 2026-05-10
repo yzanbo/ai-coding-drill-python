@@ -1,18 +1,18 @@
 ---
 name: update-requirements
 description: 要件 .md を先に更新してから実装を修正する
-argument-hint: "[feature-name] [変更内容の説明]"
+argument-hint: "[F-XX-feature-name] [変更内容の説明]"
 ---
 
 # 要件先行更新
 
-引数の最初の単語 `$0` を機能名、残り `$1` 以降を変更内容として解釈する。
+引数 `$ARGUMENTS` の最初の単語を**フルファイル名**（`F-XX-<kebab-case>` 形式、例：`F-02-problem-generation`）、残りを変更内容として解釈する。
 
 ## 手順
 
 ### 1. 現在の要件を読み込む
 
-- 機能要件：`docs/requirements/4-features/$0.md`
+- 機能要件：`docs/requirements/4-features/F-XX-<feature-name>.md`（`$ARGUMENTS` の先頭単語）
 - 関連するベース要件：[docs/requirements/](../../../docs/requirements/)
   - [1-vision/03-user-stories.md](../../../docs/requirements/1-vision/03-user-stories.md)（ユーザーストーリー）
   - [2-foundation/02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md)（アーキテクチャ）
@@ -24,7 +24,7 @@ argument-hint: "[feature-name] [変更内容の説明]"
 
 ### 2. 要件 .md の更新
 
-変更内容（`$1` 以降）に基づいて、要件 .md の該当箇所を更新する：
+変更内容（`$ARGUMENTS` の 2 単語目以降）に基づいて、要件 .md の該当箇所を更新する：
 
 - 変更差分をユーザーに提示して承認を得る
 - ビジネスルール、機能一覧、データモデル、API 仕様のいずれかに変更が生じるか判断
@@ -60,4 +60,4 @@ ADR は [docs/adr/template.md](../../../docs/adr/template.md) を元に作成。
 
 ### 6. ステータス更新
 
-実装完了後、`docs/requirements/4-features/$0.md` のステータスを適宜更新する。
+実装完了後、`docs/requirements/4-features/F-XX-<feature-name>.md` のステータスを適宜更新する。

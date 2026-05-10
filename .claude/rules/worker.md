@@ -206,6 +206,8 @@ slog.InfoContext(ctx, "job claimed",
 
 ## OpenTelemetry
 
+> 観測性スタック（OTLP 送信先：Loki / Tempo / Prometheus + Sentry）の選定根拠は [ADR 0041](../../docs/adr/0041-observability-stack-grafana-and-sentry.md) を参照。
+
 採点 1 件あたりのスパン構成（grading Worker の例）：
 
 ```

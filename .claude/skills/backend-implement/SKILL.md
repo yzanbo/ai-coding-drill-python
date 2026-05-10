@@ -1,7 +1,7 @@
 ---
 name: backend-implement
 description: 要件 .md を読み込んで FastAPI を実装する
-argument-hint: "[feature-name] (例: problem-generation, grading)"
+argument-hint: "[F-XX-feature-name] (例: F-02-problem-generation, F-04-auto-grading)"
 ---
 
 # 要件ベースのバックエンド実装
@@ -74,11 +74,14 @@ argument-hint: "[feature-name] (例: problem-generation, grading)"
 
 ```markdown
 ## ステータス
-- [x] 要件定義完了
+- [x] 要件定義完了（このファイルが受け入れ条件まで埋まっている）
 - [x] バックエンド実装完了    ← ここをチェック
 - [ ] フロントエンド実装完了
-- [ ] 採点 Worker 実装完了
-- [ ] テスト完了
+- [ ] ワーカー実装完了（必要な場合のみ）
+- [ ] ユニットテスト完了
+- [ ] E2E テスト完了（主要フローのみ）
+- [ ] **受け入れ条件すべて満たす**
+- [ ] PR マージ済み
 ```
 
 ### 8. 動作確認

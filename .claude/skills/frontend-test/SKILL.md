@@ -1,7 +1,7 @@
 ---
 name: frontend-test
 description: 要件 .md に基づいてフロントエンドのテストを生成・実行する
-argument-hint: "[feature-name] (例: problem-detail, history)"
+argument-hint: "[F-XX-feature-name] (例: F-03-problem-display-and-answer, F-05-learning-history)"
 ---
 
 # 要件ベースのフロントエンドテスト
@@ -88,7 +88,30 @@ mise run web:test
 - 境界値（空文字、最大長、日付境界等）
 - ローディング・エラー状態の表示
 
-### 6. 結合テストのルール
+### 6. E2E テスト（Playwright）
+
+主要なユーザーフロー（ログイン → 問題生成 → 解答 → 採点結果表示など、F-XX 受け入れ条件に紐づく経路）は **Playwright** でカバーする（→ [ADR 0038](../../../docs/adr/0038-test-frameworks.md)、[.claude/rules/frontend.md](../../rules/frontend.md) の Playwright 章）：
+
+- テストファイルは `apps/web/e2e/` 配下に `*.spec.ts` で配置（ユニットテストとは別ディレクトリ）
+- 各テストは独立した認証セッションを使う（`storageState` / `test.use({ storageState })`）
+- バックエンドは Docker Compose で起動した実 API + 実 DB を相手にする（モックしない）
+- 実行：`mise run web:e2e`
+- CI では headless、ローカルデバッグ時は `--headed` / `--ui` モード
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test('解答送信フロー: 問題詳細から正答提出まで', async ({ page }) => {
+  await page.goto('/problems/1');
+  await page.getByRole('textbox', { name: /コード/ }).fill('export function solve() {}');
+  await page.getByRole('button', { name: /送信/ }).click();
+  await expect(page.getByText(/採点結果/)).toBeVisible();
+});
+```
+
+E2E は「主要フローのみ」に絞る（受け入れ条件に直結する 1〜3 経路 / 機能）。エッジケースはユニット・結合テストでカバーする。
+
+### 7. 結合テストのルール
 
 詳細は [.claude/rules/frontend.md](../../rules/frontend.md) の「結合テストのルール」を参照：
 

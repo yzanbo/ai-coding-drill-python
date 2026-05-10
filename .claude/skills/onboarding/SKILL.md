@@ -13,7 +13,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 
 ### 1. ヒアリング（対話フェーズ）
 
-引数が省略された場合、AskUserQuestion で確認する：
+引数が省略された場合、対話的に質問する：
 
 - **担当領域**：バックエンド（FastAPI）／ フロントエンド（Next.js）／ Worker（採点 / 問題生成、Go、ADR 0040）／ フルスタック
 - **経験レベル**：使用技術（FastAPI, SQLAlchemy 2.0, Next.js, Go, Postgres 等）の経験有無
@@ -44,7 +44,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 
 - [ADR 0004: Postgres ジョブキュー](../../../docs/adr/0004-postgres-as-job-queue.md) — なぜ Redis Streams ではないか
 - [ADR 0015: CodeMirror 6 採用](../../../docs/adr/0015-codemirror-over-monaco.md) — なぜ Monaco ではないか
-- [ADR 0016: Go 採点 Worker](../../../docs/adr/0016-go-for-grading-worker.md) — なぜ Node ではないか（リネーム後のパスは [ADR 0040](../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md) 参照）
+- [ADR 0016: Go 採点 Worker](../../../docs/adr/0016-go-for-grading-worker.md) — なぜ Node ではないか（ディレクトリ配置の更新は [ADR 0040](../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md) 参照）
 - [ADR 0009: 使い捨てコンテナ](../../../docs/adr/0009-disposable-sandbox-container.md) — なぜウォームプールではないか
 - [ADR 0007: LLM プロバイダ抽象化](../../../docs/adr/0007-llm-provider-abstraction.md) — なぜ特定モデルに固定しないか
 - [ADR 0006: JSON Schema を SSoT](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md) — 多言語間の型整合性
@@ -99,7 +99,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 #### フロントエンド担当の場合
 - [.claude/rules/frontend.md](../../rules/frontend.md) — App Router 構成、RSC vs Client、CodeMirror、TanStack Query
 
-#### 採点 Worker 担当の場合
+#### Worker 担当（採点 / 問題生成）の場合
 - [.claude/rules/worker.md](../../rules/worker.md) — Go 構成、Docker クライアント、ジョブ取得・処理パターン、Worker 内 LLM 呼び出し（ADR 0040）
 
 #### LLM プロンプト関連の場合

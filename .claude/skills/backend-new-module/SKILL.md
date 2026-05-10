@@ -8,7 +8,7 @@ argument-hint: "[feature-name] (例: notifications, ratings)"
 
 引数 `$ARGUMENTS` を機能名（単数形・スネークケース、例：`notification`）として解釈する。FastAPI ディレクトリ構成（→ [.claude/rules/backend.md](../../rules/backend.md)）に従い、機能別フラットでファイルを作成する。
 
-> **本プロジェクトでは Repository レイヤを採用しない**（[02-architecture.md: Backend API 設計スタイル](../../../docs/requirements/2-foundation/02-architecture.md#backend-apifastapi--python) が SSoT）。Service が `AsyncSession` から SQLAlchemy 2.0 を直接呼ぶ単層構成。本 SKILL で生成するのは router / schema / service / model のみ。**Repository 2 層構成のテンプレートは別プロジェクトで参考にするため §付録 A にコメントとして残してある**（本 SKILL の能動指示は単層構成）。
+> **本プロジェクトでは Repository レイヤを採用しない**（[02-architecture.md: 設計スタイル](../../../docs/requirements/2-foundation/02-architecture.md#設計スタイル) が SSoT）。Service が `AsyncSession` から SQLAlchemy 2.0 を直接呼ぶ単層構成。本 SKILL で生成するのは router / schema / service / model のみ。**Repository 2 層構成のテンプレートは別プロジェクトで参考にするため §付録 A にコメントとして残してある**（本 SKILL の能動指示は単層構成）。
 
 ## 手順
 

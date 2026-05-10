@@ -1,7 +1,7 @@
 ---
 name: worker-implement
 description: 要件 .md を読んで Go Worker を実装する
-argument-hint: "[feature-name] (例: grading, regrading, generation)"
+argument-hint: "[F-XX-feature-name] (例: F-04-auto-grading, F-02-problem-generation)"
 ---
 
 # 要件ベースの Worker 実装
@@ -98,11 +98,14 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 
 ```markdown
 ## ステータス
-- [x] 要件定義完了
+- [x] 要件定義完了（このファイルが受け入れ条件まで埋まっている）
 - [x] バックエンド実装完了
 - [x] フロントエンド実装完了
-- [x] 採点 Worker 実装完了    ← ここをチェック
-- [ ] テスト完了
+- [x] ワーカー実装完了（必要な場合のみ）    ← ここをチェック
+- [ ] ユニットテスト完了
+- [ ] E2E テスト完了（主要フローのみ）
+- [ ] **受け入れ条件すべて満たす**
+- [ ] PR マージ済み
 ```
 
 ### 8. 動作確認

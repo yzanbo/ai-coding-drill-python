@@ -161,7 +161,7 @@ commitlint.config.mjs          コミットメッセージ規約（ADR 0029）
 ```bash
 mise run lint             # 全言語 lint
 mise run test             # 全言語 test
-mise run typecheck        # 全言語 typecheck
+mise run typecheck        # 全言語 typecheck（api + web。Go は `go build` 内蔵で別扱い）
 ```
 
 > 型生成は境界別に分かれる。両境界を一括で再生成する横断タスク `mise run types-gen` あり（OpenAPI export + Job Schema export + Hey API + quicktype をチェーン実行、CI の drift 検出にも使う）。境界別に個別実行したい場合は `mise run web:types-gen`（HTTP API 境界：OpenAPI → Hey API）/ `mise run api:job-schemas-export` + `mise run worker:types-gen`（Job キュー境界：Pydantic → JSON Schema → quicktype）（→ [ADR 0006](docs/adr/0006-json-schema-as-single-source-of-truth.md)）。
@@ -274,8 +274,12 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 | `/backend-implement` | 要件 .md を読んで FastAPI 実装 |
 | `/backend-new-module` | FastAPI モジュール（router / schema / service）をスキャフォールド（Repository レイヤは採用しない） |
 | `/frontend-implement` | 要件 .md を読んで Next.js 実装 |
-| `/worker-implement` | Go 採点 Worker の実装 |
-| `/backend-test` `/frontend-test` `/worker-test` | 各レイヤのテスト生成・実行 |
+| `/worker-implement` | Go Worker（採点 / 問題生成、ADR 0040）の実装 |
+| `/backend-test` | バックエンドのユニットテスト生成・実行 |
+| `/frontend-test` | フロントエンドのテスト生成・実行 |
+| `/worker-test` | Go Worker（採点 / 問題生成）のテスト生成・実行 |
+| `/update-documents` | ユーザー / 管理者マニュアルを生成・更新（HTML + PDF） |
+| `/verify-documents` | マニュアルとアプリケーションの整合性検証 |
 | `/onboarding` | 新規参画者向けプロジェクト案内 |
 
 詳細は各 `SKILL.md`（[.claude/skills/](.claude/skills/)）を参照。

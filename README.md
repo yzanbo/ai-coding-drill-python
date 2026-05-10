@@ -8,7 +8,7 @@
 > なお TS 版（`v1.0.0-typescript`）では共有データ型を `packages/shared-types/` に集約していましたが、Python pivot に伴い **Pydantic を SSoT に統一**し（→ [ADR 0006](docs/adr/0006-json-schema-as-single-source-of-truth.md)）、`packages/shared-types/` は廃止しました。
 
 🚀 **デモ**：_（デプロイ後に追記予定。R5 完了時に公開）_
-📊 **ステータス**：**設計フェーズ完了・実装着手前**（Python pivot に伴う ADR 0033〜0040 起票完了、R0 ツーリング着手前）
+📊 **ステータス**：**設計フェーズ完了・実装着手前**（Python pivot に伴う ADR 0033〜0041 起票完了、R0 ツーリング着手前）
 📚 **設計判断**：[ADR](docs/adr/) として体系的に記録（最新件数は [索引](docs/adr/README.md) を参照）
 🛠️ **セットアップして動かしたい場合**：[CONTRIBUTING.md](CONTRIBUTING.md) を参照
 
@@ -19,7 +19,7 @@
 | フェーズ | 状態 | 内容 |
 |---|---|---|
 | **設計フェーズ（TS 版）** | ✅ **完了** | ADR / 要件定義書 5 バケット / アーキテクチャ図 3 種 / プロダクトバックログ — `v1.0.0-typescript` タグで凍結 |
-| **Python pivot 設計** | ✅ **完了** | バックエンド言語切替（[ADR 0033](docs/adr/0033-backend-language-pivot-to-python.md)）/ FastAPI（[0034](docs/adr/0034-fastapi-for-backend.md)）/ uv（[0035](docs/adr/0035-uv-for-python-package-management.md)）/ pnpm 単独運用（[0036](docs/adr/0036-frontend-monorepo-pnpm-only.md)）/ SQLAlchemy + Alembic（[0037](docs/adr/0037-sqlalchemy-alembic-for-database.md)）/ テストフレームワーク（[0038](docs/adr/0038-test-frameworks.md)）/ mise（[0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）/ Worker 分割 + LLM in Worker（[0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)）/ ADR 0006 を Pydantic SSoT + 境界別 2 伝送路に再設計 / 要件定義書 5 バケット同期 |
+| **Python pivot 設計** | ✅ **完了** | バックエンド言語切替（[ADR 0033](docs/adr/0033-backend-language-pivot-to-python.md)）/ FastAPI（[0034](docs/adr/0034-fastapi-for-backend.md)）/ uv（[0035](docs/adr/0035-uv-for-python-package-management.md)）/ pnpm 単独運用（[0036](docs/adr/0036-frontend-monorepo-pnpm-only.md)）/ SQLAlchemy + Alembic（[0037](docs/adr/0037-sqlalchemy-alembic-for-database.md)）/ テストフレームワーク（[0038](docs/adr/0038-test-frameworks.md)）/ mise（[0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）/ Worker 分割 + LLM in Worker（[0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)）/ 観測性スタック Grafana 系 + Sentry（[0041](docs/adr/0041-observability-stack-grafana-and-sentry.md)）/ ADR 0006 を Pydantic SSoT + 境界別 2 伝送路に再設計 / 要件定義書 5 バケット同期 |
 | **R0**〜実装フェーズ | ⏳ 未着手 | R0 基盤立ち上げ（mise / uv / pnpm / Docker Compose / CI / 補完ツール一式）から順次着手 |
 
 > **ポートフォリオとしての位置づけ**：
@@ -50,7 +50,7 @@
 | アーキテクチャ設計力 | [02-architecture.md](docs/requirements/2-foundation/02-architecture.md) + [ADR 0004](docs/adr/0004-postgres-as-job-queue.md) / [0009](docs/adr/0009-disposable-sandbox-container.md) / [0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) |
 | LLM アプリ設計力 | [03-llm-pipeline.md](docs/requirements/2-foundation/03-llm-pipeline.md) + [ADR 0008](docs/adr/0008-custom-llm-judge.md) / [0007](docs/adr/0007-llm-provider-abstraction.md) |
 | セキュリティ・サンドボックス設計 | [ADR 0009](docs/adr/0009-disposable-sandbox-container.md) + [F-04 自動採点](docs/requirements/4-features/F-04-auto-grading.md) |
-| 観測性設計（分散トレース連携） | [04-observability.md](docs/requirements/2-foundation/04-observability.md) + [ADR 0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) |
+| 観測性設計（分散トレース連携・Grafana 系統合） | [04-observability.md](docs/requirements/2-foundation/04-observability.md) + [ADR 0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) / [ADR 0041](docs/adr/0041-observability-stack-grafana-and-sentry.md) |
 | ドキュメント設計力 | [docs/requirements/README.md](docs/requirements/README.md)（5 バケット時系列構造） |
 | アジャイル運用力 | [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md)（DoR / DoD / バックログ / リスクレジスタ） |
 
@@ -92,9 +92,9 @@
    HTTP API 境界は FastAPI 自動 OpenAPI 3.1 → Hey API（TS 型 + Zod + クライアント生成）、Job キュー境界は Pydantic から JSON Schema 出力 → quicktype（Go struct 生成）。Python は Pydantic そのものが型なので追加生成不要。
    → 詳細：[ADR 0006: Pydantic SSoT + 境界別 2 伝送路](docs/adr/0006-json-schema-as-single-source-of-truth.md)
 
-9. **AWS 単独 + IaC（Terraform）+ 観測性（OTel + Grafana + Sentry）**
-   コスト最適化（月 $10〜30）・無料枠活用・運用設計まで含めたエンドツーエンドの構成。
-   → 詳細：[ADR 0002: AWS 単独](docs/adr/0002-aws-single-cloud.md) / [04-observability.md](docs/requirements/2-foundation/04-observability.md)
+9. **AWS 単独 + IaC（Terraform）+ 観測性（OTel + Grafana 系（Loki / Tempo / Prometheus）+ Sentry）**
+   コスト最適化（月 $10〜30）・無料枠活用・運用設計まで含めたエンドツーエンドの構成。3 系統（ログ / トレース / メトリクス）を Grafana 1 画面に統合。
+   → 詳細：[ADR 0002: AWS 単独](docs/adr/0002-aws-single-cloud.md) / [ADR 0041: 観測性スタック](docs/adr/0041-observability-stack-grafana-and-sentry.md) / [04-observability.md](docs/requirements/2-foundation/04-observability.md)
 
 ---
 
@@ -126,11 +126,12 @@
 |---|---|---|
 | [0015](docs/adr/0015-codemirror-over-monaco.md) | CodeMirror 6 採用（Monaco 不採用） | バンドル軽量化 |
 | [0034](docs/adr/0034-fastapi-for-backend.md) | バックエンド API に FastAPI 採用 | Python / 型ヒント駆動 / OpenAPI 自動生成 |
-| [0014](docs/adr/0014-nestjs-for-backend.md) | バックエンドに NestJS 採用 *(Superseded by 0033)* | DI / Module / レイヤード設計（移行判断軌跡として保持） |
+| [0014](docs/adr/0014-nestjs-for-backend.md) | バックエンドに NestJS 採用 *(Superseded by 0033, 0034)* | DI / Module / レイヤード設計（移行判断軌跡として保持） |
 | [0016](docs/adr/0016-go-for-grading-worker.md) | 採点ワーカーを Go で実装 | シングルバイナリ / goroutine |
 | [0011](docs/adr/0011-github-oauth-with-extensible-design.md) | GitHub OAuth + 拡張可能設計 | Strategy パターン |
 | [0037](docs/adr/0037-sqlalchemy-alembic-for-database.md) | ORM / マイグレーションに SQLAlchemy 2.0 + Alembic | async / Pydantic 連携 / 標準ツール |
 | [0017](docs/adr/0017-drizzle-orm-over-prisma.md) | ORM に Drizzle 採用（Prisma 不採用）*(Superseded by 0033, 0037)* | 型推論 / 生 SQL 親和性（移行判断軌跡として保持） |
+| [0041](docs/adr/0041-observability-stack-grafana-and-sentry.md) | 観測性スタックに Grafana 系（Loki / Tempo / Prometheus / Grafana）+ Sentry を採用 | OSS / 3 系統 1 画面統合 / Grafana Cloud 無料枠 / OTLP ネイティブ |
 
 ### ☁️ インフラ判断
 
@@ -169,6 +170,7 @@
 
 → 索引一覧：[docs/adr/README.md](docs/adr/README.md)
 → ADR 運用ルール：1 決定 1 ファイル / 判断更新時は本文を直接書き換えて最新状態に保つ（履歴は git log）/ 代替案・トレードオフ・将来見直しトリガーを必ず記録
+→ Status の読み方：***Amended by NNNN*** = 採用判断は維持しつつ前提（言語スタック・配置範囲等）が後続 ADR で更新された / ***Superseded by NNNN*** = 採用判断そのものが取り消され別 ADR に置き換えられた（詳細は [docs/adr/README.md: ステータス](docs/adr/README.md#ステータス)）
 
 ---
 
@@ -176,6 +178,7 @@
 
 | レイヤ | 採用技術 |
 |---|---|
+| **言語ランタイム** | Python 3.13 / Node.js 22 / Go 1.23（mise で固定、[ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)） |
 | **フロントエンド** | Next.js 16+（App Router）+ Tailwind CSS + CodeMirror 6 + TanStack Query |
 | **バックエンド API** | Python + **FastAPI**（[ADR 0034](docs/adr/0034-fastapi-for-backend.md)） |
 | **ORM / マイグレーション** | SQLAlchemy 2.0（async）+ Alembic（[ADR 0037](docs/adr/0037-sqlalchemy-alembic-for-database.md)） |
@@ -186,7 +189,7 @@
 | **採点ワーカー** | Go（`apps/workers/grading/`）+ Docker クライアント（公式）+ pgx（[ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)） |
 | **問題生成ワーカー** | Go（`apps/workers/generation/`、将来追加、[ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)） |
 | **データストア** | PostgreSQL 16（DB + ジョブキュー兼任）+ Upstash Redis（キャッシュ・セッション） |
-| **LLM** | プロバイダ抽象化（Anthropic / Gemini / OpenAI / OpenRouter 差し替え可、[ADR 0007](docs/adr/0007-llm-provider-abstraction.md)） |
+| **LLM** | プロバイダ抽象化（Anthropic / Google / OpenAI / OpenRouter 差し替え可、[ADR 0007](docs/adr/0007-llm-provider-abstraction.md)） |
 | **サンドボックス** | Docker（使い捨てコンテナ）→ R3 で gVisor → R9 で Firecracker |
 | **タスクランナー / 版数管理** | mise（3 言語横断、Turborepo 不採用、[ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)） |
 | **モノレポ管理** | apps 配下で言語ごとに完結：pnpm（`apps/web/`）+ uv workspace（`apps/api/`）+ go modules（`apps/workers/<name>/` ごとに独立）（[ADR 0036](docs/adr/0036-frontend-monorepo-pnpm-only.md) / [ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)） |
@@ -194,7 +197,7 @@
 | **TS コード品質** | Biome（[ADR 0018](docs/adr/0018-biome-for-tooling.md)） |
 | **Go コード品質** | gofmt + golangci-lint（[ADR 0019](docs/adr/0019-go-code-quality.md)） |
 | **インフラ** | AWS（ECS Fargate + EC2 + RDS + ECR + Route 53）+ Terraform |
-| **観測性** | OpenTelemetry + Grafana + Loki + Tempo + Sentry |
+| **観測性** | OpenTelemetry + Grafana + Loki + Tempo + Prometheus + Sentry（[ADR 0041](docs/adr/0041-observability-stack-grafana-and-sentry.md)） |
 | **CI/CD** | GitHub Actions |
 
 > Python スタックは [ADR 0033](docs/adr/0033-backend-language-pivot-to-python.md) で方針確定 → ADR 0034〜0040 で個別技術を順次起票し、現時点で全主要スタックを確定済み。
@@ -237,7 +240,7 @@ LLM 呼び出しは Worker 側に集約（ADR 0040）：
 | R1 | MVP（認証・問題生成・採点・最低限フロント・一気通貫動作） | _未着手_ |
 | R2 | 品質保証パイプライン（Judge・ミューテーションテスト・非同期ジョブ完成） | _未着手_ |
 | R3 | サンドボックス強化（gVisor + ベンチマーク） | _未着手_ |
-| R4 | 観測性（OTel・Grafana・Sentry・管理ダッシュボード） | _未着手_ |
+| R4 | 観測性（OTel・Grafana 系（Loki / Tempo / Prometheus）・Sentry・管理ダッシュボード、[ADR 0041](docs/adr/0041-observability-stack-grafana-and-sentry.md)） | _未着手_ |
 | R5 | 仕上げ（IaC・E2E・本番デプロイ・README 完成） | _未着手_ |
 | R7 以降 | 任意（適応型出題・`apps/workers/generation/` 切り出し・多言語化・Firecracker 等） | _任意_ |
 

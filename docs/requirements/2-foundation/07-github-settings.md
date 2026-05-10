@@ -156,7 +156,7 @@ gh api "repos/${OWNER}/${REPO}/collaborators" --jq '.[].login'
 
 ```bash
 OWNER=yzanbo
-REPO=ai-coding-drill
+REPO=ai-coding-drill-python
 
 # 1. リポジトリ基本 + Pull Requests / マージ動作
 #   - description は対象リポジトリ固有のため必要に応じて -f description=... を加える

@@ -1,7 +1,7 @@
 ---
 name: verify-requirements
 description: 要件 .md と実装の整合性を検証する
-argument-hint: "[feature-name] (例: problem-generation, grading) または all で全件検証"
+argument-hint: "[F-XX-feature-name] (例: F-02-problem-generation, F-04-auto-grading) または all で全件検証"
 ---
 
 # 要件 vs 実装の整合性検証

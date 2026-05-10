@@ -1,7 +1,7 @@
 ---
 name: worker-test
 description: 要件 .md に基づいて Go Worker のテストを生成・実行する
-argument-hint: "[feature-name] (例: grading, generation)"
+argument-hint: "[F-XX-feature-name] (例: F-04-auto-grading, F-02-problem-generation)"
 ---
 
 # 要件ベースの Worker テスト

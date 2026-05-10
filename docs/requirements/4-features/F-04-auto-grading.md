@@ -171,7 +171,7 @@ class SubmissionDetail(BaseModel):
       { "name": "case1", "passed": true, "durationMs": 120 }
     ]
   },
-  "gradedAt": "2026-04-25T10:00:00Z"
+  "gradedAt": "2026-05-10T10:00:00Z"
 }
 ```
 

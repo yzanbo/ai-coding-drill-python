@@ -67,7 +67,8 @@ flowchart TB
 
 | フェーズ | 言語構成 | 目的 |
 |---|---|---|
-| MVP（R0〜） | Python（FastAPI / Backend API）+ TypeScript（Web フロントエンド）+ Go（apps/workers/grading） | Backend は当初から Python（→ [ADR 0033](../../adr/0033-backend-language-pivot-to-python.md) / [ADR 0034](../../adr/0034-fastapi-for-backend.md)）。Go はワーカーの軽量・高速性と Docker 操作の強みを活かす |
+| R0（基盤・雛形） | 同左（言語構成は確定、本実装は R1） | mise / uv / pnpm / Docker Compose / CI 雛形のセットアップ。アプリケーションの本実装は R1 から（→ [01-roadmap.md](../5-roadmap/01-roadmap.md)） |
+| MVP（R1〜） | Python（FastAPI / Backend API）+ TypeScript（Web フロントエンド）+ Go（apps/workers/grading） | Backend は当初から Python（→ [ADR 0033](../../adr/0033-backend-language-pivot-to-python.md) / [ADR 0034](../../adr/0034-fastapi-for-backend.md)）。Go はワーカーの軽量・高速性と Docker 操作の強みを活かす |
 | R1〜R6 | 上記（生成ジョブは `apps/workers/grading` が兼務） | R7 で `apps/workers/generation` に切り出すまで、生成 LLM 呼び出しも grading Worker 内で実行（→ [01-roadmap.md](../5-roadmap/01-roadmap.md) R1-4） |
 | R7 以降（任意・Later） | 上記 + 問題生成 Worker（Go、apps/workers/generation） | 問題生成 LLM 呼び出しを専用 Worker に分離（→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md) / [01-roadmap.md](../5-roadmap/01-roadmap.md) R7）。Backend API は enqueue のみに集中 |
 | 将来 | 採点対象言語の多言語化（Python、Next.js 等） | 言語アダプタ層を通じて追加 |

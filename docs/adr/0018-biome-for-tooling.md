@@ -89,19 +89,19 @@ TypeScript のリンタ・フォーマッタ選定と、モノレポにおける
 - CI 高速化（ESLint + Prettier 比で大幅短縮見込み）
 - 新規参画者が Biome 設定の場所を探さなくて済む（`apps/web/` 直下にある）
 - 型チェック（`tsc`）と構文・スタイル（Biome）の責務が明確
-- `packages/config/` の責務が「**多消費者前提の shared config**（tsconfig）専用」に絞られ、置く基準が明確になる
+- Frontend ツーリング（Biome / Knip / syncpack / tsconfig）が `apps/web/` 配下に閉じることで、root と apps/web の責務分離が明確になる（→ [ADR 0036](./0036-frontend-monorepo-pnpm-only.md)）
 
 ### 失うもの・受容するリスク
 
 - ESLint プラグインエコシステム（特定ライブラリ向けの lint ルール）を使えない
 - Biome の rule set はまだ ESLint 比で薄い領域がある（typescript-eslint の高度な型ベースルール等）
-- 将来「Biome 共有設定を別プロジェクトに切り出して再利用したい」というニーズが発生した場合、`packages/config/biome-config/` 等への再構成が必要
+- 将来「Biome 共有設定を別プロジェクトに切り出して再利用したい」というニーズが発生した場合、別 npm パッケージ（独立リポジトリ または Frontend monorepo 拡張時の共有 workspace）への再構成が必要
 
 ### 将来の見直しトリガー
 
 - 特定 ESLint プラグインが必須となるルールが必要になった場合 → ESLint 併用または部分移行を検討
-- `packages/config/` を別 npm パッケージとして公開し他プロジェクトで利用するニーズが発生した場合 → Biome 共有設定を `packages/config/biome-config/` に再移動を検討
-- workspace 固有の Biome 上書きが 3 つ以上発生し、共通の中間レイヤを抽出する価値が出てきた場合 → 中間 base を `packages/config/biome-config/` に新設して各 workspace から extends する構造を再評価
+- Biome 共有設定を別 npm パッケージとして公開し他プロジェクトで利用するニーズが発生した場合 → 独立リポジトリへの切り出しを検討
+- apps/web 内の sub-package 固有の Biome 上書きが 3 つ以上発生し、共通の中間レイヤを抽出する価値が出てきた場合 → apps/web 内の共有 workspace（例：`apps/web/packages/biome-config/`）に中間 base を新設して各 workspace から extends する構造を再評価
 
 ## References
 

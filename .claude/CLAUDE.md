@@ -19,6 +19,8 @@
 
 ## 技術スタック（モノレポ）
 
+> **言語ランタイムバージョン**：Python 3.13 / Node.js 22 / Go 1.23（`mise.toml` で固定、→ [ADR 0039](../docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）
+
 | ディレクトリ | 役割 | 言語 |
 |---|---|---|
 | `apps/web/` | Next.js 16+（App Router、Frontend ツーリング（Biome / Knip / syncpack / tsconfig）も同 app 配下に閉じる） | TypeScript |
@@ -94,7 +96,7 @@ mise run worker:grading:lint         # apps/workers/grading の golangci-lint
 mise run worker:grading:audit        # govulncheck
 mise run worker:grading:deps-check   # go mod tidy 後の差分チェック
 mise run worker:grading:types-gen    # apps/api/job-schemas/ から quicktype で Go struct 生成
-mise run worker:generation:dev       # apps/workers/generation（将来追加）
+mise run worker:generation:dev       # apps/workers/generation（R7 以降。現状はスタブで「未着手」を echo）
 # 横断（全 worker）
 mise run worker:test             # 全 Worker の go test
 mise run worker:lint             # 全 Worker の golangci-lint
@@ -251,6 +253,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 - SQLAlchemy / Alembic スキーマ・マイグレーションに関すること → `.claude/rules/alembic-sqlalchemy.md`
 - LLM プロンプトに関すること → `.claude/rules/prompts.md`
 - 要件定義書（base）の編集ルール → `.claude/rules/docs-rules.md`
+- `.claude/` 内ルール（CLAUDE.md / rules/*）の書き方そのもの → `.claude/rules/claude-rules-authoring.md`
 - プロジェクト全体に関することはこのファイルに追記
 
 ## コーディング規約（全体共通）

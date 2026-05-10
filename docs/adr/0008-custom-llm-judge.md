@@ -25,7 +25,7 @@ LLM-as-a-Judge は **採点 Worker（`apps/workers/grading/`、Go）内で自前
    - 評価軸（明確さ・網羅性・難易度・教育的価値・独自性）の設計を自分の判断として説明できる
 2. **採点 Worker と同居させる方が責務が単純**
    - Judge 呼び出しは「採点の一部」であり、採点 Worker（Go）に閉じる方がジョブ境界がきれい
-   - Ragas / DeepEval は Python ライブラリだが、採点 Worker は Go（→ [ADR 0034](./0034-fastapi-for-backend.md) で API は Python、Worker は Go の役割分担）。別言語の評価フレームワークを引き込むより、抽象化レイヤ経由の自前実装の方が責務が一貫する
+   - Ragas / DeepEval は Python ライブラリだが、採点 Worker は Go（→ [ADR 0033](./0033-backend-language-pivot-to-python.md) で API を Python に、[ADR 0040](./0040-worker-grouping-and-llm-in-worker.md) で Worker を Go に集約・LLM 呼び出しを Worker 側に集約）。別言語の評価フレームワークを引き込むより、抽象化レイヤ経由の自前実装の方が責務が一貫する
 3. **用途のミスマッチ**
    - Ragas は RAG 評価特化で問題生成評価には合わない
    - DeepEval は pytest 風 API・テストランナー統合など本件では機能過多

@@ -1,6 +1,6 @@
 # NNNN. <タイトル>
 
-- **Status**: Proposed | Accepted | Deprecated | Superseded by NNNN
+- **Status**: Accepted | Accepted（<適用範囲>、Amended by NNNN） | Deprecated | Superseded by NNNN <!-- Proposed は使わない（決定後に書く運用、→ docs/adr/README.md ステータス節） -->
 - **Date**: YYYY-MM-DD <!-- 最新の判断更新日（本文書き換え時に最新化する） -->
 - **Decision-makers**: <氏名>
 

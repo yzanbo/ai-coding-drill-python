@@ -84,6 +84,6 @@
 - [ADR 0034: バックエンド API に FastAPI を採用](./0034-fastapi-for-backend.md)（Python の Web framework 選定）
 - [ADR 0016: 採点ワーカーを Go で実装](./0016-go-for-grading-worker.md)（Go 採用の根拠）
 - [ADR 0013: Frontend ホスティングに Vercel を採用](./0013-vercel-for-frontend-hosting.md)（Next.js / TS のホスティング）
-- [ADR 0006: JSON Schema を SSoT に](./0006-json-schema-as-single-source-of-truth.md)（3 言語横断の型生成基盤）
+- [ADR 0006: Pydantic を SSoT に、境界別 2 伝送路で各言語に展開](./0006-json-schema-as-single-source-of-truth.md)（3 言語横断の型生成基盤）
 - [01-overview.md: 言語・フレームワーク構成ロードマップ](../requirements/1-vision/01-overview.md)
 - [02-architecture.md: 言語構成ロードマップ](../requirements/2-foundation/02-architecture.md)

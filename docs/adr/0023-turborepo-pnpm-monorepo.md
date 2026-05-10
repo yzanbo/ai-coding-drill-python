@@ -5,6 +5,8 @@
 - **Decision-makers**: 神保 陽平
 
 > **Note**：本 ADR は `v1.0.0-typescript` 時点の判断軌跡として保持する。現行は **Turborepo を不採用**とし、タスクランナー兼 tool 版数管理は [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)（mise）、Frontend モノレポは [ADR 0036](./0036-frontend-monorepo-pnpm-only.md)（pnpm workspaces のみ）、Python は [ADR 0035](./0035-uv-for-python-package-management.md)（uv workspace）に分離している。
+>
+> **本文中のディレクトリ構成例（`apps/grading-worker/` / `apps/rag-worker/` / `packages/shared-types/` / `packages/config/` / `packages/prompts/` / root の `biome.jsonc` / `turbo.jsonc` 等）は当時の素描であり、現行構成とは異なる**。最新は [ADR 0036](./0036-frontend-monorepo-pnpm-only.md) / [ADR 0040](./0040-worker-grouping-and-llm-in-worker.md) / [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) を参照。
 
 ## Context（背景・課題）
 

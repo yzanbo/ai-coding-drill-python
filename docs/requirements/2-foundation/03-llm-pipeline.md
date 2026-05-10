@@ -25,7 +25,7 @@ flowchart TB
     Cache{Redis<br/>キャッシュ確認}
     CacheHit([キャッシュ返却])
     Gen[初回生成プロバイダで<br/>問題草案生成<br/>低コストモデル]
-    Parse[構造化出力パース<br/>OpenAPI 由来の Go 型で検証]
+    Parse[構造化出力パース<br/>JSON Schema 由来の Go 型で検証]
     Sandbox{サンドボックスで<br/>模範解答を実行}
     Judge{LLM-as-a-Judge<br/>品質評価<br/>別プロバイダ・別モデル}
     Save([DB 保存])

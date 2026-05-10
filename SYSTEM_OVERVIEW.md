@@ -1,5 +1,7 @@
 # システム全体構成
 
+> **言語ランタイムバージョン**：Python 3.13（FastAPI）/ Node.js 22（Next.js）/ Go 1.23（Worker）。`mise.toml` で固定（→ [ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）。
+
 FastAPI（API）と Go ワーカー（採点 / 問題生成）は **物理的に別のマシンで動く**設計。理由は「Docker 操作権限が必要なホストと、ユーザーリクエストを受けるホストを分けたい」ため。LLM 呼び出しは Worker 側に集約する（→ [ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)）。
 
 ---
@@ -92,7 +94,7 @@ flowchart TB
 - 常駐プロセス、ループで動く
 - Postgres `jobs` を LISTEN/NOTIFY + ポーリングで監視
 - LLM 呼び出しは Worker 側に集約（プロンプトも `apps/workers/<name>/prompts/` に同居）
-- **LLM プロバイダ抽象化層は Go ワーカー内に実装**（Anthropic / Gemini / OpenAI / OpenRouter を差し替え可能、API 側からは独立、→ [ADR 0007](docs/adr/0007-llm-provider-abstraction.md) / [ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)）
+- **LLM プロバイダ抽象化層は Go ワーカー内に実装**（Anthropic / Google / OpenAI / OpenRouter を差し替え可能、API 側からは独立、→ [ADR 0007](docs/adr/0007-llm-provider-abstraction.md) / [ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)）
 
 #### 採点ワーカー（`apps/workers/grading/`）
 - ジョブ取得 → judge LLM 呼び出し → Docker API でサンドボックス起動 → 結果回収 → 書き戻し
@@ -162,7 +164,6 @@ sequenceDiagram
 - 実線矢印 = 同期呼び出し（HTTP / SQL）、点線矢印 = 非同期通知（NOTIFY）または HTTP レスポンス
 - `activate` / `deactivate` は処理が走っている期間を示す
 - 上から下に時系列。`Note over X,Y` はトランザクション境界・処理内容の補足
-- SQL リテラルのシングルクォートと `→` 矢印・`...` 省略記号は Mermaid パーサ事故回避のため平文に置換（実装時は `'queued'` 等の正しい SQL リテラルを使う）
 
 ---
 

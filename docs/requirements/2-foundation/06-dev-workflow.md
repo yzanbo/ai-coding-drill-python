@@ -188,7 +188,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 | ルール | 内容 |
 |---|---|
-| 内部 workspace パッケージは `workspace:*` 固定 | `@ai-coding-drill/**` への参照は `pinVersion: "workspace:*"` |
+| 内部 workspace パッケージは `workspace:*` 固定 | `@ai-coding-drill-python/**` への参照は `pinVersion: "workspace:*"`（apps/web 配下に sub-package を追加した時点で実効化、それまでは予防ルール） |
 | 外部依存は全 workspace で同一バージョン | `policy: "sameRange"` |
 | semver 範囲指定子は `^` に統一 | `range: "^"`（`workspace:*` は対象外で自動除外） |
 | `dependencies` / `devDependencies` の重複検知 | syncpack デフォルト挙動 |

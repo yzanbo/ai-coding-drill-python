@@ -1,7 +1,7 @@
 ---
 name: frontend-implement
 description: 要件 .md を読んで Next.js のフロントエンドを実装する
-argument-hint: "[feature-name] (例: problem-detail, history)"
+argument-hint: "[F-XX-feature-name] (例: F-03-problem-display-and-answer, F-05-learning-history)"
 ---
 
 # 要件ベースのフロントエンド実装
@@ -13,7 +13,7 @@ argument-hint: "[feature-name] (例: problem-detail, history)"
 ### 1. 要件の読み込み
 
 - 機能要件：`docs/requirements/4-features/$ARGUMENTS.md`
-- ベース要件：[01-overview.md](../../../docs/requirements/1-vision/01-overview.md)
+- ベース要件：[01-overview.md](../../../docs/requirements/1-vision/01-overview.md)、[02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md)、[02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md)
 - フロントエンドルール：[.claude/rules/frontend.md](../../rules/frontend.md)
 
 ファイルが存在しない場合は、ユーザーに `/new-requirements` で先に作成することを提案する。
@@ -85,11 +85,14 @@ const { data: submission } = useGetSubmission(submissionId, {
 
 ```markdown
 ## ステータス
-- [x] 要件定義完了
+- [x] 要件定義完了（このファイルが受け入れ条件まで埋まっている）
 - [x] バックエンド実装完了
 - [x] フロントエンド実装完了    ← ここをチェック
-- [ ] 採点 Worker 実装完了
-- [ ] テスト完了
+- [ ] ワーカー実装完了（必要な場合のみ）
+- [ ] ユニットテスト完了
+- [ ] E2E テスト完了（主要フローのみ）
+- [ ] **受け入れ条件すべて満たす**
+- [ ] PR マージ済み
 ```
 
 ### 9. 動作確認

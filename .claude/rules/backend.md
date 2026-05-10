@@ -32,7 +32,7 @@ apps/api/app/
 └── observability/           # OpenTelemetry セットアップ、構造化ログ、メトリクス
 ```
 
-> **Repository レイヤは採用しない**（[02-architecture.md: Backend API 設計スタイル](../../docs/requirements/2-foundation/02-architecture.md#backend-apifastapi--python) が SSoT）。Service が `AsyncSession` から SQLAlchemy 2.0 を直接呼ぶ単層構成。本 Backend は ADR 0040 により責務が薄い（auth + CRUD + job enqueue + 結果取得のみ）ため、Repository は ORM への delegating wrapper になりやすく ROI が低い。複雑なクエリが複数 Service で重複し始めたら `app/queries/<feature>.py` の関数群（クラス化はしない）に切り出す段階導入で対応する。テスト戦略は「Service の単体テスト（純粋関数を切り出して検証）+ Service+DB の結合テスト（Testcontainers / docker-compose）」を組み合わせる（→ [ADR 0038](../../docs/adr/0038-test-frameworks.md)）。
+> **Repository レイヤは採用しない**（[02-architecture.md: 設計スタイル](../../docs/requirements/2-foundation/02-architecture.md#設計スタイル) が SSoT）。Service が `AsyncSession` から SQLAlchemy 2.0 を直接呼ぶ単層構成。本 Backend は ADR 0040 により責務が薄い（auth + CRUD + job enqueue + 結果取得のみ）ため、Repository は ORM への delegating wrapper になりやすく ROI が低い。複雑なクエリが複数 Service で重複し始めたら `app/queries/<feature>.py` の関数群（クラス化はしない）に切り出す段階導入で対応する。テスト戦略は「Service の単体テスト（純粋関数を切り出して検証）+ Service+DB の結合テスト（Testcontainers / docker-compose）」を組み合わせる（→ [ADR 0038](../../docs/adr/0038-test-frameworks.md)）。
 
 ### 設計方針
 
@@ -130,7 +130,7 @@ Backend の責務はジョブ enqueue + 結果取得 API のみ。`anthropic` / 
 - SQLAlchemy モデルから Pydantic レスポンスへの詰め替えは Service 内で行う（`<Args>Response.model_validate(obj)`）
 - 認証済みエンドポイントでは「自分のリソースか」を必ずチェック（`Submission.user_id == current_user.id`）
 - エラーは FastAPI の `HTTPException` ではなくドメイン例外を投げ、`app/core/exceptions.py` の handler で HTTPException に変換する
-- ロガー：`logger = logging.getLogger(__name__)`（OpenTelemetry が自動で trace_id を注入）
+- ロガー：`logger = logging.getLogger(__name__)`（OpenTelemetry が自動で trace_id を注入）。観測性スタック（Loki / Tempo / Prometheus + Sentry）の構成は [ADR 0041](../../docs/adr/0041-observability-stack-grafana-and-sentry.md) を参照
 - 複数 Service で重複する複雑なクエリが現れたら `app/queries/<feature>.py` に **関数として** 切り出す（Repository クラスは作らない）
 
 ## 新規機能の追加パターン
