@@ -66,6 +66,12 @@ reportMissingTypeStubs = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# event loop を session スコープで共有：app.db.session の AsyncEngine は import 時に
+# 1 度だけ生成されるため、function スコープ（default）だと 2 件目以降のテストで
+# asyncpg が "Event loop is closed" を吐く。session スコープにすると loop が
+# 全テストで共有され、engine が同じ loop に bind され続ける。
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 markers = [
     "integration: requires running Postgres (skipped when DB is unavailable)",
 ]

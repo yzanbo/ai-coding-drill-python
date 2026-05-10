@@ -58,7 +58,7 @@ apps/api/app/
 ## データベース（Postgres + SQLAlchemy 2.0 async）
 
 - AsyncEngine + AsyncSession、Service レイヤは `async def`
-- セッション取得：`session: AsyncSession = Depends(get_async_session)`（リクエスト単位で生成・破棄）
+- セッション取得：`session: Annotated[AsyncSession, Depends(get_async_session)]`（リクエスト単位で生成・破棄、`Depends()` を default 引数に置く旧スタイルは ruff の B008 違反のため禁止）
 - タイムゾーン：`TIMESTAMP(timezone=True)` で UTC 保持、表示時に JST 変換（zoneinfo）
 - IDs：UUID（`server_default=text("gen_random_uuid()")`）または BigInteger（`jobs.id` のみ autoincrement）
 - 全テーブルに `created_at`、必要に応じて `updated_at`。**ハードデリート方針**（ソフトデリートは原則使わない、必要なら個別に検討）
