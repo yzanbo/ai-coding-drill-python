@@ -17,19 +17,25 @@ commit-msg:
       # commit-msg フックで commitlint を実行し、コミットメッセージが
       # Conventional Commits 規約（commitlint.config.mjs）に従っているかを検証する。
       #
-      # コマンド分解:
-      #   mise exec   ─ mise.toml に基づき子プロセスの PATH を解決して指定コマンドを実行
-      #                  Git フックは非対話シェルで起動され `~/.zshrc` 等の `mise activate` を読まないため、
-      #                  `commitlint` を直接呼ぶと PATH に shims が無く `command not found` で落ちる。
-      #                  `mise exec --` で囲むことで PATH 状態に依存せず ADR 0039 経由で commitlint を解決する。
-      #   commitlint  ─ @commitlint/cli の本体（mise.toml の `npm:@commitlint/cli` で管理）
-      #   --edit      ─ 「ファイルパスを引数に取り、その中身をコミットメッセージとして検証する」モード
-      #   {1}         ─ lefthook が commit-msg フックの第 1 引数を埋め込むプレースホルダ
-      #                  Git が commit-msg フックに渡す引数 = .git/COMMIT_EDITMSG（編集中のメッセージファイル）
+      # 実行経路は環境に応じて自動切替（環境差異耐性）:
+      #   1. mise が PATH にある場合（このプロジェクトの標準、ADR 0039）
+      #      → `mise exec --` 経由で mise.toml の `npm:@commitlint/cli` を解決
+      #      Git フックは非対話シェルで起動され `~/.zshrc` 等の mise activate を読まないため、
+      #      明示的に `mise exec` で囲まないと PATH に shims が無く command not found になる
+      #   2. mise が無く commitlint だけ globally インストールされている場合
+      #      → 直接 `commitlint` を呼ぶ（mise を採用していない開発者のフォールバック）
+      #   3. どちらも無い場合
+      #      → command not found で落ちる（CONTRIBUTING.md の「mise install」案内に従う）
       #
-      # 結果として: mise exec -- commitlint --edit .git/COMMIT_EDITMSG が実行され、
-      # 検証失敗時は exit 1 を返してコミットがブロックされる。
-      run: mise exec -- commitlint --edit {1}
+      # 引数:
+      #   --edit  : ファイルパスを引数に取り、その中身をコミットメッセージとして検証
+      #   {1}     : lefthook が commit-msg フックの第 1 引数（=.git/COMMIT_EDITMSG）を埋め込む
+      run: |
+        if command -v mise >/dev/null 2>&1; then
+          mise exec -- commitlint --edit {1}
+        else
+          commitlint --edit {1}
+        fi
       fail_text: |
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

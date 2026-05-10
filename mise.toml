@@ -340,9 +340,20 @@ run = "bash scripts/cleanup-merged-branches.sh"
 # ============================================================================
 # bootstrap — 新規参画者向け一発セットアップ
 # ============================================================================
+# 各ステップの意図:
+#   1. mise install
+#      mise.toml で固定された全 tool を一括取得（Python / Node / Go / uv / pnpm /
+#      lefthook v2 / commitlint 等）。
+#   2. git config --unset --local core.hooksPath
+#      lefthook v2 は core.hooksPath が明示設定されていると hook 自動同期を skip する。
+#      過去に lefthook v1 で install されたクローンや、何かのきっかけで .git/hooks/
+#      が明示指定された状態を冪等にクリーンアップする（未設定なら no-op）。
+#   3. lefthook install
+#      lefthook.yml に基づいて .git/hooks/ にフックスクリプトを配置する。
 [tasks.bootstrap]
 description = "新規参画者向けセットアップ：tool 一括インストール + Git フック登録"
 run = [
   "mise install",
+  "git config --unset --local core.hooksPath 2>/dev/null || true",
   "lefthook install",
 ]
