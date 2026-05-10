@@ -39,5 +39,10 @@
     "syncpack": "^15.0.0",
     "turbo": "^2.9.9",
     "typescript": "^6.0.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "fast-uri": "^3.1.2"
+    }
   }
 }
