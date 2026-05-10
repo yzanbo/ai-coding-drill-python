@@ -7,7 +7,7 @@
 
 ## 構造と進行順
 
-R0 は 4 フェーズ構成。**01〜03 は直列**で進める（フェーズ内も基本直列、根拠は [ADR 0021](../../../adr/0021-r0-tooling-discipline.md)）。**04（Go 環境構築）の着手タイミングは柔軟**：他 3 つと並行・後続どちらでもよく、R1-3 LLM プロバイダ抽象化までに完了していればよい。
+R0 は 4 フェーズ構成。**01〜03 は直列**で進める（フェーズ内も基本直列、根拠は [ADR 0021](../../../adr/0021-r0-tooling-discipline.md)）。**04（Go 環境構築）の着手タイミングは柔軟**：他 3 つと並行・後続どちらでもよく、LLM プロバイダ抽象化フェーズまでに完了していればよい。
 
 | フェーズ | 状態 | 詳細手順 |
 |---|---|---|
@@ -57,7 +57,7 @@ Python / Next.js / Go は同じ **環境構築 + 品質ゲート 5 ステップ*
 
 R0 では着手せず、後続フェーズで導入する項目：
 
-- Pydantic から JSON Schema 出力（Worker 向け）+ FastAPI OpenAPI 3.1（Frontend 向け型生成） — R1-1（最初のスキーマ投入時。雛形だけ R0 で用意可。→ [ADR 0006](../../../adr/0006-json-schema-as-single-source-of-truth.md)）
+- Pydantic から JSON Schema 出力（Worker 向け）+ FastAPI OpenAPI 3.1（Frontend 向け型生成） — 型同期パイプライン構築フェーズ（最初のスキーマ投入時。雛形だけ R0 で用意可。→ [ADR 0006](../../../adr/0006-json-schema-as-single-source-of-truth.md)）
 - pytest / Vitest / Playwright のテスト本格運用 — テスト対象コード待ち（→ [ADR 0038](../../../adr/0038-test-frameworks.md)）
 - ミューテーションテスト — R2 以降
 - Docker build → ECR push / Terraform — R5

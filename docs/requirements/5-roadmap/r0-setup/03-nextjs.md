@@ -2,7 +2,7 @@
 
 > **守備範囲**：Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲート付きで動かすまでの 6 ステップ。本フェーズが終わると、Next.js の lint / typecheck / knip がローカル + CI 両方で緑になり、依存自動更新が走り始める。
 > **前提フェーズ**：[02-python.md](./02-python.md) 完了済（Python 縦スライスと同じ「品質ゲートのステップ」パターンを再利用する）
-> **次フェーズ**：R0 完了 → R1（[../01-roadmap.md: Now：R1 MVP](../01-roadmap.md#nowr1-mvp8-項目上から順に依存関係に従う)）
+> **次フェーズ**：R0 完了 → R1（[../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクション）
 
 ---
 
@@ -70,7 +70,7 @@ pnpm exec knip                  # knip が動く
 - `web:typecheck` — `tsc --noEmit`
 - `web:knip` — `knip`
 - `web:syncpack` — `syncpack lint`
-- `web:types-gen` — Hey API で OpenAPI から TS 型 + Zod + クライアント生成（R1-1 で本格使用、R0 では雛形のみ）
+- `web:types-gen` — Hey API で OpenAPI から TS 型 + Zod + クライアント生成（型同期パイプライン構築フェーズで本格使用、R0 では雛形のみ）
 
 **完了確認**：
 ```bash
@@ -190,4 +190,4 @@ git restore --staged apps/web/app/_test/ && rm -rf apps/web/app/_test/
 
 R0 全項目（[setup/01-foundation.md](./01-foundation.md) / [02-python.md](./02-python.md) / 本ファイル / [04-go.md](./04-go.md)）が全て緑になった時点で R0 完了。`docker compose up && mise run api:dev && mise run web:dev && mise run worker:grading:dev` で開発環境が全言語で立ち上がり、CI が緑になる状態が達成される。
 
-次は R1 MVP：[../01-roadmap.md: Now：R1 MVP](../01-roadmap.md#nowr1-mvp8-項目上から順に依存関係に従う)（F-01 GitHub OAuth から開始）。
+次は R1 MVP：[../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクション（[F-01 GitHub OAuth](../../4-features/F-01-github-oauth-auth.md) から開始）。
