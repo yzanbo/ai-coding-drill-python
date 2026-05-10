@@ -25,7 +25,7 @@
 
 ## バックエンド API（FastAPI / Python）
 
-- **決定**：FastAPI（Python 3.13、版数 SSoT は [mise.toml](../../../mise.toml)）（→ [ADR 0033](../../adr/0033-backend-language-pivot-to-python.md) / [ADR 0034](../../adr/0034-fastapi-for-backend.md)）
+- **決定**：FastAPI（Python、版数 SSoT は [mise.toml](../../../mise.toml)）（→ [ADR 0033](../../adr/0033-backend-language-pivot-to-python.md) / [ADR 0034](../../adr/0034-fastapi-for-backend.md)）
 - 選定理由：
   - Pydantic v2 によるスキーマ駆動開発と OpenAPI 3.1 自動生成の親和性が高く、TS / Go 側の型生成パイプライン（[ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）と直結
   - async ネイティブで I/O バウンドな API（DB / Redis / 外部 HTTP）に適合
@@ -102,7 +102,7 @@
 
 ## データベース
 
-- **PostgreSQL 16**
+- **PostgreSQL**（版数 SSoT は [docker-compose.yml](../../../docker-compose.yml)、リーダー向けサマリは [README.md](../../../README.md#技術スタック)）
 - ORM / マイグレーション：**SQLAlchemy 2.0（async）+ Alembic**（→ [ADR 0037](../../adr/0037-sqlalchemy-alembic-for-database.md)）
   - 選定理由・代替案・トレードオフは ADR 0037 に集約
   - ジョブキュー利用との整合は [ADR 0004](../../adr/0004-postgres-as-job-queue.md) を参照

@@ -40,10 +40,7 @@
 **成果物**：
 - [mise.toml](../../../../mise.toml) — `[tools]` で版数固定、`[tasks.*]` でタスク命名規則を確立
 
-**確定済の固定版数**：
-- Python 3.13
-- Node.js 22
-- Go 1.23
+**確定済の固定版数**：具体版数の SSoT は [mise.toml](../../../../mise.toml)（Python / Node.js / Go、更新時はそこ 1 箇所を変える）。
 - uv（latest）
 - pnpm（latest）
 - lefthook（latest）

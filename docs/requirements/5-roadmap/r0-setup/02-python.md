@@ -8,7 +8,7 @@
 
 ## 1. mise install python
 
-**目的**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-) の `mise.toml` で pin 済の Python 3.13 を実体化する。
+**目的**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-) の `mise.toml` で pin 済の Python（具体版数の SSoT は [mise.toml](../../../../mise.toml)）を実体化する。
 
 **コマンド**：
 ```bash
@@ -17,10 +17,10 @@ mise install python
 
 **完了確認**：
 ```bash
-python --version  # Python 3.13.x
+python --version  # mise.toml で pin した版数が表示される
 ```
 
-**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise.toml に `python = "3.13"` が pin されている）
+**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise.toml に `python = "<最新安定版>"` が pin されている）
 
 **関連 ADR**：[ADR 0039](../../../adr/0039-mise-for-task-runner-and-tool-versions.md)
 
@@ -28,12 +28,12 @@ python --version  # Python 3.13.x
 
 ## 2. apps/api 環境構築
 
-**目的**：`uv` で apps/api workspace を初期化し、FastAPI 雛形と静的検査ツールを揃える。
+**目的**：`uv` で apps/api workspace を初期化し、FastAPI 雛形と静的検査ツールを揃える。**この時点から `apps/api/pyproject.toml` + `apps/api/uv.lock` が Python 依存版数（FastAPI / Pydantic / SQLAlchemy / ruff / pyright 等）の SSoT** — README / 他ドキュメントに具体版数を重複記載しない。
 
 **作業内容**：
 1. `uv init apps/api`（workspace 初期化、`pyproject.toml` + `uv.lock` 生成）
-2. FastAPI 雛形作成（`apps/api/app/main.py` 等の最小構成）
-3. 静的検査ツールを `uv add --dev` で導入：ruff / pyright / pip-audit / deptry
+2. FastAPI 雛形作成（`apps/api/app/main.py` 等の最小構成。FastAPI / uvicorn / Pydantic / SQLAlchemy / Alembic / asyncpg を `uv add` で導入。**版数は最新安定版を採用、以降の SSoT は `apps/api/pyproject.toml`**）
+3. 静的検査ツールを `uv add --dev` で導入：ruff / pyright / pip-audit / deptry（同上、版数 SSoT は `pyproject.toml`）
 4. `apps/api/pyproject.toml` の `[tool.ruff]` `[tool.pyright]` に最低限の設定を記述
 
 **完了確認**：
@@ -54,7 +54,7 @@ uv run pyright .                      # pyright が動く
 **目的**：Postgres + Redis をローカルで立て、SQLAlchemy 2.0 (async) + Alembic 初版で薄い CRUD を 1 周通す。リスクレジスタの「SQLAlchemy + Alembic 運用未経験箇所での詰まり」を早期に洗い出す。
 
 **作業内容**：
-1. ルートに `docker-compose.yml` 配置（Postgres 16 + Redis 7）
+1. ルートに `docker-compose.yml` 配置（Postgres + Redis、最新安定版を image tag に pin。**この時点から `docker-compose.yml` が版数の SSoT** — README / 他ドキュメントは具体版数を書かずここを参照する）
 2. `apps/api/app/db/session.py` で `AsyncSession` セットアップ（`postgresql+asyncpg://...`）
 3. `apps/api/app/models/` に SQLAlchemy 2.0 モデル定義（最低 1 テーブル、例：health_check）
 4. `alembic init` + 初版マイグレーション生成 + `alembic upgrade head`

@@ -8,7 +8,7 @@
 
 ## 1. mise install node && mise install pnpm
 
-**目的**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-) の `mise.toml` で pin 済の Node.js 22 / pnpm を実体化する。
+**目的**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-) の `mise.toml` で pin 済の Node.js / pnpm（具体版数の SSoT は [mise.toml](../../../../mise.toml)）を実体化する。
 
 **コマンド**：
 ```bash
@@ -22,7 +22,7 @@ node --version   # v22.x
 pnpm --version   # 11.x（または mise.toml 固定の版数）
 ```
 
-**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise.toml に `node = "22"` / `pnpm = "latest"` が pin されている）
+**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise.toml に Node.js / pnpm が pin されている。具体版数の SSoT は [mise.toml](../../../../mise.toml)）
 
 **関連 ADR**：[ADR 0039](../../../adr/0039-mise-for-task-runner-and-tool-versions.md)
 
@@ -30,7 +30,7 @@ pnpm --version   # 11.x（または mise.toml 固定の版数）
 
 ## 2. apps/web 環境構築
 
-**目的**：apps/web に pnpm workspace を初期化し、Next.js 雛形と Next.js ツール一式を `apps/web/` 配下に閉じる形で配置する。
+**目的**：apps/web に pnpm workspace を初期化し、Next.js 雛形と Next.js ツール一式を `apps/web/` 配下に閉じる形で配置する。**この時点から `apps/web/package.json` + `apps/web/pnpm-lock.yaml` が Frontend 依存版数（Next.js / React / Biome / Vitest / Playwright 等）の SSoT** — README / 他ドキュメントに具体版数を重複記載しない。Next.js 等は最新安定版を採用。
 
 **作業内容**：
 1. `apps/web/` に Next.js 雛形を作成（`pnpm create next-app apps/web --ts --app --tailwind`）

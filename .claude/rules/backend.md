@@ -5,7 +5,7 @@ paths:
 
 # バックエンド開発ルール（FastAPI）
 
-FastAPI（Python 3.13）の API サーバ。詳細な選定理由は [ADR 0034](../../docs/adr/0034-fastapi-for-backend.md)。ORM は SQLAlchemy 2.0（async）+ Alembic（→ [ADR 0037](../../docs/adr/0037-sqlalchemy-alembic-for-database.md)）。パッケージ管理は uv（→ [ADR 0035](../../docs/adr/0035-uv-for-python-package-management.md)）、コード品質は ruff + pyright + pip-audit + deptry（→ [ADR 0020](../../docs/adr/0020-python-code-quality.md)）。
+FastAPI（Python、版数 SSoT は [mise.toml](../../mise.toml)）の API サーバ。詳細な選定理由は [ADR 0034](../../docs/adr/0034-fastapi-for-backend.md)。ORM は SQLAlchemy 2.0（async）+ Alembic（→ [ADR 0037](../../docs/adr/0037-sqlalchemy-alembic-for-database.md)）。パッケージ管理は uv（→ [ADR 0035](../../docs/adr/0035-uv-for-python-package-management.md)）、コード品質は ruff + pyright + pip-audit + deptry（→ [ADR 0020](../../docs/adr/0020-python-code-quality.md)）。
 
 ## ディレクトリ構成（`apps/api/app/`）
 

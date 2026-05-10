@@ -1,6 +1,6 @@
 # システム全体構成
 
-> **言語ランタイムバージョン**：Python 3.13（FastAPI）/ Node.js 22（Next.js）/ Go 1.23（Worker）。`mise.toml` で固定（→ [ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）。
+> **言語ランタイムバージョン**：Python（FastAPI）/ Node.js（Next.js）/ Go（Worker）。具体版数の SSoT は [mise.toml](mise.toml)（→ [ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）、リーダー向けサマリは [README.md](README.md#技術スタック) を参照。
 
 FastAPI（API）と Go ワーカー（採点 / 問題生成）は **物理的に別のマシンで動く**設計。理由は「Docker 操作権限が必要なホストと、ユーザーリクエストを受けるホストを分けたい」ため。LLM 呼び出しは Worker 側に集約する（→ [ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)）。
 

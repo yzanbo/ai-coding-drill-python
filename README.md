@@ -176,9 +176,11 @@
 
 ## 技術スタック概要
 
+> **バージョン方針**：言語ランタイム・ミドルウェア・ライブラリは新規導入時もアップデート時も**常に最新安定版（stable / LTS）を採用**する（RC / beta は採用しない）。具体版数の SSoT 配置は [.claude/CLAUDE.md: バージョン方針](.claude/CLAUDE.md#バージョン方針) を参照。本表の数値は本 README が SSoT のサマリ層。
+
 | レイヤ | 採用技術 |
 |---|---|
-| **言語ランタイム** | Python 3.13 / Node.js 22 / Go 1.23（mise で固定、[ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)） |
+| **言語ランタイム** | Python 3.14 / Node.js 24 / Go 1.26（mise で固定、[ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)） |
 | **フロントエンド** | Next.js 16+（App Router）+ Tailwind CSS + CodeMirror 6 + TanStack Query |
 | **バックエンド API** | Python + **FastAPI**（[ADR 0034](docs/adr/0034-fastapi-for-backend.md)） |
 | **ORM / マイグレーション** | SQLAlchemy 2.0（async）+ Alembic（[ADR 0037](docs/adr/0037-sqlalchemy-alembic-for-database.md)） |
@@ -188,7 +190,7 @@
 | **Python 依存衛生 / 脆弱性** | deptry / pip-audit（[ADR 0020](docs/adr/0020-python-code-quality.md)） |
 | **採点ワーカー** | Go（`apps/workers/grading/`）+ Docker クライアント（公式）+ pgx（[ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)） |
 | **問題生成ワーカー** | Go（`apps/workers/generation/`、将来追加、[ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)） |
-| **データストア** | PostgreSQL 16（DB + ジョブキュー兼任）+ Upstash Redis（キャッシュ・セッション） |
+| **データストア** | PostgreSQL 18（DB + ジョブキュー兼任、ローカル版数 SSoT は `docker-compose.yml`）+ Upstash Redis（キャッシュ・セッション） |
 | **LLM** | プロバイダ抽象化（Anthropic / Google / OpenAI / OpenRouter 差し替え可、[ADR 0007](docs/adr/0007-llm-provider-abstraction.md)） |
 | **サンドボックス** | Docker（使い捨てコンテナ）→ R3 で gVisor → R9 で Firecracker |
 | **タスクランナー / 版数管理** | mise（3 言語横断、Turborepo 不採用、[ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)） |
