@@ -1,7 +1,7 @@
 ---
 name: verify-requirements
 description: 要件 .md と実装の整合性を検証する
-argument-hint: "[feature-name] (例: problem-generation, grading) または all で全件検証"
+argument-hint: "[F-XX-feature-name] (例: F-02-problem-generation, F-04-auto-grading) または all で全件検証"
 ---
 
 # 要件 vs 実装の整合性検証
@@ -29,22 +29,22 @@ argument-hint: "[feature-name] (例: problem-generation, grading) または all 
 
 対応する実装コードを読み込む：
 
-- **スキーマ**：`apps/api/src/drizzle/schema/*.ts` からテーブル定義
-- **コントローラ**：`apps/api/src/<feature>/*.controller.ts` からエンドポイント
-- **サービス**：`apps/api/src/<feature>/*.service.ts` からビジネスロジック
-- **DTO**：`apps/api/src/<feature>/dto/*.ts` からバリデーション
+- **スキーマ**：`apps/api/app/models/*.py` から SQLAlchemy モデル
+- **ルーター**：`apps/api/app/routers/*.py` からエンドポイント
+- **サービス**：`apps/api/app/services/*.py` からビジネスロジック
+- **Pydantic スキーマ**：`apps/api/app/schemas/*.py` からバリデーション
 - **フロント画面**：`apps/web/src/app/(routing)/**/page.tsx`
-- **採点ワーカー**：`apps/grading-worker/internal/**`（該当時）
-- **共有スキーマ**：`packages/shared-types/schemas/*.json`
-- **プロンプト**：`packages/prompts/**/*.yaml`（LLM 関連の場合）
+- **採点 Worker**：`apps/workers/grading/internal/**`（該当時）
+- **共有 artifact**：`apps/api/openapi.json`（HTTP API 境界）/ `apps/api/job-schemas/*.json`（Job キュー境界）
+- **プロンプト**：`apps/workers/grading/prompts/**/*.yaml` / `apps/workers/generation/prompts/**/*.yaml`（LLM 関連の場合、ADR 0040）
 
 ### 3. データモデルの突合
 
-要件のテーブル定義と Drizzle スキーマを比較し、差分を検出する：
+要件のテーブル定義と SQLAlchemy モデルを比較し、差分を検出する：
 
 - テーブルの過不足
 - カラムの過不足
-- カラム名の不一致（命名規則違反を含む：`_at` / `_id` ルール、→ [.claude/rules/drizzle.md](../../rules/drizzle.md)）
+- カラム名の不一致（命名規則違反を含む：`_at` / `_id` ルール、→ [.claude/rules/alembic-sqlalchemy.md](../../rules/alembic-sqlalchemy.md)）
 - 型の不一致
 - FK 参照先の不一致
 - インデックス・制約の過不足
@@ -55,8 +55,8 @@ argument-hint: "[feature-name] (例: problem-generation, grading) または all 
 
 - 要件にあるが実装にないエンドポイント
 - 実装にあるが要件にない（不要 or 文書化漏れ）
-- 認証要否の不一致（`@Public()` の有無）
-- リクエスト・レスポンス DTO の不一致
+- 認証要否の不一致（router の `dependencies=[Depends(get_current_user)]` の有無）
+- リクエスト・レスポンス Pydantic スキーマの不一致
 
 ### 5. フロントエンドの突合
 
@@ -64,25 +64,25 @@ argument-hint: "[feature-name] (例: problem-generation, grading) または all 
 
 - **画面ルート検証**：要件に記載されたパスに対応する `page.tsx` が存在するか
 - **使用 API 検証**：画面が使う API がバックエンドに実在するか
-- **バリデーション整合性**：要件のバリデーションルールと Zod スキーマ（`lib/validation/`）、API の DTO が一致するか
+- **バリデーション整合性**：要件のバリデーションルールと Zod スキーマ（Hey API 生成、`apps/web/src/lib/api/generated/`）、API の Pydantic スキーマが一致するか
 
-### 6. 採点ワーカーの突合（該当時）
+### 6. 採点 Worker の突合（該当時）
 
 採点フローに関する要件がある場合：
 
-- ジョブペイロードのスキーマ（`packages/shared-types/schemas/job.schema.json`）が要件と一致するか
-- Go ワーカーが期待される `type` を全てハンドルしているか
+- ジョブペイロードのスキーマ（`apps/api/job-schemas/*.json`、Pydantic から書き出し）が要件と一致するか
+- Go Worker が期待される `type` を全てハンドルしているか
 - 結果書き戻しのフィールドが要件と一致するか
 
 ### 7. プロンプトの突合（LLM 関連時）
 
 - 要件で言及されているカテゴリ・難易度がプロンプトの変数と整合するか
-- 出力スキーマ（`packages/shared-types/schemas/problem.schema.json` 等）が要件と一致するか
+- 出力スキーマ（`apps/api/job-schemas/problem.schema.json` 等、Pydantic から書き出し）が要件と一致するか
 - Judge の評価軸が要件と一致するか
 
 ### 8. ER 図の突合
 
-[01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md) の Mermaid ER 図と Drizzle スキーマを比較：
+[01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md) の Mermaid ER 図と SQLAlchemy モデルを比較：
 
 - ER 図に反映されていないテーブル・カラム・リレーション
 - ER 図にあるが実装にないもの
@@ -108,7 +108,7 @@ argument-hint: "[feature-name] (例: problem-generation, grading) または all 
 - ✅ 画面ルート：<一致数> / <記載数>
 - ⚠️ 差分あり：
 
-### 採点ワーカー
+### 採点 Worker
 - ✅ ジョブハンドラ：<n> 種類
 - ⚠️ 差分あり：
 

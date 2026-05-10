@@ -1,7 +1,7 @@
 # 01. データモデル（横断方針）
 
 > **このドキュメントの守備範囲**：ER 図（全体俯瞰）、命名規則、横断的な設計方針（ID 戦略・タイムスタンプ・JSON カラム・ジョブペイロード共通フィールド・マイグレーション運用・将来拡張の予告）。
-> **個別テーブルのカラム単位の最終仕様**は **Drizzle スキーマ（`apps/api/src/drizzle/schema/`）が SSoT**。
+> **個別テーブルのカラム単位の最終仕様**は **SQLAlchemy 2.0 model（`apps/api/app/models/`、`Mapped[T]` 方式）が SSoT**（→ [ADR 0037](../../adr/0037-sqlalchemy-alembic-for-database.md)）。
 > **個別機能で使うテーブル / 集計クエリ**は [features/](../4-features/) を参照。
 > **ORM・マイグレーションツール選定**は [05-runtime-stack.md](../2-foundation/05-runtime-stack.md#データベース)、**ジョブキューの仕組み**は [02-architecture.md](../2-foundation/02-architecture.md#ジョブキューpostgres-select-for-update-skip-locked) を参照。
 
@@ -86,7 +86,7 @@ erDiagram
   }
 ```
 
-各テーブルの **カラム単位の最終仕様（型・制約・デフォルト・インデックス）は Drizzle スキーマが SSoT**。本図は構造の俯瞰用。
+各テーブルの **カラム単位の最終仕様（型・制約・デフォルト・インデックス）は SQLAlchemy 2.0 model（`Mapped[T]` 方式）が SSoT**。本図は構造の俯瞰用。
 
 ---
 
@@ -124,17 +124,17 @@ erDiagram
 ### JSON カラム運用
 
 - 型は **JSONB**（高速・GIN インデックス可能）
-- 複数機能で共有するペイロードは **JSON Schema を SSoT** とし、TS / Go 両方の型を自動生成（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
+- 複数機能で共有するペイロードは **Pydantic モデルを SSoT** とし、境界別 2 伝送路で型生成：HTTP API 境界は FastAPI 自動 OpenAPI 3.1（`apps/api/openapi.json`）→ TS（Hey API）、Job キュー境界は Pydantic `model.model_json_schema()` で個別 JSON Schema（`apps/api/job-schemas/`）→ Go（quicktype `--src-lang schema`）（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
 - 自由形式 JSON カラムでも、コメントまたは別ドキュメントでスキーマを文書化する
 
 ### ジョブペイロード共通フィールド：`traceContext`
 
-すべてのジョブ種別の `payload` に **`traceContext` を必須**として含める。NestJS（Producer）から Go ワーカー（Consumer）へ OTel Context をプロセス境界をまたいで伝播するため。詳細は：
+すべてのジョブ種別の `payload` に **`traceContext` を必須**として含める。FastAPI（Producer）から Go ワーカー（Consumer：apps/workers/grading, apps/workers/generation）へ OTel Context をプロセス境界をまたいで伝播するため。詳細は：
 
 - [ADR 0010: W3C Trace Context をジョブペイロードに埋め込む](../../adr/0010-w3c-trace-context-in-job-payload.md)（採用方式・代替案・実装方針）
 - [04-observability.md: プロセス境界をまたぐトレース連携](../2-foundation/04-observability.md#プロセス境界をまたぐトレース連携r1-で必須)
 
-具体的な JSON Schema 定義は **`packages/shared-types/schemas/job.schema.json`（実装着手時に作成）が SSoT**。本ドキュメントには共通フィールドの存在のみを示す。
+具体的なペイロード定義は **`apps/api/app/schemas/jobs.py` の Pydantic モデル（実装着手時に作成）が SSoT**。Job キュー境界では `model.model_json_schema()` で個別 JSON Schema を `apps/api/job-schemas/` に出力し、quicktype `--src-lang schema` で Go struct を生成して Worker 側に配布する（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) / [06-dev-workflow.md: 共有型・スキーマ](../2-foundation/06-dev-workflow.md#共有型スキーマpydantic-を-ssot境界別の-2-伝送路で各言語へ展開)）。本ドキュメントには共通フィールドの存在のみを示す。
 
 ### 認証スキーマの分離
 
@@ -142,7 +142,7 @@ erDiagram
 
 ### インデックス設計の方針
 
-横断的な設計方針のみここに記載。テーブル個別のインデックス定義は **Drizzle スキーマが SSoT**。
+横断的な設計方針のみここに記載。テーブル個別のインデックス定義は **SQLAlchemy 2.0 model（`Mapped[T]` 方式）が SSoT**。
 
 - **読み込み頻度が高いクエリには必ずインデックスを張る**：特に `jobs(queue, state, run_at)` はワーカー取得クエリの中核（[ADR 0004](../../adr/0004-postgres-as-job-queue.md)）
 - **`created_at DESC` で並べる履歴系**：複合インデックスで対応（例：`submissions(user_id, created_at DESC)`）
@@ -152,11 +152,12 @@ erDiagram
 
 ## マイグレーション運用
 
-- マイグレーションは **Drizzle で管理**（→ [05-runtime-stack.md: データベース](../2-foundation/05-runtime-stack.md#データベース)、[ADR 0017](../../adr/0017-drizzle-orm-over-prisma.md)）
+- マイグレーションは **Alembic で管理**（→ [05-runtime-stack.md: データベース](../2-foundation/05-runtime-stack.md#データベース)、[ADR 0037](../../adr/0037-sqlalchemy-alembic-for-database.md)）
+- ローカル適用は `mise run api:db-migrate`（内部で `alembic upgrade head`、→ [ADR 0039](../../adr/0039-mise-for-task-runner-and-tool-versions.md)）
 - 1 マイグレーション = 1 つの論理変更
 - **後方互換性を保つ順序で書く**：カラム追加 → 書き込みコード更新 → 旧カラム削除
 - 本番マイグレーションは GitHub Actions の **手動承認ジョブ**で実行
-- 適用済み SQL ファイルは原則編集しない（→ [.claude/rules/drizzle.md](../../../.claude/rules/drizzle.md)）
+- 適用済みリビジョンファイル（`apps/api/alembic/versions/*.py`）は原則編集しない
 
 ---
 

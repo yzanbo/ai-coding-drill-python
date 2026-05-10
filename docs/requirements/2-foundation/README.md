@@ -57,8 +57,8 @@
 
 | ファイル | 担当 |
 |---|---|
-| **05-runtime-stack.md** | **サービスを動かす技術**（NestJS / Drizzle / Postgres / LLM プロバイダ等）。エンドユーザーのリクエストを処理する |
-| **06-dev-workflow.md** | **開発体験を支える技術**（Biome / Knip / lefthook / commitlint / syncpack / Jest / Playwright / GitHub Actions 等）。開発者の生産性・品質保証 |
+| **05-runtime-stack.md** | **サービスを動かす技術**（FastAPI / SQLAlchemy / Postgres / LLM プロバイダ等）。エンドユーザーのリクエストを処理する |
+| **06-dev-workflow.md** | **開発体験を支える技術**（mise / uv / Ruff / pytest / Biome / Knip / lefthook / commitlint / Vitest / Playwright / GitHub Actions 等）。開発者の生産性・品質保証 |
 
 ### 06 と 07（CI 中身 vs リポジトリ設定）
 

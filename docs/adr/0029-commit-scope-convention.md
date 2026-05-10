@@ -1,7 +1,7 @@
 # 0029. コミット scope 規約（モノレポ領域 + 自動更新用 deps / deps-dev）
 
 - **Status**: Accepted
-- **Date**: 2026-05-05
+- **Date**: 2026-05-09 <!-- Python pivot に追従して ORM 固有名（Drizzle）を除去 -->
 - **Decision-makers**: 神保 陽平
 
 ## Context（背景・課題）
@@ -14,7 +14,7 @@
    - 列挙制にすると、新しい領域を増やすときに commitlint 設定を更新する手間が出る
 
 2. **モノレポの「領域」と「依存更新」をどう識別子で区別するか**
-   - 領域 scope（`web` / `api` / `worker` / `shared` / `config` / `infra` / `docs` / `db`）はモノレポの作業対象を示す
+   - 領域 scope（`web` / `api` / `worker` / `shared` / `config` / `infra` / `docs` / `db`）はモノレポの作業対象を示す（`shared` は `apps/api/openapi.json` / `apps/api/job-schemas/` 等の共有 artifact、`config` は root 直接配置の tooling。`packages/` は廃止済み）
    - 一方で [ADR 0028](./0028-dependabot-auto-update-policy.md) で導入した Dependabot は `include: scope` 指定により、依存種別から自動的に scope を生成する：
      - production / github-actions → `(deps)`
      - devDependencies → `(deps-dev)`
@@ -22,15 +22,15 @@
    - これらを領域 scope と同列の `scope-enum` に登録しないと、Dependabot の自動 PR が commitlint で弾かれて運用が破綻する
 
 3. **scope 定義の SSoT をどこに置くか**
-   - 機械強制は `commitlint.config.ts` の `scope-enum`
+   - 機械強制は `commitlint.config.mjs` の `scope-enum`
    - 人間向けの説明は `.claude/CLAUDE.md`（と過去には PR テンプレート等にも書かれがち）
    - 複数箇所に書くと不可避的にずれが生じる
 
 ## Decision（決定内容）
 
-**scope は列挙制とし、領域 scope（web / api / worker / shared / config / infra / docs / db）8 種 + 自動更新 scope（deps / deps-dev）2 種の計 10 種を `commitlint.config.ts` の `scope-enum` で機械強制する。`scope-empty` は許容する**（リポジトリ横断の変更で scope 不要なケースのため）。
+**scope は列挙制とし、領域 scope（web / api / worker / shared / config / infra / docs / db）8 種 + 自動更新 scope（deps / deps-dev）2 種の計 10 種を `commitlint.config.mjs` の `scope-enum` で機械強制する。`scope-empty` は許容する**（リポジトリ横断の変更で scope 不要なケースのため）。
 
-**運用詳細（type / scope の完全一覧 / 複数領域跨りの書き方 / scope 追加変更時の手順）の SSoT は [06-dev-workflow.md: コミットメッセージ規約](../requirements/2-foundation/06-dev-workflow.md#コミットメッセージ規約) を参照**（運用ルール型 ADR、→ [`.claude/rules/docs-rules.md` §2](../../.claude/rules/docs-rules.md)）。機械強制 SSoT は [`commitlint.config.ts`](../../commitlint.config.ts)。本 ADR は採用根拠（§Why）と代替案（§Alternatives Considered）を扱う。
+**運用詳細（type / scope の完全一覧 / 複数領域跨りの書き方 / scope 追加変更時の手順）の SSoT は [06-dev-workflow.md: コミットメッセージ規約](../requirements/2-foundation/06-dev-workflow.md#コミットメッセージ規約) を参照**（運用ルール型 ADR、→ [`.claude/rules/docs-rules.md` §2](../../.claude/rules/docs-rules.md)）。機械強制 SSoT は [`commitlint.config.mjs`](../../commitlint.config.mjs)。本 ADR は採用根拠（§Why）と代替案（§Alternatives Considered）を扱う。
 
 ## Why（採用理由）
 
@@ -43,9 +43,9 @@
 
 ### 領域 scope を 8 種に絞る理由
 
-- **モノレポの物理ディレクトリと一対一対応**：`apps/*` / `packages/*` / `infra/` / `docs/` の各ディレクトリが scope に対応する
-- **`db` だけは物理ディレクトリでなく論理領域**：Drizzle スキーマ・マイグレーションは `apps/api` 配下にあるが、DB スキーマ変更は影響範囲が API 単独でないため独立 scope を割り当てる（マイグレーションを伴う変更を後で `git log` で抽出しやすい）
-- **`config` はルート直接配置の tooling 設定群と `packages/config/` の両方を含む**：配置方針の詳細は [packages/config/README.md](../../packages/config/README.md) 参照。両方とも `config` scope を使う
+- **モノレポの物理ディレクトリと一対一対応**：`apps/*` / `infra/` / `docs/` の各ディレクトリが scope に対応する（`packages/` は ADR 0036 / 0040 で全廃済み。共有 artifact は `apps/api/openapi.json` / `apps/api/job-schemas/` 等の `apps/api/` 配下に集約され `shared` scope で表現、root tooling 設定は `config` scope で表現）
+- **`db` だけは物理ディレクトリでなく論理領域**：DB スキーマ・マイグレーションは `apps/api` 配下にあるが、DB スキーマ変更は影響範囲が API 単独でないため独立 scope を割り当てる（マイグレーションを伴う変更を後で `git log` で抽出しやすい）
+- **`config` は root 直接配置の tooling 設定群を対象**：`mise.toml` / `lefthook.yml` / `commitlint.config.mjs` 等。`packages/config/` は廃止済み（→ [ADR 0036](./0036-frontend-monorepo-pnpm-only.md)）のため、現状は root tooling 設定のみが対象
 
 ### 自動更新 scope を分離して 2 種追加する理由
 
@@ -58,7 +58,7 @@
 - **リポジトリ横断の変更で scope を強制すると違和感が出る**：例えば `chore: lefthook を導入` のような全体に関わる変更で、無理に scope を付けるとミスリードになる
 - **CLAUDE.md のリポジトリ規律変更等もこのケース**
 
-### SSoT を `commitlint.config.ts` に置く理由
+### SSoT を `commitlint.config.mjs` に置く理由
 
 - **commitlint が CI で検証する唯一の真実**：人間が読む `.claude/CLAUDE.md` は説明用の写しに過ぎない
 - **設定ファイルが複数ある場合、機械強制される側を正とする**が原則
@@ -89,14 +89,14 @@
 
 ### 将来の見直しトリガー
 
-- **新規 workspace（`apps/*` / `packages/*`）追加時**：対応する scope を追加
+- **新規 workspace（`apps/*`）追加時**：対応する scope を追加（`packages/` は廃止済みのため対象外、→ ADR 0036 / 0040）
 - **Dependabot 仕様変更時**：自動付与される scope に変化があれば追従
 - **scope の数が 15 を超えた場合**：列挙制の維持コストが高まるため、グループ化（`apps-*` プレフィックス等）を再検討
 - **scope の意味がぶれ始めた場合**（例：`config` がルート設定とパッケージ設定で混在）：`config-root` / `config-pkg` への分割を検討
 
 ## References
 
-- [commitlint.config.ts](../../commitlint.config.ts)：本 ADR の機械強制実装（SSoT）
+- [commitlint.config.mjs](../../commitlint.config.mjs)：本 ADR の機械強制実装（SSoT）
 - [.claude/CLAUDE.md](../../.claude/CLAUDE.md)：人間向け scope 表（副 SSoT）
 - [.github/dependabot.yml](../../.github/dependabot.yml)：自動 PR が `include: scope` で `deps` / `deps-dev` を生成する設定
 - [ADR 0021](./0021-r0-tooling-discipline.md)：commitlint を R0 から導入

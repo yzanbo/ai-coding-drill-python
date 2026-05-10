@@ -24,7 +24,7 @@ paths:
 リンクを使ってよいのは以下に限定：
 
 - **採用根拠 / 設計判断**：「採用根拠は [ADR 00XX] を参照」（ADR は読まなくても規約には従える）
-- **実装 SSoT のコードファイル**：「機械強制 SSoT は `commitlint.config.ts`」（Claude は必要時に直接そのファイルを開ける）
+- **実装 SSoT のコードファイル**：「機械強制 SSoT は `commitlint.config.mjs`」（Claude は必要時に直接そのファイルを開ける）
 - **より長い解説 / 具体例 / フローチャート**：「詳細は <要件定義書> を参照」（基本ルールはこのファイル内で読み切れる前提）
 
 ---
@@ -41,9 +41,9 @@ paths:
 
 ## 3. 本拠地が他ファイルにあるルール（コピー）の扱い
 
-別ファイル（`commitlint.config.ts` / 要件定義書 等）にも同じルールが書かれているケースの扱い。**別ファイル側が本物（本拠地）、`.claude/` 側はコピー**という関係になる。
+別ファイル（`commitlint.config.mjs` / 要件定義書 等）にも同じルールが書かれているケースの扱い。**別ファイル側が本物（本拠地）、`.claude/` 側はコピー**という関係になる。
 
-例：commit scope の一覧は `commitlint.config.ts` が本拠地（CI が読む本物）、`.claude/CLAUDE.md` がコピー。
+例：commit scope の一覧は `commitlint.config.mjs` が本拠地（CI が読む本物）、`.claude/CLAUDE.md` がコピー。
 
 このような状況は §1 で「直接記載」を要求した結果として発生する（リンクで逃せないので、本拠地と同じ内容が `.claude/` 側にも書かれることになる）。
 
@@ -64,6 +64,6 @@ paths:
 | `.claude/CLAUDE.md` | プロジェクト全体に効かせたい横断規約（コミット形式 / ブランチ命名 / Git 操作禁止 / 設定ファイル形式の優先順位 / コード品質ツール一覧 等） |
 | `.claude/rules/claude-rules-authoring.md`（本ファイル） | `.claude/` 内ルールの書き方そのもの |
 | `.claude/rules/docs-rules.md` | `docs/adr/` と `docs/requirements/` の記述ルール（SSoT 原則 / ADR Decision の型分類 / 5 バケット構造 / Mermaid 規約 等） |
-| `.claude/rules/{backend,frontend,worker,drizzle,prompts}.md` | レイヤ別実装ルール |
+| `.claude/rules/{backend,frontend,worker,alembic-sqlalchemy,prompts}.md` | レイヤ別実装ルール |
 
 役割が重なるトピックが出てきたら、片方を「正」とし、他方からは「<役割名> は <ファイル名> を参照」と一文で誘導する（リンクではなくファイル名をテキストで明示し、Claude が直接そのファイルを開けるようにする）。

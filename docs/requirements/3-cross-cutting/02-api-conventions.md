@@ -2,7 +2,7 @@
 
 > **このドキュメントの守備範囲**：API 全体の基本方針、認証・セッションの仕組み、エラーフォーマット、ステータスコード方針、レート制限方針、非同期 API のクライアント実装パターン、ヘルスチェック・運用エンドポイント、OpenAPI 自動生成方針。
 > **個別エンドポイントの詳細（リクエスト/レスポンス例・受け入れ条件）** は [features/](../4-features/) を参照。
-> **機械可読の最新仕様** は OpenAPI（`/api/docs/openapi.json`）が SSoT。本ドキュメントは設計意図と共通方針を残す位置づけ。
+> **機械可読の最新仕様** は OpenAPI（artifact: `apps/api/openapi.json`、ランタイム: FastAPI の `/openapi.json`）が SSoT。本ドキュメントは設計意図と共通方針を残す位置づけ。
 > **データ構造**は [01-data-model.md](./01-data-model.md)、**コンポーネント責務**は [02-architecture.md](../2-foundation/02-architecture.md) を参照。
 
 ---
@@ -13,16 +13,17 @@
 - バージョン管理：URL に含めない、Breaking Change は `Accept` ヘッダで分岐するか新エンドポイントを生やす
 - 文字コード UTF-8、Content-Type は `application/json`
 - 認証：Cookie ベースのセッション（HttpOnly + Secure + SameSite=Lax）
-- 全ルートはデフォルト認証必須、`@Public()` デコレータで例外的に認証スキップ（→ [.claude/rules/backend.md](../../../.claude/rules/backend.md)）
+- 全ルートはデフォルト認証必須、明示的な公開ルートのみ FastAPI の依存（`Depends(get_current_user_optional)` 等）または `@public_route` ヘルパで認証をスキップ（→ [.claude/rules/backend.md](../../../.claude/rules/backend.md)）
 
 ---
 
 ## OpenAPI 自動生成
 
-- 実装コードから OpenAPI ドキュメントを **自動生成**（採用ライブラリは [05-runtime-stack.md: バックエンド API](../2-foundation/05-runtime-stack.md#バックエンド-apinestjs--typescript) を参照）
-- 生成された OpenAPI JSON を `/api/docs/openapi.json` で配信
-- Swagger UI を `/api/docs` で配信（開発・ステージング環境のみ）
-- 本ドキュメント（09）は **設計意図・共通方針** を残す位置づけで、最新の機械可読仕様は OpenAPI に従う
+- FastAPI は Pydantic モデルから **OpenAPI 3.1 ドキュメントを自動生成**（→ [ADR 0034](../../adr/0034-fastapi-for-backend.md)、[ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
+- 生成された OpenAPI JSON は `apps/api/openapi.json` にエクスポートし、ランタイムでは `/openapi.json` で配信
+- Swagger UI は FastAPI の `/docs`、ReDoc は `/redoc`（開発・ステージング環境のみ公開）
+- 境界別 2 伝送路で型生成：**HTTP API 境界（Frontend 向け）**は `apps/api/openapi.json` → **Hey API** で TS 型 + Zod + HTTP クライアント、**Job キュー境界（Worker 向け）**は Pydantic から `apps/api/job-schemas/` に個別 JSON Schema を出力 → **quicktype `--src-lang schema`** で Go struct 生成（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
+- 本ドキュメントは **設計意図・共通方針** を残す位置づけで、最新の機械可読仕様は OpenAPI に従う
 - 個別エンドポイントの詳細は **[features/](../4-features/) が SSoT**（受け入れ条件・画面動作と直結する記述）
 
 ---
@@ -38,8 +39,8 @@
 
 ### 認証要否の制御
 
-- グローバルガード（`APP_GUARD`）でデフォルト認証必須
-- 例外（OAuth コールバック等）は `@Public()` デコレータで個別に解除
+- FastAPI の依存（`Depends(get_current_user)`）をルーター単位で適用し、デフォルト認証必須に揃える
+- 例外（OAuth コールバック・ヘルスチェック等）は依存を外す or `Depends(get_current_user_optional)` を使う
 - 認証フロー詳細は [F-01](../4-features/F-01-github-oauth-auth.md) を参照
 
 ---
@@ -114,7 +115,7 @@
 2. `GET /<resource>/:id` をポーリング（1〜2 秒間隔、指数バックオフ。クライアント側ライブラリは [05-runtime-stack.md: フロントエンド](../2-foundation/05-runtime-stack.md#フロントエンド) を参照）
 3. `status === 'graded' | 'completed'` になったら停止
 
-ジョブの内部フロー（NestJS → Postgres → Go ワーカー → サンドボックス）は [02-architecture.md: 1 ジョブが流れる完全な経路](../2-foundation/02-architecture.md#1-ジョブが流れる完全な経路) を参照。
+ジョブの内部フロー（FastAPI → Postgres → Go ワーカー（apps/workers/grading or generation）→ LLM / サンドボックス）は [02-architecture.md: 1 ジョブが流れる完全な経路](../2-foundation/02-architecture.md#1-ジョブが流れる完全な経路) を参照（→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）。
 
 ジョブ全体を通じた `trace_id` の連結は [ADR 0010](../../adr/0010-w3c-trace-context-in-job-payload.md) を参照。
 
@@ -130,6 +131,23 @@
 - ECS / Kubernetes 等のオーケストレータがこれらを叩いてコンテナの再起動・配信開始を判断する
 - `/readyz` は依存先（Postgres / Redis / 必要に応じて LLM プロバイダ）の到達性を確認する
 - 観測ダッシュボードでの監視対象（→ [04-observability.md: ヘルスチェック](../2-foundation/04-observability.md#ヘルスチェック)）
+
+---
+
+## APIRouter 構成
+
+FastAPI の `APIRouter` を機能単位で分割し、`apps/api/app/main.py` で `app.include_router()` する構成（→ [.claude/rules/backend.md](../../../.claude/rules/backend.md)）。R1 MVP 時点での router 一覧：
+
+| router モジュール | prefix | 担当 feature | 主なエンドポイント |
+|---|---|---|---|
+| `routers/auth` | `/auth` | [F-01](../4-features/F-01-github-oauth-auth.md) | `/auth/github` / `/auth/github/callback` / `/auth/logout` / `/auth/me` |
+| `routers/problems` | `/problems` | [F-02](../4-features/F-02-problem-generation.md) / [F-03](../4-features/F-03-problem-display-and-answer.md) | `/problems` / `/problems/:id` / `/problems/generate` / `/problems/generate/:requestId` |
+| `routers/submissions` | `/submissions` | [F-04](../4-features/F-04-auto-grading.md) | `/submissions` / `/submissions/:id` |
+| `routers/jobs` | `/jobs` | 横断（enqueue 内部 API） | API 内部でジョブ enqueue 用途。書き戻しは Worker が直接 DB に行うため公開エンドポイントは持たない |
+| `routers/me` | `/me` | [F-05](../4-features/F-05-learning-history.md) | `/me/stats` / `/me/weakness`（R1 MVP に含む、→ [01-roadmap.md](../5-roadmap/01-roadmap.md) R1-8）。Web 画面ルート `/me/history` は API としては `GET /submissions` を呼ぶ（→ [F-05](../4-features/F-05-learning-history.md)） |
+| `routers/healthz` | `/` | 横断 | `/healthz` / `/readyz` |
+
+router の物理配置・依存定義（`Depends(get_current_user)` 等）の詳細規約は [.claude/rules/backend.md](../../../.claude/rules/backend.md) を参照。
 
 ---
 

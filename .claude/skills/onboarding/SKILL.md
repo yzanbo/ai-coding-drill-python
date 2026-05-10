@@ -13,10 +13,10 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 
 ### 1. ヒアリング（対話フェーズ）
 
-引数が省略された場合、AskUserQuestion で確認する：
+引数が省略された場合、対話的に質問する：
 
-- **担当領域**：バックエンド（NestJS）／ フロントエンド（Next.js）／ 採点ワーカー（Go）／ フルスタック
-- **経験レベル**：使用技術（NestJS, Next.js, Go, Drizzle ORM, Postgres 等）の経験有無
+- **担当領域**：バックエンド（FastAPI）／ フロントエンド（Next.js）／ Worker（採点 / 問題生成、Go、ADR 0040）／ フルスタック
+- **経験レベル**：使用技術（FastAPI, SQLAlchemy 2.0, Next.js, Go, Postgres 等）の経験有無
 
 ヒアリング結果に応じて、以降のステップで強調する内容を調整する。
 
@@ -32,10 +32,10 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 説明すべき内容：
 
 - **プロダクト**：AI Coding Drill — LLM 自動生成 × サンドボックス採点の TS 学習サイト
-- **アーキテクチャ**：3 言語ポリグロット（TS for Web/API、Go for 採点ワーカー、R7 で Python）
-- **モノレポ**：Turborepo + pnpm workspaces
-- **DB / キュー**：Postgres + Drizzle、ジョブキューも Postgres `SELECT FOR UPDATE SKIP LOCKED`
-- **キャッシュ**：Upstash Redis（ジョブキュー用途では使わない）
+- **アーキテクチャ**：3 言語ポリグロット（Python for API、TS for Web、Go for Worker 群、→ [ADR 0033](../../../docs/adr/0033-backend-language-pivot-to-python.md) / [ADR 0040](../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）
+- **タスクランナー / tool 版数**：mise（uv / pnpm / Go を一括管理、→ [ADR 0039](../../../docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）。Turborepo は不採用（→ [ADR 0036](../../../docs/adr/0036-frontend-monorepo-pnpm-only.md)）
+- **DB / キュー**：Postgres + SQLAlchemy 2.0 async + Alembic（→ [ADR 0037](../../../docs/adr/0037-sqlalchemy-alembic-for-database.md)）、ジョブキューも Postgres `SELECT FOR UPDATE SKIP LOCKED`
+- **キャッシュ**：Redis（キャッシュ・セッション・レート制限用、ジョブキュー用途では使わない、→ [ADR 0005](../../../docs/adr/0005-redis-not-for-job-queue.md)）
 - **インフラ**：AWS 単独（ECS Fargate + EC2 + RDS + ECR + Route 53）
 
 ### 3. アーキテクチャ・設計判断の説明
@@ -44,7 +44,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 
 - [ADR 0004: Postgres ジョブキュー](../../../docs/adr/0004-postgres-as-job-queue.md) — なぜ Redis Streams ではないか
 - [ADR 0015: CodeMirror 6 採用](../../../docs/adr/0015-codemirror-over-monaco.md) — なぜ Monaco ではないか
-- [ADR 0016: Go 採点ワーカー](../../../docs/adr/0016-go-for-grading-worker.md) — なぜ Node ではないか
+- [ADR 0016: Go 採点 Worker](../../../docs/adr/0016-go-for-grading-worker.md) — なぜ Node ではないか（ディレクトリ配置の更新は [ADR 0040](../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md) 参照）
 - [ADR 0009: 使い捨てコンテナ](../../../docs/adr/0009-disposable-sandbox-container.md) — なぜウォームプールではないか
 - [ADR 0007: LLM プロバイダ抽象化](../../../docs/adr/0007-llm-provider-abstraction.md) — なぜ特定モデルに固定しないか
 - [ADR 0006: JSON Schema を SSoT](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md) — 多言語間の型整合性
@@ -78,13 +78,13 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 | `/new-requirements` | 機能要件 .md を対話的に新規作成 |
 | `/update-requirements` | 要件を先に更新してから実装を修正 |
 | `/verify-requirements` | 要件と実装の整合性を検証 |
-| `/backend-implement` | 要件 .md を読んで NestJS 実装 |
+| `/backend-implement` | 要件 .md を読んで FastAPI 実装 |
 | `/backend-test` | バックエンドのユニットテスト生成・実行 |
-| `/backend-new-module` | NestJS モジュールをスキャフォールド |
+| `/backend-new-module` | FastAPI モジュール（router / schema / service）をスキャフォールド（Repository レイヤは採用しない、→ `.claude/rules/backend.md`） |
 | `/frontend-implement` | 要件 .md を読んで Next.js 実装 |
 | `/frontend-test` | フロントエンドのテスト生成・実行 |
-| `/worker-implement` | Go 採点ワーカーの実装 |
-| `/worker-test` | Go ワーカーのテスト生成・実行 |
+| `/worker-implement` | Go Worker の実装 |
+| `/worker-test` | Go Worker のテスト生成・実行 |
 
 **重要**：機能追加は必ず `docs/requirements/4-features/` の要件 .md から始める。
 
@@ -93,14 +93,14 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 担当領域に応じて、対応するルールファイルを読み込んで要点を説明する。
 
 #### バックエンド担当の場合
-- [.claude/rules/backend.md](../../rules/backend.md) — NestJS Module 構成、Drizzle クエリ、認証・認可、コーディング規約
-- [.claude/rules/drizzle.md](../../rules/drizzle.md) — Postgres スキーマ、マイグレーション、`jobs` テーブルの扱い
+- [.claude/rules/backend.md](../../rules/backend.md) — FastAPI ディレクトリ構成、SQLAlchemy 2.0 async クエリ、認証・認可、Pydantic SSoT、コーディング規約
+- [.claude/rules/alembic-sqlalchemy.md](../../rules/alembic-sqlalchemy.md) — Postgres スキーマ、Alembic マイグレーション、`jobs` テーブルの扱い
 
 #### フロントエンド担当の場合
 - [.claude/rules/frontend.md](../../rules/frontend.md) — App Router 構成、RSC vs Client、CodeMirror、TanStack Query
 
-#### 採点ワーカー担当の場合
-- [.claude/rules/worker.md](../../rules/worker.md) — Go 構成、Docker クライアント、ジョブ取得・処理パターン
+#### Worker 担当（採点 / 問題生成）の場合
+- [.claude/rules/worker.md](../../rules/worker.md) — Go 構成、Docker クライアント、ジョブ取得・処理パターン、Worker 内 LLM 呼び出し（ADR 0040）
 
 #### LLM プロンプト関連の場合
 - [.claude/rules/prompts.md](../../rules/prompts.md) — YAML 構造、バージョン管理、A/B テスト
@@ -114,21 +114,25 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 [README.md](../../../README.md) のクイックスタートに沿って実際に起動を試してもらう：
 
 ```bash
-git clone git@github-yzanbo:yzanbo/ai-coding-drill.git
-cd ai-coding-drill
+git clone https://github.com/yzanbo/ai-coding-drill-python.git
+cd ai-coding-drill-python
 cp .env.example .env
 # 各 .env を編集
-pnpm install
+mise run bootstrap        # mise install + lefthook install
 docker compose up -d
-pnpm db:migrate
-pnpm dev
+mise run api:db-migrate
+# 別ターミナルで以下を起動
+mise run api:dev
+mise run web:dev
+mise run worker:grading:dev
 ```
 
 動作確認 URL：
 
 - Web：http://localhost:3000
-- Swagger：http://localhost:3001/api/docs
-- Drizzle Studio：`pnpm db:studio`
+- Swagger UI（FastAPI 自動生成）：http://localhost:8000/docs
+- Redoc：http://localhost:8000/redoc
+- OpenAPI 3.1 JSON：http://localhost:8000/openapi.json
 
 ### 8. 開発フェーズの現在地
 

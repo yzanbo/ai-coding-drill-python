@@ -22,15 +22,15 @@
 - セッション管理：Cookie ベース（HttpOnly + Secure + SameSite=Lax）、ストレージは Redis（Upstash）、TTL 7 日
 
 ### 拡張容易性のための 3 つの設計
-1. **Passport の Strategy パターンに沿う**（NestJS 標準）
-   - `GitHubStrategy` を 1 ファイルに分離、`AuthModule` に登録
-   - 将来：`GoogleStrategy` / `CredentialsStrategy` を新規ファイルとして追加するだけ
+1. **OAuth クライアント抽象（Authlib の Strategy 相当）に沿う**
+   - `GitHubOAuthClient` を 1 モジュールに分離、FastAPI の `Depends` で注入
+   - 将来：`GoogleOAuthClient` / `CredentialsAuthClient` を新規モジュールとして追加するだけ
 2. **DB スキーマで `users` と `auth_providers` を分離**
    - `users` テーブルにプロバイダ ID を持たせない
    - `auth_providers (provider, provider_id, user_id)` で紐付け管理
    - 1 ユーザーが将来複数プロバイダで紐づけ可能（アカウント統合）
 3. **AuthService をプロバイダ非依存に実装**
-   - `validateOAuthUser({ provider, providerId, email, displayName })` のような関数で各 Strategy から共通呼び出し
+   - `validate_oauth_user(provider, provider_id, email, display_name)` のような関数で各 OAuth クライアントから共通呼び出し
 
 ### やらないこと（YAGNI）
 - 使わない Strategy を Module に登録しない
@@ -49,8 +49,8 @@
    - 実装は最小だが DB スキーマ（`users` と `auth_providers` 分離）と Strategy パターンで拡張余地を構造的に残す
    - ハードコード（`users.github_id`）は将来の拡張時に DB マイグレーション規模が大きく、設計判断のアピールも弱い
    - 「先取り実装」と「先取り構造」を区別する判断
-4. **NestJS の設計哲学との整合**
-   - Passport の Strategy パターンは NestJS 標準で、DI・Module 構造と自然に統合
+4. **FastAPI の設計哲学との整合**
+   - OAuth クライアント抽象は FastAPI の `Depends` による DI と自然に統合（Authlib の OAuth クライアントを Depends で差し替え可能）
    - NextAuth を Next.js 側に寄せると認証ロジックが分散し、API 中心の設計と矛盾
 5. **アカウント統合という将来要件への対応余地**
    - `auth_providers` テーブル分離により、1 ユーザー × 複数プロバイダの構造が最初から成立
@@ -65,7 +65,7 @@
 | GitHub OAuth のみ + 拡張容易な設計 | （採用） | — |
 | GitHub OAuth のみ + ハードコード（`users.github_id`） | シンプル | 拡張時に DB マイグレーション・コード書き換えが大規模に発生、設計判断のアピールが弱い |
 | GitHub + Google + Email-Password を MVP から | 多様性 | 実装・運用コスト増（プロバイダごとに 1〜2 日）、本質機能（LLM 生成・採点）への投資が削られる、ターゲット層には過剰 |
-| NextAuth（Auth.js）を Next.js 側に寄せる | 標準的フロント認証 | API が NestJS 中心の設計と合わない、認証ロジックが分散、NestJS の設計力アピールが弱まる |
+| NextAuth（Auth.js）を Next.js 側に寄せる | 標準的フロント認証 | API が FastAPI 中心の設計と合わない、認証ロジックが分散、Backend 側の設計力アピールが弱まる |
 | メール + パスワードのみ | パスワード管理が必要 | パスワードリセット・ハッシュ管理など実装範囲が広い、ターゲット層には魅力が薄い |
 
 ## Consequences（結果・トレードオフ）
@@ -73,8 +73,8 @@
 ### 得られるもの
 - MVP の実装コスト最小（GitHub Strategy 1 つだけ）
 - DB 設計が拡張容易（`auth_providers` テーブルで複数プロバイダ対応）
-- Passport の Strategy パターンに従うことで NestJS の DI 設計と整合
-- 将来追加コストが低い（新規 Strategy ファイル + Module 登録 + ボタン追加で 1〜2 時間）
+- OAuth クライアント抽象に従うことで FastAPI の Depends（DI）設計と整合
+- 将来追加コストが低い（新規 OAuth クライアントモジュール + ルーター登録 + ボタン追加で 1〜2 時間）
 - 「実装は最小、拡張は容易に」という設計原則をポートフォリオで語れる
 - 1 ユーザーが複数プロバイダで紐づく将来要件（アカウント統合）にも対応可能な構造
 
@@ -92,4 +92,4 @@
 
 - [01-overview.md: F-01 ユーザー認証](../requirements/1-vision/01-overview.md)
 - [01-data-model.md: users / auth_providers](../requirements/3-cross-cutting/01-data-model.md)
-- [02-architecture.md: AuthModule](../requirements/2-foundation/02-architecture.md#backend-apinestjs)
+- [02-architecture.md: Backend API](../requirements/2-foundation/02-architecture.md#backend-apifastapi--python)

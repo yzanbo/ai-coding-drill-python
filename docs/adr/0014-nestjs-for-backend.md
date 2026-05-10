@@ -1,8 +1,10 @@
 # 0014. バックエンド API に NestJS を採用
 
-- **Status**: Accepted
-- **Date**: 2026-04-25
+- **Status**: Superseded by [0033](./0033-backend-language-pivot-to-python.md), [0034](./0034-fastapi-for-backend.md)
+- **Date**: 2026-05-09
 - **Decision-makers**: 神保 陽平
+
+> **Note**：本 ADR は `v1.0.0-typescript` 時点の判断軌跡として保持する。現行 Backend は **FastAPI（Python）** を採用しており、本文の NestJS 記述は適用されない。最新方針は [ADR 0033](./0033-backend-language-pivot-to-python.md) / [ADR 0034](./0034-fastapi-for-backend.md) を参照。
 
 ## Context（背景・課題）
 
@@ -67,5 +69,6 @@ API 層のフレームワークを 1 つに決める必要がある。
 
 ## References
 
-- [02-architecture.md: Backend API](../requirements/2-foundation/02-architecture.md#backend-apinestjs)
-- [05-runtime-stack.md: バックエンド API](../requirements/2-foundation/05-runtime-stack.md#バックエンド-apinestjs--typescript)
+- [02-architecture.md: Backend API](../requirements/2-foundation/02-architecture.md#backend-apifastapi--python)（pivot 後の現行記述）
+- [05-runtime-stack.md: バックエンド API](../requirements/2-foundation/05-runtime-stack.md#バックエンド-apifastapi--python)（pivot 後の現行記述）
+- [ADR 0033](./0033-backend-language-pivot-to-python.md)（本 ADR を Supersede した判断）

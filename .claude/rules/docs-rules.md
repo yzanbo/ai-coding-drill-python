@@ -24,7 +24,7 @@ paths:
 
 ### 戦略判断型：Decision は ADR 本文に書く
 
-一度決めたら基本動かない判断。動かす時は別 ADR で `Superseded`。例：AWS 単独 / Drizzle 採用 / Postgres ジョブキュー / LLM プロバイダ抽象化 / 使い捨てサンドボックス。
+一度決めたら基本動かない判断。動かす時は別 ADR で `Superseded`。例：AWS 単独 / SQLAlchemy + Alembic 採用 / Postgres ジョブキュー / LLM プロバイダ抽象化 / 使い捨てサンドボックス。
 
 → Decision セクションに判断本体・詳細表・運用ルールを完結させる。
 
@@ -42,7 +42,7 @@ paths:
 **運用詳細の SSoT は [<要件定義書ファイル>: <セクション名>](<相対パス>) を参照**（運用ルール型 ADR、→ `.claude/rules/docs-rules.md` §2）。本 ADR は採用根拠（§Why）と代替案（§Alternatives Considered）を扱う。
 ```
 
-ADR 本文には「なぜ・代替案・見直しトリガー」だけを残し、表・運用ルールは要件定義書 / 機械強制設定（`commitlint.config.ts` / `.syncpackrc.ts` 等）にだけ書く。
+ADR 本文には「なぜ・代替案・見直しトリガー」だけを残し、表・運用ルールは要件定義書 / 機械強制設定（`commitlint.config.mjs` / `apps/web/.syncpackrc.ts` 等）にだけ書く。
 
 ### 判定基準
 
@@ -97,7 +97,7 @@ docs/requirements/
 | `01-data-model.md` | ER 図（全体俯瞰）・命名規則・横断方針（ID 戦略・タイムスタンプ・JSON カラム・ジョブペイロード共通フィールド・マイグレーション運用） |
 | `02-api-conventions.md` | API 共通仕様（基本方針・認証・エラー形式・ステータスコード・レート制限・OpenAPI 方針） |
 
-**個別テーブルのカラム定義は Drizzle スキーマ、個別エンドポイント詳細は [4-features/](../../docs/requirements/4-features/) + OpenAPI が SSoT**。このディレクトリには横断方針のみを置く。
+**個別テーブルのカラム定義は `apps/api/app/models/` の SQLAlchemy モデル、個別エンドポイント詳細は [4-features/](../../docs/requirements/4-features/) + OpenAPI が SSoT**。このディレクトリには横断方針のみを置く。
 
 ### `4-features/` — 個別機能要件（実装単位）
 
@@ -165,8 +165,8 @@ docs/requirements/
 - リンク先は GitHub Flavored Markdown のスラグルール（小文字化、空白はハイフン、記号は除去）に従う
 - 形式：`→ <短い導入> は [<相対パス>: <セクション名>](./<相対パス>#<アンカー>)`
 - 例：
-  - `→ 採用フレームワーク・ライブラリの詳細は [05-runtime-stack.md: バックエンド API](./05-runtime-stack.md#バックエンド-apinestjs--typescript)`
-  - `→ コンポーネントの責務は [02-architecture.md: Backend API](../2-foundation/02-architecture.md#backend-apinestjs)`
+  - `→ 採用フレームワーク・ライブラリの詳細は [05-runtime-stack.md: バックエンド API](./05-runtime-stack.md#バックエンド-apifastapi--python)`
+  - `→ コンポーネントの責務は [02-architecture.md: Backend API](../2-foundation/02-architecture.md#backend-apifastapi--python)`
 
 ---
 
@@ -263,9 +263,9 @@ GitHub Mermaid パーサで実際に落ちた事例。**新規・編集時は Gi
 
 ## 10. 例外
 
-- **概要レベルの一文の引用**（例：「Backend API は NestJS で実装」）は、そのファイルの文脈上必要なら重複可。ただし詳細説明は単一箇所に集約する
+- **概要レベルの一文の引用**（例：「Backend API は FastAPI で実装」）は、そのファイルの文脈上必要なら重複可。ただし詳細説明は単一箇所に集約する
 - **概念図・全体構成図** に技術名が登場するのは可（図は概観の理解を優先）
-- **コード例として技術名を含む断片**（例：`pnpm db:migrate`）は §1 の重複禁止対象外
+- **コード例として技術名を含む断片**（例：`mise run api:db-migrate`）は §1 の重複禁止対象外
 
 ---
 

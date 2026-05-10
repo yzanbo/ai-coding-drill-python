@@ -38,9 +38,9 @@
 
 | 詳細仕様の SSoT | 配置 |
 |---|---|
-| テーブル単位のカラム定義 | Drizzle スキーマ（`apps/api/src/drizzle/schema/`） |
-| 個別エンドポイントの req/res | [4-features/](../4-features/) 各 F-XX.md + OpenAPI |
-| ジョブペイロードの完全な JSON Schema | `packages/shared-types/schemas/` |
+| テーブル単位のカラム定義 | SQLAlchemy 2.0 model（`apps/api/app/models/`、`Mapped[T]` 方式） |
+| 個別エンドポイントの req/res | [4-features/](../4-features/) 各 F-XX.md + OpenAPI（`apps/api/openapi.json`） |
+| ジョブペイロードの完全な仕様 | Pydantic モデル（`apps/api/app/schemas/jobs.py`、Worker とは JSON Schema (`apps/api/job-schemas/`) → quicktype 生成 Go struct で型共有、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)） |
 
 ---
 
@@ -48,5 +48,8 @@
 
 - [2-foundation/02-architecture.md](../2-foundation/02-architecture.md) — システム全体構造
 - [4-features/](../4-features/) — 個別機能（ここで使うテーブル・エンドポイントを定義）
-- [docs/adr/0006-json-schema-as-single-source-of-truth.md](../../adr/0006-json-schema-as-single-source-of-truth.md) — JSON Schema SSoT 戦略
+- [docs/adr/0006-json-schema-as-single-source-of-truth.md](../../adr/0006-json-schema-as-single-source-of-truth.md) — Pydantic を SSoT とした OpenAPI 配信戦略
 - [docs/adr/0010-w3c-trace-context-in-job-payload.md](../../adr/0010-w3c-trace-context-in-job-payload.md) — ジョブペイロードへの traceContext 埋め込み
+- [docs/adr/0033-backend-language-pivot-to-python.md](../../adr/0033-backend-language-pivot-to-python.md) — バックエンドを Python に転換
+- [docs/adr/0037-sqlalchemy-alembic-for-database.md](../../adr/0037-sqlalchemy-alembic-for-database.md) — SQLAlchemy 2.0 + Alembic
+- [docs/adr/0040-worker-grouping-and-llm-in-worker.md](../../adr/0040-worker-grouping-and-llm-in-worker.md) — apps/workers/ 配下に grading / generation を配置

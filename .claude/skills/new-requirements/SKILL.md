@@ -1,21 +1,21 @@
 ---
 name: new-requirements
 description: 機能別の要件 .md を対話的に新規作成する
-argument-hint: "[feature-name] [概要の説明]"
+argument-hint: "[F-XX-feature-name] [概要の説明]"
 ---
 
 # 機能要件の新規作成
 
-引数の最初の単語 `$0` を機能名（ファイル名）、残り `$1` 以降を機能の概要として解釈する。
+引数 `$ARGUMENTS` の最初の単語を**フルファイル名**（`F-XX-<kebab-case>` 形式、例：`F-06-adaptive-quiz`）、残りを機能の概要として解釈する。F-XX 番号は `docs/requirements/4-features/README.md` の機能一覧表で次の空き番号を確認する。
 
-機能要件は `docs/requirements/4-features/<feature-name>.md` に作成する。
+機能要件は `docs/requirements/4-features/F-XX-<feature-name>.md` に作成する。
 ベースとなる全体要件（[docs/requirements/](../../../docs/requirements/)）に対する**機能別の追加仕様**として位置付ける。
 
 ## 手順
 
 ### 1. テンプレートと既存要件の確認
 
-- ベース要件 [docs/requirements/1-vision/01-overview.md](../../../docs/requirements/1-vision/01-overview.md) を読み、F-01〜F-08 の既存機能との重複・関連を把握
+- ベース要件 [docs/requirements/1-vision/01-overview.md](../../../docs/requirements/1-vision/01-overview.md) と [4-features/README.md](../../../docs/requirements/4-features/README.md) の機能一覧表を読み、既存機能との重複・関連を把握
 - 既存の `docs/requirements/4-features/` 配下があれば確認し、粒度とスタイルの参考にする
 - ベース要件の編集ルール [.claude/rules/docs-rules.md](../../rules/docs-rules.md) に従う
 
@@ -28,7 +28,7 @@ argument-hint: "[feature-name] [概要の説明]"
 - **データモデル**：新規テーブル・カラムが必要か（→ [01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md) との整合性）
 - **API**：新規エンドポイントが必要か（→ [02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md) との整合性）
 - **LLM 利用**：問題生成・評価への影響があるか
-- **採点ワーカーへの影響**：Go ワーカー側の処理が増えるか
+- **採点 Worker への影響**：Go Worker 側の処理が増えるか
 - **既存機能との関係**：既存の問題・採点・履歴フローとの依存関係
 - **制約・エッジケース**：同時実行、レート制限、データ整合性
 
@@ -37,7 +37,7 @@ argument-hint: "[feature-name] [概要の説明]"
 
 ### 3. 機能要件 .md の生成
 
-対話で得た情報をまとめ、`docs/requirements/4-features/$0.md` を以下のセクション構成で作成する：
+対話で得た情報をまとめ、`docs/requirements/4-features/F-XX-<feature-name>.md` を以下のセクション構成で作成する（ファイル名は `$ARGUMENTS` の先頭単語）：
 
 ```markdown
 # 機能要件：<機能名>
@@ -73,11 +73,14 @@ argument-hint: "[feature-name] [概要の説明]"
 - 同時実行、排他制御、データ整合性
 
 ## ステータス
-- [x] 要件定義完了
+- [x] 要件定義完了（このファイルが受け入れ条件まで埋まっている）
 - [ ] バックエンド実装完了
 - [ ] フロントエンド実装完了
-- [ ] 採点ワーカー実装完了（該当時）
-- [ ] テスト完了
+- [ ] ワーカー実装完了（必要な場合のみ）
+- [ ] ユニットテスト完了
+- [ ] E2E テスト完了（主要フローのみ）
+- [ ] **受け入れ条件すべて満たす**
+- [ ] PR マージ済み
 ```
 
 **重要**：API 仕様の細部（リクエスト・レスポンスの全フィールド）や DTO 仕様はここに書かない。OpenAPI（Swagger）と DTO に委ねる。ビジネスルールとドメイン知識に集中する。

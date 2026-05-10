@@ -1,6 +1,6 @@
 # NNNN. <タイトル>
 
-- **Status**: Proposed | Accepted | Deprecated | Superseded by NNNN
+- **Status**: Accepted | Accepted（<適用範囲>、Amended by NNNN） | Deprecated | Superseded by NNNN <!-- Proposed は使わない（決定後に書く運用、→ docs/adr/README.md ステータス節） -->
 - **Date**: YYYY-MM-DD <!-- 最新の判断更新日（本文書き換え時に最新化する） -->
 - **Decision-makers**: <氏名>
 
@@ -15,8 +15,8 @@
 
 **書き方は ADR の型で 2 通り**（→ [`.claude/rules/docs-rules.md` §2](../../.claude/rules/docs-rules.md#2-adr-の-decision-は-2-通り型を見極めて書き分ける)）：
 
-- **戦略判断型**（一度決めたら基本動かない。例：AWS 単独 / Drizzle 採用 / Postgres ジョブキュー）：判断本体を ADR 本文に書く。詳細表・規約・運用ルールも本セクションで完結させる
-- **運用ルール型**（時間で進化する。例：補完ツール構成 / scope 一覧 / 設定ファイル形式優先順位）：採用したものを 1〜2 文で書き、**運用詳細の SSoT は要件定義書（多くは `2-foundation/06-dev-workflow.md`）または機械強制設定ファイル（`commitlint.config.ts` / `.syncpackrc.ts` 等）に置き、本セクションからリンク**する。本 ADR は §Why（採用根拠）と §Alternatives Considered に専念する
+- **戦略判断型**（一度決めたら基本動かない。例：AWS 単独 / SQLAlchemy + Alembic 採用 / Postgres ジョブキュー）：判断本体を ADR 本文に書く。詳細表・規約・運用ルールも本セクションで完結させる
+- **運用ルール型**（時間で進化する。例：補完ツール構成 / scope 一覧 / 設定ファイル形式優先順位）：採用したものを 1〜2 文で書き、**運用詳細の SSoT は要件定義書（多くは `2-foundation/06-dev-workflow.md`）または機械強制設定ファイル（`commitlint.config.mjs` / `apps/web/.syncpackrc.ts` 等）に置き、本セクションからリンク**する。本 ADR は §Why（採用根拠）と §Alternatives Considered に専念する
 
 迷ったら判定基準は「**この決定は時間とともに進化していくか / 凍結するか**」。
 

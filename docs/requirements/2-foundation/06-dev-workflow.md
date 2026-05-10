@@ -8,28 +8,68 @@
 
 ## リポジトリ・モノレポ構成
 
-- **Turborepo + pnpm workspaces** を採用（→ [ADR 0023](../../adr/0023-turborepo-pnpm-monorepo.md)）
-  - pnpm workspaces：JS/TS パッケージの依存解決・リンク（土台）
-  - Turborepo：ビルド順序・並列実行・キャッシュ・Vercel リモートキャッシュ（上層）
-  - Go は `go mod`、Python（R7）は `uv` を使い、Turborepo は `package.json` script から薄く統合
-- ディレクトリ構成の最終版は [ADR 0023](../../adr/0023-turborepo-pnpm-monorepo.md) を参照
+3 言語ポリグロット構成（[ADR 0003](../../adr/0003-phased-language-introduction.md)）に対し、各言語の標準ツール 1 本でモノレポ管理する。
+
+- **Frontend（Next.js / TS）**：**`apps/web/` 内に閉じる**（→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md) 拡張）。pnpm / Biome / Knip / syncpack / tsconfig は全て `apps/web/` 配下に配置。**Turborepo は不採用**（並列ビルド・依存グラフ・リモートキャッシュ等の価値ドライバが単一 app 構成では効かないため）、**pnpm workspaces は `apps/web/` 内のみ採用**（apps/web 配下の package.json 群を 1 つの workspace として扱う）
+- **Backend（Python / FastAPI）**：`apps/api/` 内で **`uv`** を採用（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）。パッケージ管理 / 仮想環境 / Python バージョン / lockfile / workspace を 1 ツールで統合。lockfile が依存整合性を保証するため syncpack 相当の追加ツールは不要
+- **Workers（Go）**：`apps/workers/<name>/` 配下で **独立 Go module**（`go mod`、Go 標準）。grading + generation の各 Worker が独立 module（→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）
+- **root**：orchestration 専用層（`mise.toml` / `lefthook.yml` / `commitlint.config.mjs` のみ）。`packages/` は全て廃止済み（shared-types は不採用、config と prompts は移動 / 廃止、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) / [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md) / [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）
+
+## タスクランナー兼 tool 版数管理
+
+3 言語横断のタスク実行と tool 版数管理に **`mise`** を採用（→ [ADR 0039](../../adr/0039-mise-for-task-runner-and-tool-versions.md)）。
+
+- **役割 1：タスクランナー**：`mise run <task>` でリポジトリルートから各レイヤのタスク（`api:test` / `web:dev` / `worker:test` / `api:db-migrate` 等の `<scope>:<sub>:<verb>` 階層コロン形式、scope-first）を起動。`cd` 不要
+- **役割 2：tool 版数管理**：Python / Node / Go / uv / pnpm 等のバージョンを `mise.toml` 1 ファイルに集約。`pyenv` / `nvm` / `goenv` は採用しない（mise に集約）
+- **役割 3：環境変数管理**：`.env` / `[env]` セクションをディレクトリ移動時に自動ロード（`direnv` 相当）
+- **設定 SSoT**：`mise.toml`（リポジトリルート）+ 必要に応じて各 app 配下の `.mise.toml`（Monorepo Tasks 機能で `mise run //api:test` 形式の呼び出しが可能）
+- **CI 統合**：GitHub Actions の `jdx/mise-action` で `mise install` → `mise run <task>` の流れ。[ADR 0031](../../adr/0031-ci-success-umbrella-job.md) の `ci-success` umbrella ジョブの各 needs を `mise run <task>` で統一呼び出しする
+- **Turborepo の orchestration 空席を埋める位置づけ**（→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md) と対の判断）
 
 ---
 
 ## コード品質ツール
 
-- **Biome**（lint + format、Rust 製で高速）を TS で書かれた全アプリ・全パッケージで統一使用（→ [ADR 0018](../../adr/0018-biome-for-tooling.md)）
-  - ESLint + Prettier の組み合わせは不採用
-- **TypeScript（`tsc --noEmit`）** で型チェック（Biome は型チェックを行わないため必須）
-- 補完ツール（**R0 / リポジトリ初期セットアップ時から導入**、→ [ADR 0021](../../adr/0021-r0-tooling-discipline.md)）：
-  - **共通の根拠**：これらのツールは**途中導入のコストが線形的に膨張**する（蓄積したコードが規約違反だらけになり、後追いで全件修正する作業が発生する）。R0 で入れれば修正対象がほぼゼロ、R4 まで放置すると数百ファイル規模の整地 PR が必要になりレビュー不能。**初期導入が圧倒的に低コスト**
-  - **lefthook**：Git フック管理。フック × チェック × CI の対応は [#フック × チェック × CI 対応表](#フック--チェック--ci-対応表) を参照。設定 SSoT は [lefthook.yml](../../../lefthook.yml)
-  - **commitlint**（Conventional Commits）：コミットメッセージ規約の機械的検証。**過去のコミット履歴は遡及修正できない**ため、最初から規約を効かせる必要がある
-  - **Knip**：未使用 export / 依存 / ファイルの検出。蓄積後の一斉検出は削除可否の個別判断で時間を消費する
-  - **syncpack**：モノレポ内 `package.json` のバージョン整合性を強制（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)）。Turborepo + pnpm workspaces 構成で必須レベル。**バージョンずれは積もると一括修正に動作リスクが伴う**
-- **Go**：`gofmt` + `golangci-lint`（→ [ADR 0019](../../adr/0019-go-code-quality.md)）
-- **Python（R7）**：`ruff`（Linter + Formatter 統合）。型チェッカーは R7 着手時に決定（→ [ADR 0020](../../adr/0020-python-code-quality.md)）
-- **設定ファイルの物理配置**：Layer 1（ルート直接配置）/ Layer 2（`packages/config/` 経由）の住人・判断基準・投入タイミングは [packages/config/README.md](../../../packages/config/README.md) に集約
+3 言語に **「lint + format 1 本 / 型チェック 1 本」の二層構造**を揃える。
+
+### Python（バックエンド本体、→ [ADR 0020](../../adr/0020-python-code-quality.md)）
+
+- **`ruff`**：lint + format 統合（Astral 製、Rust 製で高速）。`flake8` / `black` / `isort` / `pyupgrade` 等を 1 ツールに置換
+- **`pyright`**：型チェック（Microsoft 製、VS Code では Pylance として動作、型仕様準拠率 98%）
+  - `typeCheckingMode = "basic"` で開始 → 安定後に `"strict"` への段階的引き上げを検討
+  - 設定は `pyproject.toml` の `[tool.pyright]` に集約
+- **将来の乗り換え候補**：Pyrefly（Meta）/ ty（Astral）。GA + 型仕様準拠率 95% 超で再評価（→ [ADR 0020 §見直しトリガー](../../adr/0020-python-code-quality.md)）
+- **`pip-audit`**：依存パッケージの脆弱性スキャン（PyPA 公式、`uv.lock` を入力源、PyPI Advisory + OSV.dev を照会、→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）
+
+### TypeScript（フロントエンド、→ [ADR 0018](../../adr/0018-biome-for-tooling.md) — Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
+
+- **Biome**：lint + format（Rust 製で高速）。ESLint + Prettier は不採用
+- **`tsc --noEmit`**：型チェック（Biome は型チェックを行わないため必須）
+
+### Go（採点ワーカー、→ [ADR 0019](../../adr/0019-go-code-quality.md)）
+
+- **`gofmt`** + **`golangci-lint`**（型チェックは `go build` 内蔵）
+
+### 言語横断の補完ツール（**R0 / リポジトリ初期セットアップ時から導入**、→ [ADR 0021](../../adr/0021-r0-tooling-discipline.md)）
+
+- **共通の根拠**：これらのツールは**途中導入のコストが線形的に膨張**する（蓄積したコードが規約違反だらけになり、後追いで全件修正する作業が発生する）。R0 で入れれば修正対象がほぼゼロ、後期に放置すると数百ファイル規模の整地 PR が必要になりレビュー不能。**初期導入が圧倒的に低コスト**
+- **lefthook**：Git フック管理（言語横断）。フック × チェック × CI の対応は [#フック × チェック × CI 対応表](#フック--チェック--ci-対応表) を参照。設定 SSoT は [lefthook.yml](../../../lefthook.yml)
+- **commitlint**（Conventional Commits、言語横断）：コミットメッセージ規約の機械的検証。**過去のコミット履歴は遡及修正できない**ため、最初から規約を効かせる必要がある
+- **Knip**（TS / Frontend 限定）：未使用 export / 依存 / ファイルの検出。蓄積後の一斉検出は削除可否の個別判断で時間を消費する
+- **syncpack**（TS / Frontend 限定、→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) — Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）：モノレポ内 `package.json` のバージョン整合性を強制。Python 側は uv の単一 lockfile（`uv.lock`）が同等機能を内蔵するため追加ツール不要（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）
+
+### 設定ファイルの物理配置
+
+ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `lefthook.yml` / `commitlint.config.mjs`）を置き、各言語固有の設定は対応 app 配下に閉じる：
+
+| 配置先 | 例 |
+|---|---|
+| **root** | `mise.toml` / `lefthook.yml` / `commitlint.config.mjs` |
+| **`apps/web/`** | `package.json` / `tsconfig.json` / `biome.jsonc` / `knip.config.ts` / `.syncpackrc.ts` / `pnpm-lock.yaml` |
+| **`apps/api/`** | `pyproject.toml`（`[tool.ruff]` / `[tool.pyright]` / `[tool.deptry]` を集約）/ `uv.lock` |
+| **`apps/workers/<name>/`** | `go.mod` / `go.sum` / `.golangci.yml` |
+
+`packages/config/`（multi-consumer 前提の共有 TS 設定パッケージ）は**廃止**（→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md)）。
 
 ---
 
@@ -37,15 +77,21 @@
 
 各補完ツール（Biome / `tsc --noEmit` / commitlint / syncpack / Knip）が **lefthook のどのフックで動くか** と **CI（GitHub Actions）のどのジョブで動くか** の SSoT。
 
-設定実体：[lefthook.yml](../../../lefthook.yml) / [.github/workflows/ci.yml](../../../.github/workflows/ci.yml) / [knip.config.ts](../../../knip.config.ts) / [.syncpackrc.ts](../../../.syncpackrc.ts) / [biome.jsonc](../../../biome.jsonc) / [commitlint.config.ts](../../../commitlint.config.ts)。
+設定実体：[lefthook.yml](../../../lefthook.yml) / [.github/workflows/ci.yml](../../../.github/workflows/ci.yml) / `apps/web/knip.config.ts` / `apps/web/.syncpackrc.ts` / `apps/web/biome.jsonc` / [commitlint.config.mjs](../../../commitlint.config.mjs)（apps/web/ 配下のツール設定は実装着手時に投入、→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md)）。
 
-| チェック | lefthook フック | glob トリガー | CI ジョブ | 備考 |
-|---|---|---|---|---|
-| **Biome**（lint + format） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}` | `Biome` | pre-commit は `--write` で自動修正 + `stage_fixed: true` で再ステージ。CI は検証のみ |
-| **`tsc --noEmit`**（型チェック） | pre-commit | `{*.ts,.*.ts}`（ルート直下のみ） | `typecheck`（root configs + workspaces 経由 Turborepo） | ファイル単位起動できないため staged に `.ts` が 1 つでもあれば全体検証 |
-| **commitlint** | commit-msg | （glob なし、毎回） | `commitlint`（PR は base..head、push は before..after） | 過去履歴は遡及修正不可のため hook と CI の両方で常時起動 |
-| **syncpack** | pre-commit | `package.json` | `syncpack` | pre-commit は `lint` のみ。自動修正は `pnpm syncpack:fix` を手動実行（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)） |
-| **Knip** | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json}` | `knip` | ファイル単位起動できないため glob トリガー時に全プロジェクト解析。自動修正は `pnpm knip:fix` を手動実行 |
+対象範囲：**Frontend（TS）/ Backend（Python）/ Worker（Go）に対し、それぞれ lint+format / 型チェックを揃える**。Python / Go の lefthook 統合詳細はバックエンド・ワーカー実装着手時に確定。
+
+| チェック | 対象言語 | lefthook フック | glob トリガー | CI ジョブ | 備考 |
+|---|---|---|---|---|---|
+| **Biome**（lint + format） | TS（Frontend） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}` | `biome` | pre-commit は `--write` で自動修正 + `stage_fixed: true` で再ステージ。CI は検証のみ |
+| **`tsc --noEmit`**（型チェック） | TS（Frontend） | pre-commit | `{*.ts,.*.ts}`（ルート直下のみ） | `typecheck` | ファイル単位起動できないため staged に `.ts` が 1 つでもあれば全体検証 |
+| **`ruff check` / `ruff format`** | Python（Backend） | pre-commit（着手時に組込） | `*.py` | `ruff` | format は自動修正、lint は検証のみ。設定 SSoT は `pyproject.toml` の `[tool.ruff]` |
+| **`pyright`**（型チェック） | Python（Backend） | pre-commit（着手時に組込） | `*.py` | `pyright` | `typeCheckingMode = "basic"` 開始、設定 SSoT は `pyproject.toml` の `[tool.pyright]` |
+| **`gofmt` / `golangci-lint`** | Go（Worker） | pre-commit（実装時に組込） | `*.go` | `golangci-lint` | `go build` 内蔵の型チェックで型ゲートも兼ねる |
+| **`pip-audit`**（脆弱性スキャン） | Python（Backend） | （pre-commit には組込まない、CI のみ） | `uv.lock` 変更時 | `pip-audit` | `uv.lock` を入力源、PyPI Advisory + OSV.dev を照会。Dependabot との二重ゲート（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)） |
+| **commitlint** | 言語横断 | commit-msg | （glob なし、毎回） | `commitlint`（PR は base..head、push は before..after） | 過去履歴は遡及修正不可のため hook と CI の両方で常時起動 |
+| **syncpack** | TS（Frontend 限定） | pre-commit | `package.json` | `syncpack` | pre-commit は `lint` のみ。自動修正は `mise run web:syncpack` を手動実行（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)） |
+| **Knip** | TS（Frontend 限定） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json}` | `knip` | ファイル単位起動できないため glob トリガー時に全プロジェクト解析。自動修正は `mise run web:knip-fix` を手動実行 |
 
 ### 多層防御の構造
 
@@ -56,7 +102,7 @@
 
 - **pre-commit で自動修正するもの**：Biome のフォーマット差分のみ（`stage_fixed: true` で再ステージ）。安全に書き戻せるため
 - **pre-commit で自動修正しないもの**：syncpack（他 workspace の `package.json` を書き換えうる）/ Knip（削除可否は人間レビューが必要、未公開機能の足跡 vs dead code の判別）
-- **手動実行コマンド**：`pnpm syncpack:fix` / `pnpm knip:fix`
+- **手動実行コマンド**：`mise run web:syncpack` / `mise run web:knip-fix`
 
 採用根拠（なぜこれらのツールを R0 から入れるか）は [ADR 0021](../../adr/0021-r0-tooling-discipline.md) を参照。
 
@@ -80,8 +126,8 @@
 
 | Tier | 条件 | 形式 |
 |---|---|---|
-| **1. ツール強制** | 該当ツールが特定形式しか受け付けない | その形式（GitHub Actions / Dependabot / pnpm workspace → YAML） |
-| **2. ecosystem 慣習** | ツールが複数形式を受容しても、公式 / 大多数のユーザが特定形式を使っている | その形式（Biome → `biome.jsonc` / Turborepo → `turbo.jsonc` / TypeScript → `tsconfig.json`） |
+| **1. ツール強制** | 該当ツールが特定形式しか受け付けない | その形式（GitHub Actions / Dependabot → YAML） |
+| **2. ecosystem 慣習** | ツールが複数形式を受容しても、公式 / 大多数のユーザが特定形式を使っている | その形式（Biome → `biome.jsonc` / TypeScript → `tsconfig.json` / mise → `mise.toml` / Python ecosystem → `pyproject.toml`） |
 | **3-1. 自由選択：TS** | ツールが型を公式 export している（`RcFile` / `UserConfig` / `defineConfig` 等） | `.ts`（typo を保存時に IDE / `tsc` が即時に弾く） |
 | **3-2. 自由選択：JSONC** | 設定がほぼ純データ、`$schema` で IDE 補完が効く | `.jsonc`（VS Code が native 認識） |
 | **3-3. 自由選択：JS 系** | TS が使えず JSONC も合わない（条件分岐 / 環境変数参照などが必要） | `.mjs` ＞ `.cjs` ＞ `.js`（曖昧さ回避のため明示拡張子を優先） |
@@ -132,15 +178,17 @@
 
 ## モノレポ依存整合性（syncpack ルールセット）
 
-モノレポ内 `package.json` の整合性（バージョン揃え / `^` 統一 / `workspace:*` 強制 / dep 重複検知）の機械強制ルールセット。採用根拠は [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) を参照。
+> **適用範囲**：Frontend（TS / pnpm workspaces）限定。Python バックエンドは uv の単一 lockfile（`uv.lock`）が同等機能を提供するため syncpack 相当の追加ツールは不要（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)）。
 
-**真の SSoT は [`.syncpackrc.ts`](../../../.syncpackrc.ts)**（`syncpack` の `RcFile` 型を import して型安全を確保、コメントで規約の「なぜ」をインライン化）。本セクションは概観・人間向け解説。
+モノレポ内 `package.json` の整合性（バージョン揃え / `^` 統一 / `workspace:*` 強制 / dep 重複検知）の機械強制ルールセット。採用根拠は [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md) を参照（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）。
+
+**真の SSoT は `apps/web/.syncpackrc.ts`**（apps/web 着手時に投入予定、ADR 0036 拡張で root から移動。`syncpack` の `RcFile` 型を import して型安全を確保、コメントで規約の「なぜ」をインライン化）。本セクションは概観・人間向け解説。
 
 ### 機械強制ポリシー（R0 の最小限ルールセット）
 
 | ルール | 内容 |
 |---|---|
-| 内部 workspace パッケージは `workspace:*` 固定 | `@ai-coding-drill/**` への参照は `pinVersion: "workspace:*"` |
+| 内部 workspace パッケージは `workspace:*` 固定 | `@ai-coding-drill-python/**` への参照は `pinVersion: "workspace:*"`（apps/web 配下に sub-package を追加した時点で実効化、それまでは予防ルール） |
 | 外部依存は全 workspace で同一バージョン | `policy: "sameRange"` |
 | semver 範囲指定子は `^` に統一 | `range: "^"`（`workspace:*` は対象外で自動除外） |
 | `dependencies` / `devDependencies` の重複検知 | syncpack デフォルト挙動 |
@@ -149,9 +197,9 @@
 ### 運用
 
 - **lefthook pre-commit / CI**：[#フック × チェック × CI 対応表](#フック--チェック--ci-対応表) を参照
-- **自動修正**：pre-commit / CI には接続せず、`pnpm syncpack:fix`（mismatches 修正）/ `pnpm syncpack:format`（キー順）を開発者が手動実行する半自動運用
+- **自動修正**：pre-commit / CI には接続せず、`mise run web:syncpack`（mismatches 修正）/ `mise run web:syncpack-format`（キー順）を開発者が手動実行する半自動運用
 - **設定ファイル形式**：`.ts`（→ [#設定ファイル形式の優先順位](#設定ファイル形式の優先順位) の Tier 3-1：型 export ありで typo を保存時に弾ける）
-- **設定の物理配置**：ルート直接配置（横断ツールのため Layer 1。配置方針は [packages/config/README.md](../../../packages/config/README.md)）
+- **設定の物理配置**：`apps/web/.syncpackrc.ts`（apps/web 内の multi-package 対象、ADR 0036 拡張で root から移動）
 
 ### ルールを追加・変更する時
 
@@ -167,7 +215,7 @@
 
 コミットメッセージは **Conventional Commits** に従い、commitlint で機械強制する。採用根拠と scope の付与方針は [ADR 0029](../../adr/0029-commit-scope-convention.md) を参照。
 
-**真の SSoT は [`commitlint.config.ts`](../../../commitlint.config.ts) の `type-enum` / `scope-enum`**（CI と lefthook commit-msg フックで違反を弾く）。本セクションは人間向け解説。
+**真の SSoT は [`commitlint.config.mjs`](../../../commitlint.config.mjs) の `type-enum` / `scope-enum`**（CI と lefthook commit-msg フックで違反を弾く）。本セクションは人間向け解説。なお commitlint が比較する base コミットの取得方式（shallow clone 環境で `--shallow-exclude` が使えない件への対処として `--deepen=20` の iterative deepen 方式）は [ADR 0030](../../adr/0030-commitlint-base-commit-fetch.md) を参照。
 
 ### 形式
 
@@ -189,13 +237,13 @@
 | scope | 対応領域 |
 |---|---|
 | `web` | `apps/web`（フロントエンド / Next.js） |
-| `api` | `apps/api`（NestJS API） |
-| `worker` | `apps/grading-worker`（Go 採点ワーカー） |
-| `shared` | `packages/shared-types`、`packages/prompts` 等の共有パッケージ |
-| `config` | tooling 設定ファイル群（ルート直接配置 + `packages/config/` の両方を含む、→ [packages/config/README.md](../../../packages/config/README.md)） |
+| `api` | `apps/api`（FastAPI / Python バックエンド） |
+| `worker` | `apps/workers/*`（grading / generation 等の Go Worker 群、→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)） |
+| `shared` | OpenAPI / JSON Schema artifact など複数 app から参照される共有 artifact（`apps/api/openapi.json` / `apps/api/job-schemas/` 等）。`packages/shared-types` は ADR 0006、`packages/config` は ADR 0036、`packages/prompts` は ADR 0040 で全廃済み |
+| `config` | root 直接配置の tooling 設定ファイル群（`mise.toml` / `lefthook.yml` / `commitlint.config.mjs` 等。`packages/config/` は廃止、→ [ADR 0036](../../adr/0036-frontend-monorepo-pnpm-only.md)） |
 | `infra` | `infra/`（Terraform） |
 | `docs` | `docs/`（要件定義 / ADR） |
-| `db` | Drizzle スキーマ・マイグレーション |
+| `db` | DB スキーマ・マイグレーション（SQLAlchemy 2.0 モデル + Alembic マイグレーション、→ [ADR 0037](../../adr/0037-sqlalchemy-alembic-for-database.md)） |
 
 ### 自動更新 scope（Dependabot が自動付与、2 種）
 
@@ -210,16 +258,52 @@
 
 ### scope を追加・変更する時
 
-1. `commitlint.config.ts` の `scope-enum` を更新（**SSoT、ここを更新しないと CI で弾かれない**）
+1. `commitlint.config.mjs` の `scope-enum` を更新（**SSoT、ここを更新しないと CI で弾かれない**）
 2. 上記「領域 scope」表に行を追加
 3. CLAUDE.md / CONTRIBUTING.md 等の補助ドキュメントは本セクションへのリンクで足りるため、原則更新不要（リンクが正しく追従していれば自動同期する）
 
 ---
 
-## 共有型・スキーマ（JSON Schema を SSoT）
+## 共有型・スキーマ（Pydantic を SSoT、境界別の 2 伝送路で各言語へ展開）
 
-- **JSON Schema を Single Source of Truth とし、各言語向けの型を自動生成**する設計
-- 配置・生成ツール候補・コミット方針（言語別）・選定理由の SSoT は [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) を参照
+Backend の Pydantic モデル（`apps/api/app/schemas/`）を Single Source of Truth とし、**境界が 2 つあるから伝送路も 2 つ**用意する（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）：
+
+- **HTTP API 境界（API ⇄ Web）**：FastAPI 自動 OpenAPI 3.1（`apps/api/openapi.json`）→ Hey API で TS 型 + Zod + HTTP クライアント生成
+- **Job キュー境界（API → DB → Worker）**：Pydantic `model.model_json_schema()` で個別 JSON Schema を `apps/api/job-schemas/` 配下に出力 → quicktype `--src-lang schema` で Go struct 生成
+
+| 境界 | 入力源 | 生成ツール | 出力 | コミット |
+|---|---|---|---|---|
+| Python（Backend、SSoT 自身） | — | — | Pydantic v2 モデル | ソースとしてコミット |
+| HTTP API（Frontend 向け） | `apps/api/openapi.json`（OpenAPI 3.1 全要素） | **Hey API**（`@hey-api/openapi-ts` + Zod プラグイン） | TS 型 + Zod + 型付き HTTP クライアント | 生成物コミット |
+| Job キュー（Worker 向け） | `apps/api/job-schemas/<job-name>.schema.json`（個別 JSON Schema） | **quicktype `--src-lang schema`** | Go struct + JSON タグ | gitignore（`go generate` で生成） |
+
+生成パイプラインは mise タスクで集約（タスク命名は `<scope>:<sub>:<verb>` 階層コロン形式）：
+
+- `mise run api:openapi-export`：FastAPI から OpenAPI 3.1 を `apps/api/openapi.json` に書き出し
+- `mise run api:job-schemas-export`：Pydantic Job payload から個別 JSON Schema を `apps/api/job-schemas/` に書き出し
+- `mise run web:types-gen`：Hey API で OpenAPI から TS / Zod / HTTP クライアント生成
+- `mise run worker:types-gen`：quicktype で `apps/api/job-schemas/` から Go struct 生成（横断、対象 Worker 全てに配布）
+
+配置・生成ツール候補・コミット方針・選定理由・代替検討の詳細 SSoT は [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) を参照。
+
+### drift 検出（lefthook + CI 二軸）
+
+「Pydantic schema を変更したのに `apps/api/openapi.json` / `apps/api/job-schemas/` / `apps/web/src/__generated__/api/` の再エクスポートを忘れた PR」を構造的に防ぐため、**ローカル早期検出（lefthook）と最終ゲート（CI）の二軸**で守る。両者の役割は補完関係であり、片方だけでは不足する：
+
+| 軸 | 走る場所 | 役割 | 強制力 | 速度 |
+|---|---|---|---|---|
+| **lefthook** | 開発者ローカル（pre-commit / pre-push） | 早期 feedback、CI 待ち時間ゼロ | `--no-verify` で迂回可能 | 数秒（差分ファイル limited） |
+| **GitHub Actions CI** | PR / push | 迂回不可の最終ゲート、Required status checks に組込 | 強制（Ruleset で保護） | 数十秒〜分 |
+
+#### 起動条件と動作
+
+- **lefthook**：`apps/api/app/schemas/` 配下の `.py` がステージング差分に含まれるときだけ `mise run api:openapi-export && mise run api:job-schemas-export` を実行し、出力 artifact が未ステージなら abort（`git diff --exit-code` 相当）。glob フィルタで「無関係な commit に余計なコストを乗せない」設計
+- **CI**：PR / main push で `mise run api:openapi-export && mise run api:job-schemas-export && mise run web:types-gen && git diff --exit-code apps/api/openapi.json apps/api/job-schemas/ apps/web/src/__generated__/api/` を実行。`worker:types-gen` の出力は gitignore（→ ADR 0006）のため drift 検出対象外（CI 内で都度生成して使う）
+
+#### 配線タイミング
+
+- 本仕組みは **`apps/api/` 実装着手時**に lefthook（→ [#フック × チェック × CI 対応表](#フック--チェック--ci-対応表)）と CI workflow（→ [#ci-集約ジョブ-ci-success-umbrellaパターン](#ci-集約ジョブci-success-umbrellaパターン)）に同時配線する。実装前は `apps/api/openapi.json` 自体が存在せず空回りするため、配線を前倒ししない（→ [ADR 0026](../../adr/0026-github-actions-incremental-scope.md) 段階拡張原則と整合）
+- 採用根拠の SSoT は [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md) を参照
 
 ---
 
@@ -295,11 +379,13 @@ rules:
 
 ## テスト
 
-- **Jest**（NestJS 標準。API・LLM パイプライン・ユニット・E2E スペック）
-- Go 標準 `testing` + `testify`（採点ワーカー）
-- **Playwright**（E2E）
-- **ミューテーションテスト**：`stryker-js`（TS 向け、R2 以降）
-- テストカバレッジ：Codecov
+レイヤごとに各エコシステムのデファクトを採用（→ [ADR 0038](../../adr/0038-test-frameworks.md)）。
+
+- **Backend（Python / FastAPI）**：`pytest` + `pytest-asyncio` + `httpx.AsyncClient` + `pytest-cov`。FastAPI の `app.dependency_overrides` で DB / 外部 API をモック差し替え
+- **Frontend（TS / Next.js）**：`Vitest`（ユニット）+ `@testing-library/react`（コンポーネント）+ `Playwright`（E2E、クロスブラウザ）+ `@vitest/coverage-v8`
+- **Worker（Go）**：Go 標準 `testing` + `testify` + `go test -cover`（`-race` で goroutine レース検出）
+- **ミューテーションテスト**：MVP では採用しない。R2 以降に必要性を再判断（Python なら `mutmut`、TS なら `stryker-js` 等が候補）
+- テストカバレッジ：Codecov に各言語のレポートを集約
 
 ---
 
@@ -307,9 +393,17 @@ rules:
 
 - [05-runtime-stack.md](./05-runtime-stack.md) — サービスを動かす実装技術スタック
 - [02-architecture.md](./02-architecture.md) — コンポーネントの責務・データフロー
-- [ADR 0023: Turborepo + pnpm workspaces](../../adr/0023-turborepo-pnpm-monorepo.md)
-- [ADR 0018: TypeScript のコード品質ツールに Biome](../../adr/0018-biome-for-tooling.md)
-- [ADR 0019: Go のコード品質ツール](../../adr/0019-go-code-quality.md)
-- [ADR 0020: Python のコード品質ツール](../../adr/0020-python-code-quality.md)
+- [ADR 0033: バックエンドを Python に pivot](../../adr/0033-backend-language-pivot-to-python.md)
+- [ADR 0034: バックエンド API に FastAPI を採用](../../adr/0034-fastapi-for-backend.md)
+- [ADR 0035: Python のパッケージ管理・モノレポ管理に uv を採用](../../adr/0035-uv-for-python-package-management.md)
+- [ADR 0036: Frontend モノレポ管理を pnpm workspaces のみに縮小（Turborepo 不採用）](../../adr/0036-frontend-monorepo-pnpm-only.md)
+- [ADR 0039: タスクランナー兼 tool 版数管理に mise を採用](../../adr/0039-mise-for-task-runner-and-tool-versions.md)
+- [ADR 0037: DB ORM・マイグレーションに SQLAlchemy 2.0 + Alembic を採用](../../adr/0037-sqlalchemy-alembic-for-database.md)
+- [ADR 0038: テストフレームワーク確定（pytest / Vitest / Playwright / Go testing）](../../adr/0038-test-frameworks.md)
+- [ADR 0020: Python のコード品質ツールに ruff + pyright を採用](../../adr/0020-python-code-quality.md)
+- [ADR 0019: Go のコード品質ツール（gofmt + golangci-lint）](../../adr/0019-go-code-quality.md)
+- [ADR 0018: TypeScript のコード品質ツールに Biome](../../adr/0018-biome-for-tooling.md)（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
+- [ADR 0023: Turborepo + pnpm workspaces](../../adr/0023-turborepo-pnpm-monorepo.md)（Superseded by 0033 / 0036、Turborepo / pnpm workspaces とも不採用。Python 側パッケージ管理は ADR 0035、Frontend は単一 `apps/web/` で pnpm 単独運用、タスクランナーは ADR 0039）
+- [ADR 0024: syncpack による package.json 整合性](../../adr/0024-syncpack-package-json-consistency.md)（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
 - [ADR 0006: JSON Schema を SSoT に](../../adr/0006-json-schema-as-single-source-of-truth.md)
 - [ADR 0021: 補完ツールを R0 から導入](../../adr/0021-r0-tooling-discipline.md)

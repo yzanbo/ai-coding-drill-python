@@ -1,7 +1,7 @@
 ---
 name: frontend-implement
 description: 要件 .md を読んで Next.js のフロントエンドを実装する
-argument-hint: "[feature-name] (例: problem-detail, history)"
+argument-hint: "[F-XX-feature-name] (例: F-03-problem-display-and-answer, F-05-learning-history)"
 ---
 
 # 要件ベースのフロントエンド実装
@@ -13,7 +13,7 @@ argument-hint: "[feature-name] (例: problem-detail, history)"
 ### 1. 要件の読み込み
 
 - 機能要件：`docs/requirements/4-features/$ARGUMENTS.md`
-- ベース要件：[01-overview.md](../../../docs/requirements/1-vision/01-overview.md)
+- ベース要件：[01-overview.md](../../../docs/requirements/1-vision/01-overview.md)、[02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md)、[02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md)
 - フロントエンドルール：[.claude/rules/frontend.md](../../rules/frontend.md)
 
 ファイルが存在しない場合は、ユーザーに `/new-requirements` で先に作成することを提案する。
@@ -33,7 +33,7 @@ argument-hint: "[feature-name] (例: problem-detail, history)"
 - 関連するページ（`apps/web/src/app/(routing)/` 配下の `page.tsx`）を確認
 - 関連する `_components/`、`_hooks/` を確認
 - 既存の共通コンポーネント（`components/ui/`、`components/parts/`）の再利用可能性を確認
-- API クライアント（`lib/api/`）と型（`@ai-coding-drill/shared-types` から import）を確認
+- API クライアント（`lib/api/`）と型（Hey API が `apps/api/openapi.json` から生成、既定の出力先 `apps/web/src/lib/api/generated/`、→ [ADR 0006](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）を確認
 
 ### 4. 実装方針の提示
 
@@ -53,7 +53,7 @@ argument-hint: "[feature-name] (例: problem-detail, history)"
 
 - ページ固有コンポーネントは `_components/` に配置
 - ページ固有フックは `_hooks/` に配置（API 呼び出しは `_hooks/_fetch/`）
-- 共有スキーマから型を import：`import type { ProblemType } from '@ai-coding-drill/shared-types'`
+- 型は Hey API 生成コードから import（既定の出力先 `apps/web/src/lib/api/generated/`、手書き型は使わない）
 - フォームは React Hook Form + Zod、`mode: "onTouched"`
 - API 呼び出しはカスタムフックで（`useGet*` / `usePost*` / `usePatch*` / `useDelete*`）
 - API エラーは `ApiErrorProvider` で一元処理（個別フックは `error` state を保持）
@@ -85,17 +85,20 @@ const { data: submission } = useGetSubmission(submissionId, {
 
 ```markdown
 ## ステータス
-- [x] 要件定義完了
+- [x] 要件定義完了（このファイルが受け入れ条件まで埋まっている）
 - [x] バックエンド実装完了
 - [x] フロントエンド実装完了    ← ここをチェック
-- [ ] 採点ワーカー実装完了
-- [ ] テスト完了
+- [ ] ワーカー実装完了（必要な場合のみ）
+- [ ] ユニットテスト完了
+- [ ] E2E テスト完了（主要フローのみ）
+- [ ] **受け入れ条件すべて満たす**
+- [ ] PR マージ済み
 ```
 
 ### 9. 動作確認
 
-- `pnpm --filter @ai-coding-drill/web typecheck` で型エラーなし
-- `pnpm lint` で Biome 警告なし
+- `mise run web:typecheck` で型エラーなし
+- `mise run web:lint` で Biome 警告なし
 - ローカルで http://localhost:3000 から手動疎通確認
 - レスポンシブ確認（コードエディタ画面はデスクトップ優先）
 

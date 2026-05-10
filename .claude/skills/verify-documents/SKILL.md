@@ -57,18 +57,18 @@ argument-hint: "[user|admin] (省略時は両方検証)"
 
 - 機能要件（`docs/requirements/4-features/`）およびバックエンドのバリデーションスキーマを確認する
 - マニュアルに記載された入力項目（項目名、必須/任意、入力制約）が実装と一致するか確認する
-- フロントの Zod スキーマ（`apps/web/src/lib/validation/`）と API の DTO（`apps/api/src/<feature>/dto/`）の両方をチェックする
+- フロントの Zod スキーマ（`apps/web/src/lib/validation/`、Hey API 生成物 + 手書き）と API の Pydantic スキーマ（`apps/api/app/schemas/<feature>.py`、SSoT）の両方をチェックする
 
 #### 2-4. API・機能の差異
 
 - バックエンドのコントローラ・サービスを確認し、マニュアルに記載された機能が実装と一致するか確認する
 - 新規追加・削除された機能がマニュアルに反映されているか確認する
-- Swagger UI（`http://localhost:3001/api/docs`）で API スキーマと突合する
+- Swagger UI（`http://localhost:8000/docs`）で API スキーマと突合する
 
 #### 2-5. 採点まわりの仕様の差異
 
 - マニュアルに記載されているサンドボックスの制約値（タイムアウト・メモリ・CPU 上限）が実装と一致するか確認する
-- 採点ワーカー（`apps/grading-worker/internal/sandbox/`）の Docker クライアント設定と照合する
+- 採点 Worker（`apps/workers/grading/internal/sandbox/`）の Docker クライアント設定と照合する
 - 対応言語・カテゴリの一覧が実装と一致するか確認する
 
 #### 2-6. スクリーンショットの鮮度
