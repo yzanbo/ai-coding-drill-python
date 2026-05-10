@@ -1,0 +1,49 @@
+# ローカル開発用ミドルウェア（Postgres + Redis）
+#
+# 役割（CLAUDE.md「バージョン方針」の SSoT 配置に基づく）：
+#   - 本ファイルが Postgres / Redis のローカル版数の SSoT。
+#     README は読者向けサマリ、他ドキュメントは具体版数を書かずここを参照する。
+#   - 最新安定版へ追随する運用：pin 値の更新時は本ファイル + README の 2 箇所のみ書き換える。
+#
+# 起動：
+#   docker compose up -d            # バックグラウンド起動
+#   docker compose down             # 停止 + ネットワーク削除（ボリュームは保持）
+#   docker compose down -v          # ボリュームも削除（初期化）
+
+services:
+  postgres:
+    image: postgres:18.3-alpine
+    container_name: ai-coding-drill-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ai_coding_drill
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # pg_isready：Postgres が接続を受け付ける状態かを確認（exit 0 なら ready）
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_coding_drill"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8.6-alpine
+    container_name: ai-coding-drill-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
+  redis-data:
