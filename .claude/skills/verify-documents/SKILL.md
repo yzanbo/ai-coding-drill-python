@@ -63,7 +63,7 @@ argument-hint: "[user|admin] (省略時は両方検証)"
 
 - バックエンドのコントローラ・サービスを確認し、マニュアルに記載された機能が実装と一致するか確認する
 - 新規追加・削除された機能がマニュアルに反映されているか確認する
-- Swagger UI（`http://localhost:3001/api/docs`）で API スキーマと突合する
+- Swagger UI（`http://localhost:8000/docs`）で API スキーマと突合する
 
 #### 2-5. 採点まわりの仕様の差異
 

@@ -6,7 +6,7 @@
 
 > ⚠️ **現状の注意（2026-05 時点）**
 >
-> 本プロジェクトは **設計フェーズ完了 / R1 着手予定** の状態です。以下のセットアップ手順・コマンドは **R0（基盤整備）以降に動作するようになる予定** で、現時点では `apps/` 配下のソース実体・`docker-compose.yml` 等は未整備です。
+> 本プロジェクトは **設計フェーズ完了 / R0（基盤整備）着手前** の状態です。以下のセットアップ手順・コマンドは **R0 着手以降に動作するようになる予定** で、現時点では `apps/` 配下のソース実体・`docker-compose.yml` 等は未整備です。
 >
 > - **進捗は [docs/requirements/5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) を参照**
 > - 設計レビュー・面接準備のために本プロジェクトを評価している場合は [README.md](README.md) を起点に閲覧してください
@@ -53,7 +53,8 @@ mise run bootstrap
 cp .env.example .env
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
-# 各 .env を編集：DATABASE_URL / REDIS_URL / GitHub OAuth Secret 等
+cp apps/workers/grading/.env.example apps/workers/grading/.env
+# 各 .env を編集：DATABASE_URL / REDIS_URL / GitHub OAuth Secret / LLM API Key 等
 
 # 4. ローカル DB / Redis を起動
 docker compose up -d
@@ -198,13 +199,16 @@ mise run web:e2e          # Playwright E2E
 
 ```bash
 # 採点 Worker
-mise run worker:grading:dev          # go run ./cmd/grading
+mise run worker:grading:dev          # apps/workers/grading の go run
 mise run worker:grading:test         # go test ./...
 mise run worker:grading:lint         # golangci-lint run
 mise run worker:grading:audit        # govulncheck ./...
+mise run worker:grading:deps-check   # go mod tidy 後の差分チェック
 mise run worker:grading:types-gen    # quicktype で Go struct 生成
 
-# 問題生成 Worker（apps/workers/generation 着手時に有効化）
+# 問題生成 Worker（apps/workers/generation、R7 以降に着手予定）
+# 現状はディレクトリ雛形のみで Go module 未着手。
+# 下記タスクは「未着手」を echo するスタブ：
 mise run worker:generation:dev
 mise run worker:generation:test
 

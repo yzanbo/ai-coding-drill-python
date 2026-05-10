@@ -31,7 +31,7 @@
 - [F-04: 自動採点](../4-features/F-04-auto-grading.md)
 - [F-05: 学習履歴・統計](../4-features/F-05-learning-history.md)
 - F-06: 適応型出題（バックログ、[5-roadmap/01-roadmap.md](../5-roadmap/01-roadmap.md#f-06-適応型出題)）
-- F-07: LLM ヒント機能（バックログ）
+- [F-07: LLM ヒント機能（バックログ）](../5-roadmap/01-roadmap.md#f-07-llm-ヒント機能)
 
 ---
 

@@ -68,7 +68,7 @@
    ミューテーションテスト・複数モデルによる多軸評価・人間評価との相関分析を組み合わせ、LLM 生成物の品質を継続的に担保。
    → 詳細：[ADR 0008: LLM-as-a-Judge を自前実装](docs/adr/0008-custom-llm-judge.md)
 
-3. **Python + Go のポリグロット構成**
+3. **Python + Go + TypeScript のポリグロット構成**
    バックエンド API（Python / FastAPI）・採点ワーカー（Go）・フロントエンド（TypeScript / Next.js）を、レイヤごとに適材適所で導入。
    → 詳細：[ADR 0033: バックエンドを Python に pivot](docs/adr/0033-backend-language-pivot-to-python.md) / [ADR 0003: 言語の段階導入](docs/adr/0003-phased-language-introduction.md)
 
@@ -239,7 +239,7 @@ LLM 呼び出しは Worker 側に集約（ADR 0040）：
 | R3 | サンドボックス強化（gVisor + ベンチマーク） | _未着手_ |
 | R4 | 観測性（OTel・Grafana・Sentry・管理ダッシュボード） | _未着手_ |
 | R5 | 仕上げ（IaC・E2E・本番デプロイ・README 完成） | _未着手_ |
-| R6 以降 | 任意（適応型出題・`apps/workers/generation/` 追加・多言語化・Firecracker 等） | _任意_ |
+| R7 以降 | 任意（適応型出題・`apps/workers/generation/` 切り出し・多言語化・Firecracker 等） | _任意_ |
 
 詳細は [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) を参照。
 

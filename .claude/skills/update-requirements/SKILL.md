@@ -54,7 +54,7 @@ ADR は [docs/adr/template.md](../../../docs/adr/template.md) を元に作成。
 
 更新された要件に基づいて、コード側の修正を行う：
 
-- 関連するモジュール（`apps/api/app/<feature>/`、`apps/web/src/app/`、`apps/workers/<name>/internal/`）を確認
+- 関連するモジュール（`apps/api/app/{models,schemas,services,routers}/<feature>.py`、`apps/web/src/app/`、`apps/workers/<name>/internal/`）を確認
 - 各レイヤのルール（[.claude/rules/](../../rules/)）に従って修正
 - 変更の影響範囲を特定し、ユーザーに提示してから実装
 

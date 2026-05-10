@@ -35,7 +35,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 - **アーキテクチャ**：3 言語ポリグロット（Python for API、TS for Web、Go for Worker 群、→ [ADR 0033](../../../docs/adr/0033-backend-language-pivot-to-python.md) / [ADR 0040](../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）
 - **タスクランナー / tool 版数**：mise（uv / pnpm / Go を一括管理、→ [ADR 0039](../../../docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）。Turborepo は不採用（→ [ADR 0036](../../../docs/adr/0036-frontend-monorepo-pnpm-only.md)）
 - **DB / キュー**：Postgres + SQLAlchemy 2.0 async + Alembic（→ [ADR 0037](../../../docs/adr/0037-sqlalchemy-alembic-for-database.md)）、ジョブキューも Postgres `SELECT FOR UPDATE SKIP LOCKED`
-- **キャッシュ**：Upstash Redis（ジョブキュー用途では使わない）
+- **キャッシュ**：Redis（キャッシュ・セッション・レート制限用、ジョブキュー用途では使わない、→ [ADR 0005](../../../docs/adr/0005-redis-not-for-job-queue.md)）
 - **インフラ**：AWS 単独（ECS Fargate + EC2 + RDS + ECR + Route 53）
 
 ### 3. アーキテクチャ・設計判断の説明
@@ -80,7 +80,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 | `/verify-requirements` | 要件と実装の整合性を検証 |
 | `/backend-implement` | 要件 .md を読んで FastAPI 実装 |
 | `/backend-test` | バックエンドのユニットテスト生成・実行 |
-| `/backend-new-module` | FastAPI モジュール（router / schema / service / repository）をスキャフォールド |
+| `/backend-new-module` | FastAPI モジュール（router / schema / service）をスキャフォールド（Repository レイヤは採用しない、→ `.claude/rules/backend.md`） |
 | `/frontend-implement` | 要件 .md を読んで Next.js 実装 |
 | `/frontend-test` | フロントエンドのテスト生成・実行 |
 | `/worker-implement` | Go Worker の実装 |

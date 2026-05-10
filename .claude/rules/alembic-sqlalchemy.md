@@ -35,7 +35,7 @@ apps/api/
 ## 採用方針
 
 - **SQLAlchemy 2.0 系の新スタイル**（`Mapped[...]` / `mapped_column()`）を使う。1.x スタイル（`Column(...)` 直書き）は新規コードでは禁止
-- **async I/O 必須**：`AsyncEngine` + `AsyncSession`、Service / Repository レイヤ（Repository の有無は保留、[backend.md](./backend.md) §設計方針 Note 参照）は `async def`
+- **async I/O 必須**：`AsyncEngine` + `AsyncSession`、Service レイヤは `async def`（Repository レイヤは採用しない、→ [backend.md](./backend.md)）
 - セッションは FastAPI の依存性注入（`Depends(get_async_session)`）で取得、リクエスト単位で生成・破棄
 
 ## モデル定義のパターン

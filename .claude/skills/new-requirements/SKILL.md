@@ -28,7 +28,7 @@ argument-hint: "[feature-name] [概要の説明]"
 - **データモデル**：新規テーブル・カラムが必要か（→ [01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md) との整合性）
 - **API**：新規エンドポイントが必要か（→ [02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md) との整合性）
 - **LLM 利用**：問題生成・評価への影響があるか
-- **採点ワーカーへの影響**：Go ワーカー側の処理が増えるか
+- **採点 Worker への影響**：Go Worker 側の処理が増えるか
 - **既存機能との関係**：既存の問題・採点・履歴フローとの依存関係
 - **制約・エッジケース**：同時実行、レート制限、データ整合性
 
@@ -76,7 +76,7 @@ argument-hint: "[feature-name] [概要の説明]"
 - [x] 要件定義完了
 - [ ] バックエンド実装完了
 - [ ] フロントエンド実装完了
-- [ ] 採点ワーカー実装完了（該当時）
+- [ ] 採点 Worker 実装完了（該当時）
 - [ ] テスト完了
 ```
 

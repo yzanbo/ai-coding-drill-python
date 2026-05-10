@@ -66,7 +66,7 @@ argument-hint: "[feature-name] (例: problem-generation, grading) または all 
 - **使用 API 検証**：画面が使う API がバックエンドに実在するか
 - **バリデーション整合性**：要件のバリデーションルールと Zod スキーマ（Hey API 生成、`apps/web/src/lib/api/generated/`）、API の Pydantic スキーマが一致するか
 
-### 6. 採点ワーカーの突合（該当時）
+### 6. 採点 Worker の突合（該当時）
 
 採点フローに関する要件がある場合：
 
@@ -108,7 +108,7 @@ argument-hint: "[feature-name] (例: problem-generation, grading) または all 
 - ✅ 画面ルート：<一致数> / <記載数>
 - ⚠️ 差分あり：
 
-### 採点ワーカー
+### 採点 Worker
 - ✅ ジョブハンドラ：<n> 種類
 - ⚠️ 差分あり：
 

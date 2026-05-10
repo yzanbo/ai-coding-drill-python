@@ -88,7 +88,7 @@ const { data: submission } = useGetSubmission(submissionId, {
 - [x] 要件定義完了
 - [x] バックエンド実装完了
 - [x] フロントエンド実装完了    ← ここをチェック
-- [ ] 採点ワーカー実装完了
+- [ ] 採点 Worker 実装完了
 - [ ] テスト完了
 ```
 
