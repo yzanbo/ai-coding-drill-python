@@ -114,8 +114,8 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 [README.md](../../../README.md) のクイックスタートに沿って実際に起動を試してもらう：
 
 ```bash
-git clone git@github-yzanbo:yzanbo/ai-coding-drill.git
-cd ai-coding-drill
+git clone https://github.com/yzanbo/ai-coding-drill-python.git
+cd ai-coding-drill-python
 cp .env.example .env
 # 各 .env を編集
 mise run bootstrap        # mise install + lefthook install

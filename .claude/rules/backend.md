@@ -27,13 +27,12 @@ apps/api/app/
 │   ├── submissions.py
 │   ├── grading.py
 │   └── ...
-├── services/                # ビジネスロジック（router から呼ぶ）
-├── repositories/            # SQLAlchemy クエリの集約（service から呼ぶ、※下記 Note 参照）
+├── services/                # ビジネスロジック + SQLAlchemy クエリ（router から呼ぶ）
 ├── deps/                    # 依存性注入（Depends で使う関数群、認証ガード等）
 └── observability/           # OpenTelemetry セットアップ、構造化ログ、メトリクス
 ```
 
-> **Note：Repository レイヤの要否は実装着手時に再判断**（保留）。要件側の SSoT は [02-architecture.md: Backend API 設計スタイル](../../docs/requirements/2-foundation/02-architecture.md#backend-apifastapi--python) で「Repository レイヤは設けない（Service が SQLAlchemy を直接呼ぶ）」と書かれており、本ファイルおよび `backend-new-module` SKILL の Repository 前提と齟齬がある。R1 着手時に決着させて片側に統一する。当面は本ファイルの Service / Repository 2 層構成を「目安」として読み、実装が要件側に寄せて確定したらこの Note を削除する。
+> **Repository レイヤは採用しない**（[02-architecture.md: Backend API 設計スタイル](../../docs/requirements/2-foundation/02-architecture.md#backend-apifastapi--python) が SSoT）。Service が `AsyncSession` から SQLAlchemy 2.0 を直接呼ぶ単層構成。本 Backend は ADR 0040 により責務が薄い（auth + CRUD + job enqueue + 結果取得のみ）ため、Repository は ORM への delegating wrapper になりやすく ROI が低い。複雑なクエリが複数 Service で重複し始めたら `app/queries/<feature>.py` の関数群（クラス化はしない）に切り出す段階導入で対応する。テスト戦略は「Service の単体テスト（純粋関数を切り出して検証）+ Service+DB の結合テスト（Testcontainers / docker-compose）」を組み合わせる（→ [ADR 0038](../../docs/adr/0038-test-frameworks.md)）。
 
 ### 設計方針
 
@@ -58,7 +57,7 @@ apps/api/app/
 
 ## データベース（Postgres + SQLAlchemy 2.0 async）
 
-- AsyncEngine + AsyncSession、Repository / Service レイヤは `async def`
+- AsyncEngine + AsyncSession、Service レイヤは `async def`
 - セッション取得：`session: AsyncSession = Depends(get_async_session)`（リクエスト単位で生成・破棄）
 - タイムゾーン：`TIMESTAMP(timezone=True)` で UTC 保持、表示時に JST 変換（zoneinfo）
 - IDs：UUID（`server_default=text("gen_random_uuid()")`）または BigInteger（`jobs.id` のみ autoincrement）
@@ -126,16 +125,13 @@ Backend の責務はジョブ enqueue + 結果取得 API のみ。`anthropic` / 
 
 ### Service
 
-- Repository を呼び出してビジネスロジックを構築。直接 SQLAlchemy を呼ばない（Repository に集約）
+- `AsyncSession` を `__init__` で受け取り、SQLAlchemy 2.0 のクエリ（`select` / `insert` / `update` / `delete` + `await session.execute(...)`）を直接実行する
 - トランザクション境界は Service が握る：`async with session.begin():`
-- 認証済みエンドポイントでは「自分のリソースか」を必ずチェック
+- SQLAlchemy モデルから Pydantic レスポンスへの詰め替えは Service 内で行う（`<Args>Response.model_validate(obj)`）
+- 認証済みエンドポイントでは「自分のリソースか」を必ずチェック（`Submission.user_id == current_user.id`）
 - エラーは FastAPI の `HTTPException` ではなくドメイン例外を投げ、`app/core/exceptions.py` の handler で HTTPException に変換する
 - ロガー：`logger = logging.getLogger(__name__)`（OpenTelemetry が自動で trace_id を注入）
-
-### Repository
-
-- SQLAlchemy のクエリはここに集約（Service から SQLAlchemy を直接触らない）
-- 戻り値は SQLAlchemy モデルのまま（Service / Router 側で Pydantic に詰め替える）
+- 複数 Service で重複する複雑なクエリが現れたら `app/queries/<feature>.py` に **関数として** 切り出す（Repository クラスは作らない）
 
 ## 新規機能の追加パターン
 
@@ -143,18 +139,16 @@ Backend の責務はジョブ enqueue + 結果取得 API のみ。`anthropic` / 
 
 1. `apps/api/app/models/<feature>.py` — SQLAlchemy モデル
 2. `apps/api/app/schemas/<feature>.py` — Pydantic スキーマ（Create/Update/Response/Query）
-3. `apps/api/app/repositories/<feature>.py` — クエリ集約
-4. `apps/api/app/services/<feature>.py` — ビジネスロジック
-5. `apps/api/app/routers/<feature>.py` — APIRouter
-6. `apps/api/app/main.py` で `app.include_router(...)`
-7. スキーマ変更があれば `mise run api:db-revision -- "<msg>"` でマイグレーション生成 → `mise run api:db-migrate`
+3. `apps/api/app/services/<feature>.py` — ビジネスロジック + SQLAlchemy クエリ
+4. `apps/api/app/routers/<feature>.py` — APIRouter
+5. `apps/api/app/main.py` で `app.include_router(...)`
+6. スキーマ変更があれば `mise run api:db-revision -- "<msg>"` でマイグレーション生成 → `mise run api:db-migrate`
 
 ```
 apps/api/app/
 ├── models/problems.py         # class Problem(Base): ...
 ├── schemas/problems.py        # ProblemCreate / ProblemUpdate / ProblemResponse / ProblemQuery
-├── repositories/problems.py   # async def list_problems(...) 等
-├── services/problems.py       # ProblemService
+├── services/problems.py       # ProblemService（SQLAlchemy クエリも含む）
 └── routers/problems.py        # router = APIRouter(prefix="/problems", tags=["problems"])
 ```
 
@@ -165,8 +159,8 @@ apps/api/app/
 
 ## テスト
 
-- ユニットテスト（`tests/unit/test_*.py`）：pytest + pytest-asyncio。Repository をモックで注入し Service を検証
-- 結合テスト（`tests/integration/test_*.py`）：pytest + httpx.AsyncClient + 実 DB（Testcontainers または docker-compose の test 環境）
+- ユニットテスト（`tests/unit/test_*.py`）：pytest + pytest-asyncio。Service の純粋関数（バリデーション・計算・分岐）を切り出して直接検証する。SQLAlchemy が絡む部分はユニットでなく結合テストで担当
+- 結合テスト（`tests/integration/test_*.py`）：pytest + httpx.AsyncClient + 実 DB（Testcontainers または docker-compose の test 環境）。Service + DB のクエリ動作はここで検証する（Repository モックは作らない方針 — モックでは ORM の挙動を再現できず false positive を生むため）
 - E2E（`tests/e2e/`）：実 Postgres + 実 Redis を立てて FastAPI を起動、httpx で叩く
 - テスト関数名・docstring は日本語（`test_正常系_問題一覧取得` / `"""異常系: 不正な UUID は 422 を返す"""`）
 

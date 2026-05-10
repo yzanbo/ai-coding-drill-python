@@ -22,7 +22,7 @@ argument-hint: "[feature-name] (例: problem-generation, grading)"
 ### 2. 現状の確認
 
 - 要件のステータスチェックボックスを確認
-- 関連する既存コード（router / service / repository / SQLAlchemy モデル / Pydantic スキーマ）を確認
+- 関連する既存コード（router / service / SQLAlchemy モデル / Pydantic スキーマ）を確認（**Repository レイヤは採用しない方針**、Service が AsyncSession から SQLAlchemy 2.0 を直接呼ぶ単層構成、→ [.claude/rules/backend.md](../../rules/backend.md)）
 - HTTP API 境界の artifact（`apps/api/openapi.json`）と Job キュー境界の artifact（`apps/api/job-schemas/`）の生成状況を確認（→ [ADR 0006](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 - 要件に対して未実装の部分を特定する
 
@@ -35,7 +35,7 @@ argument-hint: "[feature-name] (例: problem-generation, grading)"
 - スキーマ変更の有無（Alembic マイグレーション必要か）
 - ジョブキュー（jobs テーブル）への影響
 - LLM 呼び出しは Worker 側に閉じる（→ [ADR 0040](../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）。Backend は enqueue + 結果取得のみ
-- 実装の順序（モデル → Pydantic スキーマ → repository → service → router → テスト）
+- 実装の順序（モデル → Pydantic スキーマ → service → router → テスト）
 
 ユーザーの承認を待ってから実装に着手する。
 
@@ -43,7 +43,7 @@ argument-hint: "[feature-name] (例: problem-generation, grading)"
 
 [.claude/rules/backend.md](../../rules/backend.md) のコーディング規約に従って実装する。重要なポイント：
 
-- ディレクトリ構成：機能別フラット（`apps/api/app/{models,schemas,repositories,services,routers}/<feature>.py`）
+- ディレクトリ構成：機能別フラット（`apps/api/app/{models,schemas,services,routers}/<feature>.py`、Repository レイヤなし）
 - async I/O 必須：`AsyncSession` + `async def`
 - SQLAlchemy 2.0 新スタイル（`Mapped[T]` / `mapped_column()`）、1.x スタイル禁止
 - Pydantic スキーマが SSoT。Router の `response_model` を必ず明示し、OpenAPI 出力を確実にする

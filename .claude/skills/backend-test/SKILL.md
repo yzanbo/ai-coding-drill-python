@@ -8,6 +8,8 @@ argument-hint: "[feature-name] (例: problems, grading)"
 
 引数 `$ARGUMENTS` を機能名として解釈する。
 
+> **本プロジェクトでは Repository レイヤを採用しない**（Service が `AsyncSession` から SQLAlchemy 2.0 を直接呼ぶ単層構成、→ [.claude/rules/backend.md](../../rules/backend.md)）。テスト戦略は「Service の純粋関数を切り出してユニットテスト + Service+DB の結合テスト」を組み合わせる。**Repository をモックするユニットテストは作らない**（モックでは ORM の挙動を再現できず false positive を生むため）。Repository モックパターンは別プロジェクトでの参考用に §付録 A にコメントとして残してある。
+
 ## 手順
 
 ### 1. 要件と実装の読み込み
@@ -15,10 +17,9 @@ argument-hint: "[feature-name] (例: problems, grading)"
 1. `docs/requirements/4-features/$ARGUMENTS.md` を読み込む
 2. [.claude/rules/backend.md](../../rules/backend.md) のテスト規約を確認する
 3. 対象モジュールの実装コードを読み込む：
-   - `apps/api/app/services/$ARGUMENTS.py` — テスト対象のメインロジック
+   - `apps/api/app/services/$ARGUMENTS.py` — テスト対象のメインロジック（SQLAlchemy クエリも含む）
    - `apps/api/app/routers/$ARGUMENTS.py` — エンドポイントの確認
    - `apps/api/app/schemas/$ARGUMENTS.py` — Pydantic スキーマ
-   - `apps/api/app/repositories/$ARGUMENTS.py` — クエリ集約
    - `apps/api/app/models/$ARGUMENTS.py` — SQLAlchemy モデル
 
 ### 2. テスト方針の提示
@@ -27,7 +28,7 @@ argument-hint: "[feature-name] (例: problems, grading)"
 
 - テスト対象のサービス・メソッド一覧
 - テストケースの概要（正常系・異常系・境界値）
-- 単体テスト（Repository をモック）と結合テスト（実 DB + httpx）の使い分け
+- 単体テスト（純粋関数の切り出し検証）と結合テスト（実 DB + httpx でクエリ動作検証）の使い分け
 - 生成するファイルの一覧
 
 ### 3. ユニットテスト生成
@@ -38,80 +39,38 @@ argument-hint: "[feature-name] (例: problems, grading)"
 
 - フレームワーク：pytest + pytest-asyncio（→ [ADR 0038](../../../docs/adr/0038-test-frameworks.md)）
 - テスト関数名・docstring は日本語：`def test_正常系_一覧取得() -> None:` / `"""異常系: 存在しない ID で 404"""`
-- Repository はモックで注入し Service を検証
+- **Service の純粋ロジック（バリデーション・計算・分岐・Pydantic 詰め替え）を切り出して直接検証する**
+- SQLAlchemy が絡むメソッドはユニットでモックせず、§4 結合テストで実 DB を使って検証する
 - ファイル名：`tests/unit/test_<feature>.py`、機能あたり 1 ファイル
 
-#### テスト構造
+#### テスト構造（純粋関数の単体テスト例）
 
 ```python
 import pytest
-from unittest.mock import AsyncMock
 from uuid import uuid4
 
-from app.services.problems import ProblemsService
 from app.schemas.problems import ProblemCreate
-from app.core.exceptions import NotFoundError
+from app.services.problems import (
+    validate_difficulty,            # Service から切り出した純粋関数
+    build_problem_response,          # SQLAlchemy モデル → Pydantic 詰め替え
+)
+from app.core.exceptions import ValidationError
 
 
-@pytest.fixture
-def mock_repo() -> AsyncMock:
-    return AsyncMock()
+class TestValidateDifficulty:
+    def test_正常系_想定値はそのまま返る(self) -> None:
+        assert validate_difficulty("easy") == "easy"
 
-
-@pytest.fixture
-def mock_session() -> AsyncMock:
-    session = AsyncMock()
-    session.begin.return_value.__aenter__.return_value = None
-    session.begin.return_value.__aexit__.return_value = None
-    return session
-
-
-@pytest.fixture
-def service(mock_session: AsyncMock, mock_repo: AsyncMock) -> ProblemsService:
-    s = ProblemsService(mock_session)
-    s.repo = mock_repo  # repository を差し替え
-    return s
-
-
-class TestProblemsServiceFindAll:
-    @pytest.mark.asyncio
-    async def test_正常系_一覧取得(self, service: ProblemsService, mock_repo: AsyncMock) -> None:
-        mock_repo.list_problems.return_value = []
-        result = await service.list_problems()
-        assert result == []
-
-
-class TestProblemsServiceFindOne:
-    @pytest.mark.asyncio
-    async def test_正常系_詳細取得(self, service: ProblemsService, mock_repo: AsyncMock) -> None:
-        problem_id = uuid4()
-        mock_repo.get_by_id.return_value = ...
-        result = await service.get_problem(problem_id)
-        assert result.id == problem_id
-
-    @pytest.mark.asyncio
-    async def test_異常系_存在しないIDでNotFound(self, service: ProblemsService, mock_repo: AsyncMock) -> None:
-        mock_repo.get_by_id.return_value = None
-        with pytest.raises(NotFoundError):
-            await service.get_problem(uuid4())
+    def test_異常系_未知の難易度はValidationError(self) -> None:
+        with pytest.raises(ValidationError):
+            validate_difficulty("impossible")
 ```
 
-#### Repository モックパターン
-
-```python
-# 単純な戻り値
-mock_repo.list_problems.return_value = [problem1, problem2]
-
-# 例外を raise
-mock_repo.get_by_id.side_effect = NotFoundError("not found")
-
-# call_args で引数検証
-mock_repo.create.assert_called_once_with(payload, owner_id=user.id)
-```
+> SQLAlchemy セッション・クエリが絡む `ProblemsService.create` / `.list_problems` 等は **結合テスト（§4）** で検証する。Service クラス全体をモックでテストせず、ロジック部分を関数として切り出してから単体検証するのが本プロジェクトの方針。
 
 #### LLM プロバイダのモックパターン（将来）
 
-LLM 呼び出しは Worker 側に閉じるため、Backend のテストには通常出てこない（→ [ADR 0040](../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）。Backend の責務は enqueue + 結果取得なので、モックするのは Repository / NOTIFY のみ。
+LLM 呼び出しは Worker 側に閉じるため、Backend のテストには通常出てこない（→ [ADR 0040](../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）。Backend の責務は enqueue + 結果取得なので、モックするのは NOTIFY 程度（必要時のみ）。
 
 #### テストケースのカバレッジ目安
 
@@ -187,3 +146,76 @@ docker compose -f docker-compose.test.yml down -v
 - カバレッジ概要（`--cov` で取得）
 - 要件に対するテストカバレッジの説明
 - 該当する場合、要件の「テスト完了」ステータスをチェック
+
+---
+
+## 付録 A: Repository モックパターン（参考・別プロジェクト用）
+
+> **本プロジェクトでは採用しない**。Repository レイヤを採用する別プロジェクトで参照するためのテンプレートとして残してある。本プロジェクトでこのパターンを生成しないこと。
+
+<!--
+### Service が Repository を持つ 2 層構成での単体テスト
+
+```python
+import pytest
+from unittest.mock import AsyncMock
+from uuid import uuid4
+
+from app.services.problems import ProblemsService
+from app.core.exceptions import NotFoundError
+
+
+@pytest.fixture
+def mock_repo() -> AsyncMock:
+    return AsyncMock()
+
+
+@pytest.fixture
+def mock_session() -> AsyncMock:
+    session = AsyncMock()
+    session.begin.return_value.__aenter__.return_value = None
+    session.begin.return_value.__aexit__.return_value = None
+    return session
+
+
+@pytest.fixture
+def service(mock_session: AsyncMock, mock_repo: AsyncMock) -> ProblemsService:
+    s = ProblemsService(mock_session)
+    s.repo = mock_repo  # repository を差し替え
+    return s
+
+
+class TestProblemsServiceFindOne:
+    @pytest.mark.asyncio
+    async def test_正常系_詳細取得(self, service: ProblemsService, mock_repo: AsyncMock) -> None:
+        problem_id = uuid4()
+        mock_repo.get_by_id.return_value = ...
+        result = await service.get_problem(problem_id)
+        assert result.id == problem_id
+
+    @pytest.mark.asyncio
+    async def test_異常系_存在しないIDでNotFound(self, service: ProblemsService, mock_repo: AsyncMock) -> None:
+        mock_repo.get_by_id.return_value = None
+        with pytest.raises(NotFoundError):
+            await service.get_problem(uuid4())
+```
+
+### Repository モックの使い方
+
+```python
+# 単純な戻り値
+mock_repo.list_problems.return_value = [problem1, problem2]
+
+# 例外を raise
+mock_repo.get_by_id.side_effect = NotFoundError("not found")
+
+# call_args で引数検証
+mock_repo.create.assert_called_once_with(payload, owner_id=user.id)
+```
+
+このパターンが有効な前提：
+- Repository が独立クラスで存在する
+- ORM 挙動の再現性より「Service ロジックの分岐網羅」を優先したい
+- 結合テスト基盤（Testcontainers / docker-compose）の整備コストが高い案件
+-->
+

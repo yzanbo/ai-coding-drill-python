@@ -25,7 +25,7 @@
 
 ## バックエンド API（FastAPI / Python）
 
-- **決定**：FastAPI（Python 3.12+）（→ [ADR 0033](../../adr/0033-backend-language-pivot-to-python.md) / [ADR 0034](../../adr/0034-fastapi-for-backend.md)）
+- **決定**：FastAPI（Python 3.13、版数 SSoT は [mise.toml](../../../mise.toml)）（→ [ADR 0033](../../adr/0033-backend-language-pivot-to-python.md) / [ADR 0034](../../adr/0034-fastapi-for-backend.md)）
 - 選定理由：
   - Pydantic v2 によるスキーマ駆動開発と OpenAPI 3.1 自動生成の親和性が高く、TS / Go 側の型生成パイプライン（[ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）と直結
   - async ネイティブで I/O バウンドな API（DB / Redis / 外部 HTTP）に適合
@@ -92,7 +92,7 @@
 - テーブル設計（概要）：
   - `id / queue / payload(JSONB) / state / attempts / run_at / locked_at / locked_by / last_error / created_at`
   - インデックス：`(queue, state, run_at)`
-- ペイロードは JSONB、スキーマは JSON Schema で管理し TS / Go 両方に型生成（→ [06-dev-workflow.md: 共有型・スキーマ](./06-dev-workflow.md#共有型スキーマjson-schema-を-ssot)）
+- ペイロードは JSONB、スキーマは Pydantic を SSoT とし境界別 2 伝送路で TS / Go に型生成（→ [06-dev-workflow.md: 共有型・スキーマ](./06-dev-workflow.md#共有型スキーマpydantic-を-ssot境界別の-2-伝送路で各言語へ展開)）
 - 取得方式：`LISTEN/NOTIFY` + 30 秒間隔の低頻度ポーリングのハイブリッド
 - スケール時の移行先：NATS JetStream（ファンアウト・Pub/Sub が必要になった場合）
 

@@ -48,10 +48,9 @@ root には言語横断の orchestration / Git フック / コミット規約の
 
 - `mise.toml`（タスク + tool 版数 SSoT、→ [ADR 0039](./0039-mise-for-task-runner-and-tool-versions.md)）
 - `lefthook.yml`（Git フック、commit-msg のみ。pre-commit フックの言語別追加は app 着手時）
-- `commitlint.config.mjs`（`.ts` ではなく `.mjs`、root の TS 依存をゼロ化）
-- `package.json`（`@commitlint/cli` / `@commitlint/config-conventional` / `lefthook` のみの最小構成）
+- `commitlint.config.mjs`（`.ts` ではなく `.mjs`、root の TS 依存をゼロ化。`@commitlint/cli` / `@commitlint/config-conventional` は mise の `npm:` バックエンド経由で取得し、root に `package.json` を置かない）
 - `.gitignore` / `README.md` / `LICENSE` / `CONTRIBUTING.md` / `SYSTEM_OVERVIEW.md`
-- `docs/` / `infra/` / `apps/` / `packages/prompts/`
+- `docs/` / `infra/` / `apps/`（`packages/` は ADR 0006 / 本 ADR / [ADR 0040](./0040-worker-grouping-and-llm-in-worker.md) で全廃済み）
 
 ### タスク実行の経路
 

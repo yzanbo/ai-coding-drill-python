@@ -176,7 +176,7 @@
 
 | レイヤ | 採用技術 |
 |---|---|
-| **フロントエンド** | Next.js（App Router）+ Tailwind CSS + CodeMirror 6 + TanStack Query |
+| **フロントエンド** | Next.js 16+（App Router）+ Tailwind CSS + CodeMirror 6 + TanStack Query |
 | **バックエンド API** | Python + **FastAPI**（[ADR 0034](docs/adr/0034-fastapi-for-backend.md)） |
 | **ORM / マイグレーション** | SQLAlchemy 2.0（async）+ Alembic（[ADR 0037](docs/adr/0037-sqlalchemy-alembic-for-database.md)） |
 | **Python パッケージ管理** | uv（lockfile / workspace、[ADR 0035](docs/adr/0035-uv-for-python-package-management.md)） |

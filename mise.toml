@@ -82,6 +82,11 @@ description = "Python lint + format 検証（ruff check）"
 dir = "apps/api"
 run = "uv run ruff check ."
 
+[tasks."api:lint-fix"]
+description = "Python lint 自動修正（ruff check --fix、ADR 0021 で参照）"
+dir = "apps/api"
+run = "uv run ruff check --fix ."
+
 [tasks."api:format"]
 description = "Python format 自動修正（ruff format）"
 dir = "apps/api"
@@ -160,10 +165,20 @@ description = "未使用 export / file / dep 検出（Knip、apps/web 内）"
 dir = "apps/web"
 run = "pnpm exec knip"
 
+[tasks."web:knip-fix"]
+description = "Knip 自動修正（未使用 export / dep の削除提案を適用、ADR 0021 で参照）"
+dir = "apps/web"
+run = "pnpm exec knip --fix"
+
 [tasks."web:syncpack"]
 description = "package.json 整合性（syncpack lint、3 ルールに縮小、ADR 0024 Note）"
 dir = "apps/web"
 run = "pnpm exec syncpack lint"
+
+[tasks."web:syncpack-format"]
+description = "package.json のキー順整形（syncpack format、ADR 0024 Note / 06-dev-workflow.md で参照）"
+dir = "apps/web"
+run = "pnpm exec syncpack format"
 
 [tasks."web:types-gen"]
 description = "Hey API で OpenAPI から TS / Zod / HTTP クライアント生成（ADR 0006）"

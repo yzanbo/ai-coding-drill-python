@@ -91,7 +91,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 | **`pip-audit`**（脆弱性スキャン） | Python（Backend） | （pre-commit には組込まない、CI のみ） | `uv.lock` 変更時 | `pip-audit` | `uv.lock` を入力源、PyPI Advisory + OSV.dev を照会。Dependabot との二重ゲート（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)） |
 | **commitlint** | 言語横断 | commit-msg | （glob なし、毎回） | `commitlint`（PR は base..head、push は before..after） | 過去履歴は遡及修正不可のため hook と CI の両方で常時起動 |
 | **syncpack** | TS（Frontend 限定） | pre-commit | `package.json` | `syncpack` | pre-commit は `lint` のみ。自動修正は `mise run web:syncpack` を手動実行（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)） |
-| **Knip** | TS（Frontend 限定） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json}` | `knip` | ファイル単位起動できないため glob トリガー時に全プロジェクト解析。自動修正は `pnpm knip:fix` を手動実行 |
+| **Knip** | TS（Frontend 限定） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json}` | `knip` | ファイル単位起動できないため glob トリガー時に全プロジェクト解析。自動修正は `mise run web:knip-fix` を手動実行 |
 
 ### 多層防御の構造
 
@@ -215,7 +215,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 コミットメッセージは **Conventional Commits** に従い、commitlint で機械強制する。採用根拠と scope の付与方針は [ADR 0029](../../adr/0029-commit-scope-convention.md) を参照。
 
-**真の SSoT は [`commitlint.config.mjs`](../../../commitlint.config.mjs) の `type-enum` / `scope-enum`**（CI と lefthook commit-msg フックで違反を弾く）。本セクションは人間向け解説。
+**真の SSoT は [`commitlint.config.mjs`](../../../commitlint.config.mjs) の `type-enum` / `scope-enum`**（CI と lefthook commit-msg フックで違反を弾く）。本セクションは人間向け解説。なお commitlint が比較する base コミットの取得方式（shallow clone 環境で `--shallow-exclude` が使えない件への対処として `--deepen=20` の iterative deepen 方式）は [ADR 0030](../../adr/0030-commitlint-base-commit-fetch.md) を参照。
 
 ### 形式
 
@@ -403,7 +403,7 @@ rules:
 - [ADR 0020: Python のコード品質ツールに ruff + pyright を採用](../../adr/0020-python-code-quality.md)
 - [ADR 0019: Go のコード品質ツール（gofmt + golangci-lint）](../../adr/0019-go-code-quality.md)
 - [ADR 0018: TypeScript のコード品質ツールに Biome](../../adr/0018-biome-for-tooling.md)（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
-- [ADR 0023: Turborepo + pnpm workspaces](../../adr/0023-turborepo-pnpm-monorepo.md)（Superseded by 0033、Frontend 用途として継続検討）
+- [ADR 0023: Turborepo + pnpm workspaces](../../adr/0023-turborepo-pnpm-monorepo.md)（Superseded by 0033 / 0036、Turborepo / pnpm workspaces とも不採用。Python 側パッケージ管理は ADR 0035、Frontend は単一 `apps/web/` で pnpm 単独運用、タスクランナーは ADR 0039）
 - [ADR 0024: syncpack による package.json 整合性](../../adr/0024-syncpack-package-json-consistency.md)（Accepted, Amended by 0033 / 0036、Frontend 用途として継続採用）
 - [ADR 0006: JSON Schema を SSoT に](../../adr/0006-json-schema-as-single-source-of-truth.md)
 - [ADR 0021: 補完ツールを R0 から導入](../../adr/0021-r0-tooling-discipline.md)

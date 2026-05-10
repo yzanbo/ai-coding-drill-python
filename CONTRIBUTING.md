@@ -42,8 +42,8 @@
 
 ```bash
 # 1. リポジトリ取得
-git clone https://github.com/yohei/ai-coding-drill.git
-cd ai-coding-drill
+git clone https://github.com/yzanbo/ai-coding-drill-python.git
+cd ai-coding-drill-python
 
 # 2. mise でツール一括インストール + Git フック登録
 mise run bootstrap
@@ -163,7 +163,7 @@ mise run test             # 全言語 test
 mise run typecheck        # 全言語 typecheck
 ```
 
-> 型生成は境界別に分かれる（root 横断タスクなし）。HTTP API 境界は `mise run web:types-gen`（OpenAPI → Hey API）、Job キュー境界は `mise run api:job-schemas-export` + `mise run worker:types-gen`（Pydantic → JSON Schema → quicktype）を個別に実行する（→ [ADR 0006](docs/adr/0006-json-schema-as-single-source-of-truth.md)）。
+> 型生成は境界別に分かれる。両境界を一括で再生成する横断タスク `mise run types-gen` あり（OpenAPI export + Job Schema export + Hey API + quicktype をチェーン実行、CI の drift 検出にも使う）。境界別に個別実行したい場合は `mise run web:types-gen`（HTTP API 境界：OpenAPI → Hey API）/ `mise run api:job-schemas-export` + `mise run worker:types-gen`（Job キュー境界：Pydantic → JSON Schema → quicktype）（→ [ADR 0006](docs/adr/0006-json-schema-as-single-source-of-truth.md)）。
 
 ### Backend（apps/api、Python / FastAPI）
 
@@ -268,7 +268,7 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 | `/update-requirements` | 要件を先に更新してから実装を修正 |
 | `/verify-requirements` | 要件と実装の整合性を検証 |
 | `/backend-implement` | 要件 .md を読んで FastAPI 実装 |
-| `/backend-new-module` | FastAPI モジュール（router / schema / service / repository）をスキャフォールド |
+| `/backend-new-module` | FastAPI モジュール（router / schema / service）をスキャフォールド（Repository レイヤは採用しない） |
 | `/frontend-implement` | 要件 .md を読んで Next.js 実装 |
 | `/worker-implement` | Go 採点 Worker の実装 |
 | `/backend-test` `/frontend-test` `/worker-test` | 各レイヤのテスト生成・実行 |

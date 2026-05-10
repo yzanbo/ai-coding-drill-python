@@ -77,12 +77,17 @@ apps/
 - バージョン管理ルール（`<role>.v<N>.yaml` / 一度配布した vN は書き換えない）は維持（旧 `packages/prompts/README.md` の運用ルールを各 Worker 配下の prompts/ ディレクトリに継承）
 - `packages/prompts/` ディレクトリは廃止済み、各 Worker 着手時に該当 Worker 内 prompts/ で運用
 
-### 4. ジョブパターンの拡張
+### 4. ジョブ種別の拡張（テーブルは単一 `jobs` を維持）
 
-- 既存：`grading_job` テーブル（採点ジョブ）
-- 追加：`generation_job` テーブル（問題生成ジョブ）
-- いずれも [ADR 0004](./0004-postgres-as-job-queue.md) の SKIP LOCKED + LISTEN/NOTIFY パターンに従う
-- 共通ジョブ型は Pydantic で `apps/api/app/schemas/` 内に定義（→ [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の SSoT 設計）。Pydantic から個別 JSON Schema を `apps/api/job-schemas/` に出力し、quicktype `--src-lang schema` で各 Worker（Go）に struct 生成（Job キュー境界の伝送路）
+- ジョブテーブルは **単一 `jobs` テーブル** を継続使用（[ADR 0004](./0004-postgres-as-job-queue.md) / [01-data-model.md](../requirements/3-cross-cutting/01-data-model.md#er-図全体俯瞰)）。種別追加で物理テーブルを増やさない
+- Worker の取得対象は `queue` 列で分離：
+  - `apps/workers/grading/`：`SELECT … FROM jobs WHERE queue='grading' AND state='queued' FOR UPDATE SKIP LOCKED`
+  - `apps/workers/generation/`：`SELECT … FROM jobs WHERE queue='generation' AND state='queued' FOR UPDATE SKIP LOCKED`
+- ジョブ細分は `type` 列（例：`grading.judge` / `generation.typescript`）。新 Worker 追加時は `queue` / `type` の値を増やすのみで DDL 不要
+- `NOTIFY new_job` チャンネルは単一を維持し、各 Worker は LISTEN 後に `WHERE queue=...` でフィルタする
+- 共通ジョブ型は Pydantic で `apps/api/app/schemas/jobs/` 内に定義（→ [ADR 0006](./0006-json-schema-as-single-source-of-truth.md) の SSoT 設計）。Pydantic から個別 JSON Schema を `apps/api/job-schemas/` に出力し、quicktype `--src-lang schema` で各 Worker（Go）に struct 生成（Job キュー境界の伝送路）
+
+> **本 ADR は Worker 側の構造のみを規定する**。キュー機構自体（テーブル設計・SKIP LOCKED 運用作法・LISTEN/NOTIFY・DLQ）の SSoT は [ADR 0004](./0004-postgres-as-job-queue.md) と [01-data-model.md](../requirements/3-cross-cutting/01-data-model.md) を参照。
 
 ## Why（採用理由）
 
