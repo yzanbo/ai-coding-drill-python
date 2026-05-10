@@ -83,3 +83,9 @@ markers = [
 # ============================================================================
 [tool.deptry]
 extend_exclude = ["alembic/versions"]
+# DEP002（"defined as a dependency but not used in the codebase"）の例外：
+# - asyncpg：SQLAlchemy の async ドライバ。コード上では `postgresql+asyncpg://` URL でのみ参照され
+#   `import asyncpg` は出てこないが、実行に必須。
+# - uvicorn：ASGI サーバ CLI。`uv run fastapi dev` 経由で起動し import 文には出てこないが必須。
+[tool.deptry.per_rule_ignores]
+DEP002 = ["asyncpg", "uvicorn"]
