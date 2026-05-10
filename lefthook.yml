@@ -39,6 +39,7 @@ pre-commit:
 
 commit-msg:
   commands:
+    # コミットメッセージ規約検証（commitlint）
     commitlint:
       # commit-msg フックで commitlint を実行し、コミットメッセージが
       # Conventional Commits 規約（commitlint.config.mjs）に従っているかを検証する。
