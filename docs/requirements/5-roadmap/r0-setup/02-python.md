@@ -1,4 +1,4 @@
-# 02. Python 環境構築（🔴 未着手）
+# 02. Python 環境構築（✅ 完了）
 
 > **守備範囲**：Python ランタイム取得から apps/api を DB + 品質ゲート付きで動かすまでの 12 ステップ。本フェーズが終わると、Python の lint / typecheck がローカル + CI 両方で緑になり、依存自動更新が週次で来る。各 step は **1 PR 相当の atomic な作業単位**に分割してあり、step 単位で commit / レビューを進められる。
 > **前提フェーズ**：[01-foundation.md](./01-foundation.md) 完了済（mise.toml + GitHub Actions 雛形 + Dependabot 雛形）
