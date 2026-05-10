@@ -265,20 +265,11 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 ### バージョン方針
 
-- **常に最新の安定版を採用する**：言語ランタイム（Python / Node.js / Go）、ミドルウェア（PostgreSQL / Redis）、ライブラリ（FastAPI / Pydantic / SQLAlchemy / Next.js / React 等）は、新規導入時もアップデート時も**最新の stable / LTS 版**を選ぶ。RC / beta / nightly は採用しない
-- **具体版数の記載は SSoT 1 箇所のみ**：版数の数字は SSoT ファイルとリーダー向けサマリ（README.md）にだけ書き、他ドキュメントには重複記載しない。アップデート時に複数箇所を直す手間と齟齬を防ぐため
-- **SSoT の配置**（種別ごと）：
-  - 言語ランタイム → `mise.toml`
-  - Python 依存 → `apps/api/pyproject.toml` + `apps/api/uv.lock`
-  - Frontend 依存 → `apps/web/package.json` + `apps/web/pnpm-lock.yaml`
-  - Go 依存 → `apps/workers/<name>/go.mod` + `go.sum`
-  - ローカルミドルウェア → `docker-compose.yml`
-  - リーダー向けサマリ → `README.md`
-- **例外：設計ルールとしてのメジャー版数**：ライブラリのメジャー版数が「どの API スタイルを使うか」を指す場合は、版数を最新追随する pin 値ではなく**設計ルール**として扱い、ドキュメント内で版数を明記してよい。これは「最新版を採用した結果の数字」ではなく「メジャー移行を決めた時にしか変わらない数字」なので SSoT 集約対象外
-  - `SQLAlchemy 2.0` ＝ `Mapped[T]` / `mapped_column()` の新スタイルを使うルール（1.x スタイル `Column(...)` は禁止）
-  - `Pydantic v2` ＝ `model_validate` / `model_dump` / `ConfigDict` の API を使うルール（v1 API は禁止）
-  - `Next.js 16+` ＝ App Router（`app/` ディレクトリ）を使うルール（Pages Router `pages/` は使わない）
-  - `CodeMirror 6` ＝ CM6 API（`@codemirror/state` / `@codemirror/view`）を使うルール（CM5 とは別物の書き換え版）
+- **インストール / 追加の前に最新安定版を Web で調査する**：SSoT ファイルや記憶している版数には追従しない（陳腐化しているため）。RC / beta / nightly は採用しない
+- **採用前に互換性を確認**：peer dep / 必須最小版数 / breaking changes をリリースノートで確認。最新が採用不可な場合は理由を SSoT ファイルにコメントで残す
+- **具体版数は SSoT + README のみに書く**：他ドキュメントには重複記載しない
+- **SSoT 配置**：mise.toml（言語）/ pyproject.toml + uv.lock（Python 依存）/ package.json + pnpm-lock.yaml（Frontend 依存）/ go.mod + go.sum（Go 依存）/ docker-compose.yml（ローカルミドルウェア）/ README.md（サマリ）
+- **例外**：ライブラリのメジャー版数が「どの API スタイルを使うか」を指す場合（`SQLAlchemy 2.0` / `Pydantic v2` / `Next.js 16+` / `CodeMirror 6` 等）は、最新追随ではなく**設計ルール**として版数表記を残してよい
 
 ### 設計原則
 
