@@ -245,31 +245,34 @@ git restore --staged apps/api/app/_test.py && rm apps/api/app/_test.py
 ```yaml
 pre-push:
   commands:
-    pytest:
-      run: |
-        if pg_isready -h localhost -p 5432 -q; then
-          mise exec -- pytest apps/api
-        else
-          echo "⚠ Postgres not running. Skipping integration tests (run 'docker compose up -d' first)."
-          mise exec -- pytest apps/api -m "not integration"
-        fi
+    api-pytest:
+      glob: "apps/api/**/*.py"
+      root: apps/api
+      run: mise exec -- uv run pytest
+      fail_text: |
+        pytest が失敗（push をブロック）。Postgres 未起動が原因なら
+          docker compose up -d
+          git push
 ```
 
 **設計判断**：
-- **DB graceful skip**：Postgres が立っていない場合は integration テストをスキップして unit テストのみ実行。spurious fail を回避（DB 起動忘れで push がブロックされない）
+- **glob で API コード変更時のみ発火**：`apps/api/**/*.py` を絞って、Frontend / Worker / docs のみの push では pytest を起動しない。API コード変更時は **必ず** integration を含むフルテストが走る
+- **graceful skip は採用しない**：DB 未起動なら pytest が fail して push をブロックする運用にする。「ローカル緑 = 全テスト通過」の保証を強くしたいため。回避策は単純で `docker compose up -d` の 1 行で済む（→ `fail_text` で誘導）
 - **`mise exec --` 経由**：pre-commit と同じ理由（Git フックの非対話シェルに対する shims 解決）
-- **integration マーカーで分離**：`apps/api/pyproject.toml` の `[tool.pytest.ini_options]` で `markers = ["integration: requires running Postgres"]` を宣言し、DB 必要なテストには `@pytest.mark.integration` を付ける運用とする
+- **integration マーカーで分離**：`apps/api/pyproject.toml` の `[tool.pytest.ini_options]` で **step 2 の時点で** `markers = ["integration: requires running Postgres"]` を宣言済。DB 必要なテストには `@pytest.mark.integration` を付ける運用
 
 **完了確認**：
 ```bash
-# DB 起動状態でのフル実行
-docker compose up -d && git push   # pre-push 通過
+# DB 起動状態：pytest フル実行 → 緑で push 通過
+docker compose up -d
+mise exec -- lefthook run pre-push        # api-pytest 緑
 
-# DB 停止状態での graceful skip 確認
-docker compose down && git push    # integration スキップで通過
+# DB 停止状態：pytest が DB 接続不可で fail → push がブロックされる（期待動作）
+docker compose down
+mise exec -- lefthook run pre-push        # api-pytest exit 1 + fail_text 表示
 ```
 
-**前提**：本ファイルの「9. lefthook.yml に Python 用 pre-commit 追加」+「3. docker-compose.yml 配置」（pg_isready が使える）
+**前提**：本ファイルの「9. lefthook.yml に Python 用 pre-commit 追加」+「3. docker-compose.yml 配置」
 
 **関連 ADR**：[ADR 0038](../../../adr/0038-test-frameworks.md)
 
