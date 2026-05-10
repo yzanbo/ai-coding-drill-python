@@ -274,7 +274,11 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
   - Go 依存 → `apps/workers/<name>/go.mod` + `go.sum`
   - ローカルミドルウェア → `docker-compose.yml`
   - リーダー向けサマリ → `README.md`
-- **例外**：API 規約として major 版数を縛るもの（`SQLAlchemy 2.0 系の新スタイル` / `Pydantic v2` / `Next.js 16+ の App Router` 等）は「最新追随」ではなくルールなので、ドキュメント内で明記してよい
+- **例外：設計ルールとしてのメジャー版数**：ライブラリのメジャー版数が「どの API スタイルを使うか」を指す場合は、版数を最新追随する pin 値ではなく**設計ルール**として扱い、ドキュメント内で版数を明記してよい。これは「最新版を採用した結果の数字」ではなく「メジャー移行を決めた時にしか変わらない数字」なので SSoT 集約対象外
+  - `SQLAlchemy 2.0` ＝ `Mapped[T]` / `mapped_column()` の新スタイルを使うルール（1.x スタイル `Column(...)` は禁止）
+  - `Pydantic v2` ＝ `model_validate` / `model_dump` / `ConfigDict` の API を使うルール（v1 API は禁止）
+  - `Next.js 16+` ＝ App Router（`app/` ディレクトリ）を使うルール（Pages Router `pages/` は使わない）
+  - `CodeMirror 6` ＝ CM6 API（`@codemirror/state` / `@codemirror/view`）を使うルール（CM5 とは別物の書き換え版）
 
 ### 設計原則
 
