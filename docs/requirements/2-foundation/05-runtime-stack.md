@@ -102,7 +102,7 @@
 
 ## データベース
 
-- **PostgreSQL 16**
+- **PostgreSQL**（版数 SSoT は [docker-compose.yml](../../../docker-compose.yml)、リーダー向けサマリは [README.md](../../../README.md#技術スタック)）
 - ORM / マイグレーション：**SQLAlchemy 2.0（async）+ Alembic**（→ [ADR 0037](../../adr/0037-sqlalchemy-alembic-for-database.md)）
   - 選定理由・代替案・トレードオフは ADR 0037 に集約
   - ジョブキュー利用との整合は [ADR 0004](../../adr/0004-postgres-as-job-queue.md) を参照
