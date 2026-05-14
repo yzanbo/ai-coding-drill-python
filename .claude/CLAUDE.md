@@ -286,6 +286,52 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 - IDE の問題タブにエラー・警告があれば適宜修正する
 - lint・型チェック・knip 等のコマンド実行時に警告が出たら、即時修正する（警告を放置しない）
 
+### コメントの書き方
+
+**学習・ポートフォリオ用途**のため「コメント不要」のデフォルトは採用しない。Python / TypeScript（Next.js）/ Go の全言語で**初〜中級者が読んで即理解できる注釈**を書く。
+
+- **専門用語は使わない**：「シリアライズ」「DI」「SSoT」「Pydantic」「hydration」「Server Component」等は避け、平易な日本語で書く
+- **1〜2 行で「何で、なぜ要るか」だけ**：仕組みの詳細解説は不要
+- **関連ファイルは相対パスで指す**：「中身は schemas/health.py」「型は ./types.ts」のように
+- **複数概念は項目立て**：`# foo: ...` / `// foo: ...` の縦並び
+- **書く場所**：import 直後・クラス / 関数定義の直前・非自明な書き方をしている箇所
+- **書かない場所**：名前で十分わかる箇所、変更経緯（`git log` で十分）、内部 ID（`F-01 のため`等は陳腐化）
+
+#### 良い例
+
+**シンボル単位の縦並び注釈**：1 つのコメントブロックで複数のシンボル（クラス名 / 関数名 / 引数 / 変数）を扱う時は、`# <シンボル名>: <1 行説明>` の形で **1 シンボル 1 行ずつ縦に並べる**。説明を散文でまとめず、読み手がどの単語の解説か一目で対応付けられるようにする。
+
+```python
+# APIRouter: URL をグループ単位でまとめる箱。
+# Depends: リクエストごとに必要なもの（DB セッション等）を関数の引数に自動で渡す仕組み。
+from fastapi import APIRouter, Depends
+```
+
+```python
+# response_model: 返す JSON の形を指定。指定フィールドだけ取り出し、
+# それ以外は自動で除外（余計な情報の漏洩防止）。/docs にも同じ形が出る。
+# HealthCheckResponse: 返す JSON の形そのもの（中身は schemas/health.py）。
+@router.post("", response_model=HealthCheckResponse)
+```
+
+```tsx
+// "use client": このコンポーネントはブラウザで動かす指定。
+// 入力欄やボタンのクリック等、ユーザー操作を扱うので必要。
+"use client";
+```
+
+このパターンが効くのは import 直前に限らず、**複数の専門用語・引数・設定キーが同時に登場する箇所すべて**（デコレータ引数 / 関数シグネチャ / 設定オブジェクトのキー列挙 等）。1 つでも初学者に伝わらない単語があれば、その単語を行頭に立てて解説を付ける。
+
+#### 悪い例
+
+```python
+# シリアライズ・フィルタリング・OpenAPI 反映の 3 つの役割を持つ。
+# Pydantic スキーマは HTTP API 境界の SSoT（ADR 0006）。
+@router.post("", response_model=HealthCheckResponse)
+```
+
+→ 専門用語（シリアライズ / SSoT / Pydantic）が並び、初学者には伝わらない。
+
 ### 設定ファイル形式の優先順位
 
 > SSoT は [06-dev-workflow.md: 設定ファイル形式の優先順位](../docs/requirements/2-foundation/06-dev-workflow.md#設定ファイル形式の優先順位)、採用根拠は [ADR 0022](../docs/adr/0022-config-file-format-priority.md)。本セクションは Claude が直接読む用の縮約版（SSoT 更新時はここも合わせて更新する）。
