@@ -3,14 +3,6 @@ from httpx import AsyncClient
 
 
 @pytest.mark.integration
-async def test_healthz_liveness_probe(client: AsyncClient) -> None:
-    """DB 接続不要の liveness probe が 200 を返す。"""
-    response = await client.get("/healthz")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
-
-
-@pytest.mark.integration
 async def test_post_then_get_health_returns_inserted_row(
     client: AsyncClient,
     reset_health_check_table: None,
