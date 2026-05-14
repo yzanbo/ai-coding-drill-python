@@ -11,8 +11,63 @@
 #     - apps/workers/<name>/ 着手時：golangci-lint / go-mod-tidy フックを `mise run worker:<name>:*` で接続（ADR 0040）
 #   これにより各言語ツールの実行経路は ADR 0039（mise）に統一される。
 
+pre-commit:
+  parallel: true
+  commands:
+    # ─────────────────────────────────────────────────────────────────
+    # Python (apps/api/) — ruff check --fix + pyright
+    # ─────────────────────────────────────────────────────────────────
+    # `mise exec --` 経由で起動する理由は本ファイル下段の commit-msg と同じ
+    # （Git フックは非対話シェルで PATH に shims が無く、直接 ruff / pyright を呼べないため）。
+    # ruff は --fix 結果を stage_fixed: true で自動再ステージし、ローカル PR の
+    # 「format / import 順違反だけのコミット」を発生させない。
+
+    # lint + format（ruff）
+    api-ruff:
+      glob: "apps/api/**/*.py"
+      root: apps/api
+      run: mise exec -- uv run ruff check --fix {staged_files}
+      stage_fixed: true
+
+    # 型チェック（pyright）
+    api-pyright:
+      glob: "apps/api/**/*.py"
+      root: apps/api
+      # pyright は対象ファイル単位の起動より apps/api 全体を見る方が正確
+      # （import 解析が他ファイルに依存するため）。stale な誤検知を避ける目的。
+      run: mise exec -- uv run pyright
+
+pre-push:
+  commands:
+    # テスト実行（pytest）
+    # push 前の動的検証ゲート：pre-commit の静的検査と CI の間にあるギャップを埋める。
+    # API コード変更時（glob: apps/api/**/*.py）にのみ発火。integration テストは Postgres
+    # 必須なので、DB 未起動なら fail させて push をブロックする（graceful skip は採用しない、
+    # "ローカル緑 = 全テスト通過" の保証を強くするため）。fail 時は fail_text に従い
+    # docker compose up -d してから再 push すればよい。
+    api-pytest:
+      glob: "apps/api/**/*.py"
+      root: apps/api
+      run: mise exec -- uv run pytest
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  pytest が失敗しました（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        失敗の詳細は上の pytest ログを確認してください。
+
+        【よくある原因】
+          ・テストの修正漏れ / 実装変更の取り込み忘れ
+              → 上のエラーに従ってテスト or 実装を修正
+          ・Postgres / Redis 未起動（asyncpg ConnectionRefusedError 等）
+              → docker compose up -d してから再 push
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 commit-msg:
   commands:
+    # コミットメッセージ規約検証（commitlint）
     commitlint:
       # commit-msg フックで commitlint を実行し、コミットメッセージが
       # Conventional Commits 規約（commitlint.config.mjs）に従っているかを検証する。
