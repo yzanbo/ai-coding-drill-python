@@ -92,55 +92,62 @@ updates:
           - alembic
 
   # ────────────────────────────────────────────────────────────────────
-  # npm（apps/web）エコシステム — apps/web 着手時に有効化
+  # npm（apps/web）エコシステム
   # ────────────────────────────────────────────────────────────────────
   # apps/web/package.json + apps/web/pnpm-lock.yaml を監視。
   # ADR 0036 拡張により root には package.json が存在しないため、directory は /apps/web。
-  #
-  # - package-ecosystem: npm
-  #   directory: /apps/web
-  #   schedule:
-  #     interval: weekly
-  #     day: monday
-  #     time: "06:00"
-  #     timezone: Asia/Tokyo
-  #   open-pull-requests-limit: 10
-  #   labels:
-  #     - dependencies
-  #     - npm
-  #   commit-message:
-  #     prefix: build
-  #     prefix-development: build
-  #     include: scope
-  #   ignore:
-  #     - dependency-name: "*"
-  #       update-types:
-  #         - version-update:semver-major
-  #   groups:
-  #     # @types/* は実体コードを伴わない型定義パッケージ
-  #     types:
-  #       patterns:
-  #         - "@types/*"
-  #     # Biome 本体と各プラットフォーム用バイナリはバージョン揃え必須
-  #     biome:
-  #       patterns:
-  #         - "@biomejs/*"
-  #         - biome
-  #     # Hey API（@hey-api/*）は OpenAPI 生成パイプラインの主要ツール（ADR 0006）
-  #     hey-api:
-  #       patterns:
-  #         - "@hey-api/*"
-  #     # Next.js / React は連動更新が必要
-  #     react:
-  #       patterns:
-  #         - react
-  #         - react-*
-  #         - next
-  #     # Playwright 本体とブラウザバイナリ
-  #     playwright:
-  #       patterns:
-  #         - "@playwright/*"
-  #         - playwright
+  - package-ecosystem: npm
+    directory: /apps/web
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - npm
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+    groups:
+      # @types/* は実体コードを伴わない型定義パッケージ
+      types:
+        patterns:
+          - "@types/*"
+      # Biome 本体と各プラットフォーム用バイナリはバージョン揃え必須
+      biome:
+        patterns:
+          - "@biomejs/*"
+          - biome
+      # Hey API（@hey-api/*）は OpenAPI 生成パイプラインの主要ツール（ADR 0006）
+      hey-api:
+        patterns:
+          - "@hey-api/*"
+      # Next.js / React は連動更新が必要
+      react:
+        patterns:
+          - react
+          - react-*
+          - next
+      # Playwright 本体とブラウザバイナリ
+      playwright:
+        patterns:
+          - "@playwright/*"
+          - playwright
+      # Vitest / Testing Library 系はペア更新
+      vitest:
+        patterns:
+          - vitest
+          - "@vitest/*"
+          - "@vitejs/plugin-react"
+          - "@testing-library/*"
+          - jsdom
 
   # ────────────────────────────────────────────────────────────────────
   # Go modules — apps/workers/<name> 着手時に有効化
