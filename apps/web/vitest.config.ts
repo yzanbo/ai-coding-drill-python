@@ -17,5 +17,8 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     // exclude: Playwright（E2E）配下と Next.js のビルド生成物を除外。
     exclude: ["**/node_modules/**", "**/.next/**", "**/e2e/**"],
+    // passWithNoTests: テストファイルが 1 つも無くても exit 0 で抜ける。
+    //   R0 段階ではテスト未作成のため必要（R1 以降で初テスト追加時にこのフラグは外しても可）。
+    passWithNoTests: true,
   },
 });

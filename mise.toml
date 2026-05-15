@@ -141,9 +141,11 @@ dir = "apps/web"
 run = "pnpm dev"
 
 [tasks."web:test"]
-description = "Frontend テスト（Vitest + RTL）"
+description = "Frontend テスト（Vitest + RTL、watch なし）"
 dir = "apps/web"
-run = "pnpm test"
+# pnpm test:run = vitest run（単発実行）。`mise run web:test` は CI / 静的検査用途なので watch しない。
+# 開発中のローカル watch は `cd apps/web && pnpm test` を直接叩く。
+run = "pnpm test:run"
 
 [tasks."web:lint"]
 description = "TS lint + format 検証（Biome check）"
