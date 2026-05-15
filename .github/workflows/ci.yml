@@ -209,6 +209,63 @@ jobs:
       - run: mise run api:test
 
   # ====================================================================
+  # apps/web（TypeScript / Next.js）品質ゲート — ADR 0018 / 0021 / 0024 / 0026 / 0036 / 0038
+  # ----------------------------------------------------------------------
+  # 5 ジョブ構成：
+  #   - web-lint        : Biome check（lint + format 検証）
+  #   - web-typecheck   : tsc --noEmit（型）
+  #   - web-knip        : Knip（未使用 export / file / dep 検出）
+  #   - web-syncpack    : syncpack lint（package.json 整合性）
+  #   - web-test        : vitest run（passWithNoTests で R0 は no-op、R1 以降で本格動作）
+  #
+  # 各ジョブは `mise install`（jdx/mise-action）で pnpm を含む全ツールを取得した後、
+  # `mise run web:<task>` を呼ぶ。`mise install` が pnpm を入れるため pnpm/action-setup は不要。
+  #
+  # web-test を CI に入れる理由は api-test と同じ：pre-push hook を `--no-verify` 等で
+  # バイパスされた場合の最後の砦。hook と CI の二重防御。
+  # ====================================================================
+
+  web-lint:
+    name: web-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run web:lint
+
+  web-typecheck:
+    name: web-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run web:typecheck
+
+  web-knip:
+    name: web-knip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run web:knip
+
+  web-syncpack:
+    name: web-syncpack
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run web:syncpack
+
+  web-test:
+    name: web-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run web:test
+
+  # ====================================================================
   # 【集約ジョブ】ci-success（umbrella / aggregator）
   #   ブランチ保護（Ruleset）の Required status checks には、このジョブ 1 つだけを
   #   登録すれば足りる：
@@ -226,6 +283,11 @@ jobs:
       - api-audit
       - api-deps-check
       - api-test
+      - web-lint
+      - web-typecheck
+      - web-knip
+      - web-syncpack
+      - web-test
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required jobs succeeded
