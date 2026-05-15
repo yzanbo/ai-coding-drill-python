@@ -93,6 +93,34 @@ pre-push:
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    # ─────────────────────────────────────────────────────────────────
+    # Frontend (apps/web/) — Vitest run + next build
+    # ─────────────────────────────────────────────────────────────────
+    # push 前の動的検証ゲート：pre-commit の静的検査と CI の間のギャップを埋める。
+    # `tsc --noEmit` だけでは見えない RSC / SSG / image 最適化など next build 段階固有の
+    # エラーを先回り検出する。glob で apps/web 変更時のみ発火し、Backend / docs のみの push では
+    # 起動しない。`mise exec --` 経由は他フックと同じ理由（shims 解決）。
+    web-vitest:
+      glob: "apps/web/**/*.{ts,tsx}"
+      root: apps/web
+      run: mise exec -- pnpm exec vitest run
+
+    web-next-build:
+      glob: "apps/web/**/*.{ts,tsx,css,json}"
+      root: apps/web
+      run: mise exec -- pnpm exec next build
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  next build が失敗しました（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        失敗の詳細は上の next build ログを確認してください。
+        RSC（Server Component）で window / document を参照していないか、
+        Image 最適化のパス（sharp）が拾えているか、などをまず疑う。
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 commit-msg:
   commands:
     # コミットメッセージ規約検証（commitlint）
