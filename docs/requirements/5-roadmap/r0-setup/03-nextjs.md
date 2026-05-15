@@ -1,4 +1,4 @@
-# 03. Next.js 環境構築（🟡 進行中）
+# 03. Next.js 環境構築（✅ 完了）
 
 > **守備範囲**：Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲート付きで動かすまでの 9 ステップ。本フェーズが終わると、Next.js の lint / typecheck / knip / syncpack がローカル + CI 両方で緑になり、依存自動更新が走り始める。
 > **前提フェーズ**：[02-python.md](./02-python.md) 完了済（Python 縦スライスと同じ「品質ゲートのステップ」パターンを再利用する）
