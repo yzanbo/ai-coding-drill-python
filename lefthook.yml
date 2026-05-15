@@ -37,6 +37,34 @@ pre-commit:
       # （import 解析が他ファイルに依存するため）。stale な誤検知を避ける目的。
       run: mise exec -- uv run pyright
 
+    # ─────────────────────────────────────────────────────────────────
+    # Frontend (apps/web/) — Biome check --write + tsc + Knip
+    # ─────────────────────────────────────────────────────────────────
+    # 起動経路は mise exec -- 経由（Git フックの非対話シェルに shims を解決させるため、
+    # commit-msg / api-* と同じ理由）。Biome は --write の自動修正結果を stage_fixed: true で
+    # 自動再ステージし、ローカル PR の「format 違反だけのコミット」を発生させない。
+
+    # lint + format（Biome）— ステージ済の .ts/.tsx/.js/.jsx/.json/.jsonc/.css に適用
+    web-biome:
+      glob: "apps/web/**/*.{ts,tsx,js,jsx,json,jsonc,css}"
+      root: apps/web
+      run: mise exec -- pnpm exec biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+
+    # 型チェック（tsc --noEmit）— 対象ファイル単位ではなく apps/web 全体を見る
+    # （TS の import 解析は他ファイルに依存するため、pyright と同じ理由で stale 誤検知を避ける）
+    web-typecheck:
+      glob: "apps/web/**/*.{ts,tsx}"
+      root: apps/web
+      run: mise exec -- pnpm exec tsc --noEmit
+
+    # 未使用 export / file / dependency 検出（Knip）
+    # 重い場合は CI 専用に切り替える運用余地を残す（現状は pre-commit でも秒オーダーで完了）
+    web-knip:
+      glob: "apps/web/**/*.{ts,tsx,json,jsonc}"
+      root: apps/web
+      run: mise exec -- pnpm exec knip --no-progress
+
 pre-push:
   commands:
     # テスト実行（pytest）
