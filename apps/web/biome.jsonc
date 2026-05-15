@@ -1,6 +1,5 @@
 // Biome 設定（ADR 0018）。lint + format を 1 ツールで担う（ESLint + Prettier 不採用）。
-// 別プロジェクト axon（/Users/jinboyouhei/Documents/site/axon/frontend/biome.json）の構成を踏襲し、
-// このプロジェクト固有の事情（Hey API 生成物 / shadcn/ui の対象外化、Tailwind v4 ディレクティブ）を反映。
+// Hey API 生成物 / shadcn/ui を対象外化し、Tailwind v4 ディレクティブを CSS パーサに受け入れさせる。
 // 詳細スキーマ: https://biomejs.dev/reference/configuration/
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
@@ -32,7 +31,7 @@
       "recommended": true,
       "suspicious": {
         // noUnknownAtRules: Tailwind v4 の `@theme` / `@apply` / `@import "tailwindcss"` 等を
-        //   CSS の未知 at-rule として弾く規則を切る（globals.css が落ちる対策、axon に倣う）。
+        //   CSS の未知 at-rule として弾く規則を切る（globals.css の Tailwind ディレクティブ対応）。
         "noUnknownAtRules": "off"
       }
     },
@@ -60,8 +59,8 @@
   "css": {
     "parser": {
       // tailwindDirectives: Tailwind v4 の `@theme` / `@apply` / `@import "tailwindcss"` 等を
-      //   CSS パーサが受け入れるようにする。axon は古い Biome 2.2 で noUnknownAtRules off だけで
-      //   通せていたが、本プロジェクトの Biome 2.4+ では parser フラグも必須。
+      //   CSS パーサが受け入れるようにする。Biome 2.4+ では linter の noUnknownAtRules off だけでは
+      //   parse 段階で落ちるため、こちらの parser フラグも必須（両方の指定が必要）。
       "tailwindDirectives": true
     }
   },

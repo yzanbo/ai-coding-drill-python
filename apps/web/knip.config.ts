@@ -1,7 +1,6 @@
 // Knip 設定（ADR 0021）。未使用の export / file / dependency を検出する。
-// 別プロジェクト axon（/Users/jinboyouhei/Documents/site/axon/frontend/knip.config.ts）の構成を踏襲。
 // R0 時点では src/app しか存在しないため、components/ hooks/ lib/ 関連の patterns / ignore は
-// 当該ディレクトリ作成時（R1 以降）に axon の構成へ拡張する。
+// 当該ディレクトリ作成時（R1 以降）に拡張する。
 // 詳細: https://knip.dev/reference/configuration
 import type { KnipConfig } from "knip";
 
