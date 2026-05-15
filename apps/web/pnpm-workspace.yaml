@@ -1,0 +1,12 @@
+# pnpm 11+ の設定ファイル（pnpm-workspace.yaml）。
+# このプロジェクトでは workspace 機能は使わない（apps/web 単一構成、ADR 0036）。
+# 本ファイルは「build script を実行してよい依存」を明示するためだけに置く。
+# pnpm はセキュリティ既定で postinstall 等の任意 script を明示許可しないと走らせない。
+#
+# - sharp         : Next.js の Image 最適化（next/image）のネイティブバイナリ。
+#                   許可しないと dev 起動時に警告 + 画像最適化の一部経路が落ちる
+# - unrs-resolver : ESLint / TypeScript 関連の module 解決ネイティブ実装。
+#                   許可しないと JS フォールバック経路に落ちて遅くなる
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
