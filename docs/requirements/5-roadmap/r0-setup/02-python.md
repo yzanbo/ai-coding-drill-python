@@ -3,6 +3,9 @@
 > **守備範囲**：Python ランタイム取得から apps/api を DB + 品質ゲート付きで動かすまでの 13 ステップ。本フェーズが終わると、Python の lint / typecheck がローカル + CI 両方で緑になり、依存自動更新が週次で来る。各 step は **1 PR 相当の atomic な作業単位**に分割してあり、step 単位で commit / レビューを進められる。
 > **前提フェーズ**：[01-foundation.md](./01-foundation.md) 完了済（mise.toml + GitHub Actions 雛形 + Dependabot 雛形）
 > **次フェーズ**：[03-nextjs.md](./03-nextjs.md)
+>
+> **本ファイル共通の最新版調査ポリシー**：
+> [.claude/CLAUDE.md: バージョン方針](../../../../.claude/CLAUDE.md#バージョン方針) に従い、各ステップで **(1) 対象ツールの最新安定版を毎回 Web で調査** し、**(2) 採用前に依存関係（peer dep / 必須最小版数 / breaking changes）をリリースノートで確認** してから書き換える。SSoT（`mise.toml` / `apps/api/pyproject.toml` + `apps/api/uv.lock` / `docker-compose.yml`）に書かれた既存版数には追従しない（陳腐化のため）。RC / beta / nightly は採用しない。本フェーズの対象は **Python / Postgres / Redis / FastAPI / Pydantic / SQLAlchemy / Alembic / asyncpg / ruff / pyright / pip-audit / deptry** など。メジャー upgrade の場合は CHANGELOG / upgrade guide を確認してから採用する（特に SQLAlchemy 2.x / Pydantic v2 系は API スタイル変更を伴うため要注意）。
 
 ---
 
