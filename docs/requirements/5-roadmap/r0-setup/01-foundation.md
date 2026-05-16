@@ -3,6 +3,9 @@
 > **守備範囲**：言語非依存の最低限の開発慣行を全 ✅ 完了済として記録する。本フェーズが終わると、commit 規約・フック・mise 経由のツール起動・CI 雛形・Dependabot 雛形が揃う。
 > **進行状態**：全項目達成済（git log と既存ファイルが正本）。
 > **次フェーズ**：[02-python.md](./02-python.md)
+>
+> **本ファイル共通の最新版調査ポリシー**：
+> [.claude/CLAUDE.md: バージョン方針](../../../../.claude/CLAUDE.md#バージョン方針) に従い、各ステップで **(1) 対象ツールの最新安定版を毎回 Web で調査** し、**(2) 採用前に依存関係（peer dep / 必須最小版数 / breaking changes）をリリースノートで確認** してから書き換える。SSoT（`mise.toml` / `pyproject.toml` / `package.json` / `docker-compose.yml` 等）に書かれた既存版数には追従しない（陳腐化のため）。RC / beta / nightly は採用しない。本フェーズの対象は `commitlint` / `lefthook` / `mise` / `uv` / `pnpm` / `npm:@commitlint/cli` および GitHub Actions のサードパーティ Action（SHA pin 形式で版数明示）。
 
 ---
 
