@@ -81,6 +81,21 @@ mise run worker:grading:dev    # 採点 Worker
 | Redoc（FastAPI 自動生成） | http://localhost:8000/redoc |
 | OpenAPI 3.1 JSON | http://localhost:8000/openapi.json |
 
+### Claude Code MCP サーバー
+
+リポジトリ root に [`.mcp.json`](.mcp.json) を配置済みで、VSCode の Claude Code 拡張を起動すると **4 つの MCP サーバー**が自動で読み込まれます。
+
+| MCP | パッケージ | 用途 |
+|---|---|---|
+| Context7 | `@upstash/context7-mcp` | OSS ライブラリの最新ドキュメント参照 |
+| shadcn | `shadcn@latest mcp` | shadcn/ui コンポーネント追加（apps/web） |
+| next-devtools | `next-devtools-mcp` | Next.js プロジェクト解析 + 最新仕様参照（要 `mise run web:dev` 起動中） |
+| playwright | `@playwright/mcp` | ブラウザ自動化・E2E 実行・スクリーンショット |
+
+`git clone` 後の初回起動時は `npx` がパッケージをダウンロードするため `/mcp` で `connected` になるまで 1〜2 分かかります（Playwright は Chromium / WebKit / Firefox バイナリ取得で初回のみ追加で数百 MB）。API キーは不要。
+
+詳細手順・トラブルシューティングは [docs/requirements/5-roadmap/r0-setup/08-mcp-servers.md](docs/requirements/5-roadmap/r0-setup/08-mcp-servers.md) を参照。
+
 ---
 
 ## 主要な環境変数
