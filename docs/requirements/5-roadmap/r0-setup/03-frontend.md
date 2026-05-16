@@ -1,7 +1,7 @@
-# 03. Next.js 環境構築（✅ 完了）
+# 03. Frontend（Next.js / TS）環境構築（✅ 完了）
 
 > **守備範囲**：Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲート付きで動かすまでの 9 ステップ。本フェーズが終わると、Next.js の lint / typecheck / knip / syncpack がローカル + CI 両方で緑になり、依存自動更新が走り始める。
-> **前提フェーズ**：[02-python.md](./02-python.md) 完了済（Python 縦スライスと同じ「品質ゲートのステップ」パターンを再利用する）
+> **前提フェーズ**：[02-backend.md](./02-backend.md) 完了済（Backend 縦スライスと同じ「品質ゲートのステップ」パターンを再利用する）
 > **次フェーズ**：R0 完了 → R1（[../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクション）
 >
 > **本ファイル共通の最新版調査ポリシー**：
@@ -152,7 +152,7 @@ mise run web:syncpack       # syncpack 緑
 
 ## 5. mise.toml の Next.js タスク稼働確認
 
-**目的**：[01-foundation.md](./01-foundation.md) で mise.toml に**先回りで定義済み**の `web:*` タスク群が、apps/web の実体（package.json + pnpm-lock.yaml + src/app/ + 設定ファイル）が揃ったこの時点で正しく動作することを確認する（02-python.md step 9 と同じパターン）。
+**目的**：[01-foundation.md](./01-foundation.md) で mise.toml に**先回りで定義済み**の `web:*` タスク群が、apps/web の実体（package.json + pnpm-lock.yaml + src/app/ + 設定ファイル）が揃ったこの時点で正しく動作することを確認する（02-backend.md step 9 と同じパターン）。
 
 **前提済の登録タスク**（[mise.toml](../../../../mise.toml) の `[tasks."web:*"]`、本 step では追記しない）：
 - `web:dev` — `pnpm dev`（next dev）
@@ -292,7 +292,7 @@ git restore --staged apps/web/src/app/_test/ && rm -rf apps/web/src/app/_test/
 - 進捗トラッカー上の該当エントリから、**本ファイル**（または同等の手順詳細）への**リンク**が辿れる
 - 本ファイル冒頭のステータスマーク（`# 03. Next.js 環境構築（✅ 完了）` の `✅`）が完了状態を示している
 
-> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の R0-3 行が、状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/03-nextjs.md](./r0-setup/03-nextjs.md)` になっている状態。古い表現（`🔴 未着手` / 未着手プレースホルダ / 旧リンク等）が残っていれば最終状態に合わせる。
+> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の R0-3 行が、状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/03-frontend.md](./r0-setup/03-frontend.md)` になっている状態。古い表現（`🔴 未着手` / 未着手プレースホルダ / 旧リンク等）が残っていれば最終状態に合わせる。
 
 **完了基準**：
 
@@ -313,6 +313,6 @@ git restore --staged apps/web/src/app/_test/ && rm -rf apps/web/src/app/_test/
 
 ## R0 完了
 
-R0 全項目（[setup/01-foundation.md](./01-foundation.md) / [02-python.md](./02-python.md) / 本ファイル / [04-go.md](./04-go.md)）が全て緑になった時点で R0 完了。`docker compose up && mise run api:dev && mise run web:dev && mise run worker:grading:dev` で開発環境が全言語で立ち上がり、CI が緑になる状態が達成される。
+R0 全項目（[setup/01-foundation.md](./01-foundation.md) / [02-backend.md](./02-backend.md) / 本ファイル / [04-worker.md](./04-worker.md)）が全て緑になった時点で R0 完了。`docker compose up && mise run api:dev && mise run web:dev && mise run worker:grading:dev` で開発環境が全言語で立ち上がり、CI が緑になる状態が達成される。
 
 次は R1 MVP：[../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクション（[F-01 GitHub OAuth](../../4-features/F-01-github-oauth-auth.md) から開始）。
