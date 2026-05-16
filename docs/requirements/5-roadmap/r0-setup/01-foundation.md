@@ -6,6 +6,8 @@
 >
 > **本ファイル共通の最新版調査ポリシー**：
 > [.claude/CLAUDE.md: バージョン方針](../../../../.claude/CLAUDE.md#バージョン方針) に従い、各ステップで **(1) 対象ツールの最新安定版を毎回 Web で調査** し、**(2) 採用前に依存関係（peer dep / 必須最小版数 / breaking changes）をリリースノートで確認** してから書き換える。SSoT（`mise.toml` / `pyproject.toml` / `package.json` / `docker-compose.yml` 等）に書かれた既存版数には追従しない（陳腐化のため）。RC / beta / nightly は採用しない。本フェーズの対象は `commitlint` / `lefthook` / `mise` / `uv` / `pnpm` / `npm:@commitlint/cli` および GitHub Actions のサードパーティ Action（SHA pin 形式で版数明示）。
+>
+> **本フェーズ共通の設計原則**：hook 役割分担（pre-commit / pre-push / CI）は [README.md](./README.md) を参照。本フェーズで導入する lefthook / GitHub Actions の役割設計が、以降の言語別フェーズの「環境構築 + 品質ゲート 5 ステップ」パターンの土台となる。
 
 ---
 

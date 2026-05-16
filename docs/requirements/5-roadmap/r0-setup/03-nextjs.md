@@ -6,6 +6,8 @@
 >
 > **本ファイル共通の最新版調査ポリシー**：
 > 本プロジェクトのバージョン方針（[.claude/CLAUDE.md: バージョン方針](../../../../.claude/CLAUDE.md#バージョン方針)）に従い、**SSoT に書かれた既存版数を信用せず、各ステップで対象ツールの最新安定版を毎回 Web で調査してから書き換える**。`create-next-app` / `pnpm add` 等は実行タイミングで latest を取りに行くので雛形作成時点の最新は自動的に入るが、**Node.js / pnpm / Next.js / React / TypeScript / Biome / Knip / syncpack / Vitest / Playwright / Testing Library / Tailwind 等**は毎回リリースノートで EOL / breaking change を確認してから採用する。RC / beta / nightly は採用しない。
+>
+> **本フェーズ共通の設計原則**：「環境構築 + 品質ゲート 5 ステップ」パターンと hook 役割分担（pre-commit / pre-push / CI）は [README.md](./README.md) を参照。r0-setup 配下の全フェーズに適用される。
 
 ---
 
