@@ -14,7 +14,8 @@ const config: KnipConfig = {
     "src/app/**/{page,layout,loading,error,global-error,not-found,route,template,default}.{ts,tsx}",
   ],
   // project: 解析対象の全ファイル（entry から参照されていないファイルは未使用と判定）。
-  //   frontend.md のディレクトリ規約と一致させる。
+  //   frontend.md のディレクトリ規約と一致させる。__generated__/ は ignore 側で扱うため
+  //   project には含めない（解析の起点・対象から完全に外す）。
   project: [
     "src/app/**/*.{ts,tsx}",
     "src/components/**/*.{ts,tsx}",
@@ -22,11 +23,16 @@ const config: KnipConfig = {
     "src/lib/**/*.{ts,tsx}",
   ],
   // ignore: 解析から除外するファイル（未使用判定さえ走らせない）。
-  //   - src/lib/api/**          : Hey API 生成コード（ADR 0006、R1 以降）
+  //   - src/__generated__/**    : Hey API 生成コード（ADR 0006、R1 以降。frontend.md 実装契約で配置確定）
   //   - src/components/ui/**    : shadcn/ui コンポーネント（規約上 lint しない、R1 以降）
-  //   - src/lib/utils.ts        : shadcn/ui の cn() ヘルパー
+  //   - src/lib/utils.ts        : shadcn/ui の cn() ヘルパー（lib 直下の単発ファイル）
   //   - **/*.stories.{ts,tsx}   : Storybook ストーリー（採用時に発火）
-  ignore: ["src/lib/api/**", "src/components/ui/**", "src/lib/utils.ts", "**/*.stories.{ts,tsx}"],
+  ignore: [
+    "src/__generated__/**",
+    "src/components/ui/**",
+    "src/lib/utils.ts",
+    "**/*.stories.{ts,tsx}",
+  ],
   // ignoreDependencies: 静的解析で検出されない / 間接的に使う依存。
   //   - tailwindcss                 : @tailwindcss/postcss プラグイン経由でだけ参照
   //   - @testing-library/react      : テスト追加時に使う（R0 ではテスト未作成）

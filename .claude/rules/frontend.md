@@ -21,11 +21,14 @@ Next.js 16+（App Router）+ React + TypeScript のフロントエンド。
 
 詳細な選定理由は [05-runtime-stack.md](../../docs/requirements/2-foundation/05-runtime-stack.md#フロントエンド) と [ADR 0015](../../docs/adr/0015-codemirror-over-monaco.md)。
 
-## ディレクトリ構成
+## ディレクトリ構成（実装契約）
+
+機能別フラット構成。ファイル配置・import 方向は本セクションが SSoT で、R1 以降の機能実装は
+この契約に従う。人間向け概要は [apps/web/src/README.md](../../apps/web/src/README.md) を参照。
 
 ```
 apps/web/src/
-├── app/
+├── app/                             # Next.js App Router（URL とファイル配置を 1:1 にする箱）
 │   └── (routing)/
 │       ├── (public)/                # 認証不要（ランディング、ログイン）
 │       │   ├── page.tsx             # /
@@ -35,20 +38,124 @@ apps/web/src/
 │           ├── problems/
 │           │   ├── page.tsx         # /problems（一覧）
 │           │   └── [id]/
-│           │       └── page.tsx     # /problems/:id（解答画面）
+│           │       ├── page.tsx     # /problems/:id（解答画面）
+│           │       ├── _components/ # ページ固有部品（コロケーション）
+│           │       └── _hooks/      # ページ固有フック（コロケーション）
 │           └── history/
 │               └── page.tsx         # /history（学習履歴）
-├── components/
-│   ├── ui/                          # shadcn/ui + カスタム拡張 + 汎用 UI
-│   ├── parts/                       # ドメインロジックを含む再利用パーツ
-│   └── providers/                   # React プロバイダー
-├── lib/
-│   ├── api/                         # FastAPI クライアント（Hey API 生成、ADR 0006）
-│   ├── validation/                  # Zod スキーマ
-│   ├── utils/                       # ユーティリティ
-│   └── utils.ts                     # cn() ヘルパー
-└── hooks/                           # グローバルカスタムフック
+├── components/                      # 複数ページで使い回す画面部品
+│   ├── ui/                          # shadcn/ui + 汎用ラッパ（ドメイン語彙なし、lint 切る）
+│   ├── parts/                       # ドメイン語彙を含む再利用ブロック（problem-card 等）
+│   └── providers/                   # React の Provider 群（QueryClient / ApiError / Theme）
+├── hooks/                           # 複数ページで使い回すカスタムフック（use-*）
+├── lib/                             # React / Next.js 非依存の素のロジック・設定
+│   ├── api/                         # 手書きの API ラッパ（error interceptor 等。生成物は __generated__/api/）
+│   ├── validation/                  # Zod スキーマ（フォーム入力検証）
+│   ├── utils/                       # 汎用関数（純粋関数、テスト容易）
+│   ├── constants/                   # サイト全体の定数（ルートパス / 列挙ラベル / 既定値）
+│   ├── styles/                      # CodeMirror テーマ等、Tailwind で表現できない構造化スタイル
+│   ├── shared-query/                # TanStack Query の QueryClient + 既定 options
+│   └── utils.ts                     # cn() ヘルパー（lib 直下の単発ファイル、shadcn 規約）
+└── __generated__/                   # 自動生成物（人手で編集しない、lint / knip / biome で除外）
+    └── api/                         # Hey API output（apps/api/openapi.json → TS / Zod / HTTP クライアント、ADR 0006）
 ```
+
+> **ページ固有 vs 共有の境界**：1 ページでしか使わない部品・フックは `app/.../page-dir/_components/`
+> `_hooks/` 等にコロケーションで置く。**複数ページに昇格して初めて** `src/{components,hooks,lib}/` に
+> 引き上げる。先取りで `src/components/` に置かない（YAGNI）。
+>
+> **コンポーネントは必ずフォルダで包む + 名前はプロジェクト内でグローバル一意**：
+> `components/{ui,parts,providers}/` 配下と各ページの `_components/` 配下の
+> **全コンポーネントは同名フォルダ + 同名ファイル**で配置する（`components/ui/button/button.tsx`）。
+> テスト（`button.test.tsx`）・Storybook（`button.stories.tsx`）をコロケーションで同居させるため。
+> また、`apps/web/` 配下のすべてのコンポーネント名は**重複させない**（IDE 補完・grep 容易性のため）。
+> 詳細は [.claude/rules/frontend-component.md](./frontend-component.md)。
+>
+> **フックも名前はプロジェクト内でグローバル一意**：`src/hooks/` / 各ページの `_hooks/` /
+> 各コンポーネントの `_hooks/` を含めて、**同名のフックは作らない**。フックの配置は
+> 1 ファイル直置きとフォルダ化を選べる（テスト・内部フックが要るならフォルダ化）。
+> 詳細は [.claude/rules/frontend-hooks.md](./frontend-hooks.md)。
+
+### レイヤ間の import 方向
+
+新規実装時、各レイヤから何を import してよいかを下記の表で固定する。
+
+#### 各レイヤの import 可 / 禁止
+
+| レイヤ | import してよい | import 禁止 |
+|---|---|---|
+| `app/` | `components` / `hooks` / `lib` / `__generated__` | （上位なし） |
+| `components/` | 他の `components` / `hooks` / `lib` / `__generated__` | `app` |
+| `hooks/` | 他の `hooks` / `lib` / `__generated__` | `app` / `components` |
+| `lib/` | 他の `lib` / `__generated__` | `app` / `components` / `hooks`（React 非依存に保つ） |
+| `__generated__/` | （何も import しない、終端） | 全て |
+
+#### 補足ルール
+
+- **依存は一方向**：A → B かつ B → A を作らない。`components/parts/` 内・`hooks/` 内など同レイヤの兄弟も同じ
+- **`__generated__/` を終端に保つ**：手書きの interceptor / エラー解釈は `lib/api/` 側に置き、生成物には手を入れない（[ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
+- **`lib/` を React 非依存に保つ**：`useState` / `useEffect` / JSX を含む実装は `hooks/` か `components/` に置く（lib/ は Node 単体テストでも回せる純粋ロジックに限定）
+- **ページ固有は `app/.../_components/` 等**：コロケーション、複数ページで使うようになってから `src/components/` に昇格する
+- **`index.ts` 再エクスポート禁止**：バレル禁止（[ADR は無いがプロジェクト規約]）。例外は `__generated__/api/` 配下（Hey API が自動で生成するため）
+
+#### OK / NG 例
+
+```typescript
+// ✅ OK: page.tsx が下位レイヤを使う
+// src/app/(authed)/problems/page.tsx
+import { ProblemCard } from "@/components/parts/problem-card/problem-card";
+import { useGetProblems } from "@/hooks/use-get-problems/use-get-problems";
+import { DIFFICULTY_LABELS } from "@/lib/constants/difficulty-labels";
+```
+
+```typescript
+// ✅ OK: 共有フックが lib と __generated__ を使う
+// src/hooks/use-get-problems/use-get-problems.ts
+import { getProblems } from "@/__generated__/api/client";
+import { interceptApiError } from "@/lib/api/api-error-interceptor";
+```
+
+```typescript
+// ❌ NG: hooks が components を import（フックは JSX を返さない）
+// src/hooks/use-something/use-something.ts
+import { Button } from "@/components/ui/button";    // NG
+```
+
+```typescript
+// ❌ NG: lib が React に依存（lib は素のロジックに保つ）
+// src/lib/utils/something.ts
+import { useState } from "react";                    // NG（hooks/ へ移す）
+import { ProblemCard } from "@/components/parts/...";// NG（lib は components を呼ばない）
+```
+
+```typescript
+// ❌ NG: __generated__/ から src/ を import（終端違反）
+// src/__generated__/api/client.ts（人手で改変しない前提だが、念のため）
+import { interceptApiError } from "@/lib/api/api-error-interceptor";  // NG（lib/api/ 側で被せる）
+```
+
+```typescript
+// ❌ NG: バレル経由の import
+// src/components/parts/index.ts                     // ファイル自体を作らない
+import { ProblemCard } from "@/components/parts";    // NG（具体パスを書く）
+import { ProblemCard } from "@/components/parts/problem-card/problem-card";  // OK
+```
+
+### 命名規則（実装契約）
+
+| 種別 | 命名パターン | 例 |
+|---|---|---|
+| ファイル名・ディレクトリ名 | ケバブケース | `use-get-problems.ts` / `problem-card/` |
+| React コンポーネント | PascalCase | `ProblemCard` / `DifficultyBadge` |
+| 関数・変数 | camelCase | `formatDate` / `queryClient` |
+| 定数 | SCREAMING_SNAKE_CASE | `DIFFICULTY_LABELS` / `MAX_PAGE_SIZE` |
+| 一般的な型 | `◯◯Type` | `ProblemType` / `SubmissionType` |
+| コンポーネントの props | `◯◯Props` | `ProblemCardProps` / `ButtonProps` |
+| フックの戻り値型 | `◯◯Return` | `UseGetProblemsReturn` |
+| RHF フォームの値型 | `◯◯FormValues` | `LoginFormValues` |
+| Zod スキーマ変数 | `<formName>Schema` | `loginFormSchema` |
+| フック名（GET/POST/PATCH/DELETE） | `useGet*` / `usePost*` / `usePatch*` / `useDelete*` | `useGetProblems` / `usePostSubmission` |
+| フック名（UI 状態） | `use*` | `useDebounce` / `useHoverPopover` |
 
 ## ルーティング規約
 
@@ -117,10 +224,11 @@ mise run web:e2e          # Playwright E2E
 
 境界は **`page.tsx` が存在するディレクトリ**で決まる。
 
-- **`@/` エイリアス**：以下の場合に使用する
-  - `src/` 直下の共通リソース（`components/`, `hooks/`, `lib/` など）
+- **`@/` エイリアス**：以下の場合に使用する（`@/*` → `src/*`、定義は [tsconfig.json](../../apps/web/tsconfig.json) の `paths`）
+  - `src/` 直下の共通リソース（`components/`, `hooks/`, `lib/`, `__generated__/`）
   - 自分の `page.tsx` ディレクトリの外にあるリソース
   - 例：`import { Button } from "@/components/ui/button"`
+  - 例：`import { getProblems } from "@/__generated__/api/client"`
 - **相対パス**：自分の `page.tsx` ディレクトリ内のリソースに使用する
   - 対象：同じ page 配下の `_components/`, `_hooks/`, `_constants/` 等
   - 例：`import { CodeEditor } from "./_components/code-editor/code-editor"`
@@ -137,25 +245,14 @@ const form = useForm({
 });
 ```
 
-## 型の命名規則
-
-| 種別 | 命名パターン | 例 |
-|---|---|---|
-| 一般的な型 | `◯◯Type` | `ProblemType`, `SubmissionType` |
-| コンポーネントの props | `◯◯Props` | `CodeEditorProps`, `ButtonProps` |
-| フックの戻り値型 | `◯◯Return` | `UseGetProblemsReturn` |
-| RHF フォームの値型 | `◯◯FormValues` | `LoginFormValues` |
-
 ## コーディングルール
+
+> ファイル名・ディレクトリ名・型名・フック名・`index.ts` 禁止・再エクスポート禁止は **§ディレクトリ構成（実装契約）**
+> および同セクション配下の **§命名規則** が SSoT。ここではそれ以外の運用上の細則のみを書く。
 
 - IDE の問題タブにエラー・警告があれば適宜修正
 - lint・型チェック・knip 等のコマンド実行時に警告が出たら、即時修正（警告を放置しない）
-- ファイル名・ディレクトリ名はケバブケース（例：`use-get-problems.ts`、`code-editor/`）
-- 再エクスポート禁止（`export { ... } from "..."` は使わない）
-- **`index.ts` の作成禁止**：バレルファイルは作成しない、import は常に具体的なファイルパスを指定する
-  - ❌ `import { CodeEditor } from "./_components/code-editor"` (index.ts 経由)
-  - ✅ `import { CodeEditor } from "./_components/code-editor/code-editor"` (直接指定)
-- 条件付きクラスや複数のクラス変数を結合する場合は `cn()` を使用する
+- 条件付きクラスや複数のクラス変数を結合する場合は `cn()` を使用する（[lib/utils.ts](../../apps/web/src/lib/) の `cn()`）
 - コンポーネント内で同じクラス文字列が複数回使われる場合は、コンポーネント内に定数として定義する
 - `useGet*` フックの `isLoading` 初期値は、fetch 実行条件を満たす場合に `true` とする
 
@@ -188,7 +285,8 @@ const form = useForm({
 
 - API 通信は必ずカスタムフック（`_hooks/_fetch/`）に切り出す。コンポーネントから直接 `fetch` しない
 - フック名は HTTP メソッド対応：`useGet*` / `usePost*` / `usePatch*` / `useDelete*`
-- 型・Zod スキーマ・HTTP クライアントは Hey API が `apps/api/openapi.json` から生成したコードを利用（既定の出力先は `apps/web/src/lib/api/generated/`、→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）。手書きの型定義は使わない
+- 型・Zod スキーマ・HTTP クライアントは Hey API が `apps/api/openapi.json` から生成したコードを利用（出力先は `apps/web/src/__generated__/api/`、→ [ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）。手書きの型定義は使わない
+- 生成物には手を入れず、エラー解釈・認証 Cookie 同梱・リトライ等の **横断処理は `src/lib/api/` 側で被せる**（生成物の更新で消えないように分離する）
 
 ### エラーハンドリング
 
@@ -235,11 +333,13 @@ const form = useForm({
 
 ### ファイル配置
 
-- **単一ファイル**：親ディレクトリ直下に配置（`types.ts`, `schema.ts`, `constants.ts`, `utils.ts`, `styles.ts`）
-- **フォルダ構成**：同名フォルダ内に同名ファイル（`code-editor/code-editor.tsx`）
-- **1 ファイルのみの場合**：`_hooks/` や `_components/` 内にファイルが 1 つしかない場合は、サブディレクトリを作らずに直接配置してよい
+- **コンポーネント（`.tsx`）**：**必ず同名フォルダ + 同名ファイル**（`button/button.tsx` / `code-editor/code-editor.tsx`）。
+  テスト・Storybook をコロケーションで同居させるため、単一ファイル配置は禁止
+  （詳細は [.claude/rules/frontend-component.md](./frontend-component.md)）
+- **フック（`.ts`）**：**1 ファイル直置きとフォルダ化を選べる**。フックは JSX を返さずテスト 1 本で十分なケースが多いため、サブフックや内部部品が無い間は直置きでよい
   - ✅ `_hooks/use-flow-state.ts`（1 ファイルのみ）
-  - ✅ `_hooks/use-flow-state/use-flow-state.ts`（サブディレクトリありも可）
+  - ✅ `_hooks/use-flow-state/use-flow-state.ts`（テストや内部 `_hooks/` が必要になったらフォルダ化）
+- **コンポーネント / フック以外の素のファイル**：親ディレクトリ直下に直接配置（`types.ts`, `schema.ts`, `constants.ts`, `utils.ts`, `styles.ts`）
 
 ### 再帰的なコロケーション
 

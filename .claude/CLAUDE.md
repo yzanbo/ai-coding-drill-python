@@ -247,7 +247,9 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 
 レイヤごとのルールは `.claude/rules/` 配下に分散：
 
-- フロントエンドに関すること → `.claude/rules/frontend.md`
+- フロントエンドの全体規約（ディレクトリ構成 / import 方向 / 命名 / コロケーション） → `.claude/rules/frontend.md`
+- フロントエンドのコンポーネント単位の規約（フォルダ化必須 / 名前グローバル一意 / テスト・Storybook 同居） → `.claude/rules/frontend-component.md`
+- フロントエンドのフック単位の規約（名前グローバル一意 / 配置選択 / `useGet*` 等の命名 / `isLoading` 初期値） → `.claude/rules/frontend-hooks.md`
 - バックエンド（FastAPI / Python）に関すること → `.claude/rules/backend.md`
 - Worker（採点 / 問題生成、Go）に関すること → `.claude/rules/worker.md`
 - SQLAlchemy / Alembic スキーマ・マイグレーションに関すること → `.claude/rules/alembic-sqlalchemy.md`
