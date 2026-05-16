@@ -1,12 +1,12 @@
 # 06. Frontend レイヤ分割（✅ 完了）
 
 > **守備範囲**：`apps/web/src/` 配下に Next.js App Router 流のレイヤ分割（5 系統 14 フォルダ）を確定し、各レイヤの責務 + import 方向 + 命名規則を `.claude/rules/frontend.md` に「実装契約」として固定する。本フェーズが終わると、R1 以降の Frontend 機能実装が「悩まずに迷わずレイヤを選ぶ」状態になる。
-> **前提フェーズ**：[Next.js 環境構築フェーズ](./03-nextjs.md)完了済（`apps/web/src/app/{layout,page}.tsx` の基本構造が存在し、`mise run web:dev` で起動可能、Biome / Knip / syncpack / TypeScript の品質ゲートが揃っている）
+> **前提フェーズ**：[Next.js 環境構築フェーズ](./03-frontend.md)完了済（`apps/web/src/app/{layout,page}.tsx` の基本構造が存在し、`mise run web:dev` で起動可能、Biome / Knip / syncpack / TypeScript の品質ゲートが揃っている）
 > **前フェーズ**：[Backend レイヤ分割フェーズ](./05-backend-layers.md)
 >
-> **本フェーズの位置付け**：[README.md: 言語別 setup の後段](./README.md#言語別-setup-の後段レイヤ分割フェーズ) を参照。言語ツーリングが整った上に、その言語側でプロジェクト固有のレイヤ分割を確定するフェーズで、「悩む余地のない基本構造」とは別物として扱う。
+> **本フェーズの位置付け**：[README.md: 役割別 setup の後段](./README.md#役割別-setup-の後段レイヤ分割フェーズ) を参照。言語ツーリングが整った上に、その言語側でプロジェクト固有のレイヤ分割を確定するフェーズで、「悩む余地のない基本構造」とは別物として扱う。
 >
-> **書き方の方針**：本フェーズは依存ライブラリのインストールを伴わないため、言語別フェーズの「環境構築 + 品質ゲート 5 ステップ」パターンには載らない。代わりに「**決定値の確認 → ディレクトリ作成 → 各レイヤ README → 全体 README → rules ファイルに実装契約として固定 → 静的解析ツールの除外整合**」の構造で進める（Backend レイヤ分割フェーズと同パターン）。
+> **書き方の方針**：本フェーズは依存ライブラリのインストールを伴わないため、役割別フェーズの「環境構築 + 品質ゲート 5 ステップ」パターンには載らない。代わりに「**決定値の確認 → ディレクトリ作成 → 各レイヤ README → 全体 README → rules ファイルに実装契約として固定 → 静的解析ツールの除外整合**」の構造で進める（Backend レイヤ分割フェーズと同パターン）。
 >
 > **本ファイルと `.claude/rules/frontend.md` の役割分担**：本ファイルが「**手順 + このフェーズで下す決定**」の SSoT、`frontend.md` が「**実装契約（R1 以降の機能実装が読む規約）**」の SSoT。`§決定値` の表は両ファイルに同じ値を書く（本ファイル＝決定の根拠と手順、frontend.md＝Claude 自動 load 用の機械可読契約）。一方を更新したら他方も合わせて更新する。
 
@@ -475,9 +475,9 @@ F. **API クライアントセクション**（例：`## API クライアント`
 
 ## 関連
 
-- 親階層：[README.md: 言語別 setup の後段](./README.md#言語別-setup-の後段レイヤ分割フェーズ)
+- 親階層：[README.md: 役割別 setup の後段](./README.md#役割別-setup-の後段レイヤ分割フェーズ)
 - 前フェーズ：[05-backend-layers.md](./05-backend-layers.md)
-- ロードマップ：[01-roadmap.md: Now：R0 基盤](../01-roadmap.md#nowr0-基盤直列初期慣行--言語別環境構築--レイヤ分割)
+- ロードマップ：[01-roadmap.md: Now：R0 基盤](../01-roadmap.md#nowr0-基盤直列初期慣行--役割別環境構築--レイヤ分割--mcp-整備)
 - 実装契約 SSoT：[.claude/rules/frontend.md](../../../../.claude/rules/frontend.md)
 - 人間向けレイヤ概要：[apps/web/src/README.md](../../../../apps/web/src/README.md)
 - 関連 ADR：[ADR 0006](../../../adr/0006-json-schema-as-single-source-of-truth.md)（Pydantic → Hey API → TS、`__generated__/api/` 配置の根拠）/ [ADR 0015](../../../adr/0015-codemirror-over-monaco.md)（CodeMirror、`lib/styles/` の代表ユースケース）/ [ADR 0021](../../../adr/0021-r0-tooling-discipline.md)（R0 必須補完ツール、本フェーズで除外パスの整合を取る）/ [ADR 0036](../../../adr/0036-frontend-monorepo-pnpm-only.md)（pnpm workspaces 単一構成）

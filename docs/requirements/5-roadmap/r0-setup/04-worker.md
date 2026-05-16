@@ -1,7 +1,7 @@
-# 04. Go 環境構築（🔴 未着手）
+# 04. Worker（Go）環境構築（🔴 未着手）
 
 > **守備範囲**：Go ランタイム取得から `apps/workers/grading` を品質ゲート + サンドボックス雛形付きで動かすまでの 8 ステップ。本フェーズが終わると、Go の lint / test / ビルドがローカル + CI 両方で緑になり、依存自動更新が走り始める。Worker のビジネスロジック（採点・LLM 呼び出し）の実装は LLM プロバイダ抽象化フェーズ以降で進める。
-> **実行タイミングは柔軟**：R0 の他項目（[01-foundation.md](./01-foundation.md) / [02-python.md](./02-python.md) / [03-nextjs.md](./03-nextjs.md)）と並行で進めても、これら 3 つが完了してから着手しても、R1 着手直前にまとめて行ってもよい。**唯一の制約は「LLM プロバイダ抽象化フェーズが Worker コードを必要とするため、それまでに本フェーズが完了している」こと**。R0 を「Python + Next.js が動く状態」で先行リリース的に区切り、Go は後追いで合流させる運用も許容する（その場合 R0 自体は本ファイル以外（[01-foundation.md](./01-foundation.md) / [02-python.md](./02-python.md) / [03-nextjs.md](./03-nextjs.md)）の完了で「実質完了」扱いにできる）。
+> **実行タイミングは柔軟**：R0 の他項目（[01-foundation.md](./01-foundation.md) / [02-backend.md](./02-backend.md) / [03-frontend.md](./03-frontend.md)）と並行で進めても、これら 3 つが完了してから着手しても、R1 着手直前にまとめて行ってもよい。**唯一の制約は「LLM プロバイダ抽象化フェーズが Worker コードを必要とするため、それまでに本フェーズが完了している」こと**。R0 を「Backend + Frontend が動く状態」で先行リリース的に区切り、Worker は後追いで合流させる運用も許容する（その場合 R0 自体は本ファイル以外（[01-foundation.md](./01-foundation.md) / [02-backend.md](./02-backend.md) / [03-frontend.md](./03-frontend.md)）の完了で「実質完了」扱いにできる）。
 > **前提フェーズ**：[01-foundation.md](./01-foundation.md) 完了済（mise.toml + GitHub Actions 雛形 + Dependabot 雛形）。DB（Postgres）は Worker（採点ジョブの結果書き戻し）でも使うが本フェーズ自体は DB に依存しない（雛形 main.go は jobs polling loop の skeleton まで）。実際に DB を読み書きするのは LLM プロバイダ抽象化フェーズ以降。
 > **次フェーズ**：LLM プロバイダ抽象化レイヤ + 初期モデル選定（Worker 側に集約、→ [ADR 0007](../../../adr/0007-llm-provider-abstraction.md) / [ADR 0040](../../../adr/0040-worker-grouping-and-llm-in-worker.md)）。R1 全体の進行順は [../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクションを参照。
 >
@@ -240,7 +240,7 @@ git restore --staged apps/workers/grading/fail_test.go && rm apps/workers/gradin
 - 進捗トラッカー上の該当エントリから、**本ファイル**（または同等の手順詳細）への**リンク**が辿れる
 - 本ファイル冒頭のステータスマークが完了状態を示している（完了時に `# 04. Go 環境構築（🔴 未着手）` を `# 04. Go 環境構築（✅ 完了）` に書き換える）
 
-> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の R0-4 行が、完了時に状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/04-go.md](./r0-setup/04-go.md)` になっている状態。本フェーズ完了前の `🔴 未着手` 表記は完了時に `✅ 完了` へ書き換える運用とする。
+> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の R0-4 行が、完了時に状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/04-worker.md](./r0-setup/04-worker.md)` になっている状態。本フェーズ完了前の `🔴 未着手` 表記は完了時に `✅ 完了` へ書き換える運用とする。
 
 **完了基準**：
 
