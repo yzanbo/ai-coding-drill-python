@@ -2,27 +2,8 @@
 
 > **このディレクトリの守備範囲**：[01-roadmap.md](../01-roadmap.md) の R0（基盤立ち上げ）の**詳細手順**を、フェーズごとに 1 ファイル単位で分割して保持する。各ファイル内の手順は **そのファイル独立の 1, 2, 3 ... 連番**で記述し、ファイル間で番号は連動しない（あるファイルの手順を増減しても他ファイル / roadmap には影響しない）。
 > **R0 のバックログ概要・進捗状態**は [01-roadmap.md: Now：R0 基盤](../01-roadmap.md#nowr0-基盤直列初期慣行--言語別環境構築) を参照。本ディレクトリは「手順詳細・コマンド・完了基準・トラブルシューティング」を扱う。
-
----
-
-## 構造と進行順
-
-R0 は 4 フェーズ構成。**01〜03 は直列**で進める（フェーズ内も基本直列、根拠は [ADR 0021](../../../adr/0021-r0-tooling-discipline.md)）。**04（Go 環境構築）の着手タイミングは柔軟**：他 3 つと並行・後続どちらでもよく、LLM プロバイダ抽象化フェーズまでに完了していればよい。
-
-| フェーズ | 状態 | 詳細手順 |
-|---|---|---|
-| 1. 初期慣行の構築（言語非依存）| ✅ 完了 | [01-foundation.md](./01-foundation.md) |
-| 2. Python 環境構築 | ✅ 完了 | [02-python.md](./02-python.md) |
-| 3. Next.js 環境構築 | 🔴 未着手 | [03-nextjs.md](./03-nextjs.md) |
-| 4. Go 環境構築（着手タイミング柔軟）| 🔴 未着手 | [04-go.md](./04-go.md) |
-
-**完了マイルストーン**：
-
-- 01-foundation.md 完了（達成済）：commit / lefthook / mise / GitHub Actions / Dependabot 雛形が揃う
-- 02-python.md 完了：apps/api が DB + 品質ゲート（pre-commit + pre-push）+ CI 付きで動く
-- 03-nextjs.md 完了：apps/web が品質ゲート（pre-commit + pre-push）+ CI 付きで動く
-- 04-go.md 完了：apps/workers/grading が品質ゲート + サンドボックス雛形 + CI 付きで動く
-- R0 全完了：`docker compose up && mise run api:dev && mise run web:dev && mise run worker:grading:dev` で開発環境が全言語で立ち上がる
+>
+> **本ファイル（README）の役割**：個別フェーズファイル（同ディレクトリ配下の `NN-<phase>.md`）には書ききれない**言語横断のメタ案内**に絞る。具体的には (1) 言語別フェーズ共通の「環境構築 + 品質ゲート 5 ステップ」パターン / (2) hook 役割分担（pre-commit / pre-push / CI）の原則、の 2 点を扱う。個別フェーズ固有の手順は各フェーズファイルが SSoT、進行順序・進捗状態・R0 で着手しない項目は [01-roadmap.md](../01-roadmap.md) が SSoT。
 
 ---
 
@@ -53,14 +34,13 @@ Python / Next.js / Go は同じ **環境構築 + 品質ゲート 5 ステップ*
 
 ---
 
-## R0 で着手しないツール（後続フェーズ待ち）
+## 編集ルール
 
-R0 では着手せず、後続フェーズで導入する項目：
+**フェーズ番号やファイル名が変わっても他ファイルの編集が不要になる書き方をする**。連番・ファイル名を変えただけで複数ファイルの書き換えが発生する運用は追従漏れの温床になるため、プロース中では番号・固有ファイル名を直接書かず、相対的・抽象的な表現を使う。
 
-- Pydantic から JSON Schema 出力（Worker 向け）+ FastAPI OpenAPI 3.1（Frontend 向け型生成） — 型同期パイプライン構築フェーズ（最初のスキーマ投入時。雛形だけ R0 で用意可。→ [ADR 0006](../../../adr/0006-json-schema-as-single-source-of-truth.md)）
-- pytest / Vitest / Playwright のテスト本格運用 — テスト対象コード待ち（→ [ADR 0038](../../../adr/0038-test-frameworks.md)）
-- ミューテーションテスト — R2 以降
-- Docker build → ECR push / Terraform — R5
+- ❌ 番号・固有ファイル名をプロース中に裸書き：「01 で導入する」「01〜04 全フェーズに適用」「02-python.md と同じパターン」「step 3 の手順」
+- ✅ 相対的・抽象的な表現：「本フェーズで導入する」「r0-setup 配下の全フェーズに適用」「Python フェーズと同じパターン」「以降の言語別フェーズ」「同ディレクトリ配下の `NN-<phase>.md`」
+- Markdown リンク（`[label](./path)`）はファイル名がパス部分に現れるが、リネーム時は grep / IDE で機械的に追従できるので可
 
 ---
 

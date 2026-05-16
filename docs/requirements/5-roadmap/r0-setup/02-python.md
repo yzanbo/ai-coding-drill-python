@@ -6,6 +6,8 @@
 >
 > **本ファイル共通の最新版調査ポリシー**：
 > [.claude/CLAUDE.md: バージョン方針](../../../../.claude/CLAUDE.md#バージョン方針) に従い、各ステップで **(1) 対象ツールの最新安定版を毎回 Web で調査** し、**(2) 採用前に依存関係（peer dep / 必須最小版数 / breaking changes）をリリースノートで確認** してから書き換える。SSoT（`mise.toml` / `apps/api/pyproject.toml` + `apps/api/uv.lock` / `docker-compose.yml`）に書かれた既存版数には追従しない（陳腐化のため）。RC / beta / nightly は採用しない。本フェーズの対象は **Python / Postgres / Redis / FastAPI / Pydantic / SQLAlchemy / Alembic / asyncpg / ruff / pyright / pip-audit / deptry** など。メジャー upgrade の場合は CHANGELOG / upgrade guide を確認してから採用する（特に SQLAlchemy 2.x / Pydantic v2 系は API スタイル変更を伴うため要注意）。
+>
+> **本フェーズ共通の設計原則**：「環境構築 + 品質ゲート 5 ステップ」パターンと hook 役割分担（pre-commit / pre-push / CI）は [README.md](./README.md) を参照。r0-setup 配下の全フェーズに適用される。
 
 ---
 
