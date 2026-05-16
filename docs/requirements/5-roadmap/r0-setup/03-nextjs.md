@@ -47,7 +47,8 @@
 4. `apps/web/pnpm-workspace.yaml` の `allowBuilds:` で **sharp**（画像最適化）と **unrs-resolver**（TS/ESLint の module 解決）の build script を許可
    - pnpm 11+ はセキュリティ既定で postinstall 等を明示許可しないと走らせない
 5. `pnpm install` を実行
-6. `apps/web/README.md` を「実装後」の内容（役割・タスク起動方法）に書き換え
+6. **`tsconfig.json` の `target` を `ES2022` に書き換え**：create-next-app の既定値 `ES2017` は Node 24 / 現代ブラウザ前提では古すぎる（出力肥大 + polyfill 不要）。Next.js 16+ は `ES2022` を推奨
+7. `apps/web/README.md` を「実装後」の内容（役割・タスク起動方法）に書き換え
 
 **完了確認**：`next build` が緑で抜けること。
 
@@ -79,7 +80,7 @@
      @playwright/test
    ```
 3. 既存 dep の最新化を確認（メジャー upgrade は CHANGELOG / peer dep を読んでから採用、`tsc --noEmit` 緑が採用条件）
-4. `package.json` の `scripts` を Biome / Vitest / Playwright / Knip / syncpack の起動口に整える
+4. `package.json` の `scripts` を Biome / Vitest / Playwright / Knip / syncpack の起動口に整える。**`lint` は `biome check`（lint + format + assist の全体）と定義**し、`mise run web:lint` も `pnpm lint` を呼ぶ形に揃える（`pnpm lint` ≠ `mise run web:lint` の semantic ズレを防ぐ）。フォーマットのみ叩く `format` / `format:fix` は別途残す
    - `generate:api`（Hey API）は **R1（型同期パイプライン構築フェーズ）で追加**。R0 時点で書くと knip の "Unlisted binaries" で fail するので入れない
 
 **前提**：本ファイルの「2. apps/web に Next.js 雛形を作成」
@@ -109,9 +110,10 @@
 
 設定する主な項目：
 - `entry` は Next.js App Router の規約ファイル（`page` / `layout` / `loading` / `error` / `global-error` / `not-found` / `route` / `template` / `default`）に限定 — `_components/` / `_hooks/` 配下の孤立コードを検出するため
-- **R0 時点では `src/app` しか存在しない**ため `project` は `src/app/**/*.{ts,tsx}` 1 件のみ。`src/components` / `src/hooks` / `src/lib` 関連の `ignore` / `project` patterns は R1 で当該ディレクトリ追加時に拡張する
-- patterns が `(no matches)` 状態だと knip が "Configuration hints" を出して noisy になるため、**実存ディレクトリだけに絞る**
-- `ignoreDependencies` に `tailwindcss`（postcss 経由）/ Testing Library 系（テスト追加時に使用、R0 ではテスト未作成）
+- `project` は [.claude/rules/frontend.md](../../../../.claude/rules/frontend.md) のディレクトリ規約に揃えて **`src/app` / `src/components` / `src/hooks` / `src/lib`** を全て含める（R1 以降で順次実体化）
+- `ignore`：Hey API 生成コード（`src/lib/api/**`）/ shadcn/ui（`src/components/ui/**` + `src/lib/utils.ts`）/ Storybook ストーリー（`**/*.stories.{ts,tsx}`）を除外
+- `ignoreDependencies`：`tailwindcss`（postcss 経由）/ Testing Library 系（テスト追加時に使用、R0 ではテスト未作成）
+- **未到達 patterns に対する "Configuration hints" は `mise.toml` の `web:knip` 側で `--no-config-hints` を付けて抑制**（exit code には影響しない）
 
 ### 4-3. `apps/web/.syncpackrc.ts`（apps/web 単一 package.json 構成、[ADR 0024](../../../adr/0024-syncpack-package-json-consistency.md) Note）
 
@@ -152,11 +154,11 @@ mise run web:syncpack       # syncpack 緑
 
 **前提済の登録タスク**（[mise.toml](../../../../mise.toml) の `[tasks."web:*"]`、本 step では追記しない）：
 - `web:dev` — `pnpm dev`（next dev）
-- `web:test` — `pnpm test`（vitest）
+- `web:test` — `pnpm test:run`（vitest run、watch なし。watch は `cd apps/web && pnpm test` を直接叩く）
 - `web:e2e` — `pnpm exec playwright test`（R5 で本格使用）
-- `web:lint` / `web:format` — `pnpm exec biome check [.|--write .]`
+- `web:lint` / `web:format` — `pnpm lint` / `pnpm lint:fix`（= `biome check [--write]`、scripts に委譲）
 - `web:typecheck` — `pnpm exec tsc --noEmit`
-- `web:knip` / `web:knip-fix` — `pnpm exec knip [--fix]`
+- `web:knip` / `web:knip-fix` — `pnpm exec knip --no-config-hints [--fix]`
 - `web:syncpack` / `web:syncpack-format` — `pnpm exec syncpack [lint|format]`
 - `web:types-gen` — `pnpm exec openapi-ts`（R1 で `@hey-api/openapi-ts` 導入後に有効化、R0 時点では exit 1 で構わない）
 
@@ -268,7 +270,7 @@ git restore --staged apps/web/src/app/_test/ && rm -rf apps/web/src/app/_test/
 - 既存テンプレ（コメントアウト済みブロック）のコメントアウト解除
 - `directory: /apps/web` を指定（apps/web 配下が真の SSoT、[ADR 0036](../../../adr/0036-frontend-monorepo-pnpm-only.md)）
 - `version-update:semver-major` を `ignore` に追加（メジャー更新は手動運用、→ [ADR 0028](../../../adr/0028-dependabot-auto-update-policy.md)）
-- グループ化：`@types/*` / `@biomejs/*` + `biome` / `@hey-api/*` / `react` + `react-*` + `next` / `@playwright/*` + `playwright`
+- グループ化：`@types/*` / `@biomejs/*` + `biome` / `@hey-api/*` / `tailwindcss` + `@tailwindcss/*`（v4 で密結合のため必須） / `react` + `react-*` + `next` / `@playwright/*` + `playwright` / `vitest` + `@vitest/*` + `@vitejs/plugin-react` + `@testing-library/*` + `jsdom`
 
 **完了確認**：
 - 翌週月曜 06:00 JST に `build(deps)` / `build(deps-dev)` の自動 PR が生成される
