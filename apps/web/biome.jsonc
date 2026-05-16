@@ -1,0 +1,82 @@
+// Biome 設定（ADR 0018）。lint + format を 1 ツールで担う（ESLint + Prettier 不採用）。
+// Hey API 生成物 / shadcn/ui を対象外化し、Tailwind v4 ディレクティブを CSS パーサに受け入れさせる。
+// 詳細スキーマ: https://biomejs.dev/reference/configuration/
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    // git: 監視対象は VCS と合わせ、.gitignore に従って除外（重複定義を防ぐ）。
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    // ignoreUnknown: 知らない拡張子のファイルはエラーにせずスキップ（画像等の混入耐性）。
+    "ignoreUnknown": true,
+    // includes: 走査対象。Next.js のビルド生成物 / 自動生成コード / shadcn/ui は除外する。
+    //   先頭の "**" で全体を含めてから "!" で個別除外する書式。
+    //   - .next                       : Next.js ビルド生成物
+    //   - src/app/__generated__       : Hey API 生成物（ADR 0006、R1 以降）
+    //   - src/components/ui           : shadcn/ui の生成コード（規約上 lint しない、R1 以降）
+    "includes": ["**", "!.next", "!next-env.d.ts", "!src/app/__generated__", "!src/components/ui"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        // noUnknownAtRules: Tailwind v4 の `@theme` / `@apply` / `@import "tailwindcss"` 等を
+        //   CSS の未知 at-rule として弾く規則を切る（globals.css の Tailwind ディレクティブ対応）。
+        "noUnknownAtRules": "off"
+      }
+    },
+    // domains: Biome 2.x の領域別プリセット。Next.js / React 用の lint ルールを recommended で有効化。
+    //   例：next/no-html-link-for-pages, react/no-array-index-key 等が自動で入る。
+    "domains": {
+      "next": "recommended",
+      "react": "recommended"
+    }
+  },
+  "overrides": [
+    {
+      // Hey API 生成物：自動生成コードなので lint も format も完全に切る（人手で触らない前提）。
+      "includes": ["src/app/__generated__/**"],
+      "linter": { "enabled": false },
+      "formatter": { "enabled": false }
+    },
+    {
+      // shadcn/ui：components.json 経由で再生成される可能性があるので linter のみ切る
+      //   （format は揃えたいので残す）。
+      "includes": ["src/components/ui/**"],
+      "linter": { "enabled": false }
+    }
+  ],
+  "css": {
+    "parser": {
+      // tailwindDirectives: Tailwind v4 の `@theme` / `@apply` / `@import "tailwindcss"` 等を
+      //   CSS パーサが受け入れるようにする。Biome 2.4+ では linter の noUnknownAtRules off だけでは
+      //   parse 段階で落ちるため、こちらの parser フラグも必須（両方の指定が必要）。
+      "tailwindDirectives": true
+    }
+  },
+  "javascript": {
+    "formatter": {
+      // quoteStyle: TS / JS の文字列引用符は double（Next.js デフォルトと揃える）。
+      "quoteStyle": "double",
+      "semicolons": "always"
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        // organizeImports: 保存 / `biome check --write` 時に import 順を自動整列。
+        "organizeImports": "on"
+      }
+    }
+  }
+}
