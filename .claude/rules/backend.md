@@ -41,11 +41,60 @@ apps/api/app/
 - **横断的な部品は責務に近い場所に置く**。例：`get_current_user` は `app/deps/auth.py`、`get_async_session` は `app/deps/db.py`
 - 純粋なユーティリティ（共通レスポンスモデル / 定数）は `app/core/` または `app/schemas/common/` に。サービス・ビジネスロジックを `core/` に置いてはならない
 
-### 循環依存の防止
+### レイヤ間の import 方向
 
-- **モジュール間の依存は一方向に保つ**。A → B かつ B → A の関係を作らない
-- 依存の方向：`grading/` → `submissions/`, `problems/` のように上位の業務ロジックが下位のマスタ系を参照する
-- 副作用（通知送信等）は FastAPI の `BackgroundTasks` または domain event で発火し、router / service の直接 import を避ける
+新規機能を追加する時、各レイヤから何を import してよいかを下記の表で固定する。R1-3 以降の機能実装はこの契約に従う。
+
+#### 各レイヤの import 可 / 禁止
+
+| レイヤ | import してよい | import 禁止 |
+|---|---|---|
+| `routers/` | `services` / `schemas` / `deps` / `core` | `models` / `db` を直接（health_check のような trivial ケースは明示的例外） |
+| `services/` | 他の `services` / `models` / `schemas` / `queries` / `db` / `core` | `routers` / `deps` / `main` |
+| `queries/`（必要時） | `models` / `db` / `core` | `services` / `routers` / `schemas` |
+| `deps/` | `services` / `db` / `core` | `routers` / `main` |
+| `schemas/` | `core` のみ | 上位レイヤ全て |
+| `models/` | `db.base` / `core` | 上位レイヤ全て |
+| `db/` | `core` | 上位レイヤ全て |
+| `core/` | （何も import しない、終端） | 全て |
+| `observability/` | `core`（設定値の参照のみ） | 業務レイヤ全て |
+
+#### 補足ルール
+
+- **依存は一方向**：A → B かつ B → A を作らない。`services/` 内の機能間も同じ（例：`grading` → `submissions` の向きに揃え、逆向き import を作らない）
+- **副作用は直接 import で繋がない**：通知・発火等は FastAPI の `BackgroundTasks` または domain event 経由で起動し、別 router / service を直接 import しない
+- **`schemas/` を終端に保つ**：TS / Go への型生成（[ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）の境界を壊さないため、`schemas/` から業務レイヤを import しない
+
+#### OK / NG 例
+
+```python
+# ✅ OK: routers は services 経由で DB に触れる
+# app/routers/problems.py
+from app.services.problems import ProblemService
+from app.schemas.problems import ProblemResponse
+from app.deps.auth import get_current_user
+```
+
+```python
+# ❌ NG: routers が models / db を直接触る（trivial 例外を除く）
+# app/routers/problems.py
+from app.models.problems import Problem               # NG
+from app.db.session import get_async_session          # NG（取得は deps/db.py 経由）
+```
+
+```python
+# ❌ NG: services が routers / deps を import（逆流）
+# app/services/problems.py
+from app.routers.submissions import router           # NG
+from app.deps.auth import get_current_user           # NG（current_user は引数で受け取る）
+```
+
+```python
+# ❌ NG: schemas が業務レイヤを import（終端違反、型生成の境界が壊れる）
+# app/schemas/problems.py
+from app.services.problems import ProblemService     # NG
+from app.models.problems import Problem              # NG（from_attributes は型情報を必要としない）
+```
 
 ## API ルートと認証
 
