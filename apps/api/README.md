@@ -18,6 +18,33 @@ Python / FastAPI バックエンド。**実装着手前の skeleton**。
 - `openapi.json`（FastAPI 自動生成、HTTP API 境界の Frontend 向け型生成 SSoT、[ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 - `job-schemas/`（Pydantic `model.model_json_schema()` 出力、Job キュー境界の Worker 向け型生成 SSoT、[ADR 0006](../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）
 
+## ディレクトリ構成
+
+```
+apps/api/
+├── app/                         # FastAPI アプリ本体（中身は app/README.md）
+│   ├── main.py                  # アプリ起動の入口。各 router を束ねる
+│   ├── core/                    # 設定・例外など、機能をまたぐ横断ユーティリティ
+│   ├── db/                      # DB 接続とリクエストごとのセッション貸し出し
+│   ├── models/                  # DB テーブルの形（SQLAlchemy クラス、1 テーブル 1 ファイル）
+│   ├── schemas/                 # 入出力 JSON の形（Pydantic クラス、HTTP / Job 両境界の SSoT）
+│   ├── routers/                 # URL の受け口（1 機能 1 ファイル）
+│   ├── services/                # 業務ロジック + DB クエリ（routers から呼ばれる）
+│   ├── deps/                    # Depends で使う共通部品（認証ユーザー取得 / DB セッション取得）
+│   └── observability/           # ログ・トレース・メトリクスのセットアップ（R5/R6 以降）
+├── alembic/                     # DB スキーマのマイグレーション
+│   └── versions/                # 自動生成された各マイグレーションファイル
+├── tests/                       # pytest（unit / integration / e2e）
+├── job-schemas/                 # schemas/jobs/ から書き出した JSON Schema（Worker 向け、生成物）
+├── openapi.json                 # FastAPI 自動生成（Frontend 向け、生成物）
+├── pyproject.toml               # uv のパッケージ定義 + ruff / pyright 設定
+├── uv.lock                      # ロックファイル
+└── alembic.ini                  # Alembic 設定
+```
+
+各サブフォルダの責務・呼び出しの向き・命名規則は [.claude/rules/backend.md](../../.claude/rules/backend.md) が正本。
+`app/` 配下の各フォルダには 1〜3 行の README.md があり、初学者が階層を辿る時に役目を即把握できる。
+
 ## 起動
 
 `mise run api:dev` 等は実装着手後に有効化される（タスク定義は [mise.toml](../../mise.toml) に既記載）。
