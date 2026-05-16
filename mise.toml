@@ -148,14 +148,16 @@ dir = "apps/web"
 run = "pnpm test:run"
 
 [tasks."web:lint"]
-description = "TS lint + format 検証（Biome check）"
+description = "TS lint + format + assist 検証（pnpm lint = biome check）"
 dir = "apps/web"
-run = "pnpm exec biome check ."
+# package.json の scripts.lint に委譲。`pnpm lint` と `mise run web:lint` の挙動を一致させ、
+# ローカルで `pnpm lint` だけ叩いて緑のつもりが CI で落ちる事故を防ぐ。
+run = "pnpm lint"
 
 [tasks."web:format"]
-description = "TS format 自動修正（Biome --write）"
+description = "TS lint + format + assist 自動修正（pnpm lint:fix = biome check --write）"
 dir = "apps/web"
-run = "pnpm exec biome check --write ."
+run = "pnpm lint:fix"
 
 [tasks."web:typecheck"]
 description = "TS 型チェック（tsc --noEmit）"
@@ -165,7 +167,9 @@ run = "pnpm exec tsc --noEmit"
 [tasks."web:knip"]
 description = "未使用 export / file / dep 検出（Knip、apps/web 内）"
 dir = "apps/web"
-run = "pnpm exec knip"
+# --no-config-hints: R0 時点で components/ hooks/ lib/ がまだ未作成のため "Refine project pattern
+# (no matches)" 系の hints が出るのを抑制（exit code には影響しない、見出しを静かにするだけ）。
+run = "pnpm exec knip --no-config-hints"
 
 [tasks."web:knip-fix"]
 description = "Knip 自動修正（未使用 export / dep の削除提案を適用、ADR 0021 で参照）"

@@ -129,6 +129,11 @@ updates:
       hey-api:
         patterns:
           - "@hey-api/*"
+      # Tailwind 本体と postcss プラグインは v4 で密結合のため必ず連動更新する
+      tailwind:
+        patterns:
+          - tailwindcss
+          - "@tailwindcss/*"
       # Next.js / React は連動更新が必要
       react:
         patterns:
