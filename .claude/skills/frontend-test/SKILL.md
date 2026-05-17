@@ -12,7 +12,7 @@ argument-hint: "[<name>] (例: problem-display-and-answer, learning)"
 
 ### 1. 要件と実装コードの読み込み
 
-- `docs/requirements/4-features/$ARGUMENTS.md` を読み込む（画面一覧、ユーザーフロー、バリデーションルール）
+- `docs/requirements/4-features/$ARGUMENTS.md` を読み込む（画面 / ユーザーフロー / バリデーション節、セクション名は `_template.md` 準拠）
 - 対応する FE 実装コード（ページ、コンポーネント、フック）を読み込む
 
 ### 2. テスト対象の特定

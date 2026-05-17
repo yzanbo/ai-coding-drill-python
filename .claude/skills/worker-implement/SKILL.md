@@ -94,19 +94,9 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 
 ### 7. ステータス更新
 
-実装完了後、`docs/requirements/4-features/$ARGUMENTS.md` のステータスチェックボックスを更新：
+実装完了後、`docs/requirements/4-features/$ARGUMENTS.md` のステータスチェックボックスのうち**ワーカー実装完了**にチェックを入れる。
 
-```markdown
-## ステータス
-- [x] 要件定義完了（このファイルが受け入れ条件まで埋まっている）
-- [x] バックエンド実装完了
-- [x] フロントエンド実装完了
-- [x] ワーカー実装完了（必要な場合のみ）    ← ここをチェック
-- [ ] ユニットテスト完了
-- [ ] E2E テスト完了（主要フローのみ）
-- [ ] **受け入れ条件すべて満たす**
-- [ ] PR マージ済み
-```
+ステータス節の項目構成は `docs/requirements/4-features/_template.md` を踏襲し、機能固有の補足が括弧書きで追加されているケースもある。**項目の追加・削除はしない**（テンプレからの drift を作らない）。Worker が不要な機能（authentication 等）ではそもそも「ワーカー実装完了」項目自体が存在しないことがあるので、無ければ作らない。テンプレ本体の更新が必要なら `_template.md` を直し、既存機能ファイルにも同じ構造を反映する。
 
 ### 8. 動作確認
 
