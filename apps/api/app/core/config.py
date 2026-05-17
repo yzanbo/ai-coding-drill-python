@@ -61,6 +61,70 @@ class Settings(BaseSettings):
         description="Redis 接続 URL（cache / session / rate limit 用）",
     )
 
+    # ----- GitHub OAuth 用 -----
+    # GitHub の OAuth アプリ（https://github.com/settings/developers で作成）から
+    # 払い出される ID / Secret。ローカル開発と本番で別アプリを作って .env に入れる。
+    # 値はリポジトリに含めない（必ず .env 経由）。
+    github_client_id: str = Field(
+        default="",
+        description="GitHub OAuth App の Client ID",
+    )
+    github_client_secret: str = Field(
+        default="",
+        description="GitHub OAuth App の Client Secret",
+    )
+    # github_redirect_uri: GitHub 認可後に戻ってくる URL。OAuth App 設定の
+    #   Authorization callback URL と完全一致する必要がある。
+    github_redirect_uri: str = Field(
+        default="http://localhost:8000/auth/github/callback",
+        description="GitHub OAuth コールバック URL（GitHub App 設定と一致させる）",
+    )
+
+    # ----- セッション / Cookie -----
+    # session_cookie_name: 値は何でもよいが、技術スタックを推測されにくい短名にする
+    #   （ADR 0047 の方針）。
+    session_cookie_name: str = Field(
+        default="sid",
+        description="セッション ID を入れる Cookie 名",
+    )
+    # csrf_cookie_name: CSRF トークンを入れる別 Cookie。Frontend が JS で読むため
+    #   こちらは HttpOnly を付けない（→ 02-api-conventions.md の CSRF 節）。
+    csrf_cookie_name: str = Field(
+        default="csrf_token",
+        description="CSRF トークンを入れる Cookie 名（HttpOnly なし）",
+    )
+    # session_ttl_seconds: Redis 上のセッション有効期限（7 日、ADR 0047）。
+    session_ttl_seconds: int = Field(
+        default=604800,
+        description="セッション TTL（秒）。既定 7 日",
+    )
+    # state_ttl_seconds: OAuth state トークン TTL（10 分、authentication.md §1.3）。
+    state_ttl_seconds: int = Field(
+        default=600,
+        description="OAuth state トークン TTL（秒）。1 回使い切り",
+    )
+    # cookie_secure: True の時 Cookie は HTTPS でのみ送信される。
+    #   本番は必ず True、ローカル http 開発時のみ False にする。
+    cookie_secure: bool = Field(
+        default=False,
+        description="Cookie の Secure 属性（本番は True、ローカル http なら False）",
+    )
+    # session_signing_secret: itsdangerous で Cookie 値を署名する鍵。
+    #   本番は十分長いランダム文字列を .env から渡す。
+    session_signing_secret: str = Field(
+        default="dev-only-change-me",
+        description="セッション Cookie 署名用シークレット（itsdangerous）",
+    )
+
+    # ----- Frontend オリジン -----
+    # frontend_base_url: ログイン後リダイレクト等で使うフロントの起点 URL。
+    #   ?next= の同一オリジン検証では Backend ルート相対パスを優先するため、
+    #   主にホーム / と /login への絶対 URL 組み立てに利用する。
+    frontend_base_url: str = Field(
+        default="http://localhost:3000",
+        description="Frontend の起点 URL",
+    )
+
 
 # @lru_cache（Python 標準 / functools が提供）:
 #   関数の戻り値をメモリに**キャッシュ**するデコレータ。
