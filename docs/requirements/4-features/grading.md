@@ -1,10 +1,27 @@
 # 自動採点
 
+<!--
+配置先：`docs/requirements/4-features/<name>.md`（フラット配置、数値 ID なし）
+新規作成・更新は `/new-requirements` カスタムコマンド経由を推奨。
+セクション順序：WHY（ストーリー）→ WHAT（概要 / ビジネスルール / スコープ外）→
+              機能一覧（全体俯瞰）→ HOW（データ / 画面 / フロー / API / バリデーション）
+              → 完成検証（受入条件）→ 進捗（ステータス）→ 外部参照（関連）
+
+長期運用の原則（このファイルを更新する全タイミングで適用）：
+  1. コードや OpenAPI / SQLAlchemy から読み取れる事実は書かない。書くのは "なぜ"（業務理由）と "観測可能な振る舞い" だけ
+  2. ファイル長は許容する（行数で分割しない）。分割トリガはドメイン境界のみ
+  3. ビジネスルールが 30 行を超えたら H3 サブセクションに割る（壁を防ぐ）
+  4. バリデーション節は業務上の理由があるルールのみ書く（必須・長さ等の機械的検証は Pydantic / Zod が SSoT）
+  5. **HTML コメント（`<!--` で始まる注釈ブロック）は削除しない**（このコメント自身を含む）。CLAUDE が将来の更新時に運用ルールを再認識するための裏ルールとして埋め込まれているため、本文整理時にまとめて消さない
+-->
+
 ## ユーザーストーリー
 
 - **役割**：認証ユーザー（プログラミング学習者）
 - **やりたいこと**：自分の解答コードを送信すると、自動で実行・採点されて結果が即座に返ってくる
 - **得られる価値**：手動レビューを待たず、即時フィードバックを受けて学習効率を最大化できる
+
+<!-- 複数のロールが関わる場合は同じ 3 行セットを並べてよい -->
 
 ## 概要
 
@@ -13,10 +30,10 @@
 ## ビジネスルール
 
 - **セキュリティ最優先**：ユーザーが書いたコードは攻撃コードである可能性を前提に扱う
-  - ネットワーク遮断（`--network none`）
-  - ファイルシステム書き込み制限（`/tmp` のみ）
-  - CPU・メモリ制限（cgroups）
-  - 非 root 実行
+  - ネットワーク遮断（外部通信不可、攻撃コードからの外部攻撃・外部リソース取得を防ぐ）
+  - ファイルシステム書き込み制限（テンポラリのみ書き込み可、ホスト側への影響を防ぐ）
+  - CPU・メモリ制限（DoS 攻撃・暴走コードからホストを守る）
+  - 非 root 実行（権限昇格攻撃を防ぐ）
   - 実行時間 5 秒上限
 - **使い捨てコンテナ**：前回実行の影響が原理的に残らない（1 ジョブ = 1 コンテナ、→ [ADR 0009](../../adr/0009-disposable-sandbox-container.md)）
 - **隔離レイヤの段階的進化**：Docker → gVisor → Firecracker（→ [2-foundation/05-runtime-stack.md](../2-foundation/05-runtime-stack.md#サンドボックス)）
@@ -38,38 +55,32 @@
 
 このドメインで提供する操作の全体俯瞰。詳細仕様は下の各 HOW セクション + OpenAPI（`apps/api/openapi.json`）が SSoT。
 
-| 操作 | 対象ロール | 認証 | 概要 |
-|---|---|---|---|
-| 解答送信（採点ジョブ投入） | 認証ユーザー | 必須 | `POST /submissions` で解答コードを送信、202 + `submissionId` 即返 |
-| 採点結果取得 | 認証ユーザー | 必須 | `GET /submissions/:id` でポーリング、`status='graded'` で結果取得 |
-| 自分の解答履歴一覧 | 認証ユーザー | 必須 | `GET /submissions` で過去の解答を新しい順に取得（履歴ドメインからも参照） |
+| 操作 | 対象ロール | 認証 | 概要 | 詳細 |
+|---|---|---|---|---|
+| 解答送信（採点ジョブ投入） | 認証ユーザー | 必須 | `POST /submissions` で解答コードを送信、202 + `submissionId` 即返 | [#採点フロー対象認証ユーザー](#採点フロー対象認証ユーザー) |
+| 採点結果取得 | 認証ユーザー | 必須 | `GET /submissions/:id` でポーリング、`status='graded'` で結果取得 | [#採点結果表示対象認証ユーザー](#採点結果表示対象認証ユーザー) |
+| 自分の解答履歴一覧 | 認証ユーザー | 必須 | `GET /submissions` で過去の解答を新しい順に取得（履歴ドメインからも参照） | [#api](#api) |
 
 ## データモデル
 
-詳細は [3-cross-cutting/01-data-model.md](../3-cross-cutting/01-data-model.md) を参照。
+> **関わるテーブル名の列挙のみ**。カラム定義・関係詳細は書かない（drift 防止）。スキーマの SSoT は SQLAlchemy model（`apps/api/app/models/`、→ [ADR 0037](../../adr/0037-sqlalchemy-alembic-for-database.md)）、全体俯瞰は [3-cross-cutting/01-data-model.md](../3-cross-cutting/01-data-model.md)。
 
-- `submissions`：解答送信ごとに作成（`id`, `user_id`, `problem_id`, `code`, `status`, `result?`, `score?`, `created_at`, `graded_at?`）
-- `jobs`：採点ジョブのキューイング（`queue='grading'`, `type='grade'`, `payload: { traceContext, submissionId, problemId, code, language, timeoutMs }`、→ [3-cross-cutting/01-data-model.md: ジョブペイロード](../3-cross-cutting/01-data-model.md#ジョブペイロード共通フィールドtracecontext)、[ADR 0010](../../adr/0010-w3c-trace-context-in-job-payload.md)、[ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）
+関わるテーブル：`submissions` / `jobs`
 
 ## 画面
 
 ### 採点結果表示（対象：認証ユーザー）
 
-採点結果は専用画面ではなく、[問題詳細・解答画面](./problem-display-and-answer.md) 内の `<GradingResult />` コンポーネントとして表示される。
+採点結果は専用画面ではなく、[問題詳細・解答画面](./problem-display-and-answer.md) 内のコンポーネントとして表示される。
 
-- **概要**：解答送信後、ポーリングで採点結果を取得し、結果に応じた表示
-- **主要コンポーネント**：
-  - `<GradingPendingIndicator />`（採点中スピナー）
-  - `<GradingResultPass />`（正解：通過数表示・所要時間・お祝いメッセージ）
-  - `<GradingResultFail />`（失敗：失敗ケース・期待値・実際の出力・差分）
-  - `<GradingResultError />`（実行時エラー / タイムアウト：スタックトレース整形）
+- **目的**：解答送信後、ポーリングで採点結果を取得し、結果の種類（正解 / 失敗 / 実行時エラー / タイムアウト）に応じて表示形式を切り替える
 - **使用 API**：
   - `POST /submissions` — 解答送信（202 + submissionId）
   - `GET /submissions/:id` — ポーリングで結果取得
 - **主要インタラクション**：
-  - `status='pending'` / `'running'` の間ポーリング継続
-  - `status='graded'` で停止し、結果を表示
-  - `status='failed'` で再試行ボタン提示
+  - 採点中はスピナーを表示、`status='graded'` で停止して結果を表示
+  - 失敗ケースには期待値・実際の出力・差分を併記する
+  - `status='failed'`（インフラ起因の失敗）では再試行ボタンを提示
 
 ## ユーザーフロー
 
@@ -101,43 +112,66 @@ sequenceDiagram
   FE ->> User: 採点結果を表示
 ```
 
-失敗系の扱い：
+失敗系のユーザー観測：
 
-- **テスト不合格**：`status='graded'`、`score < totalCount`、`result.testResults` に失敗ケース内訳
-- **タイムアウト**：Worker が `ContainerWait` のタイムアウト発火 → ContainerKill → `result.failure_type='timeout_killed'`
-- **OOM**：Docker が OOM Kill → `result.failure_type='oom_killed'`
-- **構文エラー**：トランスパイル失敗 → `result.failure_type='syntax_error'`、stderr 整形して返却
-- **再試行可能エラー**：DB 接続一時失敗等 → リトライ（最大 3 回、指数バックオフ）→ 全失敗で `state='dead'`（DLQ）
+- **テスト不合格**：失敗したテストケースの内訳が表示される
+- **タイムアウト**：実行時間上限を超えると採点中断と表示される
+- **メモリ超過**：「メモリ使用量超過」が表示される
+- **構文エラー**：エラー内容が整形されて表示される
+- **一時的なシステムエラー**：自動再試行され、最終的に失敗した場合は再実行ボタンが提示される
+
+具体的な失敗種別の識別子・リトライ回数・DLQ メカニズムは Worker 実装（`apps/workers/grading`）が SSoT。
 
 ## API
 
-| メソッド | パス | 用途 | 認証 |
-|---|---|---|---|
-| POST | `/submissions` | 解答送信 → 採点ジョブ投入 | 必須 |
-| GET | `/submissions/:id` | 解答 + 採点結果取得（ポーリング用） | 必須 |
-| GET | `/submissions` | 自分の解答履歴一覧 | 必須 |
+<!--
+本セクションは API-first 設計の SSoT（実装前の契約）。以下 4 ステップを必ず意識する：
 
-機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT。リクエスト・レスポンスのスキーマは Pydantic で `apps/api/app/schemas/submissions.py` に定義（本ファイルにコピーしない、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）。
+  1. API 設計：このセクションで API テーブル + JSON 例を先に書く（実装前）
+  2. バックエンド実装：/backend-implement が本セクションに沿って Pydantic + FastAPI を実装
+  3. API の吐き出し：mise run api:openapi-export で apps/api/openapi.json を出力
+  4. API 設計をバックエンド実装に合わせて更新：差分があれば本セクションを追従更新
+     （実装が SSoT、本セクションは契約の鏡）
+
+所有権ルール：本ドメインは `/submissions` 系エンドポイントを所有する。他 feature は
+`→ [grading.md#xxx](./grading.md#xxx)` でアンカー参照のみ（重複させない）。
+-->
+
+| メソッド | パス | 用途 | 認証 | 詳細 |
+|---|---|---|---|---|
+| POST | `/submissions` | 解答送信 → 採点ジョブ投入 | 必須 | [#post-submissions](#post-submissions) |
+| GET | `/submissions/:id` | 解答 + 採点結果取得（ポーリング用） | 必須 | [#get-submissionsid](#get-submissionsid) |
+| GET | `/submissions` | 自分の解答履歴一覧 | 必須 | [#get-submissions](#get-submissions) |
+
+機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT。本セクションは API-first 設計の人間可読版 + 契約の鏡（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）。
 
 ### JSON 例
 
-`POST /submissions` リクエスト：
+#### POST /submissions
+
+- 認証：必須
+- 使う feature：[grading.md](./grading.md) + [problem-display-and-answer.md](./problem-display-and-answer.md)（解答画面の「実行」ボタンから呼ぶ）
+- リクエスト:
+
 ```json
 {
   "problemId": "<uuid>",
-  "code": "export function solve(n: number) { ... }"
+  "code": "export function solve(n: number) { return n * 2; }"
 }
 ```
 
-レスポンス（202）：
+- レスポンス 202:
+
 ```json
-{
-  "submissionId": "<uuid>",
-  "status": "pending"
-}
+{ "submissionId": "<uuid>", "status": "pending" }
 ```
 
-`GET /submissions/:id` レスポンス（採点完了後）：
+#### GET /submissions/:id
+
+- 認証：必須
+- 使う feature：[grading.md](./grading.md) + [problem-display-and-answer.md](./problem-display-and-answer.md)（採点結果ポーリング）
+- レスポンス 200（採点完了後）:
+
 ```json
 {
   "id": "<uuid>",
@@ -156,16 +190,45 @@ sequenceDiagram
 }
 ```
 
+#### GET /submissions
+
+- 認証：必須
+- 使う feature：[grading.md](./grading.md) + [learning.md](./learning.md)（学習履歴一覧画面から呼ぶ）
+- クエリパラメータ：`page`（既定 1）/ `pageSize`（既定 20）
+- レスポンス 200:
+
+```json
+{
+  "items": [
+    {
+      "id": "<uuid>",
+      "problemId": "<uuid>",
+      "problemTitle": "二倍にして返す",
+      "status": "graded",
+      "score": 5,
+      "totalCount": 5,
+      "gradedAt": "2026-05-10T10:00:00Z"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalPages": 3
+}
+```
+
 ## バリデーション
 
-| フィールド | ルール | エラーメッセージ |
+> **業務上の理由があるルールのみ**を書く（例：「ニックネームに本名を含めさせない方針」「招待コードは大文字英数字 8 桁の決まり」）。必須・最大長・型・正規表現等の**機械的検証は Pydantic / Zod が SSoT** なのでここには書かない（drift 防止、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）。
+
+| フィールド | 業務ルール | 理由 / エラーメッセージ |
 |---|---|---|
-| `problemId` | 必須、UUID、存在する問題 | 問題が存在しません |
-| `code` | 必須、64KB 以下 | コードのサイズが上限を超えています |
+| `code` | 64KB 以下 | サンドボックスの実行コスト・LLM Judge 入力長を抑える業務上の上限（攻撃的な巨大入力対策にも兼用）。「コードのサイズが上限を超えています」 |
 
 ## 受け入れ条件（Definition of Done）
 
-> 外部から観測可能な振る舞いに絞る。サンドボックス使い捨てやコンテナ制限フラグはビジネスルール参照。
+> **役割**：プロダクトとして "完成した" と言える条件。**ユーザー / API クライアントから観測可能なふるまい** だけに絞る。「DB 上で○○」「Depends で○○」等の実装制約はビジネスルールに書く。
+>
+> **長期運用**：機能の振る舞い仕様の累積。機能が育つほど条件は**追加されていく**し、既存条件も仕様変更で**更新される**。**変更・追加された条件は再検証が必要なので未チェックに戻す**（既存で変わってない条件はチェック維持、全リセットはしない）。観測可能な振る舞いが変わったらここを直すのが SSoT 更新の第一歩。過去版の履歴は git log で辿る。
 
 - [ ] 「実行」ボタン押下で `POST /submissions` に解答が送信され、`202 Accepted` + `submissionId` が即返る
 - [ ] フロントは `GET /submissions/:id` を 1〜2 秒間隔でポーリングし、採点結果を取得する
@@ -174,16 +237,17 @@ sequenceDiagram
 - [ ] 構文エラー / 実行時例外 → スタックトレースを整形して表示
 - [ ] タイムアウト（5 秒超過） → 「タイムアウト」と表示
 - [ ] OOM / メモリ超過 → 「メモリ使用量超過」と表示
-- [ ] 型パズル系カテゴリは型チェック（`tsc --noEmit` 想定）の型エラー有無で判定
+- [ ] 型パズル系カテゴリは型エラーの有無が採点結果に反映される
 - [ ] 他ユーザーの `submissions/:id` には 403 / 404 が返って閲覧不可
 - [ ] レート制限：同一ユーザーで `1 分 / 30 回` を超えると `429` を返す（→ [3-cross-cutting/02-api-conventions.md](../3-cross-cutting/02-api-conventions.md#レート制限)）
 - [ ] 採点結果は再取得しても同じ内容が返る（永続保存）
 
 ## ステータス
 
-タスク単位の細目チェック（リリース単位の進捗は [01-roadmap.md](../5-roadmap/01-roadmap.md) を参照）。
+> **役割**：開発工程としてどこまで進んだかのチェックリスト（"プロダクトの完成条件" は上の受け入れ条件、"リリース単位の進捗" は [01-roadmap.md](../5-roadmap/01-roadmap.md) で管理）。
+>
+> **長期運用**：機能を再着手・大きく改修するたびに**チェックを外してリセットする**（過去の完了履歴は残さない、履歴は git log と PR で辿る）。常に「この機能の現在の状態」だけを映す鏡として使う。
 
-- [ ] 要件定義完了
 - [ ] バックエンド実装完了（submissions ルーター：enqueue + 結果取得のみ。サンドボックス処理は含めない）
 - [ ] 採点 Worker 実装完了（`apps/workers/grading`：ジョブ取得・サンドボックス起動・結果書き戻し）
 - [ ] サンドボックス実装完了（Docker + 制限フラグ、R3 で gVisor 切替）
@@ -191,7 +255,6 @@ sequenceDiagram
 - [ ] ユニットテスト完了（pytest（API）+ Go testing + testify（Worker、SandboxRunner のモックテスト）、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [ ] E2E テスト完了（解答送信 → 採点完了 → 結果表示の主要フロー、Playwright）
 - [ ] **受け入れ条件すべて満たす**
-- [ ] PR マージ済み
 
 ## 関連
 
