@@ -19,6 +19,12 @@ from pydantic import Field, model_validator
 # SettingsConfigDict: BaseSettings 用の設定を書く型（読み込み元の .env パス等を指定）。
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# _MIN_SIGNING_SECRET_LENGTH: 本番で許容する署名鍵の最低長（文字数）。
+#   `secrets.token_urlsafe(24)` の出力長（32 文字）を最低ラインに設定。
+#   これ未満の鍵（例：""、"x"、"test"）は総当たりや辞書攻撃で容易に破られるため、
+#   APP_ENV=production では起動時に弾く（_check_production_safety）。
+_MIN_SIGNING_SECRET_LENGTH = 32
+
 
 # Settings: このプロジェクトで使う設定値をまとめたクラス（自作）。
 #   BaseSettings を継承すると、フィールド名と同じ環境変数（大文字でも可）から
@@ -140,7 +146,9 @@ class Settings(BaseSettings):
     # 本番デフォルト値の事故余地を起動時に弾く安全装置。
     # APP_ENV=production の時のみ厳しくチェックする：
     #   - SESSION_SIGNING_SECRET が "dev-only-change-me" のままなら起動拒否
-    #     （Cookie 署名鍵が予測可能 = セッション偽造可能になるため）
+    #   - SESSION_SIGNING_SECRET が 32 文字未満なら起動拒否
+    #     （プレースホルダ完全一致だけだと "x" / "test" のような弱値を素通りさせる。
+    #      32 文字は secrets.token_urlsafe(24) 相当の最低ラインとして設定）
     #   - COOKIE_SECURE=false のままなら起動拒否
     #     （http で Cookie が送られてセッション盗難リスクが上がるため）
     # dev / test / staging では緩く、開発しやすさを優先する。
@@ -152,6 +160,14 @@ class Settings(BaseSettings):
             raise ValueError(
                 "SESSION_SIGNING_SECRET must be set to a strong random value "
                 "when APP_ENV=production (current value is the dev placeholder)."
+            )
+        if len(self.session_signing_secret) < _MIN_SIGNING_SECRET_LENGTH:
+            raise ValueError(
+                "SESSION_SIGNING_SECRET must be at least "
+                f"{_MIN_SIGNING_SECRET_LENGTH} characters when APP_ENV=production "
+                "(短い鍵は総当たりで破られるため。"
+                "`python -c \"import secrets; print(secrets.token_urlsafe(32))\"` "
+                "等で生成する)."
             )
         if not self.cookie_secure:
             raise ValueError(
