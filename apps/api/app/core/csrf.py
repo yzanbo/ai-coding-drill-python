@@ -20,6 +20,7 @@
 #   （transitive dependency 直接 import）を避けるため fastapi.Request /
 #   fastapi.Response 経由で揃える。
 
+import hmac
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
@@ -98,7 +99,12 @@ async def verify_csrf(request: Request, call_next: _CallNext) -> Response:
         return _json_error(401, "セッションが無効です。再度ログインしてください")
 
     header_token = request.headers.get(_HEADER_NAME)
-    if not header_token or header_token != session.csrf_token:
+    # hmac.compare_digest: 文字列を 1 文字ずつ「最後まで」比較する関数。
+    #   普通の == は早期に return するので、一致した文字数で処理時間が変わる
+    #   （タイミング攻撃で 1 文字ずつ正解を推測される余地ができる）。
+    #   CSRF トークンは 256 bit の CSPRNG で実害は極小だが、秘密値の比較は
+    #   プロジェクト全体で constant-time に揃える（itsdangerous も内部で同じ関数を使う）。
+    if not header_token or not hmac.compare_digest(header_token, session.csrf_token):
         return _json_error(403, "CSRF トークンが一致しません")
 
     # 検証通過。下流のハンドラに進む。
