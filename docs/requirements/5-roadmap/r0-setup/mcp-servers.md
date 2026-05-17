@@ -1,7 +1,7 @@
-# 08. MCP サーバー導入（✅ 完了）
+# MCP サーバー導入（✅ 完了）
 
 > **守備範囲**：Claude Code（VSCode 拡張）で使う MCP サーバーをプロジェクト共有の `.mcp.json` に登録する。
-> **前提フェーズ**：[01-foundation.md](./01-foundation.md) 完了済（`mise install` で Node.js が動作）。
+> **前提フェーズ**：[foundation.md](./foundation.md) 完了済（`mise install` で Node.js が動作）。
 > **実行タイミング**：R0 の他項目と並行可。レイヤ規約への依存無し（R1 のブロッカーではない）。
 >
 > **バージョン方針**：[.claude/CLAUDE.md: バージョン方針](../../../../.claude/CLAUDE.md#バージョン方針) に従い、各パッケージは導入時に Web で最新版を調査してから採用する。本ファイルのパッケージ名はあくまで導入時点の情報。

@@ -1,8 +1,8 @@
-# 06. Frontend レイヤ分割（✅ 完了）
+# Frontend レイヤ分割（✅ 完了）
 
 > **守備範囲**：`apps/web/src/` 配下に Next.js App Router 流のレイヤ分割（5 系統 14 フォルダ）を確定し、各レイヤの責務 + import 方向 + 命名規則を `.claude/rules/frontend.md` に「実装契約」として固定する。本フェーズが終わると、R1 以降の Frontend 機能実装が「悩まずに迷わずレイヤを選ぶ」状態になる。
-> **前提フェーズ**：[Next.js 環境構築フェーズ](./03-frontend.md)完了済（`apps/web/src/app/{layout,page}.tsx` の基本構造が存在し、`mise run web:dev` で起動可能、Biome / Knip / syncpack / TypeScript の品質ゲートが揃っている）
-> **前フェーズ**：[Backend レイヤ分割フェーズ](./05-backend-layers.md)
+> **前提フェーズ**：[Next.js 環境構築フェーズ](./frontend.md)完了済（`apps/web/src/app/{layout,page}.tsx` の基本構造が存在し、`mise run web:dev` で起動可能、Biome / Knip / syncpack / TypeScript の品質ゲートが揃っている）
+> **前フェーズ**：[Backend レイヤ分割フェーズ](./backend-layers.md)
 >
 > **本フェーズの位置付け**：[README.md: 役割別 setup の後段](./README.md#役割別-setup-の後段レイヤ分割フェーズ) を参照。言語ツーリングが整った上に、その言語側でプロジェクト固有のレイヤ分割を確定するフェーズで、「悩む余地のない基本構造」とは別物として扱う。
 >
@@ -463,7 +463,7 @@ F. **API クライアントセクション**（例：`## API クライアント`
 - 進捗トラッカー上の該当エントリから、**本ファイル**（または同等の手順詳細）への**リンク**が辿れる
 - 本ファイル冒頭のステータスマーク（`# 06. Frontend レイヤ分割（✅ 完了）` の `✅`）が完了状態を示している
 
-> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の R0-6 行が、状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/06-frontend-layers.md](./r0-setup/06-frontend-layers.md)` になっている状態。古い表現（`🔴 未着手` / 未着手プレースホルダ / 旧リンク等）が残っていれば最終状態に合わせる。
+> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の R0-6 行が、状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/frontend-layers.md](./r0-setup/frontend-layers.md)` になっている状態。古い表現（`🔴 未着手` / 未着手プレースホルダ / 旧リンク等）が残っていれば最終状態に合わせる。
 
 **完了基準**：
 
@@ -476,7 +476,7 @@ F. **API クライアントセクション**（例：`## API クライアント`
 ## 関連
 
 - 親階層：[README.md: 役割別 setup の後段](./README.md#役割別-setup-の後段レイヤ分割フェーズ)
-- 前フェーズ：[05-backend-layers.md](./05-backend-layers.md)
+- 前フェーズ：[backend-layers.md](./backend-layers.md)
 - ロードマップ：[01-roadmap.md: Now：R0 基盤](../01-roadmap.md#nowr0-基盤直列初期慣行--役割別環境構築--レイヤ分割--mcp-整備)
 - 実装契約 SSoT：[.claude/rules/frontend.md](../../../../.claude/rules/frontend.md)
 - 人間向けレイヤ概要：[apps/web/src/README.md](../../../../apps/web/src/README.md)

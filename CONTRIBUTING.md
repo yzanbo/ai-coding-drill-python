@@ -94,7 +94,7 @@ mise run worker:grading:dev    # 採点 Worker
 
 `git clone` 後の初回起動時は `npx` がパッケージをダウンロードするため `/mcp` で `connected` になるまで 1〜2 分かかります（Playwright は Chromium / WebKit / Firefox バイナリ取得で初回のみ追加で数百 MB）。API キーは不要。
 
-詳細手順・トラブルシューティングは [docs/requirements/5-roadmap/r0-setup/08-mcp-servers.md](docs/requirements/5-roadmap/r0-setup/08-mcp-servers.md) を参照。
+詳細手順・トラブルシューティングは [docs/requirements/5-roadmap/r0-setup/mcp-servers.md](docs/requirements/5-roadmap/r0-setup/mcp-servers.md) を参照。
 
 ---
 
