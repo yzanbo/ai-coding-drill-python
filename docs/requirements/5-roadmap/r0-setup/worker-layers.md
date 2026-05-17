@@ -1,6 +1,16 @@
 # Worker（Go）ディレクトリ構成（🔴 未着手）
 
-> **守備範囲**：`apps/workers/grading/` 配下に Go の package 分割（`cmd/` + `internal/{jobtypes,llm,sandbox,grading,db,observability}/`）を確定し、各 package の責務 + import 方向 + 命名規則を `.claude/rules/worker.md` に「実装契約」として固定する。本フェーズが終わると、後続の Worker 機能実装（LLM プロバイダ抽象化 / 採点ロジック / DB 書き戻し）が「悩まずに迷わずどの package に置くかを選ぶ」状態になる。
+## このフェーズで何ができるようになるか
+
+`apps/workers/grading/` 配下に Go の package 分割（`cmd/` + `internal/{jobtypes,llm,sandbox,grading,db,observability}/`）を確定し、各 package の責務 + import 方向 + 命名規則を `.claude/rules/worker.md` に「実装契約」として固定する。本フェーズが終わると以下ができるようになる：
+
+- 後続の Worker 機能実装（LLM プロバイダ抽象化 / 採点ロジック / DB 書き戻し）が「悩まずに迷わずどの package に置くかを選ぶ」状態になる
+- 各 package の責務・import 方向が rules ファイルに固定され、Claude が自動 load して規約に従ったコードを生成できる
+- 各 package に人間向け README が揃い、`internal/` 配下の役割分担が一目で分かる
+- 型同期パイプライン Worker 側合流フェーズの受け皿（`internal/jobtypes/`）が配置済となる
+
+---
+
 > **前提フェーズ**：[Go 環境構築フェーズ](./worker.md) 完了済（`apps/workers/grading/main.go` skeleton / `go.mod` / `.golangci.yml` / `sandbox/Dockerfile` skeleton が配置済、`mise run worker:grading:dev` で起動可能、golangci-lint / govulncheck がローカル + CI 両方で緑）
 > **次フェーズ**：R1 開始（LLM プロバイダ抽象化フェーズが本フェーズの成果物に依存、→ [01-roadmap.md](../01-roadmap.md)）
 >

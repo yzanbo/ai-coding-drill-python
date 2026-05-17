@@ -12,7 +12,6 @@
 
 ---
 
-> **守備範囲**：Pydantic SSoT（[apps/api/app/schemas/](../../../../apps/api/app/schemas/)）から **HTTP API 境界 artifact**（`apps/api/openapi.json`）と **Job キュー境界 artifact**（`apps/api/job-schemas/<name>.schema.json`）を機械的に書き出し、Frontend 側で **Hey API**（`@hey-api/openapi-ts` + Zod プラグイン）が OpenAPI を消費して TS 型 + Zod + 型付き HTTP クライアントを生成するまでの end-to-end 経路を確立する。さらに drift（Pydantic 変更後 artifact 未更新）を **lefthook**（早期検出）と **CI**（最終ゲート）の二軸で構造的に防ぐ。本フェーズが終わると、Backend で Pydantic を 1 箇所書き換えるだけで Frontend が型・Zod・HTTP クライアントを自動追従できる状態になる。
 > **前提フェーズ**：[Backend レイヤ分割フェーズ](./backend-layers.md) 完了済（`apps/api/app/schemas/` が確定し `schemas/__init__.py` が機能している、`apps/api/app/main.py` から `/openapi.json` が取得できる、`apps/web/src/__generated__/api/` ディレクトリが配置済）
 > **次フェーズ**：Worker（Go）側合流フェーズ（quicktype で `apps/api/job-schemas/` から Go struct を生成、`worker:types-gen` の CI 組込みまで。本フェーズの artifact をそのまま入力源として再利用するため、本フェーズが先行完了している必要がある）
 >

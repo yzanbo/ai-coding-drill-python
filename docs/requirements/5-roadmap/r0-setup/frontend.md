@@ -1,6 +1,17 @@
 # Frontend（Next.js / TS）環境構築（✅ 完了）
 
-> **守備範囲**：Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲート付きで動かすまでの 9 ステップ。本フェーズが終わると、Next.js の lint / typecheck / knip / syncpack がローカル + CI 両方で緑になり、依存自動更新が走り始める。
+## このフェーズで何ができるようになるか
+
+Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲート付きで動かすまでの 9 ステップ。本フェーズが終わると以下ができるようになる：
+
+- `mise run web:dev` で Next.js が起動する
+- Biome（lint + format）/ tsc（型）/ Knip（未使用検出）/ syncpack（package.json 整合）がローカル + CI 両方で緑になる
+- Vitest（unit）/ Playwright（E2E）/ Testing Library のテスト基盤が揃う（実機能テストは R1 以降）
+- 規約違反のコミットが pre-commit hook で弾かれる
+- Frontend 依存の自動更新 PR が週次で来る
+
+---
+
 > **前提フェーズ**：[backend.md](./backend.md) 完了済（Backend 縦スライスと同じ「品質ゲートのステップ」パターンを再利用する）
 > **次フェーズ**：R0 完了 → R1（[../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクション）
 >

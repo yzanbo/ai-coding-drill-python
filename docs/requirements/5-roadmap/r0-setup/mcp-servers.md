@@ -1,6 +1,17 @@
 # MCP サーバー導入（✅ 完了）
 
-> **守備範囲**：Claude Code（VSCode 拡張）で使う MCP サーバーをプロジェクト共有の `.mcp.json` に登録する。
+## このフェーズで何ができるようになるか
+
+Claude Code（VSCode 拡張）で使う MCP サーバーをプロジェクト共有の `.mcp.json` に登録する。本フェーズが終わると以下ができるようになる：
+
+- Claude が OSS の**最新ドキュメント**を Context7 経由でロードできる（Next.js / React / FastAPI / SQLAlchemy 等を執筆時点の最新で参照）
+- shadcn コンポーネントを Claude から登録 / 追加できる
+- Next.js プロジェクトの構造解析を Claude から実行できる（next-devtools）
+- Playwright によるブラウザ自動化を Claude から呼べる（E2E テスト / 視覚確認）
+- リポジトリを clone した他の開発者にも `.mcp.json` 経由で同じ MCP 環境が共有される
+
+---
+
 > **前提フェーズ**：[foundation.md](./foundation.md) 完了済（`mise install` で Node.js が動作）。
 > **実行タイミング**：R0 の他項目と並行可。レイヤ規約への依存無し（R1 のブロッカーではない）。
 >
