@@ -289,7 +289,7 @@ mise run api:db-revision -- "<msg>"      # alembic revision --autogenerate
 - ORM：`sqlalchemy[asyncio]` + `asyncpg`
 - マイグレーション：`alembic`
 - バリデーション / 設定：`pydantic` + `pydantic-settings`
-- 認証：`authlib`（GitHub OAuth）+ `itsdangerous`（セッション署名）
+- 認証：`itsdangerous`（セッション Cookie 署名）。OAuth クライアントは `httpx` で直叩き（authorize URL 組み立て + 固定 2 エンドポイントへの POST/GET のみで `authlib` の Strategy 抽象の恩恵が薄いため）。将来複数プロバイダ追加で恩恵が出れば `authlib` の再導入を検討する
 - レート制限：`slowapi`
 - 日付操作：標準 `datetime` + `zoneinfo`（必要なら `pendulum`）
 - HTTP クライアント：`httpx`（async）
