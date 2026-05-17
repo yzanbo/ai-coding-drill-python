@@ -110,7 +110,7 @@ docs/requirements/
 | ファイル | 担当範囲 |
 |---|---|
 | `01-roadmap.md` | ビジョン・リリース計画（R0〜R9）・プロダクトバックログ（Now / Next / Later / Parked）・スプリント運用（DoR / DoD） |
-| `r0-setup/*.md` | **R0 の各環境構築（初期慣行 + 役割別環境 + レイヤ分割 + MCP）の詳細手順**をフェーズ別 1 ファイルで保持（`foundation.md` / `backend.md`（Python / FastAPI）/ `frontend.md`（Next.js / TS）/ `worker.md`（Go）/ `backend-layers.md` / `frontend-layers.md` / `worker-layers.md` / `mcp-servers.md`）。各ファイル内の手順は **そのファイル独立の 1, 2, 3 ... 連番**で記述し、ファイル間で番号は連動しない（あるファイルの手順を増減しても他ファイル / roadmap には影響しない）。`01-roadmap.md` のバックログ概要と SSoT 分担：roadmap は「項目の存在と順序」、`r0-setup` は「項目内部の手順詳細（コマンド・完了基準・トラブルシューティング）」|
+| `r0-setup/*.md` | **R0 の各環境構築（初期慣行 + 役割別環境 + レイヤ分割 + MCP）の詳細手順**をフェーズ別 1 ファイルで保持（`foundation.md` / `backend.md`（Python / FastAPI）/ `frontend.md`（Next.js / TS）/ `worker.md`（Go）/ `backend-layers.md` / `frontend-layers.md` / `worker-layers.md` / `mcp-servers.md` / `type-sync-pipeline.md` / `mcp-servers-go-revisit.md` / `worker-types-gen.md`）。各ファイル内の手順は **そのファイル独立の 1, 2, 3 ... 連番**で記述し、ファイル間で番号は連動しない（あるファイルの手順を増減しても他ファイル / roadmap には影響しない）。`01-roadmap.md` のバックログ概要と SSoT 分担：roadmap は「項目の存在と順序」、`r0-setup` は「項目内部の手順詳細（コマンド・完了基準・トラブルシューティング）」|
 
 ### `docs/adr/` — 設計判断の履歴（参考）
 
