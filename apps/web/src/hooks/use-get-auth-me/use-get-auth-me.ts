@@ -22,7 +22,6 @@ type UseGetAuthMeReturn = {
   // isUnauthenticated: 401 を受け取った確定状態（fetch 中は false）。
   isUnauthenticated: boolean;
   error: unknown;
-  refetch: () => Promise<unknown>;
 };
 
 export const useGetAuthMe = (): UseGetAuthMeReturn => {
@@ -40,6 +39,10 @@ export const useGetAuthMe = (): UseGetAuthMeReturn => {
 
   const isUnauthenticated = query.error instanceof ApiError && query.error.status === 401;
 
+  // 500 / ネットワーク断（status undefined）の時は isUnauthenticated=false のまま。
+  //   この場合 query.data は前回成功値が残るので isAuthenticated は維持される
+  //   （UX: 一時的な通信失敗で勝手にログアウト相当に倒さない）。再評価は次の
+  //   window focus / staleTime 経過 / invalidateQueries で行う。
   return {
     // user: 401 が返った後は古いユーザー情報を返さない（TanStack Query は既定で
     //   error 時に前回 data を保持するため、ここで明示的に握り潰す）。
@@ -49,6 +52,5 @@ export const useGetAuthMe = (): UseGetAuthMeReturn => {
     isAuthenticated: !!query.data && !isUnauthenticated,
     isUnauthenticated,
     error: query.error,
-    refetch: query.refetch,
   };
 };

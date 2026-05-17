@@ -4,9 +4,9 @@
 //   要件: authentication.md §1.5 共通画面コンポーネント
 //   - 未認証時: 「ログイン」リンク（/login へ）
 //   - 認証時:   ユーザー名 + 「ログアウト」ボタン（POST /auth/logout 後にホームへ）
-//   ログイン画面そのものはここから外す（/login で同じヘッダーを出すと回遊が増えるが、
-//   要件は「ヘッダーは全画面共通」なので /login でも出す。重複動線は /login 側の
-//   「認証済みならホームへリダイレクト」で吸収する）。
+//   /login ページでは未認証時の「ログイン」CTA を出さない（同ページに既にメインの
+//   「GitHub でログイン」ボタンがあるため、ヘッダー側に重ねると動線が二重になる）。
+//   要件「ヘッダーは全画面共通」は枠の存在を指しており、内部 CTA の表示まで縛らない。
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -28,6 +28,9 @@ export const SiteHeader = () => {
   const nextParam =
     pathname && pathname !== "/login" ? `?next=${encodeURIComponent(pathname)}` : "";
 
+  // isOnLoginPage: /login ページ上では未認証 CTA を出さない（動線重複の回避）。
+  const isOnLoginPage = pathname === "/login";
+
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center border-b border-border bg-background/80 px-4 backdrop-blur sm:px-6">
       <Link href="/" className="text-base font-semibold tracking-tight">
@@ -46,7 +49,7 @@ export const SiteHeader = () => {
               ログアウト
             </Button>
           </>
-        ) : (
+        ) : isOnLoginPage ? null : (
           <Button asChild size="sm">
             <Link href={`/login${nextParam}`}>ログイン</Link>
           </Button>
