@@ -36,9 +36,19 @@ argument-hint: "[<name>] (例: grading, problem-generation)"
 - 採点結果スキーマの変更（`apps/api/app/schemas/jobs/grading_result.py` の Pydantic を更新 → `apps/api/job-schemas/grading-result.schema.json` に書き出し）
 - スタックジョブ回収・リトライポリシーの調整
 
-ユーザーの承認を待ってから実装に着手する。
+ユーザーの承認を待ってから次の手順に進む。
 
-### 4. 実装
+### 4. 要件 .md の事前更新（実装方針の質疑で確定した決定を反映）
+
+手順 3 の方針提示で**ユーザーと対話的に確定した決定**を、実装に入る前に要件 .md に反映する。実装中に決めると要件・コード・テストの 3 者にズレが残るため、**先に要件側を SSoT として確定**させる。
+
+- 反映先：機能要件 .md の該当節（ビジネスルール / ジョブペイロード / 受け入れ条件 等）、必要なら横断要件（`3-cross-cutting/`）にも追記
+- 観測可能な振る舞いとして表せる決定は**受け入れ条件**にも追加
+- 実装詳細（依存ライブラリ / 設定値 / コンテナ設定）は要件 .md に書かない（SSoT は go.mod / 設定ファイル / Dockerfile 側、→ `_template.md` 冒頭の長期運用原則）
+
+設計判断レベルの決定は ADR 起票も検討する。差分を要件側に反映してから手順 5 の実装に進む。
+
+### 5. 実装
 
 [.claude/rules/worker.md](../../rules/worker.md) のコーディング規約に従って実装する。重要なポイント：
 
@@ -75,14 +85,14 @@ argument-hint: "[<name>] (例: grading, problem-generation)"
 - 別 goroutine で定期実行（既定 30 秒間隔）
 - `locked_at < now() - interval '5 min'` を `state='queued'` に戻す（attempts++）
 
-### 5. 共有 artifact（ジョブペイロード）変更時
+### 6. 共有 artifact（ジョブペイロード）変更時
 
 - 新規ジョブペイロード型 → `apps/api/app/schemas/jobs/<job_type>.py` の Pydantic モデルを追加・修正
 - `mise run api:job-schemas-export` で `apps/api/job-schemas/<job-type>.schema.json` を更新
 - `mise run worker:<name>:types-gen`（または `mise run worker:types-gen` で全 Worker 一括）で quicktype が Go struct を再生成
 - 詳細は [ADR 0006](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md)
 
-### 6. サンドボックスイメージ変更時
+### 7. サンドボックスイメージ変更時
 
 採点 Worker の場合、`apps/workers/grading/sandbox/` を変更したら：
 
@@ -91,22 +101,6 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 ```
 
 ローカル DB 起動中の Docker Engine にビルドされる。
-
-### 7. ステータス更新
-
-実装完了後、`docs/requirements/4-features/$ARGUMENTS.md` のステータスチェックボックスを更新：
-
-```markdown
-## ステータス
-- [x] 要件定義完了（このファイルが受け入れ条件まで埋まっている）
-- [x] バックエンド実装完了
-- [x] フロントエンド実装完了
-- [x] ワーカー実装完了（必要な場合のみ）    ← ここをチェック
-- [ ] ユニットテスト完了
-- [ ] E2E テスト完了（主要フローのみ）
-- [ ] **受け入れ条件すべて満たす**
-- [ ] PR マージ済み
-```
 
 ### 8. 動作確認
 
@@ -128,4 +122,20 @@ go build ./cmd/grading
 # 5. FastAPI から手動でジョブを投入し、採点が完了することを確認
 ```
 
-問題があれば修正してから完了とする。
+問題があれば修正してから次の手順に進む。
+
+### 9. 要件 .md の事後追従（動作確認で確定した差分を反映）
+
+動作確認まで通った段階で、実装中に明らかになった以下があれば**ステータス更新の前に**要件 .md へ反映する（実装が SSoT、要件側は契約の鏡として揃える、→ `_template.md` の長期運用原則）：
+
+- **追加された振る舞い / 契約**：新規ジョブタイプ・新規ハンドラ動作・新規エラーケース・スタックジョブ回収条件 等
+- **観測可能な受け入れ条件**：実装中に「これも担保すべき」と気付いた振る舞いを受け入れ条件に追加
+- **ジョブペイロード / 結果スキーマ**：Pydantic → quicktype の流れで確定した最終的なフィールド構成を反映
+
+軽微な追従はこのスキル内で直接更新してよい。差分の規模が大きい場合は `/update-requirements` で対話的に進める。
+
+### 10. ステータス更新
+
+動作確認と要件追従まで完了したら、`docs/requirements/4-features/$ARGUMENTS.md` のステータスチェックボックスのうち**ワーカー実装完了**にチェックを入れる。
+
+ステータス節の項目構成は `docs/requirements/4-features/_template.md` を踏襲し、機能固有の補足が括弧書きで追加されているケースもある。**項目の追加・削除はしない**（テンプレからの drift を作らない）。Worker が不要な機能（authentication 等）ではそもそも「ワーカー実装完了」項目自体が存在しないことがあるので、無ければ作らない。テンプレ本体の更新が必要なら `_template.md` を直し、既存機能ファイルにも同じ構造を反映する。

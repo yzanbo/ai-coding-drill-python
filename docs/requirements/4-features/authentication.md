@@ -69,6 +69,7 @@
 ### §1.1 ビジネスルール（基盤）
 
 - **匿名利用は不可**：問題の生成・解答送信・学習履歴の記録には認証が必須
+- **複数セッション許容**：同一ユーザーが PC + スマホ等の複数端末・ブラウザで同時にログインしてよい。各セッションは独立して TTL 7 日（学習サイトの複数端末利用と相性をとる）
 - **問題閲覧（一覧・詳細）はゲストでも可能**：解答送信のみ認証必須（→ [./problem-display-and-answer.md](./problem-display-and-answer.md)）
 - **メールアドレスは取得できれば保存するが UNIQUE 制約は付けない**（プロバイダ側でメール非公開のユーザーが存在しうるため）
 - **同一プロバイダの同一外部 ID = 同一ユーザー**：既存 `auth_providers.provider_id` と一致するなら既存 `users` を再利用（プロバイダごとの判定ロジックは §2 で定義）
@@ -86,7 +87,9 @@
 - 保存先：**Redis**（→ [ADR 0047](../../adr/0047-session-store-on-redis.md)）、TTL 7 日
 - クライアント：Cookie に `session_id` を `HttpOnly` + `Secure` + `SameSite=Lax` で発行
 - 延長ポリシー：ユーザー操作のたびに TTL リセット（rolling session）
-- CSRF 対策：状態を持つフローでは `state` パラメータを Redis に事前格納してコールバックで照合（具体的な扱いは §2 のプロバイダごとに定義）
+- CSRF 対策（OAuth フロー）：状態を持つフローでは `state` パラメータを Redis に事前格納してコールバックで照合（具体的な扱いは §2 のプロバイダごとに定義）
+- `state` トークン運用：**TTL 10 分 + 1 回使い切り**（照合成功時に Redis から即削除、リプレイ攻撃防止）。ユーザーが GitHub 認可画面で時間を要する可能性に余裕を持たせつつ、放置されたトークンを長く残さない
+- CSRF 対策（状態変更 API 全般）：ログイン後の POST / PUT / DELETE / PATCH（本ドメインでは `/auth/logout`）には double submit cookie 方式で `X-CSRF-Token` ヘッダーを検証する。仕様の SSoT は [3-cross-cutting/02-api-conventions.md: CSRF 対策](../3-cross-cutting/02-api-conventions.md#csrf-対策double-submit-cookie)
 
 ### §1.4 共通 API
 
@@ -149,7 +152,7 @@
 
 1. ログアウトボタンを押下 — 全画面共通ヘッダー
 2. `POST /auth/logout` を送信し、Redis 上のセッション削除・Cookie クリアが行われる — Backend
-3. ホーム画面または `/login` にリダイレクトされ、未認証状態に戻る — 画面遷移
+3. ホーム `/` にリダイレクトされ、未認証状態に戻る — 画面遷移（問題閲覧はゲストでも可能なため、ログアウト後もサービスの顔が見える状態に戻す）
 
 ---
 
@@ -160,7 +163,11 @@
 ### §2.1 ビジネスルール（GitHub 固有）
 
 - **GitHub の `id`（数値）を `auth_providers.provider_id` として `provider='github'` で保存**：既存 `auth_providers` と一致するなら既存 `users` を再利用、新規なら `users` + `auth_providers` を同一トランザクションで作成
-- **GitHub からの取得情報**：`id`（必須）、`login`（display_name にフォールバック利用）、`email`（公開していれば保存）
+- **OAuth scope は要求しない**（空 scope）：MVP では email を使う具体用途がないため認可画面の摩擦を最小化する。公開 email を持つユーザーからは取得できるが、非公開設定のユーザーは `users.email = NULL` で保存される。将来メール通知等が必要になったら `user:email` scope 追加 + 既存ユーザーへの再認可導線を別途設計
+- **GitHub からの取得情報**：`id`（必須）、`name` / `login`（display_name 決定に利用、下記ルール）、`email`（公開していれば保存）
+- **`display_name` の決定ロジック**：`name` → `login` の順でフォールバック。`name` が `null` または空文字列なら `login` を採用する（`login` は GitHub アカウントに必ず存在するため最終フォールバックとして安全）
+- **再ログイン時は GitHub の最新値で `display_name` / `email` を上書き**：ユーザーが GitHub 側で名前 / 公開メールを変えたら自動追随する。将来「サイト内の表示名編集」機能（スコープ外）を追加する際は、この同期ポリシーを見直す
+- **OAuth エラー応答（`?error=access_denied` 等）の扱い**：GitHub から `code` ではなく `error` クエリで戻ってきた場合（ユーザーが認可画面で Cancel した、GitHub 側障害等）、セッションは作らず `/login` にリダイレクトし、トーストで「ログインをキャンセルしました。再度お試しください」等のメッセージを表示する（エラー種別ごとに文言を出し分けるかは UI 実装時に判断）
 
 ### §2.2 ログイン画面（対象：ゲスト）
 
@@ -170,7 +177,8 @@
   - `GET /auth/github` — OAuth 開始（GitHub へリダイレクト）
 - **主要インタラクション**：
   - 「GitHub でログイン」ボタン押下時の挙動は [§2.3 GitHub OAuth フロー](#23-github-oauth-フロー対象ゲスト--認証ユーザー)を参照
-  - 認可後 `/auth/github/callback` を経由して自動でホームへ遷移する（戻り先 URL が `?next=` で指定されていればそちらを優先）
+  - 認可後 `/auth/github/callback` を経由して自動でホームへ遷移する（戻り先 URL が `?next=` で指定されていればそちらを優先、許容ルールは [§2.5 バリデーション](#25-バリデーション)）
+  - **ログイン済みユーザーが `/login` に来た場合はホーム `/` へリダイレクト**（`?next=` 指定があればそちらを優先）。二重ログインの動線を作らないため
 
 ### §2.3 GitHub OAuth フロー（対象：ゲスト → 認証ユーザー）
 
@@ -192,9 +200,9 @@ sequenceDiagram
   FE ->> GH: 認可 URL に遷移
   GH ->> User: 認可画面
   User ->> GH: 認可
-  GH -->> FE: 302 /auth/github/callback?code&state
+  GH -->> FE: 302 /auth/github/callback?code&state（Cancel 時は ?error=access_denied）
   FE ->> API: GET /auth/github/callback
-  API ->> Redis: state 照合（CSRF 検証）
+  API ->> Redis: state 照合（CSRF 検証）+ TTL / 使用済みチェック
   API ->> GH: code を access_token に交換
   API ->> GH: ユーザー情報取得
   API ->> DB: auth_providers 検索 → 既存なら再利用 / 新規なら users + auth_providers を作成
@@ -230,7 +238,10 @@ sequenceDiagram
 - クエリパラメータ：
   - `code`（GitHub が発行した認可コード）
   - `state`（CSRF 対策トークン、Redis 上の事前発行値と照合）
-- レスポンス：302 リダイレクト（成功時はホーム `/` または `?next=` 指定先へ。`Set-Cookie: session_id=...; HttpOnly; Secure; SameSite=Lax` を併発。`state` 不一致時は 4xx）
+- レスポンス：302 リダイレクト
+  - 成功時：ホーム `/` または `?next=` 指定先（同一オリジン相対パスのみ、それ以外はホーム）へ。`Set-Cookie: session_id=...; HttpOnly; Secure; SameSite=Lax` を併発
+  - `state` 不一致 / TTL 切れ / 再利用時：4xx
+  - GitHub から `?error=access_denied` 等が返った時：`/login?auth_error=<種別>` へ 302（Frontend がトースト表示）
 
 ### §2.5 バリデーション
 
@@ -240,6 +251,8 @@ sequenceDiagram
 |---|---|---|
 | `code` | 取得失敗・改ざん時は再ログインへ誘導 | UX 方針として無効な認可コードでセッションを作らせない。「認証情報が不正です。再度ログインしてください」 |
 | `state` | Redis 上の事前発行値と一致しなければ拒否 | CSRF 対策（攻撃者が偽コールバックでセッションを乗っ取るのを防ぐ）。「認証セッションが無効です。再度ログインしてください」 |
+| `next` | `/` で始まる相対パスのみ許容、それ以外（`//evil.com` / `http(s)://...` 等）はホーム `/` へフォールバック | オープンリダイレクト対策（攻撃者が `/login?next=https://evil.com` 形式で偽サイトへ誘導するのを防ぐ）。拒否時はエラー表示せず黙ってホームへ送る |
+| `error` | GitHub から `?error=...` が返ったらセッションを作らず `/login?auth_error=<種別>` へリダイレクト | ユーザーが認可をキャンセルした / GitHub 側障害等の正常系。Frontend はクエリを読んでトーストで通知 |
 
 ---
 
@@ -264,6 +277,16 @@ sequenceDiagram
 - [ ] 認可後、自動的にコールバック処理が走り、ログイン状態でホーム画面に遷移する
 - [ ] 同じ GitHub アカウントで再ログインしても、`GET /auth/me` が返すユーザー ID が初回と同一（重複ユーザーが作られない）
 - [ ] `state` 不一致のコールバックは 4xx で拒否される（CSRF 対策）
+- [ ] `state` トークン発行から 10 分超のコールバックは 4xx で拒否される（TTL 切れ）
+- [ ] 同じ `state` でコールバックを 2 回送ると 2 回目は 4xx で拒否される（1 回使い切り）
+- [ ] GitHub プロフィールに `name` が設定済みのユーザーは `GET /auth/me` の `displayName` に `name` が返る、未設定なら `login` が返る
+- [ ] ログイン済みユーザーが `/login` を開くとホーム `/` へリダイレクトされる（`?next=` 指定があればそちら優先）
+- [ ] `/login?next=https://evil.com` のような外部 URL を指定してログインしてもホーム `/` に遷移する（外部誘導されない）
+- [ ] GitHub 認可画面で Cancel を押すと `/login` に戻り、トーストで「ログインをキャンセルしました」等の通知が出る（セッションは作られない）
+- [ ] ログアウト成功後はホーム `/` に遷移する（`/login` には自動で飛ばない）
+- [ ] 同一ユーザーで PC とスマホからそれぞれログインした時、両方のセッションが同時に有効（先にログインした側が切れない）
+- [ ] GitHub プロフィールの `name` を変更してから再ログインすると、`GET /auth/me` の `displayName` が新しい値で返る（DB が最新値で上書きされる）
+- [ ] `POST /auth/logout` を `X-CSRF-Token` ヘッダーなしで送ると 403 が返る（double submit cookie 検証）
 
 ## ステータス
 

@@ -18,12 +18,12 @@ argument-hint: "[<name>] (例: problem-generation, grading) または all で全
   - 全体構造：[2-foundation/02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md)
   - 非機能要件：[2-foundation/01-non-functional.md](../../../docs/requirements/2-foundation/01-non-functional.md)
 
-各要件から以下を抽出する：
+各要件から以下を抽出する（セクション名は `_template.md` 準拠）：
 
-- **データモデル**：テーブル名、カラム名、型、FK、制約
-- **API 仕様**：エンドポイント、メソッド、認証要否
-- **ビジネスルール**：ステータス値、バリデーション条件
-- **画面一覧**：パス、使用 API
+- **データモデル**：関わるテーブル名の列挙のみ（カラム単位の最終仕様は SQLAlchemy モデルと ER 図が SSoT、ここでは記載しない方針）
+- **API**：エンドポイント、メソッド、認証要否（owner feature にのみ JSON 例が書かれる、他 feature からはアンカー参照）
+- **ビジネスルール**：ステータス値、バリデーション条件（ただし機械的検証は Pydantic / Zod が SSoT、本セクションは業務上の理由があるルールのみ）
+- **画面**：ルート、使用 API、主要インタラクション
 
 ### 2. 実装の読み込み
 
@@ -41,31 +41,30 @@ argument-hint: "[<name>] (例: problem-generation, grading) または all で全
 
 ### 3. データモデルの突合
 
-要件のテーブル定義と SQLAlchemy モデルを比較し、差分を検出する：
+要件の「データモデル」節で**列挙されているテーブル名**が SQLAlchemy モデルに存在するかを突合する（要件にはテーブル名以外は書かれない方針、`_template.md` 準拠）：
 
-- テーブルの過不足
-- カラムの過不足
-- カラム名の不一致（命名規則違反を含む：`_at` / `_id` ルール、→ [.claude/rules/alembic-sqlalchemy.md](../../rules/alembic-sqlalchemy.md)）
-- 型の不一致
-- FK 参照先の不一致
-- インデックス・制約の過不足
+- 要件で言及されているテーブルが `apps/api/app/models/` に存在するか
+- 逆に要件で言及されていないテーブルを実装が使っていれば、要件に追記すべきか判断
+
+**カラム単位の詳細**（カラム名・型・FK・制約・命名規則違反 `_at` / `_id`、→ [.claude/rules/alembic-sqlalchemy.md](../../rules/alembic-sqlalchemy.md)）は要件側に書かれていないため、§8 の「ER 図 vs SQLAlchemy モデル」で突合する。
 
 ### 4. エンドポイントの突合
 
-要件の API 仕様とコントローラを比較する：
+要件の「API」節（テーブル + JSON 例）と FastAPI ルーターを比較する：
 
 - 要件にあるが実装にないエンドポイント
 - 実装にあるが要件にない（不要 or 文書化漏れ）
 - 認証要否の不一致（router の `dependencies=[Depends(get_current_user)]` の有無）
 - リクエスト・レスポンス Pydantic スキーマの不一致
+- **owner feature ルールの遵守**：各エンドポイントは 1 つの feature .md が所有し、他 feature はアンカー参照のみ。同じエンドポイントが複数 feature の API テーブルに重複していないか確認
 
 ### 5. フロントエンドの突合
 
-要件の画面一覧とフロント実装を比較する：
+要件の「画面」節とフロント実装を比較する：
 
 - **画面ルート検証**：要件に記載されたパスに対応する `page.tsx` が存在するか
 - **使用 API 検証**：画面が使う API がバックエンドに実在するか
-- **バリデーション整合性**：要件のバリデーションルールと Zod スキーマ（Hey API 生成、`apps/web/src/lib/api/generated/`）、API の Pydantic スキーマが一致するか
+- **バリデーション整合性**：要件「バリデーション」節の業務ルールが Zod スキーマ（Hey API 生成、`apps/web/src/lib/api/generated/`）、API の Pydantic スキーマと整合しているか（機械的検証は Pydantic / Zod が SSoT）
 
 ### 6. 採点 Worker の突合（該当時）
 
