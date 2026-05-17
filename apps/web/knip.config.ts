@@ -37,7 +37,15 @@ const config: KnipConfig = {
   //   - tailwindcss                 : @tailwindcss/postcss プラグイン経由でだけ参照
   //   - @testing-library/react      : テスト追加時に使う（R0 ではテスト未作成）
   //   - @testing-library/user-event : 同上
-  ignoreDependencies: ["tailwindcss", "@testing-library/react", "@testing-library/user-event"],
+  //   - zod                         : src/__generated__/api/zod.gen.ts（Hey API 生成物）が
+  //                                   import するが、生成物は ignore 配下のため Knip からは
+  //                                   到達できない（ADR 0006、型同期パイプライン）
+  ignoreDependencies: [
+    "tailwindcss",
+    "@testing-library/react",
+    "@testing-library/user-event",
+    "zod",
+  ],
 };
 
 export default config;
