@@ -7,6 +7,7 @@
 #   - docs/requirements/4-features/authentication.md §1.4「共通 API」/ §2.4「GitHub 固有 API」
 
 # UUID: Python 標準。一意 ID の型注釈に使う。
+from enum import StrEnum
 from uuid import UUID
 
 # BaseModel:  Pydantic の親クラス。継承するだけで JSON ⇄ Python の相互変換と
@@ -85,15 +86,19 @@ class CreatedSession(BaseModel):
     user: UserResponse
 
 
-# ログイン後のリダイレクトクエリ。
-# 値そのものに Pydantic は使わないが、コールバックのレスポンスを表す型として
-# 受け入れ条件で出てくる「/login?auth_error=<種別>」のキーを集約しておく。
-class AuthErrorKind:
-    """/login?auth_error=<kind> で Frontend に渡す種別の列挙（文字列定数）。
-
-    Frontend 側（Hey API 生成では拾わない）でトースト表示の出し分けに使う。
-    本クラスは Pydantic モデルではなく単なる名前空間。
-    """
+# /login?auth_error=<kind> で Frontend に渡す種別の列挙。
+#
+# StrEnum を使う理由（Python 3.11+ 標準、旧：単なるクラス変数の名前空間からの変更）：
+#   1. 型として縛れる：_redirect_to_login_with_error(kind: AuthErrorKind) で
+#      タイポを pyright が弾く
+#   2. OpenAPI に enum: [oauth_canceled, oauth_failed, state_invalid] として
+#      公開できる（FastAPI が Enum を自動認識）
+#   3. Hey API が Frontend に文字列リテラル型として伝搬し、Frontend の
+#      トースト出し分けロジックも型安全に書ける
+# StrEnum は str を継承しつつ Python 3.11+ で公式に推奨される書き方
+# （`str, Enum` の多重継承パターンの後継、ruff UP042 で誘導される）。
+class AuthErrorKind(StrEnum):
+    """/login?auth_error=<kind> で Frontend に渡す種別。"""
 
     OAUTH_CANCELED = "oauth_canceled"
     OAUTH_FAILED = "oauth_failed"

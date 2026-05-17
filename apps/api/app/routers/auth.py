@@ -220,9 +220,14 @@ async def github_callback(
     return response
 
 
-def _redirect_to_login_with_error(kind: str) -> RedirectResponse:
-    """/login?auth_error=<種別> に戻す（Frontend がトーストを出す前提）。"""
-    url = _absolute_frontend_url(f"/login?auth_error={kind}")
+def _redirect_to_login_with_error(kind: AuthErrorKind) -> RedirectResponse:
+    """/login?auth_error=<種別> に戻す（Frontend がトーストを出す前提）。
+
+    kind は AuthErrorKind で型縛り。kind.value で文字列にしてクエリに乗せる
+    （Enum をそのまま f-string に入れると "AuthErrorKind.OAUTH_CANCELED" の
+    Python 表記が混じるため明示的に value を取る）。
+    """
+    url = _absolute_frontend_url(f"/login?auth_error={kind.value}")
     return RedirectResponse(url=url, status_code=status.HTTP_302_FOUND)
 
 
