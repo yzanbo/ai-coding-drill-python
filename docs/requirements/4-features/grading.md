@@ -124,13 +124,97 @@ sequenceDiagram
 
 ## API
 
-| メソッド | パス | 用途 | 認証 |
-|---|---|---|---|
-| POST | `/submissions` | 解答送信 → 採点ジョブ投入 | 必須 |
-| GET | `/submissions/:id` | 解答 + 採点結果取得（ポーリング用） | 必須 |
-| GET | `/submissions` | 自分の解答履歴一覧 | 必須 |
+<!--
+本セクションは API-first 設計の SSoT（実装前の契約）。以下 4 ステップを必ず意識する：
 
-機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT。リクエスト・レスポンスのスキーマは Pydantic で `apps/api/app/schemas/submissions.py` に定義（本ファイルにコピーしない、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）。
+  1. API 設計：このセクションで API テーブル + JSON 例を先に書く（実装前）
+  2. バックエンド実装：/backend-implement が本セクションに沿って Pydantic + FastAPI を実装
+  3. API の吐き出し：mise run api:openapi-export で apps/api/openapi.json を出力
+  4. API 設計をバックエンド実装に合わせて更新：差分があれば本セクションを追従更新
+     （実装が SSoT、本セクションは契約の鏡）
+
+所有権ルール：本ドメインは `/submissions` 系エンドポイントを所有する。他 feature は
+`→ [grading.md#xxx](./grading.md#xxx)` でアンカー参照のみ（重複させない）。
+-->
+
+| メソッド | パス | 用途 | 認証 | 詳細 |
+|---|---|---|---|---|
+| POST | `/submissions` | 解答送信 → 採点ジョブ投入 | 必須 | [#post-submissions](#post-submissions) |
+| GET | `/submissions/:id` | 解答 + 採点結果取得（ポーリング用） | 必須 | [#get-submissionsid](#get-submissionsid) |
+| GET | `/submissions` | 自分の解答履歴一覧 | 必須 | [#get-submissions](#get-submissions) |
+
+機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT。本セクションは API-first 設計の人間可読版 + 契約の鏡（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）。
+
+### JSON 例
+
+#### POST /submissions
+
+- 認証：必須
+- 使う feature：[grading.md](./grading.md) + [problem-display-and-answer.md](./problem-display-and-answer.md)（解答画面の「実行」ボタンから呼ぶ）
+- リクエスト:
+
+```json
+{
+  "problemId": "<uuid>",
+  "code": "export function solve(n: number) { return n * 2; }"
+}
+```
+
+- レスポンス 202:
+
+```json
+{ "submissionId": "<uuid>", "status": "pending" }
+```
+
+#### GET /submissions/:id
+
+- 認証：必須
+- 使う feature：[grading.md](./grading.md) + [problem-display-and-answer.md](./problem-display-and-answer.md)（採点結果ポーリング）
+- レスポンス 200（採点完了後）:
+
+```json
+{
+  "id": "<uuid>",
+  "problemId": "<uuid>",
+  "status": "graded",
+  "score": 5,
+  "totalCount": 5,
+  "result": {
+    "passed": true,
+    "durationMs": 1340,
+    "testResults": [
+      { "name": "case1", "passed": true, "durationMs": 120 }
+    ]
+  },
+  "gradedAt": "2026-05-10T10:00:00Z"
+}
+```
+
+#### GET /submissions
+
+- 認証：必須
+- 使う feature：[grading.md](./grading.md) + [learning.md](./learning.md)（学習履歴一覧画面から呼ぶ）
+- クエリパラメータ：`page`（既定 1）/ `pageSize`（既定 20）
+- レスポンス 200:
+
+```json
+{
+  "items": [
+    {
+      "id": "<uuid>",
+      "problemId": "<uuid>",
+      "problemTitle": "二倍にして返す",
+      "status": "graded",
+      "score": 5,
+      "totalCount": 5,
+      "gradedAt": "2026-05-10T10:00:00Z"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalPages": 3
+}
+```
 
 ## バリデーション
 

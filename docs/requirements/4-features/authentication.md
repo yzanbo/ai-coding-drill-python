@@ -90,12 +90,43 @@
 
 ### §1.4 共通 API
 
-| メソッド | パス | 用途 | 認証 |
-|---|---|---|---|
-| POST | `/auth/logout` | ログアウト（セッション破棄） | 必須 |
-| GET | `/auth/me` | 現在のユーザー情報取得 | 必須 |
+<!--
+本セクションは API-first 設計の SSoT（実装前の契約）。以下 4 ステップを必ず意識する：
 
-機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT。本セクションは設計意図の記録（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）。401 セマンティクスは [3-cross-cutting/02-api-conventions.md](../3-cross-cutting/02-api-conventions.md#認証セッション) を参照。
+  1. API 設計：このセクションで API テーブル + JSON 例を先に書く（実装前）
+  2. バックエンド実装：/backend-implement が本セクションに沿って Pydantic + FastAPI を実装
+  3. API の吐き出し：mise run api:openapi-export で apps/api/openapi.json を出力
+  4. API 設計をバックエンド実装に合わせて更新：差分があれば本セクションを追従更新
+     （実装が SSoT、本セクションは契約の鏡）
+
+所有権ルール：本ドメインは `/auth/*` 系エンドポイントを所有する。他 feature は
+`→ [authentication.md#xxx](./authentication.md#xxx)` でアンカー参照のみ（重複させない）。
+-->
+
+| メソッド | パス | 用途 | 認証 | 詳細 |
+|---|---|---|---|---|
+| POST | `/auth/logout` | ログアウト（セッション破棄） | 必須 | [#post-authlogout](#post-authlogout) |
+| GET | `/auth/me` | 現在のユーザー情報取得 | 必須 | [#get-authme](#get-authme) |
+
+機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT。本セクションは API-first 設計の人間可読版 + 契約の鏡（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）。401 セマンティクスは [3-cross-cutting/02-api-conventions.md](../3-cross-cutting/02-api-conventions.md#認証セッション) を参照。
+
+#### JSON 例
+
+##### GET /auth/me
+
+- 認証：必須
+- 使う feature：[authentication.md](./authentication.md) + [problem-display-and-answer.md](./problem-display-and-answer.md)（ゲストの解答送信時の未認証判定）
+- レスポンス 200:
+
+```json
+{ "id": "<uuid>", "displayName": "aicodingdrill", "email": "ai.coding.drill@exsamle.com" }
+```
+
+##### POST /auth/logout
+
+- 認証：必須
+- 使う feature：[authentication.md](./authentication.md)
+- レスポンス：204 No Content（ボディなし）
 
 ### §1.5 共通画面コンポーネント
 
@@ -176,10 +207,27 @@ sequenceDiagram
 
 ### §2.4 GitHub 固有 API
 
-| メソッド | パス | 用途 | 認証 |
-|---|---|---|---|
-| GET | `/auth/github` | OAuth 開始（GitHub へリダイレクト） | ゲスト |
-| GET | `/auth/github/callback` | OAuth コールバック、セッション確立 | ゲスト |
+| メソッド | パス | 用途 | 認証 | 詳細 |
+|---|---|---|---|---|
+| GET | `/auth/github` | OAuth 開始（GitHub へリダイレクト） | ゲスト | [#get-authgithub](#get-authgithub) |
+| GET | `/auth/github/callback` | OAuth コールバック、セッション確立 | ゲスト | [#get-authgithubcallback](#get-authgithubcallback) |
+
+#### JSON 例
+
+##### GET /auth/github
+
+- 認証：不要（ゲスト）
+- 使う feature：[authentication.md](./authentication.md)
+- レスポンス：302 リダイレクト（GitHub の認可 URL へ。ボディなし。`state` は Redis に保存後にクエリへ付与）
+
+##### GET /auth/github/callback
+
+- 認証：不要（ゲスト）
+- 使う feature：[authentication.md](./authentication.md)
+- クエリパラメータ：
+  - `code`（GitHub が発行した認可コード）
+  - `state`（CSRF 対策トークン、Redis 上の事前発行値と照合）
+- レスポンス：302 リダイレクト（成功時はホーム `/` または `?next=` 指定先へ。`Set-Cookie: session_id=...; HttpOnly; Secure; SameSite=Lax` を併発。`state` 不一致時は 4xx）
 
 ### §2.5 バリデーション
 

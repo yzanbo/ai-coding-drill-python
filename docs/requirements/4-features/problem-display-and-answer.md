@@ -51,7 +51,7 @@
 |---|---|---|---|---|
 | 問題一覧表示 | ゲスト / 認証ユーザー | 任意 | `GET /problems` でカテゴリ・難易度フィルタ付きリストを取得 | [#問題一覧画面対象ゲスト--認証ユーザー](#問題一覧画面対象ゲスト--認証ユーザー) |
 | 問題詳細表示 | ゲスト / 認証ユーザー | 任意 | `GET /problems/:id` で問題文・入出力例を取得（テストケースの一部はマスク） | [#問題詳細解答画面対象ゲスト--認証ユーザー](#問題詳細解答画面対象ゲスト--認証ユーザー) |
-| 解答送信（実行ボタン） | 認証ユーザー | 必須 | `POST /submissions` で解答を送信 → 採点フローへ（詳細は [自動採点](./grading.md)） | [#問題閲覧--解答送信フロー対象認証ユーザー](#問題閲覧--解答送信フロー対象認証ユーザー) |
+| 解答送信（実行ボタン） | 認証ユーザー | 必須 | [`POST /submissions`](./grading.md#post-submissions) で解答を送信 → 採点フローへ（API 詳細は [grading.md](./grading.md#post-submissions) が所有） | [#問題閲覧--解答送信フロー対象認証ユーザー](#問題閲覧--解答送信フロー対象認証ユーザー) |
 
 ## データモデル
 
@@ -76,7 +76,7 @@
 - **目的**：問題文・入出力例を読みながらコードを書いて解答送信する
 - **使用 API**：
   - `GET /problems/:id` — 問題詳細取得（テストケース一部マスク）
-  - `POST /submissions` — 解答送信（詳細は grading.md）
+  - [`POST /submissions`](./grading.md#post-submissions) — 解答送信（[grading.md](./grading.md#post-submissions) が所有）
 - **主要インタラクション**：
   - エディタ内容はローカルストレージに自動保存（誤遷移時に復元）
   - ブラウザ内の型診断がインラインに表示される（CodeMirror 6 + `@typescript/vfs`）
@@ -96,24 +96,80 @@
 4. 問題文・入出力例を読み、コードエディタで TypeScript コードを書く — 問題詳細・解答画面
 5. ブラウザ内型診断で構文・型エラーを修正 — 問題詳細・解答画面（エディタ部分）
 6. 「実行」ボタンを押下 — 問題詳細・解答画面
-7. `POST /submissions` で解答送信、採点フローへ — Backend（→ [自動採点](./grading.md)）
+7. `POST /submissions` で解答送信、採点フローへ — Backend（→ [grading.md#post-submissions](./grading.md#post-submissions)）
 8. 採点結果をポーリングしながら待つ — 問題詳細・解答画面
 9. 結果表示（全通過 = 正解 / 一部失敗 = 失敗ケース表示）— 問題詳細・解答画面
 
 ### ゲストが解答送信を試みた場合（対象：ゲスト）
 
 1. 「実行」ボタンを押下 — 問題詳細・解答画面（`/problems/:id`）
-2. `GET /auth/me` で未認証を確認し、`/login?next=/problems/:id` にリダイレクトされる — ログイン画面
+2. [`GET /auth/me`](./authentication.md#get-authme) で未認証を確認し、`/login?next=/problems/:id` にリダイレクトされる — ログイン画面
 3. ログイン完了後、元の問題画面に戻って解答送信を続行できる — 問題詳細・解答画面
 
 ## API
 
-| メソッド | パス | 用途 | 認証 |
-|---|---|---|---|
-| GET | `/problems` | 問題一覧（カテゴリ・難易度フィルタ可） | 任意 |
-| GET | `/problems/:id` | 問題詳細（テストケースの一部はマスク） | 任意 |
+<!--
+本セクションは API-first 設計の SSoT（実装前の契約）。以下 4 ステップを必ず意識する：
 
-機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT。`POST /submissions` は [自動採点](./grading.md) を参照。
+  1. API 設計：このセクションで API テーブル + JSON 例を先に書く（実装前）
+  2. バックエンド実装：/backend-implement が本セクションに沿って Pydantic + FastAPI を実装
+  3. API の吐き出し：mise run api:openapi-export で apps/api/openapi.json を出力
+  4. API 設計をバックエンド実装に合わせて更新：差分があれば本セクションを追従更新
+     （実装が SSoT、本セクションは契約の鏡）
+
+所有権ルール：本ドメインは `/problems` 系（一覧 / 詳細）を所有する。`POST /submissions` は
+[grading.md](./grading.md#post-submissions) が所有しており、ここでは参照のみ。
+-->
+
+| メソッド | パス | 用途 | 認証 | 詳細 |
+|---|---|---|---|---|
+| GET | `/problems` | 問題一覧（カテゴリ・難易度フィルタ可） | 任意 | [#get-problems](#get-problems) |
+| GET | `/problems/:id` | 問題詳細（テストケースの一部はマスク） | 任意 | [#get-problemsid](#get-problemsid) |
+
+機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT。`POST /submissions` は [grading.md#post-submissions](./grading.md#post-submissions) を参照（本ファイルでは重複させない）。
+
+### JSON 例
+
+#### GET /problems
+
+- 認証：任意（ゲストでも閲覧可）
+- 使う feature：[problem-display-and-answer.md](./problem-display-and-answer.md)
+- クエリパラメータ：`category` / `difficulty` / `page`（既定 1）
+- レスポンス 200:
+
+```json
+{
+  "items": [
+    {
+      "id": "<uuid>",
+      "title": "配列の合計を返す",
+      "category": "array",
+      "difficulty": "easy"
+    }
+  ],
+  "page": 1,
+  "totalPages": 10
+}
+```
+
+#### GET /problems/:id
+
+- 認証：任意（ゲストでも閲覧可）
+- 使う feature：[problem-display-and-answer.md](./problem-display-and-answer.md)
+- レスポンス 200（テストケースは一部のみ `examples` として公開、残りはレスポンス上もマスク）:
+
+```json
+{
+  "id": "<uuid>",
+  "title": "配列の合計を返す",
+  "description": "数値配列を受け取り、その合計を返す関数 `solve` を実装してください。",
+  "examples": [
+    { "input": "[1,2,3]", "output": "6" }
+  ],
+  "category": "array",
+  "difficulty": "easy"
+}
+```
 
 ## 受け入れ条件（Definition of Done）
 

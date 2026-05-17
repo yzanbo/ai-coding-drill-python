@@ -128,13 +128,62 @@ flowchart TB
 
 ## API
 
-<!-- 該当エンドポイントがない場合はセクションごと削除可 -->
+<!--
+本セクションは API-first 設計の SSoT（実装前の契約）。以下 4 ステップを必ず意識する：
 
-| メソッド | パス | 用途 | 認証 |
-|---|---|---|---|
-| GET | `/...` | 説明 | 任意 / 必須 |
+  1. API 設計：このセクションで API テーブル + JSON 例を先に書く（実装前）
+  2. バックエンド実装：/backend-implement が本セクションに沿って Pydantic + FastAPI を実装
+  3. API の吐き出し：mise run api:openapi-export で apps/api/openapi.json を出力
+  4. API 設計をバックエンド実装に合わせて更新：差分があれば本セクションを追従更新
+     （実装が SSoT、本セクションは契約の鏡）
 
-**機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT**。本セクションは設計意図の記録（パスとロール対応の俯瞰）。Pydantic クラスのコピーは貼らない（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）。
+所有権ルール：各エンドポイントには「owner feature」を 1 つ決め、API テーブル + JSON 例は
+owner にのみ書く。他 feature は本文中で `→ [owner.md#endpoint-anchor](./owner.md#xxx)` と
+アンカーリンクで参照するだけ（重複させない、drift 防止）。
+
+エンドポイントがない機能（純粋にフロントエンド表示のみ・他 feature の API を呼ぶだけ等）でも、
+本セクションは削除せず、API テーブル位置に「APIなし」と記述する（セクション構造の一貫性を保つため）。
+-->
+
+### このドメインが所有する API
+
+| メソッド | パス | 用途 | 認証 | 詳細 |
+|---|---|---|---|---|
+| GET | `/...` | 説明 | 任意 / 必須 | [#get-...](#get-...) |
+
+<!-- このドメインがエンドポイントを所有しない場合は、上記テーブルの代わりに以下を記載：
+
+APIなし（本ドメインは独自エンドポイントを所有しない。他 feature が所有する API を参照のみ）。
+-->
+
+**機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`）が SSoT**。本セクションは API-first 設計の人間可読版 + 契約の鏡。
+
+### JSON 例
+
+#### POST /endpoint
+
+- 認証：必須 / 不要
+- 使う feature：[自分自身] + 他 feature があればリンク列挙
+- リクエスト:
+
+```json
+{ "field": "value" }
+```
+
+- レスポンス 202:
+
+```json
+{ "id": "<uuid>" }
+```
+
+#### GET /endpoint/:id
+
+- 認証：必須
+- レスポンス 200:
+
+```json
+{ "id": "<uuid>", "status": "..." }
+```
 
 ## バリデーション
 

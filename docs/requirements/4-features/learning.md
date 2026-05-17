@@ -56,7 +56,7 @@
 
 | 操作 | 対象ロール | 認証 | 概要 | 詳細 |
 |---|---|---|---|---|
-| 自分の解答履歴一覧 | 認証ユーザー | 必須 | `GET /submissions?page=N` でページネーション付き履歴（[自動採点](./grading.md) で詳細）| [#学習履歴一覧画面対象認証ユーザー](#学習履歴一覧画面対象認証ユーザー) |
+| 自分の解答履歴一覧 | 認証ユーザー | 必須 | [`GET /submissions`](./grading.md#get-submissions)`?page=N` でページネーション付き履歴（API 詳細は [grading.md](./grading.md#get-submissions) が所有）| [#学習履歴一覧画面対象認証ユーザー](#学習履歴一覧画面対象認証ユーザー) |
 | 全体正答率・カテゴリ別習熟度 | 認証ユーザー | 必須 | `GET /me/stats` で全期間の集計を取得 | [#統計画面対象認証ユーザー](#統計画面対象認証ユーザー) |
 | 弱点カテゴリ集計 | 認証ユーザー | 必須 | `GET /me/weakness` で正答率の低いカテゴリ Top N を取得 | [#弱点カテゴリ画面対象認証ユーザー](#弱点カテゴリ画面対象認証ユーザー) |
 
@@ -73,7 +73,7 @@
 - **ルート**：`/me/history`
 - **目的**：自分の解答履歴を新しい順に一覧表示する
 - **使用 API**：
-  - `GET /submissions?page=...` — 自分の解答履歴
+  - [`GET /submissions`](./grading.md#get-submissions)`?page=...` — 自分の解答履歴（[grading.md](./grading.md#get-submissions) が所有）
 - **主要インタラクション**：
   - 行クリックで対応する問題詳細（`/problems/:id`）へ遷移
   - 同一問題への複数回解答も独立した行として並ぶ（上書きされない）
@@ -108,13 +108,61 @@
 
 ## API
 
-| メソッド | パス | 用途 | 認証 |
-|---|---|---|---|
-| GET | `/submissions` | 自分の解答履歴一覧（ページネーション可） | 必須 |
-| GET | `/me/stats` | 自分の正答率・カテゴリ別習熟度 | 必須 |
-| GET | `/me/weakness` | 弱点カテゴリ集計 | 必須 |
+<!--
+本セクションは API-first 設計の SSoT（実装前の契約）。以下 4 ステップを必ず意識する：
 
-機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT。
+  1. API 設計：このセクションで API テーブル + JSON 例を先に書く（実装前）
+  2. バックエンド実装：/backend-implement が本セクションに沿って Pydantic + FastAPI を実装
+  3. API の吐き出し：mise run api:openapi-export で apps/api/openapi.json を出力
+  4. API 設計をバックエンド実装に合わせて更新：差分があれば本セクションを追従更新
+     （実装が SSoT、本セクションは契約の鏡）
+
+所有権ルール：本ドメインは `/me/*` 系エンドポイントを所有する。`GET /submissions` は
+[grading.md](./grading.md#get-submissions) が所有しており、ここでは参照のみ。
+-->
+
+| メソッド | パス | 用途 | 認証 | 詳細 |
+|---|---|---|---|---|
+| GET | `/me/stats` | 自分の正答率・カテゴリ別習熟度 | 必須 | [#get-mestats](#get-mestats) |
+| GET | `/me/weakness` | 弱点カテゴリ集計 | 必須 | [#get-meweakness](#get-meweakness) |
+
+> 注記：`GET /submissions`（自分の解答履歴一覧）は [grading.md](./grading.md#get-submissions) が所有。本ファイルからはアンカーリンクで参照するのみ（重複させない）。
+
+機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT。本セクションは API-first 設計の人間可読版 + 契約の鏡。
+
+### JSON 例
+
+#### GET /me/stats
+
+- 認証：必須
+- 使う feature：[learning.md](./learning.md)
+- レスポンス 200:
+
+```json
+{
+  "total": 42,
+  "correct": 30,
+  "accuracy": 0.714,
+  "byCategory": [
+    { "category": "array", "attempts": 10, "correct": 8, "accuracy": 0.8 },
+    { "category": "recursion", "attempts": 5, "correct": 1, "accuracy": 0.2 }
+  ]
+}
+```
+
+#### GET /me/weakness
+
+- 認証：必須
+- 使う feature：[learning.md](./learning.md)
+- レスポンス 200:
+
+```json
+{
+  "weakCategories": [
+    { "category": "recursion", "attempts": 5, "correct": 1, "accuracy": 0.2 }
+  ]
+}
+```
 
 ## 受け入れ条件（Definition of Done）
 
