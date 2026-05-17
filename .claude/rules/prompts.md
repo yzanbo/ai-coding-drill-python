@@ -147,7 +147,7 @@ llm:cache:<sha256(prompt_yaml_content + variables_json + model_id)>
 ## few-shot examples の管理
 
 - 1 ファイル内に 1〜3 例を埋め込む
-- 例が多すぎる場合は別ファイル（`examples/<category>.yaml`）に分離して `extends` で参照
+- 例が多すぎる場合は別ファイル（`examples/<prompt-category>.yaml`、例：`examples/typescript-basics.yaml`）に分離して `extends` で参照（`<prompt-category>` は few-shot 例の分類軸であり、`4-features/` のドメイン名とは無関係）
 - 例題に**既存問題と紛らわしいもの**を含めない（生成バイアスを避ける）
 
 ## メタデータ・ログ
