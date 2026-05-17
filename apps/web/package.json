@@ -43,7 +43,7 @@
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.6",
     "jsdom": "^29.1.1",
-    "knip": "^6.14.0",
+    "knip": "^6.14.1",
     "msw": "2.14.6",
     "syncpack": "^15.2.0",
     "tailwindcss": "^4",
