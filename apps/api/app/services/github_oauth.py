@@ -27,6 +27,11 @@ _AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 _TOKEN_URL = "https://github.com/login/oauth/access_token"
 _USER_API_URL = "https://api.github.com/user"
 
+# User-Agent: GitHub REST API は User-Agent ヘッダーを必須化している
+#   （無いと 403 で弾かれる）。アプリ識別できる固定値を渡しておく。
+#   公式ドキュメント：https://docs.github.com/en/rest/overview/resources-in-the-rest-api#user-agent-required
+_USER_AGENT = "ai-coding-drill"
+
 
 class GitHubOAuthError(Exception):
     """GitHub OAuth フロー中のエラー。Router 側でハンドリングしてリダイレクトを返す。"""
@@ -89,7 +94,10 @@ class GitHubOAuthClient:
                 "code": code,
                 "redirect_uri": self._redirect_uri,
             },
-            headers={"Accept": "application/json"},
+            headers={
+                "Accept": "application/json",
+                "User-Agent": _USER_AGENT,
+            },
         )
         if token_resp.status_code != 200:
             raise GitHubOAuthError(
@@ -123,6 +131,7 @@ class GitHubOAuthClient:
                 "Authorization": f"token {access_token}",
                 "Accept": "application/vnd.github+json",
                 "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": _USER_AGENT,
             },
         )
         if user_resp.status_code != 200:
