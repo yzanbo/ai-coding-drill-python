@@ -74,7 +74,10 @@
 採点結果は専用画面ではなく、[問題詳細・解答画面](./problem-display-and-answer.md) 内のコンポーネントとして表示される。
 
 - **目的**：解答送信後、ポーリングで採点結果を取得し、結果の種類（正解 / 失敗 / 実行時エラー / タイムアウト）に応じて表示形式を切り替える
-- **非自明な相互作用**：
+- **使用 API**：
+  - `POST /submissions` — 解答送信（202 + submissionId）
+  - `GET /submissions/:id` — ポーリングで結果取得
+- **主要インタラクション**：
   - 採点中はスピナーを表示、`status='graded'` で停止して結果を表示
   - 失敗ケースには期待値・実際の出力・差分を併記する
   - `status='failed'`（インフラ起因の失敗）では再試行ボタンを提示
@@ -168,7 +171,6 @@ sequenceDiagram
 - [ ] ユニットテスト完了（pytest（API）+ Go testing + testify（Worker、SandboxRunner のモックテスト）、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [ ] E2E テスト完了（解答送信 → 採点完了 → 結果表示の主要フロー、Playwright）
 - [ ] **受け入れ条件すべて満たす**
-- [ ] PR マージ済み
 
 ## 関連
 
