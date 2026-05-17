@@ -1,8 +1,8 @@
 # 07. Worker（Go）ディレクトリ構成（🔴 未着手）
 
-> **守備範囲**：`apps/workers/grading/` 配下に Go の package 分割（`cmd/` + `internal/{jobtypes,llm,sandbox,grading,db,observability}/`）を確定し、各 package の責務 + import 方向 + 命名規則を `.claude/rules/worker.md` に「実装契約」として固定する。本フェーズが終わると、R1-3 以降の Worker 機能実装（LLM プロバイダ抽象化 / 採点ロジック / DB 書き戻し）が「悩まずに迷わずどの package に置くかを選ぶ」状態になる。
+> **守備範囲**：`apps/workers/grading/` 配下に Go の package 分割（`cmd/` + `internal/{jobtypes,llm,sandbox,grading,db,observability}/`）を確定し、各 package の責務 + import 方向 + 命名規則を `.claude/rules/worker.md` に「実装契約」として固定する。本フェーズが終わると、後続の Worker 機能実装（LLM プロバイダ抽象化 / 採点ロジック / DB 書き戻し）が「悩まずに迷わずどの package に置くかを選ぶ」状態になる。
 > **前提フェーズ**：[Go 環境構築フェーズ](./04-worker.md) 完了済（`apps/workers/grading/main.go` skeleton / `go.mod` / `.golangci.yml` / `sandbox/Dockerfile` skeleton が配置済、`mise run worker:grading:dev` で起動可能、golangci-lint / govulncheck がローカル + CI 両方で緑）
-> **次フェーズ**：R1 開始（特に R1-3 LLM プロバイダ抽象化が本フェーズの成果物に依存）
+> **次フェーズ**：R1 開始（LLM プロバイダ抽象化フェーズが本フェーズの成果物に依存、→ [01-roadmap.md](../01-roadmap.md)）
 >
 > **本フェーズの位置付け**：[README.md: 役割別 setup の後段](./README.md#役割別-setup-の後段レイヤ分割フェーズ) を参照。言語ツーリングが整った上に、その言語側でプロジェクト固有のレイヤ分割を確定するフェーズで、「悩む余地のない基本構造」とは別物として扱う（[05-backend-layers.md](./05-backend-layers.md) / [06-frontend-layers.md](./06-frontend-layers.md) と同パターン）。
 >
@@ -54,11 +54,11 @@ apps/workers/grading/
 │   ├── README.md                                    # 本フェーズで作成
 │   ├── jobtypes/                                    # apps/api/job-schemas/ から quicktype で生成された Go struct（04-worker.md で雛形配置済）
 │   │   └── README.md                                # 本フェーズで作成
-│   ├── llm/                                         # LLM プロバイダ抽象化（R1-3 で実体化、ADR 0007 / 0040）
+│   ├── llm/                                         # LLM プロバイダ抽象化（ADR 0007 / 0040）
 │   │   └── README.md                                # 本フェーズで作成
-│   ├── sandbox/                                     # Docker サンドボックス操作（公式 docker/docker/client、R1-6 で実体化、ADR 0009）
+│   ├── sandbox/                                     # Docker サンドボックス操作（公式 docker/docker/client、ADR 0009）
 │   │   └── README.md                                # 本フェーズで作成
-│   ├── grading/                                     # 採点ロジック（judge LLM 呼び出し + サンドボックス連携、R1-6 で実体化）
+│   ├── grading/                                     # 採点ロジック（judge LLM 呼び出し + サンドボックス連携）
 │   │   └── README.md                                # 本フェーズで作成
 │   ├── db/                                          # Postgres ジョブキュー取得 + 結果書き戻し（SELECT FOR UPDATE SKIP LOCKED、ADR 0004）
 │   │   └── README.md                                # 本フェーズで作成
