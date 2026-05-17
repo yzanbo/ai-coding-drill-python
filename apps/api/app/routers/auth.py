@@ -18,10 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import state_store
 from app.core.config import get_settings
-from app.core.cookies import sign_sid, unsign_sid
+from app.core.cookies import sign_sid
 from app.core.redis import get_redis
+from app.core.session import Session
 from app.db.session import get_async_session
-from app.deps.auth import get_current_user
+from app.deps.auth import get_current_session, get_current_user
 from app.models.users import User
 from app.schemas.auth import AuthErrorKind, UserResponse
 from app.services.auth import AuthService
@@ -33,6 +34,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 DbDep = Annotated[AsyncSession, Depends(get_async_session)]
 RedisDep = Annotated[Redis, Depends(get_redis)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentSession = Annotated[Session | None, Depends(get_current_session)]
 
 
 # ?next= の許容ルール：authentication.md §2.5
@@ -215,8 +217,17 @@ async def github_callback(
 
     response = RedirectResponse(url=target_url, status_code=status.HTTP_302_FOUND)
     _set_session_cookies(response, sid=created.sid, csrf_token=created.csrf_token)
-    # auth_next は使い切ったので削除。
-    response.delete_cookie(key="auth_next", path="/")
+    # auth_next を消す。set 側と同じ属性で消さないと一部ブラウザが
+    # 「別 Cookie」と判定して消えないことがある（set 時に httponly/secure/samesite
+    # を付けたなら delete でも同じ属性を渡す）。
+    settings = get_settings()
+    response.delete_cookie(
+        key="auth_next",
+        path="/",
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+    )
     return response
 
 
@@ -249,25 +260,23 @@ async def get_me(user: CurrentUser) -> User:
     responses={204: {"description": "ログアウト成功（ボディなし）"}},
 )
 async def logout(
-    request: Request,
     redis: RedisDep,
     db_session: DbDep,
     response: Response,
-    # 認証必須にすると未認証時 401。CSRF middleware が先に通過済み（POST 経由）。
+    # _user: 認証必須を表すための Depends。CSRF middleware が先に通過済み（POST 経由）。
+    # current_session: deps/auth.py:get_current_session で Cookie 復号 + 検証を集約。
+    #                  Router 内で Cookie 解析を再実装する重複を避ける。
     _user: CurrentUser,
+    current_session: CurrentSession,
 ) -> Response:
     """セッションを破棄し、Cookie を Max-Age=0 で消す。
 
     - 内部的に Redis から `session:<sid>` を DELETE + `user:<id>:sessions` から SREM
     - 204 No Content（ボディなし）。Cookie だけがレスポンスヘッダーに残る
     """
-    settings = get_settings()
-    signed = request.cookies.get(settings.session_cookie_name)
-    sid = unsign_sid(signed) if signed else None
-
-    if sid:
+    if current_session is not None:
         service = AuthService(db_session, redis)
-        await service.logout(sid)
+        await service.logout(current_session.sid)
 
     # 念のため Redis 側で消えなかった場合も Cookie はクリアする。
     _clear_session_cookies(response)
