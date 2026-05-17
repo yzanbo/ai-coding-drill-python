@@ -87,12 +87,15 @@ async def create(redis: Redis, user_id: UUID) -> Session:
     settings = get_settings()
     ttl = settings.session_ttl_seconds
 
-    # pipeline: 複数の Redis コマンドをまとめて 1 回のラウンドトリップで送る仕組み。
+    # pipeline + transaction=True: MULTI/EXEC で 4 コマンドを atomic に実行する。
     #   セッション作成は「hash の SET + EXPIRE + user_id 側 set への SADD + EXPIRE」の
-    #   4 コマンドが必要なので、1 ラウンドにまとめて遅延を抑える。
-    #   atomicity は MULTI/EXEC でも担保できるが、ここでは「ベストエフォートで送って
-    #   1 ヶ所でも失敗したらリクエストが 500 になる」前提で十分（再ログインで復旧可能）。
-    async with redis.pipeline(transaction=False) as pipe:
+    #   4 コマンドが必要で、途中で 1 つでも失敗すると
+    #     - session:<sid> hash は作られたが user:<id>:sessions set に sid が無い
+    #     - その逆（sid が set に居るが hash が無い）
+    #   といった壊れた状態が残る。MULTI/EXEC で 1 つでも失敗したら全部巻き戻すことで
+    #   この中間状態を作らない。ログイン処理は 1 リクエストに 1 回しか走らないため、
+    #   MULTI/EXEC のオーバーヘッドは無視できる。
+    async with redis.pipeline(transaction=True) as pipe:
         # hset: hash 型キーに複数フィールドを一括 SET する。
         #   mapping= で {フィールド名: 値} を渡す。
         #   redis-py の型は str | None だけ受け付けるため、数値は str に変換しておく。
