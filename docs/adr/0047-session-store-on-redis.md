@@ -33,8 +33,8 @@ R0-2（GitHub OAuth 実装）の着手前に判断を明文化し、認証コー
 
 | 属性 | 値 | 理由 |
 |---|---|---|
-| 名前 | `sid`（例） | アプリ非自明な名前で技術スタック推測を困難化 |
-| 値 | 32 byte 以上の **CSPRNG ランダム**を base64url 化（不透明 ID） | セッションそのものを Cookie に入れない、ストア側で実体を持つ |
+| 名前 | **`session_id`** | 自己ドキュメント性を優先（コード・ログ・監査で役割が一目で分かる）。obscurity による技術スタック推測困難化は OWASP の主防御に含まれず、HttpOnly / Secure / SameSite / 不透明値 / CSRF token / 署名で十分（→ §Why の改訂理由） |
+| 値 | 32 byte 以上の **CSPRNG ランダム**を base64url 化 + itsdangerous で署名（不透明 ID） | セッションそのものを Cookie に入れない、ストア側で実体を持つ。署名は改ざんを Redis 問い合わせ前に弾く層 |
 | `HttpOnly` | true | JavaScript からの読み取り不可（XSS 経由の token 盗難を防ぐ） |
 | `Secure` | true | HTTPS でのみ送信、HTTP 経由のリーク防止 |
 | `SameSite` | `Lax` | OAuth callback（top-level GET）で Cookie が運ばれる必要があるため `Strict` 不可、`None` は CSRF 余地が広い |
@@ -46,8 +46,8 @@ R0-2（GitHub OAuth 実装）の着手前に判断を明文化し、認証コー
 
 | キー | 型 | 値の中身 | TTL |
 |---|---|---|---|
-| `session:<sid>` | hash | `user_id`, `provider`, `created_at`, `last_seen_at`, `csrf_token`, `user_agent_hash`, `ip_hash` | 7 日（最終アクセス時に touch で延長） |
-| `user:<user_id>:sessions` | set | そのユーザーのアクティブ `sid` 一覧（全端末ログアウト用） | 個別 sid の expire と同期 |
+| `session:<session_id>` | hash | `user_id`, `provider`, `created_at`, `last_seen_at`, `csrf_token`, `user_agent_hash`, `ip_hash` | 7 日（最終アクセス時に touch で延長） |
+| `user:<user_id>:sessions` | set | そのユーザーのアクティブ `session_id` 一覧（全端末ログアウト用） | 個別 session_id の expire と同期 |
 
 ### CSRF 対策
 
@@ -58,9 +58,9 @@ R0-2（GitHub OAuth 実装）の着手前に判断を明文化し、認証コー
 ### 認証フロー上の責務分担
 
 1. Frontend → `GET /auth/github/login` → Backend が GitHub にリダイレクト
-2. GitHub → `GET /auth/github/callback?code=...` → Backend が code を access_token に交換 → ユーザー作成 / 取得 → `sid` 生成 → Redis に `session:<sid>` を SET（TTL 7 日）→ `Set-Cookie: sid=...` で返す
-3. 以降のリクエスト → Backend Middleware が Cookie の `sid` で `GET session:<sid>` → `user_id` を request.state に詰める → ハンドラで `current_user` として利用
-4. ログアウト → Backend が `DEL session:<sid>` + `SREM user:<user_id>:sessions <sid>` + `Set-Cookie: sid=; Max-Age=0`
+2. GitHub → `GET /auth/github/callback?code=...` → Backend が code を access_token に交換 → ユーザー作成 / 取得 → `session_id` 生成 → Redis に `session:<session_id>` を SET（TTL 7 日）→ `Set-Cookie: session_id=...` で返す
+3. 以降のリクエスト → Backend Middleware が Cookie の `session_id` で `GET session:<session_id>` → `user_id` を request.state に詰める → ハンドラで `current_user` として利用
+4. ログアウト → Backend が `DEL session:<session_id>` + `SREM user:<user_id>:sessions <session_id>` + `Set-Cookie: session_id=; Max-Age=0`
 
 ### やらないこと（YAGNI）
 
@@ -108,7 +108,17 @@ R0-2（GitHub OAuth 実装）の着手前に判断を明文化し、認証コー
 - 認証障害 = アプリ全体障害になる。Redis に逃がせばアプリ DB は応答性を維持できる
 - vacuum / autovacuum 戦略を考えなくて済む（セッション = 高頻度 INSERT/DELETE はテーブル肥大化が起きやすい）
 
-### 7. `SameSite=Lax` の選定根拠
+### 7. Cookie 名は obscurity ではなく自己ドキュメント性で選ぶ
+
+過去案では Cookie 名を `sid` 等の非自明な短名にして「アプリ非自明な名前で技術スタック推測を困難化」する根拠を採っていたが、本 ADR では `session_id` 採用に改める：
+
+- **OWASP の主防御モデルでは Cookie 名の obscurity は含まれない**：実際の防御は HttpOnly / Secure / SameSite / 不透明値 / CSRF token / 署名（itsdangerous）で完結している
+- **攻撃者は DevTools / curl で Cookie を即座に閲覧可能**：名前を伏せても得られる遅延はほぼゼロ
+- **自己ドキュメント性のメリットは継続的**：コードレビュー、トラブルシュート、監査、新規参画者の理解スピードに毎リクエスト効く
+- **主要 framework も descriptive 寄り**：Django `sessionid` / Spring `JSESSIONID` / Rails `_<app>_session`。短名は `connect.sid`（Express）等の少数派
+- **Settings.session_cookie_name で差し替え可能**：本番環境で別名が必要になっても 1 行で変えられる柔軟性は維持
+
+### 8. `SameSite=Lax` の選定根拠
 
 - `Strict`：top-level GET でも Cookie が送られない条件があり、**GitHub OAuth callback で Cookie が消える**ことがある（実装難）
 - `None`：CSRF 余地が広い、`Secure` 必須・第三者 Cookie 規制でブラウザ依存
