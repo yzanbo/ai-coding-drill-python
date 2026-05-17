@@ -154,15 +154,18 @@ ls apps/api/job-schemas/                       # .gitkeep のみ
 - **Biome / tsc / Knip の対象外設定**：生成物は人間が手書きしないため、Biome の lint・Knip の未使用検出は除外する（`apps/web/biome.jsonc` `apps/web/knip.config.ts` を必要分だけ調整）。一方 `tsc --noEmit` は型整合性確認のため対象に含める（生成物が壊れていれば型エラーで検出されるべき）
 
 **作業内容**：
-1. **Hey API の最新安定版を調査**：[Hey API openapi-ts](https://heyapi.dev/openapi-ts/) と [Hey API Zod Plugin](https://heyapi.dev/openapi-ts/plugins/zod) で latest stable 版を確認
-2. `cd apps/web && pnpm add -D @hey-api/openapi-ts` で devDep に追加（Zod プラグインが別 package の場合は同時追加、最新ドキュメントの指示に従う）
+1. **Hey API の最新安定版を調査**：[Hey API openapi-ts](https://heyapi.dev/openapi-ts/) で latest stable 版を確認（**Zod プラグインは本体に内蔵されている**ため別 package は不要）。同時に [zod](https://www.npmjs.com/package/zod) の latest stable 版も確認する（生成物 `zod.gen.ts` が runtime で import するため devDep に同居させる）
+2. **mise 管理の pnpm を使う**：`mise exec -- pnpm add -D -w @hey-api/openapi-ts@<ver> zod@<ver>`（PATH の pnpm が他バージョンマネージャー由来だと store version mismatch でコケる。`-w` は pnpm 11 の workspace root へ追加する明示フラグ）。実行前に `apps/web/pnpm-workspace.yaml` の `packages:` フィールドが定義されていることを確認する（pnpm 11 で必須化されたため、未定義なら `packages: ["."]` を追加して apps/web 自身を唯一のパッケージとして登録する）
 3. `apps/web/openapi-ts.config.ts` を作成：
    - `input`：相対パスで `../api/openapi.json`（apps/api の artifact を直接参照）
-   - `output`：`./src/__generated__/api`
-   - プラグイン：標準クライアント生成 + Zod スキーマ + TS 型（最新ドキュメントの推奨構成に従う、本ファイルでは API 名を凍結しない）
+   - `output`：`{ path: "./src/__generated__/api" }` のみ（**`format` / `postProcess` は設定しない**。本プロジェクトは Biome 採用で Prettier を入れていないため、Hey API のデフォルト整形のまま出力する）
+   - プラグイン：`["@hey-api/client-fetch", "@hey-api/typescript", "@hey-api/sdk", "zod"]`（最新ドキュメントの推奨構成、API 名は最新版に追従させる）
 4. `apps/web/biome.jsonc` を編集：`files.includes` / `linter.includes` 等から `src/__generated__/**` を除外（生成物に lint をかけない）
-5. `apps/web/knip.config.ts` を編集：`ignore` に `src/__generated__/**` を追加（未使用検出から除外、初期段階では生成物を import するアプリ側コードが無いため warn が出る）
+5. `apps/web/knip.config.ts` を編集：
+   - `ignore` に `src/__generated__/**` を追加（未使用検出から除外）
+   - `ignoreDependencies` に `"zod"` を追加（zod は生成物 `zod.gen.ts` でしか使われず、生成物は `ignore` 配下で Knip から到達できないため、何もしないと Knip が `zod` を「未使用 devDep」と誤検知する）
 6. **package.json の依存版数の意図**を `apps/web/package.json` の devDep コメント運用に従い記録（package.json はコメント不可のため、依存追加 commit メッセージ本文で根拠を残す）
+7. **既存 `src/__generated__/api/README.md` が削除されることを許容**：Hey API は再生成時に `output.path` 配下を毎回クリーンアップするため、人手のドキュメントを置いても消える。生成物に関する説明は `apps/web/src/README.md` 等、`__generated__/` の外に書く
 
 **完了確認**：
 ```bash
@@ -229,9 +232,18 @@ pre-commit:
     # apps/api/app/schemas/ 配下が変わったときだけ起動。3 artifact を再生成して差分が
     # 出たら abort し、開発者に「mise run api:openapi-export && mise run api:job-schemas-export
     # && mise run web:types-gen して再 commit」を促す。
+    #
+    # 注意 1: glob は "apps/api/app/schemas/**"（schemas/ 配下を丸ごと）にする。
+    #   lefthook の doublestar 実装は "schemas/**/*.py" だと schemas/ 直下のファイル
+    #   （health.py 等）を拾えないため。schemas/ は Pydantic 専用で .py 以外を
+    #   置かない運用のため拡張子の絞り込みは省略してよい。
+    # 注意 2: run の先頭で set -e を必ず付ける。
+    #   付けないと途中の mise run が失敗しても次のコマンドに進んでしまい、
+    #   最後の git diff が「差分なし = pass」を返して誤って通る事象が発生する。
     schemas-drift:
-      glob: "apps/api/app/schemas/**/*.py"
+      glob: "apps/api/app/schemas/**"
       run: |
+        set -e
         mise exec -- mise run api:openapi-export
         mise exec -- mise run api:job-schemas-export
         mise exec -- mise run web:types-gen
