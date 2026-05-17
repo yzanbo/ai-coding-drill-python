@@ -45,6 +45,12 @@ lefthook = "latest"                               # Git フック管理（ADR 00
                                                   # 別 prefix に展開するため Node module 解決不可。
                                                   # 代わりに commitlint.config.mjs に conventional ルールをインライン展開。
 
+# --- Worker（Go）ツール（ADR 0019 / 0040、R0-8 で追加）---
+# go: backend は `go install` 経由で取得する。[tools].go と同じ Go ランタイムが使われる。
+# `mise exec -- golangci-lint run` 等で pre-commit / pre-push / CI から起動する。
+"go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "latest"  # Go lint メタリンター（ADR 0019）
+"go:golang.org/x/vuln/cmd/govulncheck" = "latest"                       # Go 脆弱性スキャン（ADR 0019）
+
 # ============================================================================
 # settings
 # ============================================================================
