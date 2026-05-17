@@ -46,7 +46,7 @@
 - **発行**：ログイン成功時にセッションと同時に `csrf_token`（32 byte CSPRNG）を Redis（`session:<sid>` の hash 内）に保存し、`csrf_token` Cookie として配信する（**`HttpOnly` なし**、Frontend が JS で読めるように `Secure` + `SameSite=Lax` のみ）
 - **送信**：Frontend は状態変更リクエストの `X-CSRF-Token` ヘッダーに Cookie の値を詰める（Hey API 生成クライアントの interceptor で組み込む）
 - **検証**：Backend は Cookie の `sid` で Redis セッションを引き、ヘッダーの `X-CSRF-Token` と保存された `csrf_token` が一致するか検証。不一致 / 欠落は 403
-- **対象外**：`GET` / `HEAD` / `OPTIONS`（仕様上副作用なし）、`/auth/github/callback`（外部からの top-level GET、別途 OAuth `state` トークンで防御）
+- **対象外**：`GET` / `HEAD` / `OPTIONS`（仕様上副作用なし）。`/auth/github/callback` は GET なので前段の対象外規則で素通りし、OAuth `state` トークンで別途 CSRF 防御する（パス単位の個別 exempt リストには登録しない。将来 POST 化する場合は CSRF 検証の要否を再評価する）
 
 ### 認証要否の制御
 
