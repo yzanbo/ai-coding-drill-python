@@ -238,10 +238,11 @@ sequenceDiagram
 - クエリパラメータ：
   - `code`（GitHub が発行した認可コード）
   - `state`（CSRF 対策トークン、Redis 上の事前発行値と照合）
-- レスポンス：302 リダイレクト
-  - 成功時：ホーム `/` または `?next=` 指定先（同一オリジン相対パスのみ、それ以外はホーム）へ。`Set-Cookie: session_id=...; HttpOnly; Secure; SameSite=Lax` を併発
-  - `state` 不一致 / TTL 切れ / 再利用時：4xx
-  - GitHub から `?error=access_denied` 等が返った時：`/login?auth_error=<種別>` へ 302（Frontend がトースト表示）
+- レスポンス：常に 302 リダイレクト（成功時 / 失敗時とも）
+  - 成功時：ホーム `/` または `?next=` 指定先（同一オリジン相対パスのみ、それ以外はホーム）へ。`Set-Cookie: session_id=...; HttpOnly; Secure; SameSite=Lax` と `Set-Cookie: csrf_token=...; Secure; SameSite=Lax`（HttpOnly なし）を併発
+  - `state` 不一致 / TTL 切れ / 再利用時：`/login?auth_error=state_invalid` へ 302（新規セッションは作られない、Frontend がトースト表示）
+  - GitHub から `?error=access_denied` 等が返った時：`/login?auth_error=oauth_canceled` へ 302
+  - GitHub からの code 交換失敗等：`/login?auth_error=oauth_failed` へ 302
 
 ### §2.5 バリデーション
 
@@ -276,9 +277,9 @@ sequenceDiagram
 - [ ] ボタン押下で GitHub の認可画面に遷移する
 - [ ] 認可後、自動的にコールバック処理が走り、ログイン状態でホーム画面に遷移する
 - [ ] 同じ GitHub アカウントで再ログインしても、`GET /auth/me` が返すユーザー ID が初回と同一（重複ユーザーが作られない）
-- [ ] `state` 不一致のコールバックは 4xx で拒否される（CSRF 対策）
-- [ ] `state` トークン発行から 10 分超のコールバックは 4xx で拒否される（TTL 切れ）
-- [ ] 同じ `state` でコールバックを 2 回送ると 2 回目は 4xx で拒否される（1 回使い切り）
+- [ ] `state` 不一致のコールバックでは新規セッションが作られず `/login?auth_error=state_invalid` へ 302（CSRF 対策、Frontend がトースト表示）
+- [ ] `state` トークン発行から 10 分超のコールバックも同様に `/login?auth_error=state_invalid` へ 302（TTL 切れも CSRF と同じ扱い）
+- [ ] 同じ `state` でコールバックを 2 回送ると 2 回目も `/login?auth_error=state_invalid` へ 302（1 回使い切り）
 - [ ] GitHub プロフィールに `name` が設定済みのユーザーは `GET /auth/me` の `displayName` に `name` が返る、未設定なら `login` が返る
 - [ ] ログイン済みユーザーが `/login` を開くとホーム `/` へリダイレクトされる（`?next=` 指定があればそちら優先）
 - [ ] `/login?next=https://evil.com` のような外部 URL を指定してログインしてもホーム `/` に遷移する（外部誘導されない）
@@ -294,7 +295,7 @@ sequenceDiagram
 >
 > **長期運用**：機能を再着手・大きく改修するたびに**チェックを外してリセットする**（過去の完了履歴は残さない、履歴は git log と PR で辿る）。常に「この機能の現在の状態」だけを映す鏡として使う。
 
-- [ ] バックエンド実装完了（auth ルーター / セッションサービス / GitHub OAuth クライアント）
+- [x] バックエンド実装完了（auth ルーター / セッションサービス / GitHub OAuth クライアント）
 - [ ] フロントエンド実装完了（ログイン画面 / ヘッダーメニュー）
 - [ ] ユニットテスト完了（auth サービス / GitHub クライアントのモックテスト、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [ ] E2E テスト完了（ログイン〜ログアウトの主要フロー、Playwright）
