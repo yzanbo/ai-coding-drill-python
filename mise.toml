@@ -310,6 +310,36 @@ depends = [
 # worker:dev は系統別の起動コマンドが Worker ごとに異なるため横断タスクを設けず、
 # worker:grading:dev / worker:generation:dev を直接呼ぶ運用とする。
 
+# dev:all / dev:restart は web + api をまとめて立ち上げる開発用ショートカット。
+#   - depends に並べた長時間タスクは mise が並列で動かし続ける（どちらかが落ちると検知）
+#   - dev:restart は :3000（next）と :8000（uvicorn）を listen しているプロセスを落として
+#     から起動する。lsof で「TCP LISTEN 状態の PID」だけに絞るため、たまたま同ポートに
+#     接続しているクライアント等は誤って kill しない
+[tasks."dev:all"]
+description = "web (Next.js) + api (FastAPI) を並行起動"
+depends = [
+  "api:dev",
+  "web:dev",
+]
+
+# dev:restart の流儀：
+#   1. SIGTERM（kill -15）でまず行儀よく止める。Next.js は子プロセス（esbuild / SWC worker）
+#      を spawn しているため、いきなり SIGKILL するとゾンビが残ることがある。
+#   2. 1 秒待ってから残ったプロセスに SIGKILL（kill -9）でとどめを刺す。
+#   xargs の "-r"（空入力なら起動しない）は GNU 拡張で macOS の BSD xargs にはない。
+#   そのため空入力時は引数なしで kill が動いて usage エラーが出るが、`2>/dev/null || true`
+#   で握り潰す（実害なし。BSD/GNU 両方で同じ振る舞いになる）。
+[tasks."dev:restart"]
+description = "web + api を再起動（:3000 / :8000 を listen 中のプロセスを kill してから起動）"
+run = """
+lsof -ti tcp:3000 -sTCP:LISTEN | xargs kill -15 2>/dev/null || true
+lsof -ti tcp:8000 -sTCP:LISTEN | xargs kill -15 2>/dev/null || true
+sleep 1
+lsof -ti tcp:3000 -sTCP:LISTEN | xargs kill -9 2>/dev/null || true
+lsof -ti tcp:8000 -sTCP:LISTEN | xargs kill -9 2>/dev/null || true
+mise run dev:all
+"""
+
 [tasks."worker:test"]
 description = "全 Worker の go test（generation はスケルトン）"
 depends = [

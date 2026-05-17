@@ -65,9 +65,12 @@ mise run api:db-migrate
 # 6. シードデータ投入（任意、apps/api 着手後）
 cd apps/api && uv run python -m app.db.seeds
 
-# 7. 各アプリを起動（別ターミナルで）
-mise run api:dev               # FastAPI
-mise run web:dev               # Next.js
+# 7. 各アプリを起動
+mise run dev:all               # FastAPI + Next.js を並行起動（推奨、Ctrl-C で両方止まる）
+mise run dev:restart           # :3000 / :8000 を listen 中のプロセスを kill して dev:all
+# 個別に動かしたい場合は別ターミナルで:
+mise run api:dev               # FastAPI のみ
+mise run web:dev               # Next.js のみ
 mise run worker:grading:dev    # 採点 Worker
 ```
 
@@ -120,7 +123,7 @@ mise run worker:grading:dev    # 採点 Worker
 
 | 変数 | 説明 |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | FastAPI の URL（例 `http://localhost:8000`） |
+| `API_PROXY_TARGET` | FastAPI への rewrites 転送先（例 `http://localhost:8000`、SSoT は `apps/web/.env.example`）。Frontend からは相対パス（`/auth`, `/health`, `/healthz`）で叩き、`next.config.ts` の `rewrites` がここへ転送する |
 
 `apps/workers/grading/.env`（採点 Worker）：
 
@@ -177,6 +180,8 @@ commitlint.config.mjs          コミットメッセージ規約（ADR 0029）
 mise run lint             # 全言語 lint
 mise run test             # 全言語 test
 mise run typecheck        # 全言語 typecheck（api + web。Go は `go build` 内蔵で別扱い）
+mise run dev:all          # web (Next.js) + api (FastAPI) を並行起動
+mise run dev:restart      # :3000 / :8000 を listen 中のプロセスを kill してから dev:all
 ```
 
 > 型生成は境界別に分かれる。両境界を一括で再生成する横断タスク `mise run types-gen` あり（OpenAPI export + Job Schema export + Hey API + quicktype をチェーン実行、CI の drift 検出にも使う）。境界別に個別実行したい場合は `mise run web:types-gen`（HTTP API 境界：OpenAPI → Hey API）/ `mise run api:job-schemas-export` + `mise run worker:types-gen`（Job キュー境界：Pydantic → JSON Schema → quicktype）（→ [ADR 0006](docs/adr/0006-json-schema-as-single-source-of-truth.md)）。

@@ -35,17 +35,12 @@ const config: KnipConfig = {
   ],
   // ignoreDependencies: 静的解析で検出されない / 間接的に使う依存。
   //   - tailwindcss                 : @tailwindcss/postcss プラグイン経由でだけ参照
-  //   - @testing-library/react      : テスト追加時に使う（R0 ではテスト未作成）
-  //   - @testing-library/user-event : 同上
   //   - zod                         : src/__generated__/api/zod.gen.ts（Hey API 生成物）が
   //                                   import するが、生成物は ignore 配下のため Knip からは
   //                                   到達できない（ADR 0006、型同期パイプライン）
-  ignoreDependencies: [
-    "tailwindcss",
-    "@testing-library/react",
-    "@testing-library/user-event",
-    "zod",
-  ],
+  //   （@testing-library/* / msw は実テストファイルから import されているので
+  //    Knip の vitest plugin が自動検出する → ignore 不要）
+  ignoreDependencies: ["tailwindcss", "zod"],
 };
 
 export default config;

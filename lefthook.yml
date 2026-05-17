@@ -133,6 +133,32 @@ pre-push:
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    # 依存衛生（deptry）
+    # pyproject.toml の dependencies と実コードの import を突き合わせ、
+    # 「宣言したのに未使用」「import してるのに未宣言」「transitive 依存への参照」を検出する。
+    # pre-commit ではなく pre-push に置く理由：repo 全体スキャンで pre-commit ではやや重く、
+    # かつ依存変更は commit 単位より push 単位で確認すれば CI 失敗を十分先回りできるため。
+    # pyproject.toml も trigger 対象に含める（依存追加・例外追加時に発火させるため）。
+    api-deptry:
+      glob: "apps/api/**/*.{py,toml}"
+      root: apps/api
+      run: mise exec -- uv run deptry .
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  deptry が依存の不整合を検出しました（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        上の deptry ログのルール ID で対処方針が分かれます：
+          ・DEP001（未宣言の import）       → pyproject.toml に依存を追加
+          ・DEP002（宣言したのに未使用）    → 不要なら削除、import せず実行に必須なら
+                                              pyproject.toml の [tool.deptry.per_rule_ignores]
+                                              の DEP002 リストに理由コメント付きで追加
+          ・DEP003（transitive 依存に依存） → 直接依存として pyproject.toml に追加
+          ・DEP004（dev のみ依存を本体で使用）→ dev → 本体に昇格
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     # ─────────────────────────────────────────────────────────────────
     # Frontend (apps/web/) — Vitest run + next build
     # ─────────────────────────────────────────────────────────────────

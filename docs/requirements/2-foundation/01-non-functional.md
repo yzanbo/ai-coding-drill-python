@@ -31,6 +31,18 @@
   `.env` 設定漏れによる「弱い鍵で本番稼働」「http で Cookie 送信」
   「OAuth 認証情報未設定のまま本番稼働」事故を起動時に検出する目的。
   dev / test / staging 環境では緩く、開発しやすさを優先する
+- Web のセキュリティヘッダー（最小セット）：Frontend（Next.js）の全レスポンスに
+  以下を被せる。理由：MVP でも 1 行設定で済み、外部リンク先への内部 URL 漏洩・
+  クリックジャッキング系の典型攻撃を最初に塞いでおく。実装は `apps/web/next.config.ts`
+  の `headers()`、運用上は本節を SSoT として追加・変更時に揃える。
+  - `Referrer-Policy: strict-origin-when-cross-origin` —
+    外部サイトへ遷移する時にパスやクエリ（例：`?next=/problems`）が
+    Referer ヘッダーで漏れるのを防ぐ。同一オリジン遷移では従来どおり
+    フル URL を保持し、外部にはオリジンだけを送る
+  - 将来追加候補（要件着手時に判断）：`X-Frame-Options: DENY` または
+    `Content-Security-Policy: frame-ancestors 'none'`（クリックジャッキング対策）、
+    `Permissions-Policy`（不要 API 制限）、`Strict-Transport-Security`（本番のみ、
+    Vercel / CDN 側で設定する選択肢もあり）
 
 ## パフォーマンス
 - 問題生成：非同期、ユーザーは生成完了を待たない（ジョブキュー）

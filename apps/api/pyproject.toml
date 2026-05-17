@@ -7,6 +7,7 @@ dependencies = [
     "alembic>=1.18.4",
     "asyncpg>=0.31.0",
     "fastapi>=0.136.1",
+    "fastapi-cli>=0.0.24",
     "httpx>=0.28.1",
     "itsdangerous>=2.2",
     "pydantic>=2.13.4",
@@ -96,5 +97,7 @@ extend_exclude = ["alembic/versions"]
 # - asyncpg：SQLAlchemy の async ドライバ。コード上では `postgresql+asyncpg://` URL でのみ参照され
 #   `import asyncpg` は出てこないが、実行に必須。
 # - uvicorn：ASGI サーバ CLI。`uv run fastapi dev` 経由で起動し import 文には出てこないが必須。
+# - fastapi-cli：`fastapi dev` / `fastapi run` コマンドを提供する CLI。コードからは import せず
+#   `mise run api:dev` 経由で実行するため deptry には未使用に見えるが、開発サーバ起動に必須。
 [tool.deptry.per_rule_ignores]
-DEP002 = ["asyncpg", "uvicorn"]
+DEP002 = ["asyncpg", "uvicorn", "fastapi-cli"]

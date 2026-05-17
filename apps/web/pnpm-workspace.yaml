@@ -7,6 +7,9 @@
 #                   許可しないと dev 起動時に警告 + 画像最適化の一部経路が落ちる
 # - unrs-resolver : ESLint / TypeScript 関連の module 解決ネイティブ実装。
 #                   許可しないと JS フォールバック経路に落ちて遅くなる
+# - msw           : false に倒す。MSW は postinstall で public/ に service worker を
+#                   コピーするが、本プロジェクトはテストで node モード（setupServer）
+#                   のみ利用し、ブラウザ用 worker は不要。false 明示で警告抑制
 #
 # packages: pnpm 11 はワークスペース設定ファイルがある場合 packages フィールドを必須化した。
 #   apps/web 自身を唯一のパッケージとして登録する（実質ワークスペースを使わない宣言）。
@@ -14,5 +17,6 @@ packages:
   - "."
 
 allowBuilds:
+  msw: false
   sharp: true
   unrs-resolver: true
