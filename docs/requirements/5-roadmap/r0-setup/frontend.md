@@ -1,7 +1,7 @@
-# 03. Frontend（Next.js / TS）環境構築（✅ 完了）
+# Frontend（Next.js / TS）環境構築（✅ 完了）
 
 > **守備範囲**：Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲート付きで動かすまでの 9 ステップ。本フェーズが終わると、Next.js の lint / typecheck / knip / syncpack がローカル + CI 両方で緑になり、依存自動更新が走り始める。
-> **前提フェーズ**：[02-backend.md](./02-backend.md) 完了済（Backend 縦スライスと同じ「品質ゲートのステップ」パターンを再利用する）
+> **前提フェーズ**：[backend.md](./backend.md) 完了済（Backend 縦スライスと同じ「品質ゲートのステップ」パターンを再利用する）
 > **次フェーズ**：R0 完了 → R1（[../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクション）
 >
 > **本ファイル共通の最新版調査ポリシー**：
@@ -21,7 +21,7 @@
 3. `mise.toml` と `README.md` の Node 版数表記を更新
 4. `mise install` で実体化、`node --version` / `pnpm --version` で確認
 
-**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise CLI が動作）
+**前提**：[foundation.md: 3. mise 導入](./foundation.md#3-mise-導入-)（mise CLI が動作）
 
 **関連 ADR**：[ADR 0039](../../../adr/0039-mise-for-task-runner-and-tool-versions.md)
 
@@ -152,7 +152,7 @@ mise run web:syncpack       # syncpack 緑
 
 ## 5. mise.toml の Next.js タスク稼働確認
 
-**目的**：[01-foundation.md](./01-foundation.md) で mise.toml に**先回りで定義済み**の `web:*` タスク群が、apps/web の実体（package.json + pnpm-lock.yaml + src/app/ + 設定ファイル）が揃ったこの時点で正しく動作することを確認する（02-backend.md step 9 と同じパターン）。
+**目的**：[foundation.md](./foundation.md) で mise.toml に**先回りで定義済み**の `web:*` タスク群が、apps/web の実体（package.json + pnpm-lock.yaml + src/app/ + 設定ファイル）が揃ったこの時点で正しく動作することを確認する（backend.md step 9 と同じパターン）。
 
 **前提済の登録タスク**（[mise.toml](../../../../mise.toml) の `[tasks."web:*"]`、本 step では追記しない）：
 - `web:dev` — `pnpm dev`（next dev）
@@ -246,7 +246,7 @@ git restore --staged apps/web/src/app/_test/ && rm -rf apps/web/src/app/_test/
 
 ## 8. GitHub Actions に Next.js ジョブ追加
 
-**目的**：[01-foundation.md: 4. GitHub Actions ワークフロー雛形](./01-foundation.md#4-github-actions-ワークフロー雛形-) で整備したワークフローに Frontend 用ジョブを追加し、hook bypass された逸脱もリモートで弾く。
+**目的**：[foundation.md: 4. GitHub Actions ワークフロー雛形](./foundation.md#4-github-actions-ワークフロー雛形-) で整備したワークフローに Frontend 用ジョブを追加し、hook bypass された逸脱もリモートで弾く。
 
 **追記内容**（[.github/workflows/ci.yml](../../../../.github/workflows/ci.yml)）：
 - 新規ジョブ 5 種：`web-lint` / `web-typecheck` / `web-knip` / `web-syncpack` / `web-test`
@@ -292,7 +292,7 @@ git restore --staged apps/web/src/app/_test/ && rm -rf apps/web/src/app/_test/
 - 進捗トラッカー上の該当エントリから、**本ファイル**（または同等の手順詳細）への**リンク**が辿れる
 - 本ファイル冒頭のステータスマーク（`# 03. Next.js 環境構築（✅ 完了）` の `✅`）が完了状態を示している
 
-> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の R0-3 行が、状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/03-frontend.md](./r0-setup/03-frontend.md)` になっている状態。古い表現（`🔴 未着手` / 未着手プレースホルダ / 旧リンク等）が残っていれば最終状態に合わせる。
+> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の 本フェーズに該当する行が、状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/frontend.md](./r0-setup/frontend.md)` になっている状態。古い表現（`🔴 未着手` / 未着手プレースホルダ / 旧リンク等）が残っていれば最終状態に合わせる。
 
 **完了基準**：
 
@@ -313,6 +313,6 @@ git restore --staged apps/web/src/app/_test/ && rm -rf apps/web/src/app/_test/
 
 ## R0 完了
 
-R0 全項目（[setup/01-foundation.md](./01-foundation.md) / [02-backend.md](./02-backend.md) / 本ファイル / [04-worker.md](./04-worker.md)）が全て緑になった時点で R0 完了。`docker compose up && mise run api:dev && mise run web:dev && mise run worker:grading:dev` で開発環境が全言語で立ち上がり、CI が緑になる状態が達成される。
+R0 全項目（[foundation.md](./foundation.md) / [backend.md](./backend.md) / 本ファイル / [worker.md](./worker.md)）が全て緑になった時点で R0 完了。`docker compose up && mise run api:dev && mise run web:dev && mise run worker:grading:dev` で開発環境が全言語で立ち上がり、CI が緑になる状態が達成される。
 
 次は R1 MVP：[../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクション（[F-01 GitHub OAuth](../../4-features/F-01-github-oauth-auth.md) から開始）。

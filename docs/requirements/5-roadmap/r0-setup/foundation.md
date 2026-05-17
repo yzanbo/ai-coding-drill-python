@@ -1,8 +1,8 @@
-# 01. 初期慣行の構築（全 ✅ 完了済）
+# 初期慣行の構築（全 ✅ 完了済）
 
 > **守備範囲**：言語非依存の最低限の開発慣行を全 ✅ 完了済として記録する。本フェーズが終わると、commit 規約・フック・mise 経由のツール起動・CI 雛形・Dependabot 雛形が揃う。
 > **進行状態**：全項目達成済（git log と既存ファイルが正本）。
-> **次フェーズ**：[02-backend.md](./02-backend.md)
+> **次フェーズ**：[backend.md](./backend.md)
 >
 > **本ファイル共通の最新版調査ポリシー**：
 > [.claude/CLAUDE.md: バージョン方針](../../../../.claude/CLAUDE.md#バージョン方針) に従い、各ステップで **(1) 対象ツールの最新安定版を毎回 Web で調査** し、**(2) 採用前に依存関係（peer dep / 必須最小版数 / breaking changes）をリリースノートで確認** してから書き換える。SSoT（`mise.toml` / `pyproject.toml` / `package.json` / `docker-compose.yml` 等）に書かれた既存版数には追従しない（陳腐化のため）。RC / beta / nightly は採用しない。本フェーズの対象は `commitlint` / `lefthook` / `mise` / `uv` / `pnpm` / `npm:@commitlint/cli` および GitHub Actions のサードパーティ Action（SHA pin 形式で版数明示）。
@@ -84,9 +84,9 @@
 **成果物**：
 - [.github/dependabot.yml](../../../../.github/dependabot.yml)
   - `github-actions`：有効化済
-  - `pip`：コメントアウトで待機（[02-backend.md: 8. dependabot.yml の `pip` コメントアウト解除](./02-backend.md#8-dependabotyml-の-pip-コメントアウト解除) で解除）
-  - `npm`：コメントアウトで待機（[03-frontend.md: 7. dependabot.yml の `npm` コメントアウト解除](./03-frontend.md#7-dependabotyml-の-npm-コメントアウト解除) で解除）
-  - `gomod`：コメントアウトで待機（[04-worker.md: 8. dependabot.yml の `gomod` コメントアウト解除](./04-worker.md#8-dependabotyml-の-gomod-コメントアウト解除) で解除）
+  - `pip`：コメントアウトで待機（[backend.md: 8. dependabot.yml の `pip` コメントアウト解除](./backend.md#8-dependabotyml-の-pip-コメントアウト解除) で解除）
+  - `npm`：コメントアウトで待機（[frontend.md: 7. dependabot.yml の `npm` コメントアウト解除](./frontend.md#7-dependabotyml-の-npm-コメントアウト解除) で解除）
+  - `gomod`：コメントアウトで待機（[worker.md: 8. dependabot.yml の `gomod` コメントアウト解除](./worker.md#8-dependabotyml-の-gomod-コメントアウト解除) で解除）
 
 **完了基準**：`.github/dependabot.yml` が存在し、`github-actions` の週次自動 PR が生成される設定が有効になっている。
 
@@ -104,7 +104,7 @@
 - 進捗トラッカー上の該当エントリから、**本ファイル**（または同等の手順詳細）への**リンク**が辿れる
 - 本ファイル冒頭のステータスマーク（`# 01. 初期慣行の構築（全 ✅ 完了済）` の `✅`）が完了状態を示している
 
-> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の R0-1 行が、状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/01-foundation.md](./r0-setup/01-foundation.md)` になっている状態。古い表現（`🔴 未着手` / 未着手プレースホルダ / 旧リンク等）が残っていれば最終状態に合わせる。
+> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の 本フェーズに該当する行が、状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/foundation.md](./r0-setup/foundation.md)` になっている状態。古い表現（`🔴 未着手` / 未着手プレースホルダ / 旧リンク等）が残っていれば最終状態に合わせる。
 
 **完了基準**：
 
@@ -123,4 +123,4 @@
 - ✅ CI 雛形（commitlint + ci-success umbrella + SHA ピン規約）
 - ✅ Dependabot 雛形（github-actions のみ有効、各言語は待機）
 
-次は [02-backend.md](./02-backend.md) で apps/api 環境を構築する。
+次は [backend.md](./backend.md) で apps/api 環境を構築する。

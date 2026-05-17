@@ -1,8 +1,8 @@
-# 04. Worker（Go）環境構築（🔴 未着手）
+# Worker（Go）環境構築（🔴 未着手）
 
 > **守備範囲**：Go ランタイム取得から `apps/workers/grading` を品質ゲート + サンドボックス雛形付きで動かすまでの 8 ステップ。本フェーズが終わると、Go の lint / test / ビルドがローカル + CI 両方で緑になり、依存自動更新が走り始める。Worker のビジネスロジック（採点・LLM 呼び出し）の実装は LLM プロバイダ抽象化フェーズ以降で進める。
-> **実行タイミングは柔軟**：R0 の他項目（[01-foundation.md](./01-foundation.md) / [02-backend.md](./02-backend.md) / [03-frontend.md](./03-frontend.md)）と並行で進めても、これら 3 つが完了してから着手しても、R1 着手直前にまとめて行ってもよい。**唯一の制約は「LLM プロバイダ抽象化フェーズが Worker コードを必要とするため、それまでに本フェーズが完了している」こと**。R0 を「Backend + Frontend が動く状態」で先行リリース的に区切り、Worker は後追いで合流させる運用も許容する（その場合 R0 自体は本ファイル以外（[01-foundation.md](./01-foundation.md) / [02-backend.md](./02-backend.md) / [03-frontend.md](./03-frontend.md)）の完了で「実質完了」扱いにできる）。
-> **前提フェーズ**：[01-foundation.md](./01-foundation.md) 完了済（mise.toml + GitHub Actions 雛形 + Dependabot 雛形）。DB（Postgres）は Worker（採点ジョブの結果書き戻し）でも使うが本フェーズ自体は DB に依存しない（雛形 main.go は jobs polling loop の skeleton まで）。実際に DB を読み書きするのは LLM プロバイダ抽象化フェーズ以降。
+> **実行タイミングは柔軟**：R0 の他項目（[foundation.md](./foundation.md) / [backend.md](./backend.md) / [frontend.md](./frontend.md)）と並行で進めても、これら 3 つが完了してから着手しても、R1 着手直前にまとめて行ってもよい。**唯一の制約は「LLM プロバイダ抽象化フェーズが Worker コードを必要とするため、それまでに本フェーズが完了している」こと**。R0 を「Backend + Frontend が動く状態」で先行リリース的に区切り、Worker は後追いで合流させる運用も許容する（その場合 R0 自体は本ファイル以外（[foundation.md](./foundation.md) / [backend.md](./backend.md) / [frontend.md](./frontend.md)）の完了で「実質完了」扱いにできる）。
+> **前提フェーズ**：[foundation.md](./foundation.md) 完了済（mise.toml + GitHub Actions 雛形 + Dependabot 雛形）。DB（Postgres）は Worker（採点ジョブの結果書き戻し）でも使うが本フェーズ自体は DB に依存しない（雛形 main.go は jobs polling loop の skeleton まで）。実際に DB を読み書きするのは LLM プロバイダ抽象化フェーズ以降。
 > **次フェーズ**：LLM プロバイダ抽象化レイヤ + 初期モデル選定（Worker 側に集約、→ [ADR 0007](../../../adr/0007-llm-provider-abstraction.md) / [ADR 0040](../../../adr/0040-worker-grouping-and-llm-in-worker.md)）。R1 全体の進行順は [../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクションを参照。
 >
 > **本ファイル共通の最新版調査ポリシー**：
@@ -32,7 +32,7 @@ mise install go
 go version  # 例：go version go1.26.3 darwin/arm64
 ```
 
-**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise CLI が動作）
+**前提**：[foundation.md: 3. mise 導入](./foundation.md#3-mise-導入-)（mise CLI が動作）
 
 **関連 ADR**：[ADR 0039](../../../adr/0039-mise-for-task-runner-and-tool-versions.md)
 
@@ -107,7 +107,7 @@ docker run --rm ai-coding-drill-sandbox:dev --version  # tsx が起動
 - `worker:grading:types-gen` — quicktype `--src-lang schema` で `apps/api/job-schemas/` から `apps/workers/grading/internal/jobtypes/` に Go struct 生成（型同期パイプライン構築フェーズで本格使用、本フェーズでは雛形コマンドのみ）
 - `worker:grading:sandbox-build` — `docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox`
 
-**横断タスク**（[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-) で確立済の `worker:test` / `worker:lint` / `worker:types-gen` の実体化）：
+**横断タスク**（[foundation.md: 3. mise 導入](./foundation.md#3-mise-導入-) で確立済の `worker:test` / `worker:lint` / `worker:types-gen` の実体化）：
 - `worker:test` → `mise run worker:grading:test`（将来 generation worker 追加時に拡張）
 - `worker:lint` → `mise run worker:grading:lint`
 - `worker:types-gen` → `mise run worker:grading:types-gen`
@@ -195,7 +195,7 @@ git restore --staged apps/workers/grading/fail_test.go && rm apps/workers/gradin
 
 ## 7. GitHub Actions に Worker ジョブ追加
 
-**目的**：[01-foundation.md: 4. GitHub Actions ワークフロー雛形](./01-foundation.md#4-github-actions-ワークフロー雛形-) で整備したワークフローに Go 用ジョブを追加し、hook bypass された逸脱もリモートで弾く。
+**目的**：[foundation.md: 4. GitHub Actions ワークフロー雛形](./foundation.md#4-github-actions-ワークフロー雛形-) で整備したワークフローに Go 用ジョブを追加し、hook bypass された逸脱もリモートで弾く。
 
 **追記内容**（[.github/workflows/ci.yml](../../../../.github/workflows/ci.yml)）：
 - 新規ジョブ：`worker-grading-lint`、`worker-grading-test`、`worker-grading-audit`、`worker-grading-deps-check`
@@ -240,7 +240,7 @@ git restore --staged apps/workers/grading/fail_test.go && rm apps/workers/gradin
 - 進捗トラッカー上の該当エントリから、**本ファイル**（または同等の手順詳細）への**リンク**が辿れる
 - 本ファイル冒頭のステータスマークが完了状態を示している（完了時に `# 04. Go 環境構築（🔴 未着手）` を `# 04. Go 環境構築（✅ 完了）` に書き換える）
 
-> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の R0-4 行が、完了時に状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/04-worker.md](./r0-setup/04-worker.md)` になっている状態。本フェーズ完了前の `🔴 未着手` 表記は完了時に `✅ 完了` へ書き換える運用とする。
+> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の 本フェーズに該当する行が、完了時に状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/worker.md](./r0-setup/worker.md)` になっている状態。本フェーズ完了前の `🔴 未着手` 表記は完了時に `✅ 完了` へ書き換える運用とする。
 
 **完了基準**：
 

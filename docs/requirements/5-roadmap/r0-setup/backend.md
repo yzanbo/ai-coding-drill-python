@@ -1,8 +1,8 @@
-# 02. Backend（Python / FastAPI）環境構築（✅ 完了）
+# Backend（Python / FastAPI）環境構築（✅ 完了）
 
 > **守備範囲**：Python ランタイム取得から apps/api を DB + 品質ゲート付きで動かすまでの 13 ステップ。本フェーズが終わると、Python の lint / typecheck がローカル + CI 両方で緑になり、依存自動更新が週次で来る。各 step は **1 PR 相当の atomic な作業単位**に分割してあり、step 単位で commit / レビューを進められる。
-> **前提フェーズ**：[01-foundation.md](./01-foundation.md) 完了済（mise.toml + GitHub Actions 雛形 + Dependabot 雛形）
-> **次フェーズ**：[03-frontend.md](./03-frontend.md)
+> **前提フェーズ**：[foundation.md](./foundation.md) 完了済（mise.toml + GitHub Actions 雛形 + Dependabot 雛形）
+> **次フェーズ**：[frontend.md](./frontend.md)
 >
 > **本ファイル共通の最新版調査ポリシー**：
 > [.claude/CLAUDE.md: バージョン方針](../../../../.claude/CLAUDE.md#バージョン方針) に従い、各ステップで **(1) 対象ツールの最新安定版を毎回 Web で調査** し、**(2) 採用前に依存関係（peer dep / 必須最小版数 / breaking changes）をリリースノートで確認** してから書き換える。SSoT（`mise.toml` / `apps/api/pyproject.toml` + `apps/api/uv.lock` / `docker-compose.yml`）に書かれた既存版数には追従しない（陳腐化のため）。RC / beta / nightly は採用しない。本フェーズの対象は **Python / Postgres / Redis / FastAPI / Pydantic / SQLAlchemy / Alembic / asyncpg / ruff / pyright / pip-audit / deptry** など。メジャー upgrade の場合は CHANGELOG / upgrade guide を確認してから採用する（特に SQLAlchemy 2.x / Pydantic v2 系は API スタイル変更を伴うため要注意）。
@@ -31,7 +31,7 @@ mise install python
 python --version  # 例：Python 3.14.4
 ```
 
-**前提**：[01-foundation.md: 3. mise 導入](./01-foundation.md#3-mise-導入-)（mise CLI が動作）
+**前提**：[foundation.md: 3. mise 導入](./foundation.md#3-mise-導入-)（mise CLI が動作）
 
 **関連 ADR**：[ADR 0039](../../../adr/0039-mise-for-task-runner-and-tool-versions.md)
 
@@ -222,7 +222,7 @@ open http://localhost:8000/docs      # Swagger UI の "probes" タグに /health
 
 ## 9. mise.toml の Python タスク稼働確認
 
-**目的**：[01-foundation.md](./01-foundation.md) で mise.toml に**先回りで定義済み**の `api:*` タスク群が、apps/api の実体（pyproject.toml + uv.lock + app/）が揃ったこの時点で正しく動作することを確認する。
+**目的**：[foundation.md](./foundation.md) で mise.toml に**先回りで定義済み**の `api:*` タスク群が、apps/api の実体（pyproject.toml + uv.lock + app/）が揃ったこの時点で正しく動作することを確認する。
 
 **前提済の登録タスク**（[mise.toml](../../../../mise.toml) の `[tasks."api:*"]`、本 step では追記しない）：
 - `api:dev` — FastAPI 開発サーバ（`uv run fastapi dev`）
@@ -316,7 +316,7 @@ mise exec -- lefthook run pre-push        # api-pytest exit 1 + fail_text 表示
 
 ## 12. GitHub Actions に Python ジョブ追加
 
-**目的**：[01-foundation.md: 4. GitHub Actions ワークフロー雛形](./01-foundation.md#4-github-actions-ワークフロー雛形-) で整備したワークフローに Python 用ジョブを追加し、hook bypass された逸脱もリモートで弾く。
+**目的**：[foundation.md: 4. GitHub Actions ワークフロー雛形](./foundation.md#4-github-actions-ワークフロー雛形-) で整備したワークフローに Python 用ジョブを追加し、hook bypass された逸脱もリモートで弾く。
 
 **追記内容**（[.github/workflows/ci.yml](../../../../.github/workflows/ci.yml)）：
 - 新規ジョブ 5 種：`api-lint` / `api-typecheck` / `api-audit` / `api-deps-check` / `api-test`
@@ -416,7 +416,7 @@ updates:
 - 進捗トラッカー上の該当エントリから、**本ファイル**（または同等の手順詳細）への**リンク**が辿れる
 - 本ファイル冒頭のステータスマーク（`# 02. Python 環境構築（✅ 完了）` の `✅`）が完了状態を示している
 
-> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の R0-2 行が、状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/02-backend.md](./r0-setup/02-backend.md)` になっている状態。古い表現（`🔴 未着手` / 未着手プレースホルダ / 旧リンク等）が残っていれば最終状態に合わせる。
+> **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の 本フェーズに該当する行が、状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/backend.md](./r0-setup/backend.md)` になっている状態。古い表現（`🔴 未着手` / 未着手プレースホルダ / 旧リンク等）が残っていれば最終状態に合わせる。
 
 **完了基準**：
 
@@ -434,4 +434,4 @@ updates:
 - 🟢 規約違反コミットが pre-commit hook で弾かれる
 - 🟢 Python 依存の自動更新 PR が週次で来る
 
-次は [03-frontend.md](./03-frontend.md) で apps/web を同じパターンで構築する。
+次は [frontend.md](./frontend.md) で apps/web を同じパターンで構築する。
