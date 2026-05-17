@@ -301,7 +301,7 @@ sequenceDiagram
 - [x] バックエンド実装完了（auth ルーター / セッションサービス / GitHub OAuth クライアント）
 - [x] バックエンドユニットテスト完了（auth サービス / GitHub クライアントのモックテスト、pytest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [x] フロントエンド実装完了（ログイン画面 / ヘッダーメニュー）
-- [ ] フロントエンドユニットテスト完了（safeNextPath / extract-api-error-message は実装済み、Hook / コンポーネントは MSW 導入後、Vitest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
+- [x] フロントエンドユニットテスト完了（pure 関数 / lib/api / Hook / コンポーネント、MSW + Vitest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [ ] E2E テスト完了（ログイン〜ログアウトの主要フロー、Playwright、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [ ] **受け入れ条件すべて満たす**
 

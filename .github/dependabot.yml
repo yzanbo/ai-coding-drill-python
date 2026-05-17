@@ -145,7 +145,7 @@ updates:
         patterns:
           - "@playwright/*"
           - playwright
-      # Vitest / Testing Library 系はペア更新
+      # Vitest / Testing Library 系はペア更新（MSW もテスト周辺で同時更新したい）
       vitest:
         patterns:
           - vitest
@@ -153,6 +153,7 @@ updates:
           - "@vitejs/plugin-react"
           - "@testing-library/*"
           - jsdom
+          - msw
 
   # ────────────────────────────────────────────────────────────────────
   # Go modules — apps/workers/<name> 着手時に有効化

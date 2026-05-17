@@ -77,7 +77,7 @@ Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲー
 
 **作業内容**：
 1. ESLint を除去（Biome 採用、[ADR 0018](../../../adr/0018-biome-for-tooling.md)）
-2. Biome / Knip / syncpack / Vitest / Testing Library / Playwright を **`pnpm add -D` で導入**（レジストリの最新を自動取得）：
+2. Biome / Knip / syncpack / Vitest / Testing Library / MSW / Playwright を **`pnpm add -D` で導入**（レジストリの最新を自動取得）：
    ```bash
    mise exec -- pnpm add -D \
      @biomejs/biome \
@@ -90,8 +90,11 @@ Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲー
      @testing-library/jest-dom \
      @testing-library/user-event \
      jsdom \
+     msw \
      @playwright/test
    ```
+   - **MSW（Mock Service Worker）**：Hook / コンポーネントのテストで API レスポンスを差し替えるため。node モード（`setupServer`）で起動。
+     `apps/web/pnpm-workspace.yaml` の `allowBuilds:` で **`msw: false`** を明示する（postinstall で `public/` に service worker をコピーするが、本プロジェクトはブラウザ用 worker を使わないため）
 3. 既存 dep の最新化を確認（メジャー upgrade は CHANGELOG / peer dep を読んでから採用、`tsc --noEmit` 緑が採用条件）
 4. `package.json` の `scripts` を Biome / Vitest / Playwright / Knip / syncpack の起動口に整える。**`lint` は `biome check`（lint + format + assist の全体）と定義**し、`mise run web:lint` も `pnpm lint` を呼ぶ形に揃える（`pnpm lint` ≠ `mise run web:lint` の semantic ズレを防ぐ）。フォーマットのみ叩く `format` / `format:fix` は別途残す
    - `generate:api`（Hey API）は **R1（型同期パイプライン構築フェーズ）で追加**。R0 時点で書くと knip の "Unlisted binaries" で fail するので入れない
@@ -125,7 +128,7 @@ Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲー
 - `entry` は Next.js App Router の規約ファイル（`page` / `layout` / `loading` / `error` / `global-error` / `not-found` / `route` / `template` / `default`）に限定 — `_components/` / `_hooks/` 配下の孤立コードを検出するため
 - `project` は [.claude/rules/frontend.md](../../../../.claude/rules/frontend.md) のディレクトリ規約に揃えて **`src/app` / `src/components` / `src/hooks` / `src/lib`** を全て含める（R1 以降で順次実体化）
 - `ignore`：Hey API 生成コード（`src/lib/api/**`）/ shadcn/ui（`src/components/ui/**` + `src/lib/utils.ts`）/ Storybook ストーリー（`**/*.stories.{ts,tsx}`）を除外
-- `ignoreDependencies`：`tailwindcss`（postcss 経由）/ Testing Library 系（テスト追加時に使用、R0 ではテスト未作成）
+- `ignoreDependencies`：`tailwindcss`（postcss 経由）/ `zod`（`src/__generated__/api/zod.gen.ts` が import するが生成物は ignore のため Knip からは到達しない）。Testing Library / MSW は実テストファイルから import されるため Knip の vitest plugin が自動検出する（明示 ignore 不要）
 - **未到達 patterns に対する "Configuration hints" は `mise.toml` の `web:knip` 側で `--no-config-hints` を付けて抑制**（exit code には影響しない）
 
 ### 4-3. `apps/web/.syncpackrc.ts`（apps/web 単一 package.json 構成、[ADR 0024](../../../adr/0024-syncpack-package-json-consistency.md) Note）
@@ -138,8 +141,16 @@ Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲー
 
 ### 4-4. `apps/web/vitest.config.ts` + `apps/web/vitest.setup.ts`
 
-- `vitest.config.ts`：`environment: "jsdom"` / `globals: true` / `setupFiles: ["./vitest.setup.ts"]` / `plugins: [react()]` / `exclude: ["**/.next/**", "**/e2e/**"]`
-- `vitest.setup.ts`：`import "@testing-library/jest-dom/vitest"` の 1 行（matcher を expect に組込み）
+- `vitest.config.ts`：
+  - `environment: "jsdom"` / `globals: true` / `setupFiles: ["./vitest.setup.ts"]` / `plugins: [react()]` / `exclude: ["**/.next/**", "**/e2e/**"]`
+  - `environmentOptions.jsdom.url: "http://localhost:3000"`（相対 URL の fetch を絶対 URL に解決させるため）
+  - `resolve.alias`：tsconfig の `paths` ("@/*": ["./src/*"]) を Vite resolver にも教える（テストから `@/...` 経由で import するため）
+- `vitest.setup.ts`：
+  - `import "@testing-library/jest-dom/vitest"`（matcher を expect に組込み）
+  - **MSW のライフサイクル登録**：`beforeAll(server.listen({ onUnhandledRequest: "error" })) / afterEach(server.resetHandlers) / afterAll(server.close)`
+  - **Hey API クライアントの初期化**：`configureApiClient()` + `client.setConfig({ baseUrl: "http://localhost:3000" })`（本番は同一オリジン rewrites の `baseUrl: ""` だが、Node + jsdom の `new Request(url)` は相対 URL を解釈できないためテスト時のみ絶対 URL に倒す）
+  - MSW サーバ実体は `src/test/msw-server.ts` に `setupServer()` で置き、テストからは `server.use(...)` で都度 handler を差し替える運用
+  - QueryClient のテスト用 wrapper は `src/test/render-with-query.tsx` に `withQueryClient()` / `createTestQueryClient()` として用意（`retry: false` / `retryDelay: 0`）
 
 ### 4-5. `apps/web/playwright.config.ts`
 
@@ -283,7 +294,7 @@ git restore --staged apps/web/src/app/_test/ && rm -rf apps/web/src/app/_test/
 - 既存テンプレ（コメントアウト済みブロック）のコメントアウト解除
 - `directory: /apps/web` を指定（apps/web 配下が真の SSoT、[ADR 0036](../../../adr/0036-frontend-monorepo-pnpm-only.md)）
 - `version-update:semver-major` を `ignore` に追加（メジャー更新は手動運用、→ [ADR 0028](../../../adr/0028-dependabot-auto-update-policy.md)）
-- グループ化：`@types/*` / `@biomejs/*` + `biome` / `@hey-api/*` / `tailwindcss` + `@tailwindcss/*`（v4 で密結合のため必須） / `react` + `react-*` + `next` / `@playwright/*` + `playwright` / `vitest` + `@vitest/*` + `@vitejs/plugin-react` + `@testing-library/*` + `jsdom`
+- グループ化：`@types/*` / `@biomejs/*` + `biome` / `@hey-api/*` / `tailwindcss` + `@tailwindcss/*`（v4 で密結合のため必須） / `react` + `react-*` + `next` / `@playwright/*` + `playwright` / `vitest` + `@vitest/*` + `@vitejs/plugin-react` + `@testing-library/*` + `jsdom` + `msw`
 
 **完了確認**：
 - 翌週月曜 06:00 JST に `build(deps)` / `build(deps-dev)` の自動 PR が生成される
