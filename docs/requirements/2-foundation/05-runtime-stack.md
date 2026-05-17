@@ -14,10 +14,10 @@
   - `@codemirror/lang-javascript`（TypeScript ハイライト）
   - `@typescript/vfs` + `@valtown/codemirror-ts`（ブラウザ内型診断・補完）
   - 選定理由：Monaco 比でバンドル 10〜20 倍軽量（~200KB）、Next.js との親和性（Worker/SSR ハマりなし）、モバイル・アクセシビリティ対応、サーバ採点前の即時型フィードバックで UX 向上
-- **TanStack Query**（Client Component 側のサーバー状態管理）
+- **TanStack Query**（Client Component 側のサーバー状態管理、**導入時期は R1-4 着手時**、→ [ADR 0042](../../adr/0042-frontend-data-fetching-tanstack-query.md)）
   - 用途を限定：採点結果ポーリング、ジョブステータス監視、学習履歴の再取得・キャッシュ、解答送信(`useMutation` + 楽観的更新)
   - 一覧・詳細の単純取得は RSC で直接 `fetch` し役割分担を明確化
-  - 選定理由：ポーリング・リトライ・キャッシュが標準装備、非同期ジョブ中心の本サービスで UX 効果が高い
+  - 選定理由：ポーリング・リトライ・キャッシュが標準装備、非同期ジョブ中心の本サービスで UX 効果が高い。Hey API 公式プラグイン（`@tanstack/react-query`）で型同期パイプライン（→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）と直結
 
 → コンポーネントの責務は [02-architecture.md: Frontend](./02-architecture.md#frontend)
 
