@@ -90,6 +90,8 @@ apps/workers/
 
 ## ジョブ取得のパターン
 
+配送保証契約（at-least-once / 可視性タイムアウト 5 分 / 指数バックオフ 10s → 60s → `state='dead'` / handler 冪等性は Worker 責務）は [ADR 0046](../../docs/adr/0046-job-queue-delivery-guarantees.md) を SSoT として参照。本セクションは実装コード片に絞る。
+
 ### LISTEN/NOTIFY + 低頻度ポーリングのハイブリッド
 
 ```go
@@ -147,7 +149,7 @@ RETURNING id, type, payload, attempts;
 
 ## Docker クライアント（DooD）— 採点 Worker のみ
 
-採点 Worker はホストの Docker Engine を `/var/run/docker.sock` 経由で操作する。**Docker in Docker（DinD）は使わない**（→ [SYSTEM_OVERVIEW.md](../../SYSTEM_OVERVIEW.md)）。
+採点 Worker はホストの Docker Engine を `/var/run/docker.sock` 経由で操作する。**Docker in Docker（DinD）は使わない**（採用根拠・代替案・セキュリティモデルの議論は → [ADR 0045](../../docs/adr/0045-sandbox-container-runtime-dood.md)、システム全体俯瞰は → [SYSTEM_OVERVIEW.md](../../SYSTEM_OVERVIEW.md)）。
 
 ```go
 import "github.com/docker/docker/client"

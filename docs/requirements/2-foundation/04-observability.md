@@ -185,7 +185,7 @@ FastAPI（Producer）→ Postgres `jobs` → Go ワーカー（apps/workers/grad
 
 ### ジョブキュー（このプロジェクトの中核）
 
-[ADR 0004](../../adr/0004-postgres-as-job-queue.md) と [02-architecture.md: ジョブキュー](./02-architecture.md#ジョブキューpostgres-select-for-update-skip-locked) の運用作法を観測する：
+[ADR 0004](../../adr/0004-postgres-as-job-queue.md)（ジョブキュー本体の戦略判断）/ [ADR 0046](../../adr/0046-job-queue-delivery-guarantees.md)（at-least-once / 可視性タイムアウト / リトライ / DLQ の配送保証契約）と [02-architecture.md: ジョブキュー](./02-architecture.md#ジョブキューpostgres-select-for-update-skip-locked) の運用作法を観測する：
 
 - **キュー深さ**：`SELECT count(*) FROM jobs WHERE state='queued'`（queue 別ラベル）
 - **エンキュー → 取得待ち時間**（`run_at` から `locked_at` まで、p50/p95/p99）

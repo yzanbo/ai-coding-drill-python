@@ -80,7 +80,7 @@ argument-hint: "(省略可) backend / frontend / worker / fullstack"
 | `/verify-requirements` | 要件と実装の整合性を検証 |
 | `/backend-implement` | 要件 .md を読んで FastAPI 実装 |
 | `/backend-test` | バックエンドのユニットテスト生成・実行 |
-| `/backend-new-module` | FastAPI モジュール（router / schema / service）をスキャフォールド（Repository レイヤは採用しない、→ `.claude/rules/backend.md`） |
+| `/backend-new-module` | FastAPI モジュール（router / schema / service / repository）をスキャフォールド（Repository パターン採用、→ [ADR 0044](../../../docs/adr/0044-backend-repository-pattern-adoption.md) / `.claude/rules/backend.md`） |
 | `/frontend-implement` | 要件 .md を読んで Next.js 実装 |
 | `/frontend-test` | フロントエンドのテスト生成・実行 |
 | `/worker-implement` | Go Worker の実装 |

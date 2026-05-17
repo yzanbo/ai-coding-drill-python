@@ -287,7 +287,7 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 | `/update-requirements` | 要件を先に更新してから実装を修正 |
 | `/verify-requirements` | 要件と実装の整合性を検証 |
 | `/backend-implement` | 要件 .md を読んで FastAPI 実装 |
-| `/backend-new-module` | FastAPI モジュール（router / schema / service）をスキャフォールド（Repository レイヤは採用しない） |
+| `/backend-new-module` | FastAPI モジュール（router / schema / service / repository）をスキャフォールド（Repository パターン採用、→ [ADR 0044](docs/adr/0044-backend-repository-pattern-adoption.md)） |
 | `/frontend-implement` | 要件 .md を読んで Next.js 実装 |
 | `/worker-implement` | Go Worker（採点 / 問題生成、ADR 0040）の実装 |
 | `/backend-test` | バックエンドのユニットテスト生成・実行 |

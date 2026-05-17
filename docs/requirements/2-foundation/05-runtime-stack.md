@@ -9,7 +9,9 @@
 ## フロントエンド
 
 - **Next.js**（App Router, TypeScript） — フロント専用と位置付け、API Route は最小限
-- **Tailwind CSS**
+- **Tailwind CSS v4**（CSS-first 設定、`@theme` でデザイントークンを CSS 内に集約、→ [ADR 0043](../../adr/0043-frontend-ui-styling-stack.md)）
+- **shadcn/ui**（Radix UI + Tailwind の組み合わせをコードコピー方式で取り込み、`apps/web/src/components/ui/` 配下で所有・改変可能、→ [ADR 0043](../../adr/0043-frontend-ui-styling-stack.md)）
+- **React Hook Form + Zod**（フォーム状態管理 + バリデーション、Hey API が OpenAPI から生成する Zod スキーマと resolver で接続、→ [ADR 0043](../../adr/0043-frontend-ui-styling-stack.md) / [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
 - **CodeMirror 6**（コード入力）
   - `@codemirror/lang-javascript`（TypeScript ハイライト）
   - `@typescript/vfs` + `@valtown/codemirror-ts`（ブラウザ内型診断・補完）
@@ -120,6 +122,7 @@
   - Upstash 無料枠で本プロジェクトのトラフィックを十分にカバー、サーバレスで運用負荷ゼロ
   - 「AWS 一本」を維持しつつ、コスト効率の合理的判断として一部 SaaS を採用
 - レート制限の実装ストレージ：Redis ZSET（`slowapi` + Redis ストレージ等の FastAPI 互換ライブラリ）。採用方式（Sliding Log）と移行方針の SSoT は [01-non-functional.md: セキュリティ](./01-non-functional.md#セキュリティ最重要) を参照
+- **セッションストアに Redis を採用する根拠**（Postgres セッションテーブル / JWT を不採用とした比較、Cookie 属性 `SameSite=Lax` の選定、double submit cookie による CSRF 対策等）は [ADR 0047](../../adr/0047-session-store-on-redis.md) を SSoT として参照
 - トラフィック増で無料枠超過時は ElastiCache へ移行検討
 
 ---

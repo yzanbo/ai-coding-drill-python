@@ -37,6 +37,8 @@
 - セッション本体は **Redis**（TTL 7 日、操作のたびに延長）
 - ログアウト時はサーバ側で Redis のセッションエントリを削除
 
+採用根拠（Postgres セッションテーブル / JWT を不採用とした比較、Cookie 属性の選定、double submit cookie による CSRF 対策等）の SSoT は [ADR 0047](../../adr/0047-session-store-on-redis.md) を参照。
+
 ### 認証要否の制御
 
 - FastAPI の依存（`Depends(get_current_user)`）をルーター単位で適用し、デフォルト認証必須に揃える

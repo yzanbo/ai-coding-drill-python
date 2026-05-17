@@ -172,7 +172,7 @@ docker compose exec postgres psql -U postgres ai_coding_drill -c "\dt"   # healt
 
 **目的**：FastAPI router → SQLAlchemy session → Postgres の経路を end-to-end で 1 周通し、SQLAlchemy + Alembic + asyncpg 運用未経験箇所のつまずきを早期に洗い出す（リスクレジスタ対応）。
 
-**設計判断**：本プロジェクトは backend.md の方針（→ [.claude/rules/backend.md: ディレクトリ構成](../../../../.claude/rules/backend.md#ディレクトリ構成-appsapiapp)）に従い **Service が AsyncSession から SQLAlchemy 2.0 を直接呼ぶ単層構成** を採用する。ただし health_check は trivial（INSERT 1 行 / SELECT 1 行）なので、本 step では **router に直接 SQLAlchemy 操作を書く**（`app/services/` 配置はしない）。実機能（auth / problems / submissions 等）から `app/services/<feature>.py` を導入する運用とする。
+**設計判断**：本プロジェクトは backend.md の方針（→ [.claude/rules/backend.md: ディレクトリ構成](../../../../.claude/rules/backend.md#ディレクトリ構成-appsapiapp)）に従い **Router / Service / Repository / ORM の 3 層分離**（→ [ADR 0044](../../../adr/0044-backend-repository-pattern-adoption.md)）を採用する。ただし health_check は trivial（INSERT 1 行 / SELECT 1 行）なので、本 step では **router に直接 SQLAlchemy 操作を書く**（`app/services/` / `app/repositories/` 配置はしない、trivial 例外）。実機能（auth / problems / submissions 等）から `app/repositories/<feature>.py` + `app/services/<feature>.py` を導入する運用とする。
 
 **作業内容**：
 1. `apps/api/app/routers/health.py` に `POST /health` / `GET /health` を実装：
