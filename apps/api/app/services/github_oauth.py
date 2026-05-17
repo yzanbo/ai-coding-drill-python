@@ -78,8 +78,16 @@ class GitHubOAuthClient:
           （display_name は name → login の順でフォールバック、authentication.md §2.1）
         - 失敗時は GitHubOAuthError を raise（Router 側でキャッチして /login?auth_error=...）
         """
+        # timeout の粒度を分ける：
+        #   connect: 接続確立まで（GitHub が応答開始するまで）
+        #   read:    応答 body を読み終わるまで
+        #   pool:    httpx 内部の接続プール待ち
+        # 1 つの 10s timeout だと「connect は速いが read が遅い」「pool 待ちで全部止まる」
+        # 等の切り分けがしにくいため、現象別に上限を設けて切り分ける。
+        timeout = httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=2.0)
+
         # 1. code → access_token 交換
-        async with httpx.AsyncClient(timeout=10.0) as http:
+        async with httpx.AsyncClient(timeout=timeout) as http:
             # GitHub は Accept: application/json を付けると JSON で返してくれる。
             # 付けないと form-encoded で返るため、明示的に JSON を要求する。
             token_resp = await http.post(
@@ -97,7 +105,14 @@ class GitHubOAuthClient:
                     f"GitHub token endpoint returned {token_resp.status_code}"
                 )
 
-            token_body = token_resp.json()
+            try:
+                token_body = token_resp.json()
+            except ValueError as exc:
+                # rate limit や障害で HTML / プレーンテキストが返ることがある。
+                # 仕様外の応答は OAuth フロー全体を失敗扱いにする。
+                raise GitHubOAuthError(
+                    "GitHub token response is not JSON"
+                ) from exc
             # GitHub は code が無効でも 200 を返して body に "error" を入れてくることがある
             # （仕様）。Bearer 失敗の隠れた経路なので明示的に弾く。
             if "error" in token_body:
@@ -123,12 +138,18 @@ class GitHubOAuthClient:
                 raise GitHubOAuthError(
                     f"GitHub user endpoint returned {user_resp.status_code}"
                 )
-            user_body = user_resp.json()
+            try:
+                user_body = user_resp.json()
+            except ValueError as exc:
+                raise GitHubOAuthError(
+                    "GitHub user response is not JSON"
+                ) from exc
 
         # provider_id: GitHub の id は int。文字列化して auth_providers.provider_id に保存。
+        # API が壊れた応答（id が文字列 / null / 欠落）を返したケースも明示的に弾く。
         gh_id = user_body.get("id")
-        if gh_id is None:
-            raise GitHubOAuthError("GitHub user response missing id")
+        if not isinstance(gh_id, int):
+            raise GitHubOAuthError("GitHub user response has invalid id")
 
         # display_name: name → login の順でフォールバック（authentication.md §2.1）。
         # name は null や空文字列があり得るので両方を弾く。
