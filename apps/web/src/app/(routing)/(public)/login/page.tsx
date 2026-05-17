@@ -54,7 +54,11 @@ const LoginPageInner = () => {
     const cleaned = new URLSearchParams(search.toString());
     cleaned.delete("auth_error");
     const qs = cleaned.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
+    // usePathname の戻り値は型上 null になりうる（Next.js の App Router 仕様）。
+    //   本ページは /login 上で動くので null は事実上来ないが、null と
+    //   テンプレ文字列を組み合わせて "null?foo=..." を作る事故を防ぐためのフォールバック。
+    const base = pathname ?? "/login";
+    router.replace(qs ? `${base}?${qs}` : base);
   }, [search, pathname, router]);
 
   // 認証済みなら /login に居座らせない → next（既定 "/"）に飛ばす。
