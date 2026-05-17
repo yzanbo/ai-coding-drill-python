@@ -240,6 +240,12 @@ description = "quicktype --src-lang schema で apps/api/job-schemas/ から Go s
 dir = "apps/workers/grading"
 run = "quicktype --src-lang schema --src ../../api/job-schemas/ --out internal/jobtypes/types.go --lang go --package jobtypes"
 
+[tasks."worker:grading:sandbox-build"]
+description = "採点サンドボックスイメージをビルド（ai-coding-drill-sandbox:latest、ADR 0009）"
+# mise の dir 機能は使わず、build context をパスで直接指定する（docker build は
+# Dockerfile を含む dir を引数に取り、cwd を変えると build context だけ変わる）。
+run = "docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox"
+
 # --- 問題生成 Worker（apps/workers/generation/、ADR 0040、将来追加） ---
 #
 # apps/workers/generation/ はディレクトリ未作成のスケルトン状態。タスクは登録だけしておき、

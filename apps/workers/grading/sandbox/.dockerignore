@@ -1,0 +1,13 @@
+# Dockerfile が必要なファイル以外を build context から除外する。
+# 現状の skeleton では Dockerfile 自体しか COPY しないが、将来 .ts テンプレートを
+# 同梱するときに不要ファイルが context に混入するのを防ぐ。
+
+# Git / IDE / OS の生成物
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+
+# README はイメージに含めない
+README.md
