@@ -35,7 +35,7 @@ apps/api/
 ## 採用方針
 
 - **SQLAlchemy 2.0 系の新スタイル**（`Mapped[...]` / `mapped_column()`）を使う。1.x スタイル（`Column(...)` 直書き）は新規コードでは禁止
-- **async I/O 必須**：`AsyncEngine` + `AsyncSession`、Service レイヤは `async def`（Repository レイヤは採用しない、→ [backend.md](./backend.md)）
+- **async I/O 必須**：`AsyncEngine` + `AsyncSession`、Service / Repository とも `async def`（Repository パターン採用、→ [backend.md](./backend.md) / [ADR 0044](../../docs/adr/0044-backend-repository-pattern-adoption.md)）
 - セッションは FastAPI の依存性注入（`Depends(get_async_session)`）で取得、リクエスト単位で生成・破棄
 
 ## モデル定義のパターン
@@ -188,7 +188,7 @@ Alembic の autogenerate は以下を**検出しない**ため手動補完が必
 
 ### `LISTEN/NOTIFY`
 
-FastAPI が `INSERT INTO jobs` と同じトランザクションで `NOTIFY new_job, '<jobId>'` を発火する。Go ワーカー側が `LISTEN` で受信。
+FastAPI が `INSERT INTO jobs` と同じトランザクションで `NOTIFY new_job, '<jobId>'` を発火する。Go ワーカー側が `LISTEN` で受信。`NOTIFY` は best-effort のレイテンシ最適化で、配送保証の本体は 30 秒ポーリング（`SELECT ... FOR UPDATE SKIP LOCKED`）。詳細な配送保証契約（at-least-once / 可視性タイムアウト / リトライ / DLQ）は [ADR 0046](../../docs/adr/0046-job-queue-delivery-guarantees.md) を参照。
 
 ```python
 from sqlalchemy import text

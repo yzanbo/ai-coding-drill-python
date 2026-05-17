@@ -120,6 +120,7 @@
   - Upstash 無料枠で本プロジェクトのトラフィックを十分にカバー、サーバレスで運用負荷ゼロ
   - 「AWS 一本」を維持しつつ、コスト効率の合理的判断として一部 SaaS を採用
 - レート制限の実装ストレージ：Redis ZSET（`slowapi` + Redis ストレージ等の FastAPI 互換ライブラリ）。採用方式（Sliding Log）と移行方針の SSoT は [01-non-functional.md: セキュリティ](./01-non-functional.md#セキュリティ最重要) を参照
+- **セッションストアに Redis を採用する根拠**（Postgres セッションテーブル / JWT を不採用とした比較、Cookie 属性 `SameSite=Lax` の選定、double submit cookie による CSRF 対策等）は [ADR 0047](../../adr/0047-session-store-on-redis.md) を SSoT として参照
 - トラフィック増で無料枠超過時は ElastiCache へ移行検討
 
 ---

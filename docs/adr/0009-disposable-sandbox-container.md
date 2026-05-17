@@ -65,3 +65,4 @@
 
 - [02-architecture.md: サンドボックスランナー](../requirements/2-foundation/02-architecture.md#サンドボックスランナーgo-ワーカー内で実行)
 - [05-runtime-stack.md: サンドボックス](../requirements/2-foundation/05-runtime-stack.md#サンドボックス)
+- [ADR 0045](./0045-sandbox-container-runtime-dood.md) — サンドボックスコンテナの**起動主体**（DooD 採用 / DinD 不採用）。本 ADR が「寿命の選択（使い捨て）」を、ADR 0045 が「起動主体の選択（DooD）」を扱い、両者は直交

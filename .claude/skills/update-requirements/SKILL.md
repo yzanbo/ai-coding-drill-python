@@ -54,7 +54,7 @@ ADR は [docs/adr/template.md](../../../docs/adr/template.md) を元に作成。
 
 更新された要件に基づいて、コード側の修正を行う：
 
-- 関連するモジュール（`apps/api/app/{models,schemas,services,routers}/<feature>.py`、`apps/web/src/app/`、`apps/workers/<name>/internal/`）を確認
+- 関連するモジュール（`apps/api/app/{models,schemas,repositories,services,routers}/<feature>.py`、`apps/web/src/app/`、`apps/workers/<name>/internal/`）を確認（Backend は Router / Service / Repository / ORM の 3 層分離、→ [ADR 0044](../../../docs/adr/0044-backend-repository-pattern-adoption.md)）
 - 各レイヤのルール（[.claude/rules/](../../rules/)）に従って修正
 - 変更の影響範囲を特定し、ユーザーに提示してから実装
 

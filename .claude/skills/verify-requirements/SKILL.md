@@ -31,7 +31,8 @@ argument-hint: "[F-XX-feature-name] (例: F-02-problem-generation, F-04-auto-gra
 
 - **スキーマ**：`apps/api/app/models/*.py` から SQLAlchemy モデル
 - **ルーター**：`apps/api/app/routers/*.py` からエンドポイント
-- **サービス**：`apps/api/app/services/*.py` からビジネスロジック
+- **サービス**：`apps/api/app/services/*.py` からビジネスロジック（認可・分岐・Pydantic 詰め替え、→ [ADR 0044](../../../docs/adr/0044-backend-repository-pattern-adoption.md)）
+- **リポジトリ**：`apps/api/app/repositories/*.py` から SQLAlchemy クエリ実装（ORM オブジェクトを返す、→ [ADR 0044](../../../docs/adr/0044-backend-repository-pattern-adoption.md)）
 - **Pydantic スキーマ**：`apps/api/app/schemas/*.py` からバリデーション
 - **フロント画面**：`apps/web/src/app/(routing)/**/page.tsx`
 - **採点 Worker**：`apps/workers/grading/internal/**`（該当時）

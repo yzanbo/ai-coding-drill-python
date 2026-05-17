@@ -29,7 +29,8 @@ apps/api/
 │   ├── models/                  # DB テーブルの形（SQLAlchemy クラス、1 テーブル 1 ファイル）
 │   ├── schemas/                 # 入出力 JSON の形（Pydantic クラス、HTTP / Job 両境界の SSoT）
 │   ├── routers/                 # URL の受け口（1 機能 1 ファイル）
-│   ├── services/                # 業務ロジック + DB クエリ（routers から呼ばれる）
+│   ├── services/                # 業務ロジック + 認可 + Pydantic 詰め替え（DB クエリは repositories に委譲、ADR 0044）
+│   ├── repositories/            # DB アクセスの窓口（SQLAlchemy クエリの実装、ORM を返す、ADR 0044）
 │   ├── deps/                    # Depends で使う共通部品（認証ユーザー取得 / DB セッション取得）
 │   └── observability/           # ログ・トレース・メトリクスのセットアップ（R5/R6 以降）
 ├── alembic/                     # DB スキーマのマイグレーション

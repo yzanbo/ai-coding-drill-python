@@ -120,7 +120,7 @@ sequenceDiagram
     participant Worker as Go 採点ワーカー
     participant Sandbox as 採点コンテナ
 
-    Note over API: submissions ルーター → service 層で INSERT + NOTIFY（service が AsyncSession から SQLAlchemy 2.0 を直接呼ぶ単層構成）
+    Note over API: submissions ルーター → service 層 → repository 層で INSERT + NOTIFY（Router / Service / Repository / ORM の 3 層分離、ADR 0044）
     Note over Worker: 別 VM、LISTEN 中
 
     Browser->>API: POST /api/submissions（code 本文を含む）

@@ -79,3 +79,4 @@
 - [02-architecture.md: ジョブキュー](../requirements/2-foundation/02-architecture.md#ジョブキューpostgres-select-for-update-skip-locked)
 - [05-runtime-stack.md: ジョブキュー](../requirements/2-foundation/05-runtime-stack.md#ジョブキューpostgres-select-for-update-skip-locked)
 - [01-data-model.md: jobs テーブル](../requirements/3-cross-cutting/01-data-model.md)
+- [ADR 0046](./0046-job-queue-delivery-guarantees.md) — Worker 実装が前提とする**配送保証契約**（at-least-once / 可視性タイムアウト 5 分 / 指数バックオフ / `state='dead'` DLQ）。本 ADR の派生として ADR 0046 で契約レベルを固定

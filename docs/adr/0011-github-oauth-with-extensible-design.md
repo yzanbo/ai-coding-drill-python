@@ -93,3 +93,4 @@
 - [01-overview.md: F-01 ユーザー認証](../requirements/1-vision/01-overview.md)
 - [01-data-model.md: users / auth_providers](../requirements/3-cross-cutting/01-data-model.md)
 - [02-architecture.md: Backend API](../requirements/2-foundation/02-architecture.md#backend-apifastapi--python)
+- [ADR 0047](./0047-session-store-on-redis.md) — **セッションストアの選定**（Cookie + Redis 不透明 ID 採用、Postgres セッションテーブル / JWT 不採用）。本 ADR で「OAuth 戦略パターン」を、ADR 0047 で「セッション保持先の選択と Cookie 属性」を扱う
