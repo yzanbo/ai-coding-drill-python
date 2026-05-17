@@ -13,17 +13,13 @@
 # 関わる要件：
 #   - docs/requirements/4-features/authentication.md §2.1 / §2.3
 
-# httpx: 非同期 HTTP クライアント。authlib の AsyncOAuth2Client も内部で使うが、
-#   今回は単純なリクエストしか飛ばさないため httpx を直接利用する方が読みやすい。
-#   （backend.md は authlib を採用ライブラリに挙げているが、本クラスは Authorize URL
-#    の組み立てと固定エンドポイントへの POST/GET の 3 操作のみで、authlib の Strategy
-#    抽象の恩恵が薄いため httpx 直叩きで実装、依存自体は将来の追加プロバイダで使う）
 # urlencode: クエリ文字列を組み立てる Python 標準。
 from urllib.parse import urlencode
 
-import httpx
-
+# get_http_client: アプリ起動時に開かれた共有 httpx.AsyncClient を取得する。
+#   1 リクエストごとに新規 client を作らず、接続プールを再利用する。
 from app.core.config import get_settings
+from app.core.http_client import get_http_client
 from app.schemas.auth import UserSyncInput
 
 # GitHub の OAuth エンドポイント（公式ドキュメント記載の固定値）。
@@ -78,72 +74,67 @@ class GitHubOAuthClient:
           （display_name は name → login の順でフォールバック、authentication.md §2.1）
         - 失敗時は GitHubOAuthError を raise（Router 側でキャッチして /login?auth_error=...）
         """
-        # timeout の粒度を分ける：
-        #   connect: 接続確立まで（GitHub が応答開始するまで）
-        #   read:    応答 body を読み終わるまで
-        #   pool:    httpx 内部の接続プール待ち
-        # 1 つの 10s timeout だと「connect は速いが read が遅い」「pool 待ちで全部止まる」
-        # 等の切り分けがしにくいため、現象別に上限を設けて切り分ける。
-        timeout = httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=2.0)
+        # 共有 httpx クライアントを取得（lifespan で 1 個だけ作られた接続プール
+        # を使い回す）。timeout 設定は core/http_client.py 側に集約済み。
+        http = get_http_client()
 
         # 1. code → access_token 交換
-        async with httpx.AsyncClient(timeout=timeout) as http:
-            # GitHub は Accept: application/json を付けると JSON で返してくれる。
-            # 付けないと form-encoded で返るため、明示的に JSON を要求する。
-            token_resp = await http.post(
-                _TOKEN_URL,
-                data={
-                    "client_id": self._client_id,
-                    "client_secret": self._client_secret,
-                    "code": code,
-                    "redirect_uri": self._redirect_uri,
-                },
-                headers={"Accept": "application/json"},
+        # GitHub は Accept: application/json を付けると JSON で返してくれる。
+        # 付けないと form-encoded で返るため、明示的に JSON を要求する。
+        token_resp = await http.post(
+            _TOKEN_URL,
+            data={
+                "client_id": self._client_id,
+                "client_secret": self._client_secret,
+                "code": code,
+                "redirect_uri": self._redirect_uri,
+            },
+            headers={"Accept": "application/json"},
+        )
+        if token_resp.status_code != 200:
+            raise GitHubOAuthError(
+                f"GitHub token endpoint returned {token_resp.status_code}"
             )
-            if token_resp.status_code != 200:
-                raise GitHubOAuthError(
-                    f"GitHub token endpoint returned {token_resp.status_code}"
-                )
 
-            try:
-                token_body = token_resp.json()
-            except ValueError as exc:
-                # rate limit や障害で HTML / プレーンテキストが返ることがある。
-                # 仕様外の応答は OAuth フロー全体を失敗扱いにする。
-                raise GitHubOAuthError(
-                    "GitHub token response is not JSON"
-                ) from exc
-            # GitHub は code が無効でも 200 を返して body に "error" を入れてくることがある
-            # （仕様）。Bearer 失敗の隠れた経路なので明示的に弾く。
-            if "error" in token_body:
-                detail = token_body.get("error_description") or token_body["error"]
-                raise GitHubOAuthError(f"GitHub token error: {detail}")
+        try:
+            token_body = token_resp.json()
+        except ValueError as exc:
+            # rate limit や障害で HTML / プレーンテキストが返ることがある。
+            # 仕様外の応答は OAuth フロー全体を失敗扱いにする。
+            raise GitHubOAuthError(
+                "GitHub token response is not JSON"
+            ) from exc
+        # GitHub は code が無効でも 200 を返して body に "error" を入れてくることがある
+        # （仕様）。Bearer 失敗の隠れた経路なので明示的に弾く。
+        if "error" in token_body:
+            detail = token_body.get("error_description") or token_body["error"]
+            raise GitHubOAuthError(f"GitHub token error: {detail}")
 
-            access_token = token_body.get("access_token")
-            if not access_token:
-                raise GitHubOAuthError("GitHub token response missing access_token")
+        access_token = token_body.get("access_token")
+        if not access_token:
+            raise GitHubOAuthError("GitHub token response missing access_token")
 
-            # 2. access_token → user 情報
-            # X-GitHub-Api-Version は固定（OAuth User API はバージョン未指定でも動くが
-            # 互換性事故回避のため固定）。Authorization は token <value> 形式（OAuth Apps 慣習）。
-            user_resp = await http.get(
-                _USER_API_URL,
-                headers={
-                    "Authorization": f"token {access_token}",
-                    "Accept": "application/vnd.github+json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                },
+        # 2. access_token → user 情報
+        # X-GitHub-Api-Version は固定（OAuth User API はバージョン未指定でも動くが
+        # 互換性事故回避のため固定）。Authorization は token <value> 形式（OAuth Apps 慣習）。
+        user_resp = await http.get(
+            _USER_API_URL,
+            headers={
+                "Authorization": f"token {access_token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
+        if user_resp.status_code != 200:
+            raise GitHubOAuthError(
+                f"GitHub user endpoint returned {user_resp.status_code}"
             )
-            if user_resp.status_code != 200:
-                raise GitHubOAuthError(
-                    f"GitHub user endpoint returned {user_resp.status_code}"
-                )
-            try:
-                user_body = user_resp.json()
-            except ValueError as exc:
-                raise GitHubOAuthError(
-                    "GitHub user response is not JSON"
-                ) from exc
+        try:
+            user_body = user_resp.json()
+        except ValueError as exc:
+            raise GitHubOAuthError(
+                "GitHub user response is not JSON"
+            ) from exc
 
         # provider_id: GitHub の id は int。文字列化して auth_providers.provider_id に保存。
         # API が壊れた応答（id が文字列 / null / 欠落）を返したケースも明示的に弾く。

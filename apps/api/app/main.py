@@ -23,6 +23,10 @@ from fastapi import FastAPI
 #              middleware（中身は core/csrf.py）。
 from app.core.csrf import verify_csrf
 
+# open_http_client / close_http_client: 共有 httpx クライアントの開閉
+# （中身は core/http_client.py、GitHub OAuth 等の外部 API 呼び出しで使う）。
+from app.core.http_client import close_http_client, open_http_client
+
 # open_redis / close_redis: Redis 接続の生成と解放（中身は core/redis.py）。
 from app.core.redis import close_redis, open_redis
 from app.routers import auth, health, probes
@@ -40,12 +44,17 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     """アプリ起動 / 終了時の共通処理。"""
     # ---- 起動時 ----
     # Redis クライアントを 1 個作って保持する（core/redis.py の _client に格納）。
-    # 以降のリクエストでは get_redis() でこのクライアントを使い回す。
     await open_redis()
+    # 外部 API 用の httpx クライアントも 1 個作って共有する。
+    # 1 リクエストごとに新規作成すると接続プールが再利用されないため。
+    await open_http_client()
     # yield: ここでアプリが起動完了し、リクエストを受け付ける状態になる。
     #        サーバが停止するとここから後ろが実行される。
     yield
     # ---- 終了時 ----
+    # 起動と逆順で閉じる（依存関係が薄いので順序の制約は事実上ないが、
+    # 「後から開いたものを先に閉じる」の慣習に揃える）。
+    await close_http_client()
     await close_redis()
 
 
