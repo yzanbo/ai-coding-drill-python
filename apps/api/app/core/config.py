@@ -9,13 +9,21 @@
 from functools import lru_cache
 
 # Field: Pydantic が提供する関数。フィールドにデフォルト値 / 説明文等のメタデータを付ける。
-from pydantic import Field
+# model_validator: モデル全体の妥当性検証（複数フィールドにまたがる組み合わせチェック）に使う。
+#   ここでは「本番環境なのに開発用既定値が残っていないか」を起動時に弾く用途。
+from pydantic import Field, model_validator
 
 # pydantic-settings（pydantic 公式の姉妹パッケージ）が提供する部品：
 # BaseSettings:       環境変数 / .env から自動でフィールドを埋める基底クラス。
 #                     継承するだけで「環境変数を読み込む設定クラス」になる。
 # SettingsConfigDict: BaseSettings 用の設定を書く型（読み込み元の .env パス等を指定）。
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# _MIN_SIGNING_SECRET_LENGTH: 本番で許容する署名鍵の最低長（文字数）。
+#   `secrets.token_urlsafe(24)` の出力長（32 文字）を最低ラインに設定。
+#   これ未満の鍵（例：""、"x"、"test"）は総当たりや辞書攻撃で容易に破られるため、
+#   APP_ENV=production では起動時に弾く（_check_production_safety）。
+_MIN_SIGNING_SECRET_LENGTH = 32
 
 
 # Settings: このプロジェクトで使う設定値をまとめたクラス（自作）。
@@ -30,6 +38,15 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+    )
+
+    # app_env: 実行環境の名前。"dev" / "test" / "staging" / "production"。
+    #   本番起動時に「開発用の既定値（dev-only-change-me / COOKIE_SECURE=false 等）」
+    #   が残っていないかを起動時にチェックするためのフラグ。
+    #   .env で APP_ENV=production を指定すると安全装置が有効化される。
+    app_env: str = Field(
+        default="dev",
+        description="実行環境名（dev / test / staging / production）",
     )
 
     # Field（Pydantic が提供）:
@@ -60,6 +77,132 @@ class Settings(BaseSettings):
         default="redis://localhost:6379/0",
         description="Redis 接続 URL（cache / session / rate limit 用）",
     )
+
+    # ----- GitHub OAuth 用 -----
+    # GitHub の OAuth アプリ（https://github.com/settings/developers で作成）から
+    # 払い出される ID / Secret。ローカル開発と本番で別アプリを作って .env に入れる。
+    # 値はリポジトリに含めない（必ず .env 経由）。
+    github_client_id: str = Field(
+        default="",
+        description="GitHub OAuth App の Client ID",
+    )
+    github_client_secret: str = Field(
+        default="",
+        description="GitHub OAuth App の Client Secret",
+    )
+    # github_redirect_uri: GitHub 認可後に戻ってくる URL。OAuth App 設定の
+    #   Authorization callback URL と完全一致する必要がある。
+    github_redirect_uri: str = Field(
+        default="http://localhost:8000/auth/github/callback",
+        description="GitHub OAuth コールバック URL（GitHub App 設定と一致させる）",
+    )
+
+    # ----- セッション / Cookie -----
+    # session_cookie_name: 自己ドキュメント性を優先して `session_id`（ADR 0047 の改訂方針）。
+    #   主防御は HttpOnly / Secure / SameSite / 不透明値 / CSRF / 署名で完結しており、
+    #   Cookie 名の obscurity に依存しない。
+    session_cookie_name: str = Field(
+        default="session_id",
+        description="セッション ID を入れる Cookie 名",
+    )
+    # csrf_cookie_name: CSRF トークンを入れる別 Cookie。Frontend が JS で読むため
+    #   こちらは HttpOnly を付けない（→ 02-api-conventions.md の CSRF 節）。
+    csrf_cookie_name: str = Field(
+        default="csrf_token",
+        description="CSRF トークンを入れる Cookie 名（HttpOnly なし）",
+    )
+    # session_ttl_seconds: Redis 上のセッション有効期限（7 日、ADR 0047）。
+    session_ttl_seconds: int = Field(
+        default=604800,
+        description="セッション TTL（秒）。既定 7 日",
+    )
+    # state_ttl_seconds: OAuth state トークン TTL（10 分、authentication.md §1.3）。
+    state_ttl_seconds: int = Field(
+        default=600,
+        description="OAuth state トークン TTL（秒）。1 回使い切り",
+    )
+    # cookie_secure: True の時 Cookie は HTTPS でのみ送信される。
+    #   本番は必ず True、ローカル http 開発時のみ False にする。
+    cookie_secure: bool = Field(
+        default=False,
+        description="Cookie の Secure 属性（本番は True、ローカル http なら False）",
+    )
+    # session_signing_secret: itsdangerous で Cookie 値を署名する鍵。
+    #   本番は十分長いランダム文字列を .env から渡す。
+    session_signing_secret: str = Field(
+        default="dev-only-change-me",
+        description="セッション Cookie 署名用シークレット（itsdangerous）",
+    )
+
+    # ----- Frontend オリジン -----
+    # cookie_domain: Cookie の Domain 属性。未指定（None）の時は「発行ホスト限定」（host-only）。
+    #   ローカル開発（API:8000 / Web:3000 が共に localhost）では未指定で OK
+    #   （ブラウザは host のみで一致判定するため port 違いでも Cookie が共有される）。
+    #   本番で `api.example.com` と `app.example.com` のようにサブドメインを分ける
+    #   構成では `.example.com` を指定して両者で Cookie を共有させる。
+    #   注意：set_cookie と delete_cookie の domain 属性は一致させる必要がある
+    #   （ズレると delete が効かず Cookie が残る既知の罠）。両方とも本設定値を参照する。
+    cookie_domain: str | None = Field(
+        default=None,
+        description="Cookie の Domain 属性（None=host-only、本番でサブドメイン共有時のみ設定）",
+    )
+
+    # frontend_base_url: ログイン後リダイレクト等で使うフロントの起点 URL。
+    #   ?next= の同一オリジン検証では Backend ルート相対パスを優先するため、
+    #   主にホーム / と /login への絶対 URL 組み立てに利用する。
+    frontend_base_url: str = Field(
+        default="http://localhost:3000",
+        description="Frontend の起点 URL",
+    )
+
+    # 本番デフォルト値の事故余地を起動時に弾く安全装置。
+    # APP_ENV=production の時のみ厳しくチェックする：
+    #   - SESSION_SIGNING_SECRET が "dev-only-change-me" のままなら起動拒否
+    #   - SESSION_SIGNING_SECRET が 32 文字未満なら起動拒否
+    #     （プレースホルダ完全一致だけだと "x" / "test" のような弱値を素通りさせる。
+    #      32 文字は secrets.token_urlsafe(24) 相当の最低ラインとして設定）
+    #   - COOKIE_SECURE=false のままなら起動拒否
+    #     （http で Cookie が送られてセッション盗難リスクが上がるため）
+    #   - GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET が空欄なら起動拒否
+    #     （空欄のままだと最初のログイン試行で認可エラーが出るまで設定漏れに
+    #      気付けない。起動時 fail-fast で診断コストを下げる、
+    #      → 01-non-functional.md §セキュリティ「本番デフォルト値の安全装置」）
+    # dev / test / staging では緩く、開発しやすさを優先する。
+    @model_validator(mode="after")
+    def _check_production_safety(self) -> Settings:
+        if self.app_env != "production":
+            return self
+        if self.session_signing_secret == "dev-only-change-me":
+            raise ValueError(
+                "SESSION_SIGNING_SECRET must be set to a strong random value "
+                "when APP_ENV=production (current value is the dev placeholder)."
+            )
+        if len(self.session_signing_secret) < _MIN_SIGNING_SECRET_LENGTH:
+            raise ValueError(
+                "SESSION_SIGNING_SECRET must be at least "
+                f"{_MIN_SIGNING_SECRET_LENGTH} characters when APP_ENV=production "
+                "(短い鍵は総当たりで破られるため。"
+                "`python -c \"import secrets; print(secrets.token_urlsafe(32))\"` "
+                "等で生成する)."
+            )
+        if not self.cookie_secure:
+            raise ValueError(
+                "COOKIE_SECURE must be true when APP_ENV=production "
+                "(http で Cookie が送られるとセッション盗難リスクが上がるため)."
+            )
+        if not self.github_client_id:
+            raise ValueError(
+                "GITHUB_CLIENT_ID must be set when APP_ENV=production "
+                "(空欄だと最初のログイン試行で認可エラーになるまで設定漏れに"
+                "気付けないため、起動時に弾く)."
+            )
+        if not self.github_client_secret:
+            raise ValueError(
+                "GITHUB_CLIENT_SECRET must be set when APP_ENV=production "
+                "(空欄だと最初のログイン試行で認可エラーになるまで設定漏れに"
+                "気付けないため、起動時に弾く)."
+            )
+        return self
 
 
 # @lru_cache（Python 標準 / functools が提供）:

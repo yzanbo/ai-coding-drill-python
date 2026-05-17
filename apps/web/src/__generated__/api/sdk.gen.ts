@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses } from './types.gen';
+import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,49 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: Record<string, unknown>;
 };
+
+/**
+ * Start Github Oauth
+ *
+ * OAuth フロー開始。state を発行し GitHub の認可画面へ 302 リダイレクトする。
+ *
+ * クエリ:
+ * - next: ログイン後の戻り先（同一オリジン相対パスのみ）。state レコードに
+ * 同梱して Redis に保存し、callback 側で 1 回使い切りで取り出す。
+ * 旧実装は別 Cookie（auth_next）で運んでいたが「state と next が
+ * 別場所に分かれて弱く結合」する設計弱点があったため state レコード
+ * 側に集約した。
+ */
+export const startGithubOauthAuthGithubGet = <ThrowOnError extends boolean = false>(options?: Options<StartGithubOauthAuthGithubGetData, ThrowOnError>) => (options?.client ?? client).get<unknown, StartGithubOauthAuthGithubGetErrors, ThrowOnError>({ url: '/auth/github', ...options });
+
+/**
+ * Github Callback
+ *
+ * GitHub からのコールバック。
+ *
+ * 成功時：Set-Cookie で sid / csrf_token を発行してホーム（または ?next= 指定先）へ 302。
+ * state 不一致 / 期限切れ / 再使用：/login?auth_error=state_invalid へ 302。
+ * GitHub が ?error= を返した時：/login?auth_error=oauth_canceled へ 302。
+ * その他例外：/login?auth_error=oauth_failed へ 302。
+ */
+export const githubCallbackAuthGithubCallbackGet = <ThrowOnError extends boolean = false>(options?: Options<GithubCallbackAuthGithubCallbackGetData, ThrowOnError>) => (options?.client ?? client).get<unknown, GithubCallbackAuthGithubCallbackGetErrors, ThrowOnError>({ url: '/auth/github/callback', ...options });
+
+/**
+ * Logout
+ *
+ * セッションを破棄し、Cookie を Max-Age=0 で消す。
+ *
+ * - 内部的に Redis から `session:<sid>` を DELETE + `user:<id>:sessions` から SREM
+ * - 204 No Content（ボディなし）。Cookie だけがレスポンスヘッダーに残る
+ */
+export const logoutAuthLogoutPost = <ThrowOnError extends boolean = false>(options?: Options<LogoutAuthLogoutPostData, ThrowOnError>) => (options?.client ?? client).post<LogoutAuthLogoutPostResponses, unknown, ThrowOnError>({ url: '/auth/logout', ...options });
+
+/**
+ * Get Me
+ *
+ * ログイン中のユーザー情報を返す。未認証なら 401（get_current_user が投げる）。
+ */
+export const getMeAuthMeGet = <ThrowOnError extends boolean = false>(options?: Options<GetMeAuthMeGetData, ThrowOnError>) => (options?.client ?? client).get<GetMeAuthMeGetResponses, unknown, ThrowOnError>({ url: '/auth/me', ...options });
 
 /**
  * List Health Checks

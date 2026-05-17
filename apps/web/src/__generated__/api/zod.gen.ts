@@ -11,6 +11,58 @@ export const zHealthCheckResponse = z.object({
 });
 
 /**
+ * UserResponse
+ *
+ * 現在ログイン中のユーザー情報。GET /auth/me が返す形。
+ *
+ * snake_case のモデル属性を camelCase で JSON 出力するよう alias を効かせる
+ * （Frontend の Hey API 生成型もそのまま camelCase になる）。
+ */
+export const zUserResponse = z.object({
+    displayName: z.string(),
+    email: z.string().nullish(),
+    id: z.uuid()
+});
+
+/**
+ * ValidationError
+ */
+export const zValidationError = z.object({
+    ctx: z.record(z.string(), z.unknown()).optional(),
+    input: z.unknown().optional(),
+    loc: z.array(z.union([z.string(), z.int()])),
+    msg: z.string(),
+    type: z.string()
+});
+
+/**
+ * HTTPValidationError
+ */
+export const zHttpValidationError = z.object({
+    detail: z.array(zValidationError).optional()
+});
+
+export const zStartGithubOauthAuthGithubGetQuery = z.object({
+    next: z.string().nullish()
+});
+
+export const zGithubCallbackAuthGithubCallbackGetQuery = z.object({
+    code: z.string().nullish(),
+    state: z.string().nullish(),
+    error: z.string().nullish()
+});
+
+/**
+ * ログアウト成功（ボディなし）
+ */
+export const zLogoutAuthLogoutPostResponse = z.void();
+
+/**
+ * Successful Response
+ */
+export const zGetMeAuthMeGetResponse = zUserResponse;
+
+/**
  * Response List Health Checks Health Get
  *
  * Successful Response
