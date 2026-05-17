@@ -266,6 +266,51 @@ jobs:
       - run: mise run web:test
 
   # ====================================================================
+  # apps/workers/grading（Go）品質ゲート — ADR 0019 / 0026 / 0028 / 0038 / 0040
+  # ----------------------------------------------------------------------
+  # 4 ジョブ構成：
+  #   - worker-grading-lint        : golangci-lint run（lint + gofumpt format 検証）
+  #   - worker-grading-test        : go test ./...（unit、R0-8 時点は no test ファイル）
+  #   - worker-grading-audit       : govulncheck（脆弱性スキャン）
+  #   - worker-grading-deps-check  : go mod tidy 後の go.mod / go.sum 差分検査
+  #
+  # 各ジョブで `mise install`（jdx/mise-action）で go / golangci-lint / govulncheck を取得した後、
+  # `mise run worker:grading:<task>` を呼ぶ。Go 本体含むツールは全て mise.toml が SSoT。
+  # ====================================================================
+
+  worker-grading-lint:
+    name: worker-grading-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:grading:lint
+
+  worker-grading-test:
+    name: worker-grading-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:grading:test
+
+  worker-grading-audit:
+    name: worker-grading-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:grading:audit
+
+  worker-grading-deps-check:
+    name: worker-grading-deps-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:grading:deps-check
+
+  # ====================================================================
   # 型同期パイプライン drift 検出 — ADR 0006
   # ----------------------------------------------------------------------
   # Pydantic SSoT を変更したのに 3 artifact（apps/api/openapi.json /
@@ -321,6 +366,10 @@ jobs:
       - web-knip
       - web-syncpack
       - web-test
+      - worker-grading-lint
+      - worker-grading-test
+      - worker-grading-audit
+      - worker-grading-deps-check
       - types-gen-drift
     runs-on: ubuntu-latest
     steps:

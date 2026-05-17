@@ -226,9 +226,12 @@ dir = "apps/workers/grading"
 run = "golangci-lint run"
 
 [tasks."worker:grading:deps-check"]
-description = "Go 依存整理確認（go mod tidy 後の差分が無いこと）"
+description = "Go 依存整理確認（go mod tidy -diff、Go 1.23+）"
 dir = "apps/workers/grading"
-run = "go mod tidy && git diff --exit-code go.mod go.sum"
+# `go mod tidy -diff` は go.mod / go.sum を破壊的に書き換えず、tidy 結果との差分を
+# 標準出力に流し exit 1 で返す（Go 1.23+）。git diff 経由（go.sum 未存在時に
+# pathspec error が出る）より頑健。
+run = "go mod tidy -diff"
 
 [tasks."worker:grading:audit"]
 description = "Go 脆弱性スキャン（govulncheck、Worker 着手時に正式採用）"
