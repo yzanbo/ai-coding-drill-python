@@ -163,6 +163,10 @@ class Settings(BaseSettings):
     #      32 文字は secrets.token_urlsafe(24) 相当の最低ラインとして設定）
     #   - COOKIE_SECURE=false のままなら起動拒否
     #     （http で Cookie が送られてセッション盗難リスクが上がるため）
+    #   - GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET が空欄なら起動拒否
+    #     （空欄のままだと最初のログイン試行で認可エラーが出るまで設定漏れに
+    #      気付けない。起動時 fail-fast で診断コストを下げる、
+    #      → 01-non-functional.md §セキュリティ「本番デフォルト値の安全装置」）
     # dev / test / staging では緩く、開発しやすさを優先する。
     @model_validator(mode="after")
     def _check_production_safety(self) -> Settings:
@@ -185,6 +189,18 @@ class Settings(BaseSettings):
             raise ValueError(
                 "COOKIE_SECURE must be true when APP_ENV=production "
                 "(http で Cookie が送られるとセッション盗難リスクが上がるため)."
+            )
+        if not self.github_client_id:
+            raise ValueError(
+                "GITHUB_CLIENT_ID must be set when APP_ENV=production "
+                "(空欄だと最初のログイン試行で認可エラーになるまで設定漏れに"
+                "気付けないため、起動時に弾く)."
+            )
+        if not self.github_client_secret:
+            raise ValueError(
+                "GITHUB_CLIENT_SECRET must be set when APP_ENV=production "
+                "(空欄だと最初のログイン試行で認可エラーになるまで設定漏れに"
+                "気付けないため、起動時に弾く)."
             )
         return self
 
