@@ -43,6 +43,10 @@ CurrentSession = Annotated[Session | None, Depends(get_current_session)]
 #   - "//evil.com" 形式（protocol-relative URL）と "http(s)://..." は拒否
 #   - 拒否時はエラーを出さず黙ってホーム "/" にフォールバック
 #
+# FE 側にも同じ業務ルールの実装あり: apps/web/src/lib/utils/safe-next-path.ts。
+# 片方を変えたら必ずもう片方も更新する（business rule の重複実装は
+# authentication.md §2.5 を SSoT としている）。
+#
 # このプロジェクトのフロント URL は frontend_base_url で固定なので、安全な next を
 # そのまま Frontend オリジン上のパスとして展開する。
 def _safe_next_path(next_query: str | None) -> str:

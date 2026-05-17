@@ -14,8 +14,20 @@ const nextConfig: NextConfig = {
     return [
       { source: "/auth/:path*", destination: `${API_PROXY_TARGET}/auth/:path*` },
       { source: "/health", destination: `${API_PROXY_TARGET}/health` },
-      { source: "/health/:path*", destination: `${API_PROXY_TARGET}/health/:path*` },
       { source: "/healthz", destination: `${API_PROXY_TARGET}/healthz` },
+    ];
+  },
+  // headers: 全レスポンスに横断で被せるセキュリティヘッダー。
+  //   Referrer-Policy: 外部サイト（GitHub の認可画面等）へ遷移する時に
+  //     ?next= 等の内部 URL がそのまま Referer ヘッダーで漏れるのを防ぐ。
+  //     "strict-origin-when-cross-origin" は「外部にはオリジンだけ送る」設定で、
+  //     パスやクエリは外部に渡らない（同一オリジン遷移ではフル URL を保持）。
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [{ key: "Referrer-Policy", value: "strict-origin-when-cross-origin" }],
+      },
     ];
   },
 };
