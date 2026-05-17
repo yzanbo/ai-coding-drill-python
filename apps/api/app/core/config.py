@@ -9,7 +9,9 @@
 from functools import lru_cache
 
 # Field: Pydantic が提供する関数。フィールドにデフォルト値 / 説明文等のメタデータを付ける。
-from pydantic import Field
+# model_validator: モデル全体の妥当性検証（複数フィールドにまたがる組み合わせチェック）に使う。
+#   ここでは「本番環境なのに開発用既定値が残っていないか」を起動時に弾く用途。
+from pydantic import Field, model_validator
 
 # pydantic-settings（pydantic 公式の姉妹パッケージ）が提供する部品：
 # BaseSettings:       環境変数 / .env から自動でフィールドを埋める基底クラス。
@@ -30,6 +32,15 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+    )
+
+    # app_env: 実行環境の名前。"dev" / "test" / "staging" / "production"。
+    #   本番起動時に「開発用の既定値（dev-only-change-me / COOKIE_SECURE=false 等）」
+    #   が残っていないかを起動時にチェックするためのフラグ。
+    #   .env で APP_ENV=production を指定すると安全装置が有効化される。
+    app_env: str = Field(
+        default="dev",
+        description="実行環境名（dev / test / staging / production）",
     )
 
     # Field（Pydantic が提供）:
@@ -125,6 +136,29 @@ class Settings(BaseSettings):
         default="http://localhost:3000",
         description="Frontend の起点 URL",
     )
+
+    # 本番デフォルト値の事故余地を起動時に弾く安全装置。
+    # APP_ENV=production の時のみ厳しくチェックする：
+    #   - SESSION_SIGNING_SECRET が "dev-only-change-me" のままなら起動拒否
+    #     （Cookie 署名鍵が予測可能 = セッション偽造可能になるため）
+    #   - COOKIE_SECURE=false のままなら起動拒否
+    #     （http で Cookie が送られてセッション盗難リスクが上がるため）
+    # dev / test / staging では緩く、開発しやすさを優先する。
+    @model_validator(mode="after")
+    def _check_production_safety(self) -> Settings:
+        if self.app_env != "production":
+            return self
+        if self.session_signing_secret == "dev-only-change-me":
+            raise ValueError(
+                "SESSION_SIGNING_SECRET must be set to a strong random value "
+                "when APP_ENV=production (current value is the dev placeholder)."
+            )
+        if not self.cookie_secure:
+            raise ValueError(
+                "COOKIE_SECURE must be true when APP_ENV=production "
+                "(http で Cookie が送られるとセッション盗難リスクが上がるため)."
+            )
+        return self
 
 
 # @lru_cache（Python 標準 / functools が提供）:

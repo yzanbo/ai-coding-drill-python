@@ -97,10 +97,13 @@ class AuthService:
         #  ADR 0047 §「失っても致命的でない」設計と整合）
         new_session = await session_store.create(self.redis, user.id)
 
+        # sid 全体をログに出すと、ログ閲覧者がセッションを乗っ取れてしまう
+        # （秘密情報の平文記録）。先頭 8 文字 + "..." だけ残せば、
+        # 「どのセッションの話か」を識別する用途には足りる。
         logger.info(
-            "User logged in via GitHub: user_id=%s sid=%s new_user=%s",
+            "User logged in via GitHub: user_id=%s sid_prefix=%s new_user=%s",
             user.id,
-            new_session.sid,
+            new_session.sid[:8] + "...",
             existing_link is None,
         )
 
