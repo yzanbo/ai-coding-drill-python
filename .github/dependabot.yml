@@ -156,29 +156,35 @@ updates:
           - msw
 
   # ────────────────────────────────────────────────────────────────────
-  # Go modules — apps/workers/<name> 着手時に有効化
+  # Go modules — apps/workers/<name>（ADR 0028 / 0040）
   # ────────────────────────────────────────────────────────────────────
   # 各 Worker は独立 Go module（ADR 0040）のため、Worker ごとに個別エントリが必要。
-  #
-  # - package-ecosystem: gomod
-  #   directory: /apps/workers/grading
-  #   schedule:
-  #     interval: weekly
-  #     day: monday
-  #     time: "06:00"
-  #     timezone: Asia/Tokyo
-  #   open-pull-requests-limit: 5
-  #   labels:
-  #     - dependencies
-  #     - go
-  #   commit-message:
-  #     prefix: build
-  #     prefix-development: build
-  #     include: scope
-  #   ignore:
-  #     - dependency-name: "*"
-  #       update-types:
-  #         - version-update:semver-major
+  # メジャー更新は手動運用（ADR 0028）。
+
+  # grading Worker（R0-8 で go module 初期化、R0-8 で Dependabot に組み込み）
+  - package-ecosystem: gomod
+    directory: /apps/workers/grading
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - go
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  # generation Worker（R7 以降。apps/workers/generation/ 着手時にコメントアウト解除）。
+  # 現状は go.mod が存在しないため有効化すると Dependabot が「manifest not found」で
+  # warning を出すので無効のまま据え置く。
   #
   # - package-ecosystem: gomod
   #   directory: /apps/workers/generation

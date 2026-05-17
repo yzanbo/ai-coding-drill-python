@@ -1,0 +1,6 @@
+# `go build ./...` で生成される実行バイナリ。module 名は path に対応し、
+# トップレベルに `grading` というファイル名でビルド成果物が落ちる。
+/grading
+
+# `go test -coverprofile` の出力先（任意）
+coverage.out

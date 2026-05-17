@@ -45,6 +45,12 @@ lefthook = "latest"                               # Git フック管理（ADR 00
                                                   # 別 prefix に展開するため Node module 解決不可。
                                                   # 代わりに commitlint.config.mjs に conventional ルールをインライン展開。
 
+# --- Worker（Go）ツール（ADR 0019 / 0040、R0-8 で追加）---
+# go: backend は `go install` 経由で取得する。[tools].go と同じ Go ランタイムが使われる。
+# `mise exec -- golangci-lint run` 等で pre-commit / pre-push / CI から起動する。
+"go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "latest"  # Go lint メタリンター（ADR 0019）
+"go:golang.org/x/vuln/cmd/govulncheck" = "latest"                       # Go 脆弱性スキャン（ADR 0019）
+
 # ============================================================================
 # settings
 # ============================================================================
@@ -220,9 +226,12 @@ dir = "apps/workers/grading"
 run = "golangci-lint run"
 
 [tasks."worker:grading:deps-check"]
-description = "Go 依存整理確認（go mod tidy 後の差分が無いこと）"
+description = "Go 依存整理確認（go mod tidy -diff、Go 1.23+）"
 dir = "apps/workers/grading"
-run = "go mod tidy && git diff --exit-code go.mod go.sum"
+# `go mod tidy -diff` は go.mod / go.sum を破壊的に書き換えず、tidy 結果との差分を
+# 標準出力に流し exit 1 で返す（Go 1.23+）。git diff 経由（go.sum 未存在時に
+# pathspec error が出る）より頑健。
+run = "go mod tidy -diff"
 
 [tasks."worker:grading:audit"]
 description = "Go 脆弱性スキャン（govulncheck、Worker 着手時に正式採用）"
@@ -233,6 +242,12 @@ run = "govulncheck ./..."
 description = "quicktype --src-lang schema で apps/api/job-schemas/ から Go struct 生成（Job キュー境界、ADR 0006）"
 dir = "apps/workers/grading"
 run = "quicktype --src-lang schema --src ../../api/job-schemas/ --out internal/jobtypes/types.go --lang go --package jobtypes"
+
+[tasks."worker:grading:sandbox-build"]
+description = "採点サンドボックスイメージをビルド（ai-coding-drill-sandbox:latest、ADR 0009）"
+# mise の dir 機能は使わず、build context をパスで直接指定する（docker build は
+# Dockerfile を含む dir を引数に取り、cwd を変えると build context だけ変わる）。
+run = "docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox"
 
 # --- 問題生成 Worker（apps/workers/generation/、ADR 0040、将来追加） ---
 #
