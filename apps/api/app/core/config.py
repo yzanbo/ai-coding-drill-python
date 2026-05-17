@@ -81,10 +81,11 @@ class Settings(BaseSettings):
     )
 
     # ----- セッション / Cookie -----
-    # session_cookie_name: 値は何でもよいが、技術スタックを推測されにくい短名にする
-    #   （ADR 0047 の方針）。
+    # session_cookie_name: 自己ドキュメント性を優先して `session_id`（ADR 0047 の改訂方針）。
+    #   主防御は HttpOnly / Secure / SameSite / 不透明値 / CSRF / 署名で完結しており、
+    #   Cookie 名の obscurity に依存しない。
     session_cookie_name: str = Field(
-        default="sid",
+        default="session_id",
         description="セッション ID を入れる Cookie 名",
     )
     # csrf_cookie_name: CSRF トークンを入れる別 Cookie。Frontend が JS で読むため
