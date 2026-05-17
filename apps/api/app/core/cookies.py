@@ -29,8 +29,19 @@ _SALT = "session-id"
 def _serializer() -> URLSafeSerializer:
     """都度 Serializer を作る（秘密鍵を直接参照しないため一元化）。
 
-    秘密鍵を本ファイル冒頭の import 時に固定すると、テストで .env を差し替えても
-    旧鍵を保持してしまうため、呼び出しごとに Settings を取り直す方針にする。
+    `get_settings()` は `@lru_cache` で同一プロセス内では同一インスタンスを
+    返すため、毎回呼んでも .env の再読込は発生しない（オーバーヘッドはゼロ）。
+
+    テストで `.env` や環境変数を差し替えて鍵を切り替えたい時は、Settings の
+    キャッシュも併せてクリアする必要がある：
+
+        from app.core.config import get_settings
+        get_settings.cache_clear()
+
+    この関数を「呼び出しごとに `get_settings()` を引く」形にしておく理由は、
+    将来 Settings を依存性注入で差し替え可能にする余地を残すため。
+    本ファイル冒頭の import 時に Serializer を固定すると、その差し替え経路を
+    塞いでしまう。
     """
     settings = get_settings()
     return URLSafeSerializer(settings.session_signing_secret, salt=_SALT)
