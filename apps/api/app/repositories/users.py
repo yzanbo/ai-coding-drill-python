@@ -50,12 +50,15 @@ class UserRepository:
         user_id: UUID,
         display_name: str,
         email: str | None,
-    ) -> None:
-        """再ログイン時に display_name / email を最新値で上書きする。
+    ) -> User | None:
+        """再ログイン時に display_name / email を最新値で上書きし、更新後の
+        User ORM を返す。該当行が無ければ None。
 
         - authentication.md §2.1：「再ログイン時は GitHub の最新値で上書き」
         - updated_at は手で now に更新（onupdate を SQLAlchemy 側に書く方式もあるが
           現状のモデルは server_default のみのため、ここで明示的に渡す）
+        - returning(User) で「UPDATE + SELECT」を 1 クエリにまとめる
+          （別途 get_by_id を呼ぶ無駄なラウンドトリップを避ける）
         - commit はしない（Service 側）
         """
         stmt = (
@@ -66,5 +69,7 @@ class UserRepository:
                 email=email,
                 updated_at=datetime.now(UTC),
             )
+            .returning(User)
         )
-        await self.session.execute(stmt)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()

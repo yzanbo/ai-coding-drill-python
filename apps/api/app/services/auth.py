@@ -65,14 +65,13 @@ class AuthService:
                 provider_id=payload.provider_id,
             )
             if existing_link is not None:
-                # 既存ユーザーの再ログイン：profile を最新値で上書き。
-                await self.users.update_profile(
+                # 既存ユーザーの再ログイン：profile を最新値で上書きし、
+                # UPDATE + RETURNING で更新後の ORM を 1 クエリで取得する。
+                user = await self.users.update_profile(
                     user_id=existing_link.user_id,
                     display_name=payload.display_name,
                     email=payload.email,
                 )
-                # 上書き後の最新 ORM を取り直して詰め替え元にする。
-                user = await self.users.get_by_id(existing_link.user_id)
                 if user is None:
                     # CASCADE 削除と並走した極稀なレース。新規ユーザー作成にフォールバック
                     # するより、明示エラーで再ログインを促す方が後段の振る舞いが読みやすい。
