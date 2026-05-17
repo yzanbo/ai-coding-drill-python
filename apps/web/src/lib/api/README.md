@@ -11,9 +11,9 @@
 
 代表例（このプロジェクトで想定）：
 
-- `api-error-interceptor.ts`（401 を捉えて `/login` にリダイレクト、レート制限のリトライ等）
-- `extract-error-message.ts`（FastAPI のエラー JSON から表示用メッセージを取り出す）
-- `hey-api-config.ts`（生成物のクライアントに `baseURL` / `credentials: "include"` を仕込む）
+- `api-client.ts`（生成物のクライアントに `baseUrl: ""` / `credentials: "include"` / CSRF ヘッダー注入を仕込む）
+- `api-error.ts`（SDK 戻り値の失敗を `ApiError` クラスにまとめる + `throwIfError` ヘルパ）
+- `extract-api-error-message.ts`（FastAPI のエラー JSON から表示用メッセージを取り出す）
 
 ## 役目
 

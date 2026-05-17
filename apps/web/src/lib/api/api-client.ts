@@ -19,16 +19,28 @@ import { client } from "@/__generated__/api/client.gen";
 //   GET / HEAD / OPTIONS は副作用がない前提で API 側でも CSRF を要求しない。
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-// CSRF_COOKIE_NAME: API 側 config.csrf_cookie_name と一致させる（既定 "csrf_token"）。
+// CSRF_COOKIE_NAME: API 側 apps/api/app/core/config.py の `csrf_cookie_name` 既定値と
+//   ハードコードで一致させる前提。API 側で名前を変えたらここも揃えて更新する
+//   （drift すると POST/PUT/DELETE が全部 403 で落ちる経路になる）。
+//   env で動的に上書きする必要が出てきたら NEXT_PUBLIC_CSRF_COOKIE_NAME を導入する。
 const CSRF_COOKIE_NAME = "csrf_token";
 
 // readCookie: document.cookie から指定の Cookie 値を取り出す。
 //   見つからない / SSR で document が無い場合は undefined。
+//   decodeURIComponent は不正なエスケープ列が来ると URIError を投げるので、防御として
+//   try/catch で受け止め、デコードできない値は undefined 扱いにする（CSRF Cookie が
+//   壊れている状態で X-CSRF-Token を付けて送るとサーバ側で 403 になり、再ログインで
+//   復旧する経路に倒す）。
 function readCookie(name: string): string | undefined {
   if (typeof document === "undefined") return undefined;
   for (const part of document.cookie.split(";")) {
     const [k, ...rest] = part.trim().split("=");
-    if (k === name) return decodeURIComponent(rest.join("="));
+    if (k !== name) continue;
+    try {
+      return decodeURIComponent(rest.join("="));
+    } catch {
+      return undefined;
+    }
   }
   return undefined;
 }

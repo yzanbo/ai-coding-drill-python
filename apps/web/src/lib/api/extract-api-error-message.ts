@@ -1,6 +1,8 @@
 // このファイルの役割：
-//   API 応答（Hey API SDK の戻り値）からユーザー向けエラーメッセージを取り出すヘルパ。
+//   API 応答（Hey API SDK の戻り値）からユーザー向けエラーメッセージを取り出す純粋関数。
 //   FastAPI の例外ハンドラは `{ "detail": "..." }` 形式で返すので、それを優先的に拾う。
+//   "interceptor"（リクエスト / レスポンスへの差し込み処理）ではなく、status と body から
+//   文字列を組み立てるだけの formatter。リクエスト側の差し込みは ./api-client.ts 側にある。
 //   詳細仕様: docs/requirements/3-cross-cutting/02-api-conventions.md
 
 // ApiErrorShape: FastAPI が返す代表的なエラーボディ。

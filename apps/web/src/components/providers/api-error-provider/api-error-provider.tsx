@@ -16,7 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api/api-error";
-import { extractApiErrorMessage } from "@/lib/api/api-error-interceptor";
+import { extractApiErrorMessage } from "@/lib/api/extract-api-error-message";
 
 type ApiErrorProviderProps = {
   children: React.ReactNode;
@@ -29,10 +29,10 @@ const isSilent = (meta: unknown): boolean => {
 };
 
 // pickStatusAndBody: useQuery / useMutation の error から status と body を取り出す。
-//   ApiError（lib/api/api-error.ts）を主とし、それ以外の形（Response / 不明型）も拾う。
+//   本プロジェクトの API 呼び出しはすべて throwIfError 経由で ApiError を投げるので、
+//   ApiError 以外は status を取れない不明型として扱う。
 const pickStatusAndBody = (error: unknown): { status?: number; body: unknown } => {
   if (error instanceof ApiError) return { status: error.status, body: error.body };
-  if (error instanceof Response) return { status: error.status, body: undefined };
   return { status: undefined, body: error };
 };
 
