@@ -9,7 +9,9 @@
 ## フロントエンド
 
 - **Next.js**（App Router, TypeScript） — フロント専用と位置付け、API Route は最小限
-- **Tailwind CSS**
+- **Tailwind CSS v4**（CSS-first 設定、`@theme` でデザイントークンを CSS 内に集約、→ [ADR 0043](../../adr/0043-frontend-ui-styling-stack.md)）
+- **shadcn/ui**（Radix UI + Tailwind の組み合わせをコードコピー方式で取り込み、`apps/web/src/components/ui/` 配下で所有・改変可能、→ [ADR 0043](../../adr/0043-frontend-ui-styling-stack.md)）
+- **React Hook Form + Zod**（フォーム状態管理 + バリデーション、Hey API が OpenAPI から生成する Zod スキーマと resolver で接続、→ [ADR 0043](../../adr/0043-frontend-ui-styling-stack.md) / [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）
 - **CodeMirror 6**（コード入力）
   - `@codemirror/lang-javascript`（TypeScript ハイライト）
   - `@typescript/vfs` + `@valtown/codemirror-ts`（ブラウザ内型診断・補完）
