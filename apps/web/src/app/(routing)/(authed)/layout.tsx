@@ -12,6 +12,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+import { Button } from "@/components/ui/button/button";
 import { useGetAuthMe } from "@/hooks/use-get-auth-me/use-get-auth-me";
 
 type AuthedLayoutProps = {
@@ -21,7 +22,7 @@ type AuthedLayoutProps = {
 export default function AuthedLayout({ children }: AuthedLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isUnauthenticated, isLoading } = useGetAuthMe();
+  const { isAuthenticated, isUnauthenticated, isLoading, error } = useGetAuthMe();
 
   useEffect(() => {
     if (isUnauthenticated) {
@@ -31,7 +32,32 @@ export default function AuthedLayout({ children }: AuthedLayoutProps) {
   }, [isUnauthenticated, pathname, router]);
 
   // 判定中 or 未認証（リダイレクト待ち）はチラ見せを防いで空表示にする。
-  if (isLoading || !isAuthenticated) {
+  if (isLoading || isUnauthenticated) {
+    return null;
+  }
+
+  // 認証 API が 500 / ネットワーク断で失敗し、かつ前回成功キャッシュも無い時の保険。
+  //   useGetAuthMe はキャッシュがある場合「isAuthenticated を維持する」設計だが、
+  //   初回訪問時の障害ではキャッシュが無いため isAuthenticated=false / isUnauthenticated=false の
+  //   どちらにも倒れず、children を出さないと永遠に白画面になる。
+  //   ここでユーザーに障害を見せて再試行できるようにする（要件: authentication.md §1.1）。
+  if (error && !isAuthenticated) {
+    return (
+      <main className="flex flex-1 items-center justify-center px-4 py-16">
+        <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+          <p className="text-base font-semibold">ログイン状態を確認できませんでした</p>
+          <p className="text-sm text-muted-foreground">
+            サーバーとの通信に失敗しました。少し時間を置いて再度お試しください。
+          </p>
+          <Button variant="outline" size="sm" onClick={() => router.refresh()}>
+            再試行
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
+  if (!isAuthenticated) {
     return null;
   }
 

@@ -58,6 +58,22 @@ describe("AuthedLayout", () => {
     expect(screen.queryByTestId("child")).not.toBeInTheDocument();
   });
 
+  it("認証 API が 500 でキャッシュも無い時は障害メッセージと再試行ボタンを出す", async () => {
+    server.use(http.get(`${API_BASE}/auth/me`, () => new HttpResponse(null, { status: 500 })));
+
+    render(
+      <AuthedLayout>
+        <div data-testid="child">protected</div>
+      </AuthedLayout>,
+      { wrapper: withQueryClient() },
+    );
+
+    expect(await screen.findByText("ログイン状態を確認できませんでした")).toBeInTheDocument();
+    expect(screen.queryByTestId("child")).not.toBeInTheDocument();
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "再試行" })).toBeInTheDocument();
+  });
+
   it("読み込み中は children を出さない（チラ見せ防止）", () => {
     // ハンドラ未登録だと onUnhandledRequest:"error" で落ちるため、応答を遅延させる handler を置く。
     server.use(
