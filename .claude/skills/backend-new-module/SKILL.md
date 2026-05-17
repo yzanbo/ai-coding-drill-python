@@ -13,7 +13,8 @@ argument-hint: "[feature-name] (例: notifications, ratings)"
 ## 手順
 
 1. [.claude/rules/backend.md](../../rules/backend.md) を読み、ディレクトリ構成・コーディング規約を確認する
-2. 以下のファイルを作成する（既存があれば差分追加）
+2. **要件 .md の事前確認**：対応する機能要件 `docs/requirements/4-features/$ARGUMENTS.md` の存在と、ビジネスルール / API / データモデル節が埋まっているかを確認する。未作成 / 著しく不足していれば、先に `/new-requirements` で対話的に作成・補強するようユーザーに提案する（スキャフォールドだけ先行すると要件と実装で drift する）
+3. 以下のファイルを作成する（既存があれば差分追加）
 
 ### 作成するファイル
 
@@ -171,7 +172,7 @@ class <Args>(Base):
 - **エラー**：`HTTPException` ではなくドメイン例外を投げ、`app/core/exceptions.py` の handler で HTTPException に変換。メッセージは日本語
 - **ハードデリート方針**（必要に応じて検討）
 
-3. `apps/api/app/main.py` で router を登録：
+4. `apps/api/app/main.py` で router を登録：
 
 ```python
 from app.routers import <args>
@@ -179,20 +180,25 @@ from app.routers import <args>
 app.include_router(<args>.router)
 ```
 
-4. **DB スキーマが必要な場合**：
+5. **DB スキーマが必要な場合**：
    - `apps/api/app/models/$ARGUMENTS.py` を作成（上記雛形）
    - `mise run api:db-revision -- "add <args> table"` でマイグレーション雛形生成
    - 生成された Alembic revision を確認・微修正してコミット
    - 適用：`mise run api:db-migrate`
    - 詳細は [.claude/rules/alembic-sqlalchemy.md](../../rules/alembic-sqlalchemy.md)
 
-5. **HTTP API 境界 / Job キュー境界の artifact 更新**（→ [ADR 0006](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）：
+6. **HTTP API 境界 / Job キュー境界の artifact 更新**（→ [ADR 0006](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md)）：
    - 新規ルート追加 → `mise run api:openapi-export` で `apps/api/openapi.json` を更新 → Web 側は `mise run web:types-gen` で TS / Zod / HTTP クライアント再生成
    - 新規ジョブペイロード型 → `app/schemas/jobs/<job_type>.py` の Pydantic を追加 → `mise run api:job-schemas-export` → Worker 側は `mise run worker:types-gen` で Go struct 再生成
 
-6. 作成したファイルの一覧をユーザーに提示する
+7. **要件 .md の事後追従**：スキャフォールドで新規追加した以下があれば、要件側に反映する（実装が SSoT、要件側は契約の鏡として揃える、→ `_template.md` の長期運用原則）。
+   - **データモデル節の関わるテーブル**：新規追加したテーブル名を機能要件 .md と [3-cross-cutting/01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md) の ER 図に追記
+   - **API 節**：新規ルートのパス・メソッド・認証要否を機能要件 .md の API テーブルに追記（このドメインが owner、他 feature が参照する場合はアンカー）
+   - 軽微な追従はこのスキル内で直接更新してよい。差分が大きい場合は `/update-requirements` で対話的に進める
 
-7. ユーザーがこの後 `/backend-implement $ARGUMENTS` で実装に進められる旨を伝える
+8. 作成したファイルの一覧をユーザーに提示する
+
+9. ユーザーがこの後 `/backend-implement $ARGUMENTS` で実装（中身の埋め込み）に進められる旨を伝える
 
 ---
 

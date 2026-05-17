@@ -37,9 +37,19 @@ argument-hint: "[<name>] (例: problem-generation, grading)"
 - LLM 呼び出しは Worker 側に閉じる（→ [ADR 0040](../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）。Backend は enqueue + 結果取得のみ
 - 実装の順序（モデル → Pydantic スキーマ → repository → service → router → テスト、→ [ADR 0044](../../../docs/adr/0044-backend-repository-pattern-adoption.md)）
 
-ユーザーの承認を待ってから実装に着手する。
+ユーザーの承認を待ってから次の手順に進む。
 
-### 4. 実装
+### 4. 要件 .md の事前更新（実装方針の質疑で確定した決定を反映）
+
+手順 3 の方針提示で**ユーザーと対話的に確定した決定**を、実装に入る前に要件 .md に反映する。実装中に決めると要件・コード・テストの 3 者にズレが残るため、**先に要件側を SSoT として確定**させる。
+
+- 反映先：機能要件 .md の該当節（ビジネスルール / 画面 / API / バリデーション 等）、必要なら横断要件（`3-cross-cutting/`）にも追記
+- 観測可能な振る舞いとして表せる決定は**受け入れ条件**にも追加
+- 実装詳細（依存ライブラリ / 環境変数 / DB 拡張 等）は要件 .md に書かない（SSoT は pyproject / .env / SQLAlchemy モデル側、→ `_template.md` 冒頭の長期運用原則）
+
+設計判断レベルの決定はADR 起票も検討する。差分を要件側に反映してから手順 5 の実装に進む。
+
+### 5. 実装
 
 [.claude/rules/backend.md](../../rules/backend.md) のコーディング規約に従って実装する。重要なポイント：
 
@@ -51,7 +61,7 @@ argument-hint: "[<name>] (例: problem-generation, grading)"
 - エラーは `app/core/exceptions.py` の handler 経由で HTTPException に変換、メッセージは日本語
 - `Any` 禁止、SQLAlchemy `Mapped[T]` / Pydantic / `TypedDict` で型付け
 
-### 5. スキーマ変更時の手順
+### 6. スキーマ変更時の手順
 
 1. `apps/api/app/models/<feature>.py` の SQLAlchemy モデルを修正
 2. `mise run api:db-revision -- "<msg>"` でマイグレーション雛形生成（autogenerate）
@@ -61,18 +71,12 @@ argument-hint: "[<name>] (例: problem-generation, grading)"
 
 詳細は [.claude/rules/alembic-sqlalchemy.md](../../rules/alembic-sqlalchemy.md)。
 
-### 6. 共有 artifact 変更時
+### 7. 共有 artifact 変更時
 
 - HTTP API 境界（FastAPI ルートの追加・変更）→ `mise run api:openapi-export` で `apps/api/openapi.json` を更新 → Web 側は `mise run web:types-gen` で TS / Zod / HTTP クライアントを再生成
 - Job キュー境界（`app/schemas/jobs/*.py` の Pydantic）→ `mise run api:job-schemas-export` で `apps/api/job-schemas/*.json` を更新 → Worker 側は `mise run worker:types-gen` で Go struct を再生成
 - 詳細は [ADR 0006](../../../docs/adr/0006-json-schema-as-single-source-of-truth.md)
 - 新規プロンプトは Worker 配下（`apps/workers/<name>/prompts/*.yaml`、→ [ADR 0040](../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md) / [.claude/rules/prompts.md](../../rules/prompts.md)）
-
-### 7. ステータス更新
-
-実装完了後、`docs/requirements/4-features/$ARGUMENTS.md` のステータスチェックボックスのうち**バックエンド実装完了**にチェックを入れる。
-
-ステータス節の項目構成は機能ごとに `docs/requirements/4-features/_template.md` を踏襲し、機能固有の補足（例：「auth ルーター / セッションサービス / GitHub OAuth クライアント」）が括弧書きで追加されているケースもある。**項目の追加・削除はしない**（テンプレートからの drift を作らない）。テンプレ本体の更新が必要なら `_template.md` を直し、既存機能ファイルにも同じ構造を反映する。
 
 ### 8. 動作確認
 
@@ -82,4 +86,21 @@ argument-hint: "[<name>] (例: problem-generation, grading)"
 - `mise run api:deps-check` で deptry 警告なし
 - ローカルで Swagger UI（http://localhost:8000/docs）から手動疎通確認
 
-問題があれば修正してから完了とする。
+問題があれば修正してから次の手順に進む。
+
+### 9. 要件 .md の事後追従（動作確認で確定した差分を反映）
+
+動作確認まで通った段階で、実装中に明らかになった以下があれば**ステータス更新の前に**要件 .md へ反映する（実装が SSoT、要件側は契約の鏡として揃える、→ `_template.md` の長期運用原則）：
+
+- **追加された振る舞い / 契約**：新規エンドポイントの response / status code、新規ヘッダー検証、エラーケースの追加 等
+- **観測可能な受け入れ条件**：実装中に「これも担保すべき」と気付いた振る舞いを受け入れ条件に追加
+- **データモデル節の関わるテーブル**：新規追加したテーブルがあれば列挙に追加
+- **画面節 / API 節の追従**：実装で確定した最終的なパス・JSON 構造を反映
+
+軽微な追従（フィールド名修正等）はこのスキル内で直接更新してよい。差分の規模が大きい場合は `/update-requirements` で対話的に進める。
+
+### 10. ステータス更新
+
+動作確認と要件追従まで完了したら、`docs/requirements/4-features/$ARGUMENTS.md` のステータスチェックボックスのうち**バックエンド実装完了**にチェックを入れる。
+
+ステータス節の項目構成は機能ごとに `docs/requirements/4-features/_template.md` を踏襲し、機能固有の補足（例：「auth ルーター / セッションサービス / GitHub OAuth クライアント」）が括弧書きで追加されているケースもある。**項目の追加・削除はしない**（テンプレートからの drift を作らない）。テンプレ本体の更新が必要なら `_template.md` を直し、既存機能ファイルにも同じ構造を反映する。

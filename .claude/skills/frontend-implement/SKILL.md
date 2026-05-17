@@ -45,9 +45,19 @@ argument-hint: "[<name>] (例: problem-display-and-answer, learning)"
 - RSC（Server Component）と Client Component の使い分け
 - 実装の順序（ページ骨組み → API フック → コンポーネント詳細 → スタイル）
 
-ユーザーの承認を待ってから実装に着手する。
+ユーザーの承認を待ってから次の手順に進む。
 
-### 5. 実装
+### 5. 要件 .md の事前更新（実装方針の質疑で確定した決定を反映）
+
+手順 4 の方針提示で**ユーザーと対話的に確定した決定**を、実装に入る前に要件 .md に反映する。実装中に決めると要件・コード・テストの 3 者にズレが残るため、**先に要件側を SSoT として確定**させる。
+
+- 反映先：機能要件 .md の該当節（ビジネスルール / 画面 / API / バリデーション 等）、必要なら横断要件（`3-cross-cutting/`）にも追記
+- 観測可能な振る舞いとして表せる決定は**受け入れ条件**にも追加
+- 実装詳細（依存ライブラリ / 設定値 等）は要件 .md に書かない（SSoT は package.json / 設定ファイル側、→ `_template.md` 冒頭の長期運用原則）
+
+設計判断レベルの決定は ADR 起票も検討する。差分を要件側に反映してから手順 6 の実装に進む。
+
+### 6. 実装
 
 [.claude/rules/frontend.md](../../rules/frontend.md) のコーディング規約に従って実装する：
 
@@ -61,7 +71,7 @@ argument-hint: "[<name>] (例: problem-display-and-answer, learning)"
 - 認証必須ページは `(authed)` ルートグループ配下に配置
 - ファイル名・ディレクトリ名はケバブケース、`index.ts` 禁止
 
-### 6. CodeMirror の使い方（解答画面）
+### 7. CodeMirror の使い方（解答画面）
 
 `/problems/:id` の解答画面では：
 
@@ -70,7 +80,7 @@ argument-hint: "[<name>] (例: problem-display-and-answer, learning)"
 - `@typescript/vfs` + `@valtown/codemirror-ts` でブラウザ内型診断
 - 型診断はサーバ採点の事前フィードバック、最終正誤はサーバが正
 
-### 7. 採点結果ポーリング（TanStack Query）
+### 8. 採点結果ポーリング（TanStack Query）
 
 ```tsx
 const { data: submission } = useGetSubmission(submissionId, {
@@ -79,12 +89,6 @@ const { data: submission } = useGetSubmission(submissionId, {
 });
 ```
 
-### 8. ステータス更新
-
-実装完了後、`docs/requirements/4-features/$ARGUMENTS.md` のステータスチェックボックスのうち**フロントエンド実装完了**にチェックを入れる。
-
-ステータス節の項目構成は `docs/requirements/4-features/_template.md` を踏襲し、機能固有の補足が括弧書きで追加されているケースもある。**項目の追加・削除はしない**（テンプレからの drift を作らない）。テンプレ本体の更新が必要なら `_template.md` を直し、既存機能ファイルにも同じ構造を反映する。
-
 ### 9. 動作確認
 
 - `mise run web:typecheck` で型エラーなし
@@ -92,4 +96,20 @@ const { data: submission } = useGetSubmission(submissionId, {
 - ローカルで http://localhost:3000 から手動疎通確認
 - レスポンシブ確認（コードエディタ画面はデスクトップ優先）
 
-問題があれば修正してから完了とする。
+問題があれば修正してから次の手順に進む。
+
+### 10. 要件 .md の事後追従（動作確認で確定した差分を反映）
+
+動作確認まで通った段階で、実装中に明らかになった以下があれば**ステータス更新の前に**要件 .md へ反映する（実装が SSoT、要件側は契約の鏡として揃える、→ `_template.md` の長期運用原則）：
+
+- **追加された振る舞い / 契約**：画面の挙動・遷移・状態表示の追加、エラーケースの追加 等
+- **観測可能な受け入れ条件**：実装中に「これも担保すべき」と気付いた振る舞いを受け入れ条件に追加
+- **画面節 / 使用 API の追従**：実装で確定した最終的なパス・コンポーネント構成・使用 API を反映
+
+軽微な追従はこのスキル内で直接更新してよい。差分の規模が大きい場合は `/update-requirements` で対話的に進める。
+
+### 11. ステータス更新
+
+動作確認と要件追従まで完了したら、`docs/requirements/4-features/$ARGUMENTS.md` のステータスチェックボックスのうち**フロントエンド実装完了**にチェックを入れる。
+
+ステータス節の項目構成は `docs/requirements/4-features/_template.md` を踏襲し、機能固有の補足が括弧書きで追加されているケースもある。**項目の追加・削除はしない**（テンプレからの drift を作らない）。テンプレ本体の更新が必要なら `_template.md` を直し、既存機能ファイルにも同じ構造を反映する。
