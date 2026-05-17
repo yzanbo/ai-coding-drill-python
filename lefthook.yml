@@ -74,11 +74,17 @@ pre-commit:
     # ローカルの早期 feedback 用。hook を --no-verify でバイパスされた場合は
     # CI の types-gen-drift ジョブ（後続ステップ）が最終ゲートとして守る。
     schemas-drift:
-      # glob は schemas/ 配下を丸ごと対象にする（`schemas/**/*.py` だと
-      # 直下の health.py 等が拾われないため `**` 単独で全ファイルを拾う）。
-      # 当該ディレクトリは Pydantic 専用で .py 以外を置かない運用のため
-      # 拡張子の絞り込みは省略してよい。
-      glob: "apps/api/app/schemas/**"
+      # trigger 対象は「OpenAPI / Job スキーマ artifact に影響する Backend コード」：
+      #   - apps/api/app/schemas/**  : Pydantic モデル（直接 OpenAPI / job-schemas を構成）
+      #   - apps/api/app/routers/**  : path / method / docstring / response_model
+      #                                （docstring は OpenAPI description に出る、
+      #                                 response_model の付け外しは schema 構造に影響）
+      # routers/ を追加した経緯：routers/auth.py の docstring 変更で artifact が
+      # drift したが schemas/ のみ trigger だったため pre-commit がスキップされ、
+      # CI の git diff --exit-code で初めて検知された事故（commit c5c599f → 0caf558）。
+      # main.py の include_router 変更は対象外（新規 router ファイル追加時は
+      # routers/** 側で trigger される、reorder / 削除は稀なため YAGNI）。
+      glob: "apps/api/app/{schemas,routers}/**"
       run: |
         set -e
         mise exec -- mise run api:openapi-export
