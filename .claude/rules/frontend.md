@@ -210,8 +210,8 @@ mise run web:e2e          # Playwright E2E
 
 ## 環境変数
 
-- `NEXT_PUBLIC_API_URL`：FastAPI の URL（例：`http://localhost:8000`）
-- public 変数は `NEXT_PUBLIC_` プレフィックス必須
+- `API_PROXY_TARGET`：FastAPI への rewrites 転送先（例：`http://localhost:8000`、SSoT は [apps/web/.env.example](../../apps/web/.env.example)）。Frontend からは相対パス（`/auth`, `/health`, `/healthz`）で叩き、`next.config.ts` の `rewrites` がここで指定した先へ裏で転送する。同一オリジン扱いに揃えると Cookie / CSRF がクロスオリジン制約に引っかからず CORS 設定が不要
+- 公開変数（ブラウザに渡る）は `NEXT_PUBLIC_` プレフィックス必須（→ Next.js の規約）。現状の Frontend は `NEXT_PUBLIC_*` を使っておらず、本プロジェクトの API アクセスはすべて rewrites 経由の同一オリジン相対 URL で完結する
 
 ## CodeMirror 6 の使い方
 

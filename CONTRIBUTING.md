@@ -123,7 +123,7 @@ mise run worker:grading:dev    # 採点 Worker
 
 | 変数 | 説明 |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | FastAPI の URL（例 `http://localhost:8000`） |
+| `API_PROXY_TARGET` | FastAPI への rewrites 転送先（例 `http://localhost:8000`、SSoT は `apps/web/.env.example`）。Frontend からは相対パス（`/auth`, `/health`, `/healthz`）で叩き、`next.config.ts` の `rewrites` がここへ転送する |
 
 `apps/workers/grading/.env`（採点 Worker）：
 
