@@ -66,6 +66,27 @@ pre-commit:
       run: mise exec -- pnpm exec knip --no-progress
 
     # ─────────────────────────────────────────────────────────────────
+    # Worker (apps/workers/**) — gofmt + golangci-lint（差分行のみ）
+    # ─────────────────────────────────────────────────────────────────
+    # ADR 0019 の Go 品質ツール（gofmt + golangci-lint）を pre-commit で発火。
+    # 起動経路は `mise exec --` 経由（他フックと同じく、Git フックの非対話シェルに
+    # PATH / shims を解決させるため）。
+
+    # gofmt: ステージ済 *.go を破壊的に整形して再ステージ。format 違反だけのコミットを発生させない。
+    worker-gofmt:
+      glob: "apps/workers/**/*.go"
+      run: mise exec -- gofmt -w {staged_files}
+      stage_fixed: true
+
+    # golangci-lint: 全体走査ではなく `--new-from-rev=HEAD` で「未コミットの差分行のみ」を検査して高速化。
+    # 全体走査は pre-push の go test 経由 + CI の worker-grading-lint ジョブで担保する。
+    # grading のみを対象にする（generation 着手時に対称な行を追加する）。
+    worker-grading-golangci-lint:
+      glob: "apps/workers/grading/**/*.go"
+      root: apps/workers/grading
+      run: mise exec -- golangci-lint run --new-from-rev=HEAD ./...
+
+    # ─────────────────────────────────────────────────────────────────
     # Pydantic SSoT → artifact 同期検証（ADR 0006、型同期パイプライン）
     # ─────────────────────────────────────────────────────────────────
     # apps/api/app/schemas/ 配下が変更された commit でのみ起動する。3 artifact
@@ -184,6 +205,29 @@ pre-push:
         失敗の詳細は上の next build ログを確認してください。
         RSC（Server Component）で window / document を参照していないか、
         Image 最適化のパス（sharp）が拾えているか、などをまず疑う。
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    # ─────────────────────────────────────────────────────────────────
+    # Worker (apps/workers/grading/) — go test ./...
+    # ─────────────────────────────────────────────────────────────────
+    # push 前の動的検証ゲート（pre-commit の静的検査と CI の間のギャップを埋める）。
+    # Go の test は通常高速（数秒）なので全体走査でよい。pytest と違い DB 依存テストは
+    # testcontainers-go で test ごとに spin up する Go 慣習のため、graceful skip 不要。
+    # govulncheck はここでは走らせない（脆弱性スキャンは週次で十分なため CI 専用）。
+    worker-grading-go-test:
+      glob: "apps/workers/grading/**/*.go"
+      root: apps/workers/grading
+      run: mise exec -- go test ./...
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  go test が失敗しました（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        失敗の詳細は上の go test ログを確認してください。
+        DB 依存テストの場合は testcontainers が docker daemon に接続できているか、
+        Docker Desktop / OrbStack が起動しているかをまず疑う。
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
