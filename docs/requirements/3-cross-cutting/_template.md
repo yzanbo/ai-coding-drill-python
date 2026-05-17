@@ -57,6 +57,6 @@
 
 - **関連する横断章**：[NN-xxx.md](./NN-xxx.md)
 - **関連する全体要件**：[2-foundation/NN-xxx.md](../2-foundation/NN-xxx.md)
-- **関連する個別機能**：[F-XX](../4-features/F-XX-...md)
+- **関連する個別機能**：[`<category>/<name>`](../4-features/<category>/<name>.md)
 - **関連 ADR**：[ADR XXXX](../../adr/XXXX-...md)
 - **詳細仕様の SSoT**：SQLAlchemy 2.0 model（`apps/api/app/models/`）/ Pydantic schema（`apps/api/app/schemas/`）/ FastAPI 自動生成 OpenAPI（`apps/api/openapi.json`、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)）等

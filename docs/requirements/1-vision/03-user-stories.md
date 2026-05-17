@@ -12,14 +12,14 @@
 
 | 状態 | ストーリー | 関連機能 |
 |---|---|---|
-| ゲスト時 | サービスにログインする前に問題の雰囲気を眺めたい — どんな問題が出るか試したいから | [F-03](../4-features/F-03-problem-display-and-answer.md) |
-| 認証時 | GitHub アカウントだけでログインしたい — 別アカウント登録の手間を省きたいから | [F-01](../4-features/F-01-github-oauth-auth.md) |
-| 認証時 | カテゴリ・難易度を選んで新しい問題を生成リクエストしたい — 自分の興味・弱点に応じた練習をしたいから | [F-02](../4-features/F-02-problem-generation.md) |
-| 認証時 | コードエディタで型診断を受けながら解答を書きたい — 構文ミスをサーバ採点前に潰したいから | [F-03](../4-features/F-03-problem-display-and-answer.md) |
-| 認証時 | 解答を送ると即座に採点結果が返ってきてほしい — 手動レビューを待たず学習効率を最大化したいから | [F-04](../4-features/F-04-auto-grading.md) |
-| 認証時 | 過去の解答履歴と弱点カテゴリを確認したい — 進捗と苦手分野を客観的に把握したいから | [F-05](../4-features/F-05-learning-history.md) |
-| 認証時（バックログ） | 弱点カテゴリに応じた問題が自動で出題されてほしい — 効率的に苦手を克服したいから | F-06（バックログ、[5-roadmap](../5-roadmap/01-roadmap.md#f-06-適応型出題)） |
-| 認証時（バックログ） | 誤答時にヒントを得て自力で解き直したい — 答えを見ずに学習を続けたいから | F-07（バックログ、[5-roadmap](../5-roadmap/01-roadmap.md#f-07-llm-ヒント機能)） |
+| ゲスト時 | サービスにログインする前に問題の雰囲気を眺めたい — どんな問題が出るか試したいから | [問題表示・解答入力](../4-features/problem/display-and-answer.md) |
+| 認証時 | GitHub アカウントだけでログインしたい — 別アカウント登録の手間を省きたいから | [GitHub OAuth ログイン](../4-features/auth/github-oauth.md) |
+| 認証時 | カテゴリ・難易度を選んで新しい問題を生成リクエストしたい — 自分の興味・弱点に応じた練習をしたいから | [問題生成](../4-features/problem/generation.md) |
+| 認証時 | コードエディタで型診断を受けながら解答を書きたい — 構文ミスをサーバ採点前に潰したいから | [問題表示・解答入力](../4-features/problem/display-and-answer.md) |
+| 認証時 | 解答を送ると即座に採点結果が返ってきてほしい — 手動レビューを待たず学習効率を最大化したいから | [自動採点](../4-features/grading/auto-grading.md) |
+| 認証時 | 過去の解答履歴と弱点カテゴリを確認したい — 進捗と苦手分野を客観的に把握したいから | [学習履歴](../4-features/learning/history.md) |
+| 認証時（バックログ） | 弱点カテゴリに応じた問題が自動で出題されてほしい — 効率的に苦手を克服したいから | 適応型出題（バックログ、[5-roadmap](../5-roadmap/01-roadmap.md#適応型出題)） |
+| 認証時（バックログ） | 誤答時にヒントを得て自力で解き直したい — 答えを見ずに学習を続けたいから | LLM ヒント機能（バックログ、[5-roadmap](../5-roadmap/01-roadmap.md#llm-ヒント機能)） |
 
 ---
 
@@ -30,7 +30,7 @@
 
 | ストーリー | 関連機能・横断テーマ |
 |---|---|
-| 生成成功率・LLM コスト・採点レイテンシをダッシュボードで継続観測したい — サービス品質と運用コストを定量的に把握するため | [F-08（バックログ）](../5-roadmap/01-roadmap.md#f-08-管理ダッシュボード) / [2-foundation/04-observability.md](../2-foundation/04-observability.md) |
+| 生成成功率・LLM コスト・採点レイテンシをダッシュボードで継続観測したい — サービス品質と運用コストを定量的に把握するため | [管理ダッシュボード（バックログ）](../5-roadmap/01-roadmap.md#管理ダッシュボード) / [2-foundation/04-observability.md](../2-foundation/04-observability.md) |
 | LLM 出力の品質評価（Judge）が機能しているか確認したい — 設計思想が動作で証明されている状態を維持するため | [2-foundation/03-llm-pipeline.md](../2-foundation/03-llm-pipeline.md) |
 | アラートが発火したら Runbook に沿って原因切り分けと対応ができるようにしたい — 障害対応の再現性を確保するため | [2-foundation/04-observability.md: Runbook](../2-foundation/04-observability.md#運用-runbook) |
 | LLM コストが日次予算を超過した時にすぐ気付きたい — クラウド料金の暴騰を防ぐため | [2-foundation/01-non-functional.md: コスト](../2-foundation/01-non-functional.md#コスト) |

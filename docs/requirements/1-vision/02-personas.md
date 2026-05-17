@@ -25,13 +25,13 @@
 
 ### 関係する機能
 
-- [F-01: GitHub OAuth ログイン](../4-features/F-01-github-oauth-auth.md)
-- [F-02: 問題生成リクエスト](../4-features/F-02-problem-generation.md)
-- [F-03: 問題表示・解答入力](../4-features/F-03-problem-display-and-answer.md)
-- [F-04: 自動採点](../4-features/F-04-auto-grading.md)
-- [F-05: 学習履歴・統計](../4-features/F-05-learning-history.md)
-- F-06: 適応型出題（バックログ、[5-roadmap/01-roadmap.md](../5-roadmap/01-roadmap.md#f-06-適応型出題)）
-- [F-07: LLM ヒント機能（バックログ）](../5-roadmap/01-roadmap.md#f-07-llm-ヒント機能)
+- [GitHub OAuth ログイン](../4-features/auth/github-oauth.md)
+- [問題生成リクエスト](../4-features/problem/generation.md)
+- [問題表示・解答入力](../4-features/problem/display-and-answer.md)
+- [自動採点](../4-features/grading/auto-grading.md)
+- [学習履歴・統計](../4-features/learning/history.md)
+- 適応型出題（バックログ、[5-roadmap/01-roadmap.md](../5-roadmap/01-roadmap.md#適応型出題)）
+- [LLM ヒント機能（バックログ）](../5-roadmap/01-roadmap.md#llm-ヒント機能)
 
 ---
 
@@ -53,7 +53,7 @@
 
 ### 関係する機能・横断テーマ
 
-- F-08: 管理ダッシュボード（バックログ、[5-roadmap/01-roadmap.md](../5-roadmap/01-roadmap.md#f-08-管理ダッシュボード)）
+- 管理ダッシュボード（バックログ、[5-roadmap/01-roadmap.md](../5-roadmap/01-roadmap.md#管理ダッシュボード)）
 - 観測性：[2-foundation/04-observability.md](../2-foundation/04-observability.md)
 - 非機能要件：[2-foundation/01-non-functional.md](../2-foundation/01-non-functional.md)
 - LLM パイプライン：[2-foundation/03-llm-pipeline.md](../2-foundation/03-llm-pipeline.md)

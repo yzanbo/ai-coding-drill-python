@@ -1,7 +1,7 @@
 ---
 name: frontend-test
 description: 要件 .md に基づいてフロントエンドのテストを生成・実行する
-argument-hint: "[F-XX-feature-name] (例: F-03-problem-display-and-answer, F-05-learning-history)"
+argument-hint: "[<category>/<name>] (例: problem/display-and-answer, learning/history)"
 ---
 
 # 要件ベースのフロントエンドテスト
@@ -90,7 +90,7 @@ mise run web:test
 
 ### 6. E2E テスト（Playwright）
 
-主要なユーザーフロー（ログイン → 問題生成 → 解答 → 採点結果表示など、F-XX 受け入れ条件に紐づく経路）は **Playwright** でカバーする（→ [ADR 0038](../../../docs/adr/0038-test-frameworks.md)、[.claude/rules/frontend.md](../../rules/frontend.md) の Playwright 章）：
+主要なユーザーフロー（ログイン → 問題生成 → 解答 → 採点結果表示など、機能受け入れ条件に紐づく経路）は **Playwright** でカバーする（→ [ADR 0038](../../../docs/adr/0038-test-frameworks.md)、[.claude/rules/frontend.md](../../rules/frontend.md) の Playwright 章）：
 
 - テストファイルは `apps/web/e2e/` 配下に `*.spec.ts` で配置（ユニットテストとは別ディレクトリ）
 - 各テストは独立した認証セッションを使う（`storageState` / `test.use({ storageState })`）

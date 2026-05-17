@@ -22,7 +22,7 @@ docs/requirements/
 | **1-vision** | 極小（プロジェクト方針再定義時のみ） | プロジェクトのビジョン・ペルソナ・ユーザーストーリー |
 | **2-foundation** | 小（アーキテクチャ刷新時） | 非機能・アーキテクチャ・LLM パイプライン・観測性・技術スタック |
 | **3-cross-cutting** | 中（機能追加時に更新） | ER 図・API 共通仕様（複数機能で共有される横断要件） |
-| **4-features** | 大（スプリントごと） | 個別機能（F-XX）の詳細仕様 |
+| **4-features** | 大（スプリントごと） | 個別機能の詳細仕様 |
 | **5-roadmap** | 大（スプリントごと） | ロードマップ・プロダクトバックログ |
 
 ---
@@ -40,7 +40,7 @@ docs/requirements/
   ↓
 2-foundation/03-llm-pipeline.md  本サービスの差別化軸（LLM × サンドボックス）
   ↓
-4-features/F-01〜F-05            個別機能の詳細
+4-features/<category>/<name>.md   個別機能の詳細（auth/ / problem/ / grading/ / learning/）
   ↓
 5-roadmap/01-roadmap.md          いつ何を作るか
   ↓
@@ -60,7 +60,7 @@ docs/adr/                        各種設計判断の根拠
 | 3 | **Week 1** | [`1-vision/03-user-stories.md`](./1-vision/03-user-stories.md) | ペルソナ × 状況のストーリーマトリクス（MVP 範囲） |
 | 4 | **MVP 着手前** | [`2-foundation/02-architecture.md`](./2-foundation/02-architecture.md) | システム全体構造・コンポーネント責務 |
 | 5 | **MVP 計画時** | [`5-roadmap/01-roadmap.md`](./5-roadmap/01-roadmap.md) | リリース計画（R0〜R5）+ プロダクトバックログ |
-| 6 | **MVP 着手時** | [`4-features/F-01.md`](./4-features/) 〜 | 各機能の受け入れ条件・画面・API |
+| 6 | **MVP 着手時** | [`4-features/<category>/<name>.md`](./4-features/) 〜 | 各機能の受け入れ条件・画面・API |
 | 7 | **最初のスキーマ定義時** | [`3-cross-cutting/01-data-model.md`](./3-cross-cutting/01-data-model.md) | ER 図・命名規則・横断方針 |
 | 8 | **採用技術が固まった時** | [`2-foundation/05-runtime-stack.md`](./2-foundation/05-runtime-stack.md) | 技術選定 + 選定理由（同時に [`docs/adr/`](../adr/) に判断を記録） |
 | 9 | **必要に応じて** | [`2-foundation/01-non-functional.md`](./2-foundation/01-non-functional.md)、[`2-foundation/03-llm-pipeline.md`](./2-foundation/03-llm-pipeline.md)、[`2-foundation/04-observability.md`](./2-foundation/04-observability.md)、[`3-cross-cutting/02-api-conventions.md`](./3-cross-cutting/02-api-conventions.md) 等 | 非機能要件の詳細・LLM パイプライン・観測性・API 共通仕様（実装着手段階で必要が出た時に書く） |
@@ -117,7 +117,7 @@ docs/adr/                        各種設計判断の根拠
 | 1-vision | [`_template-01-overview.md`](./1-vision/_template-01-overview.md) / [`_template-02-personas.md`](./1-vision/_template-02-personas.md) / [`_template-03-user-stories.md`](./1-vision/_template-03-user-stories.md) | ファイル別の専用テンプレ（overview / persona / user story それぞれ） |
 | 2-foundation | [`_template.md`](./2-foundation/_template.md) | 横断テーマ章の追加用 |
 | 3-cross-cutting | [`_template.md`](./3-cross-cutting/_template.md) | 横断的成長要件の追加用 |
-| 4-features | [`_template.md`](./4-features/_template.md) | 機能カード（F-XX）の追加用 |
+| 4-features | [`_template.md`](./4-features/_template.md) | 機能カード（path / slug ベース）の追加用 |
 
 `5-roadmap/` はファイル数が固定的（基本は `01-roadmap.md` 1 ファイル）のため専用テンプレなし。
 

@@ -1,18 +1,18 @@
 ---
 name: update-requirements
 description: 要件 .md を先に更新してから実装を修正する
-argument-hint: "[F-XX-feature-name] [変更内容の説明]"
+argument-hint: "[<category>/<name>] [変更内容の説明]"
 ---
 
 # 要件先行更新
 
-引数 `$ARGUMENTS` の最初の単語を**フルファイル名**（`F-XX-<kebab-case>` 形式、例：`F-02-problem-generation`）、残りを変更内容として解釈する。
+引数 `$ARGUMENTS` の最初の単語を**機能パス**（`<category>/<name>` 形式、例：`problem/generation`）、残りを変更内容として解釈する。
 
 ## 手順
 
 ### 1. 現在の要件を読み込む
 
-- 機能要件：`docs/requirements/4-features/F-XX-<feature-name>.md`（`$ARGUMENTS` の先頭単語）
+- 機能要件：`docs/requirements/4-features/<category>/<name>.md`（`$ARGUMENTS` の先頭単語）
 - 関連するベース要件：[docs/requirements/](../../../docs/requirements/)
   - [1-vision/03-user-stories.md](../../../docs/requirements/1-vision/03-user-stories.md)（ユーザーストーリー）
   - [2-foundation/02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md)（アーキテクチャ）
@@ -36,7 +36,7 @@ argument-hint: "[F-XX-feature-name] [変更内容の説明]"
 
 機能要件の変更が以下に波及するかを確認し、必要なら更新：
 
-- [01-overview.md](../../../docs/requirements/1-vision/01-overview.md)：機能一覧 F-XX
+- [01-overview.md](../../../docs/requirements/1-vision/01-overview.md)：機能一覧
 - [02-architecture.md](../../../docs/requirements/2-foundation/02-architecture.md)：コンポーネント責務、データフロー
 - [01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md)：ER 図、テーブル定義
 - [02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md)：エンドポイント一覧
@@ -60,4 +60,4 @@ ADR は [docs/adr/template.md](../../../docs/adr/template.md) を元に作成。
 
 ### 6. ステータス更新
 
-実装完了後、`docs/requirements/4-features/F-XX-<feature-name>.md` のステータスを適宜更新する。
+実装完了後、`docs/requirements/4-features/<category>/<name>.md` のステータスを適宜更新する。

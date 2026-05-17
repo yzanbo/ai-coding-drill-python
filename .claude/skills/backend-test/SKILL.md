@@ -1,7 +1,7 @@
 ---
 name: backend-test
 description: 要件 .md に基づいて FastAPI のユニット / 結合テストを生成・実行する
-argument-hint: "[F-XX-feature-name] (例: F-02-problem-generation, F-04-auto-grading)"
+argument-hint: "[<category>/<name>] (例: problem/generation, grading/auto-grading)"
 ---
 
 # 要件ベースのバックエンドテスト生成・実行

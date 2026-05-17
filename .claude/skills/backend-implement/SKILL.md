@@ -1,7 +1,7 @@
 ---
 name: backend-implement
 description: 要件 .md を読み込んで FastAPI を実装する
-argument-hint: "[F-XX-feature-name] (例: F-02-problem-generation, F-04-auto-grading)"
+argument-hint: "[<category>/<name>] (例: problem/generation, grading/auto-grading)"
 ---
 
 # 要件ベースのバックエンド実装
