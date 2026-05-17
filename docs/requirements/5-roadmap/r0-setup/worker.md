@@ -1,6 +1,19 @@
 # Worker（Go）環境構築（🔴 未着手）
 
-> **守備範囲**：Go ランタイム取得から `apps/workers/grading` を品質ゲート + サンドボックス雛形付きで動かすまでの 8 ステップ。本フェーズが終わると、Go の lint / test / ビルドがローカル + CI 両方で緑になり、依存自動更新が走り始める。Worker のビジネスロジック（採点・LLM 呼び出し）の実装は LLM プロバイダ抽象化フェーズ以降で進める。
+## このフェーズで何ができるようになるか
+
+Go ランタイム取得から `apps/workers/grading` を品質ゲート + サンドボックス雛形付きで動かすまでの 8 ステップ。本フェーズが終わると以下ができるようになる：
+
+- `mise run worker:grading:dev` で Go Worker の skeleton（jobs polling loop）が起動する
+- gofmt / golangci-lint / govulncheck / `go mod tidy` 差分検査がローカル + CI 両方で緑になる
+- testing + testify のテスト基盤が揃う
+- 使い捨てサンドボックス用 Dockerfile の skeleton が配置され、後続フェーズで TS コード実行コンテナの土台になる
+- Worker 依存の自動更新 PR が週次で来る
+
+Worker のビジネスロジック（採点・LLM 呼び出し）の実装は LLM プロバイダ抽象化フェーズ以降で進める。
+
+---
+
 > **実行タイミングは柔軟**：R0 の他項目（[foundation.md](./foundation.md) / [backend.md](./backend.md) / [frontend.md](./frontend.md)）と並行で進めても、これら 3 つが完了してから着手しても、R1 着手直前にまとめて行ってもよい。**唯一の制約は「LLM プロバイダ抽象化フェーズが Worker コードを必要とするため、それまでに本フェーズが完了している」こと**。R0 を「Backend + Frontend が動く状態」で先行リリース的に区切り、Worker は後追いで合流させる運用も許容する（その場合 R0 自体は本ファイル以外（[foundation.md](./foundation.md) / [backend.md](./backend.md) / [frontend.md](./frontend.md)）の完了で「実質完了」扱いにできる）。
 > **前提フェーズ**：[foundation.md](./foundation.md) 完了済（mise.toml + GitHub Actions 雛形 + Dependabot 雛形）。DB（Postgres）は Worker（採点ジョブの結果書き戻し）でも使うが本フェーズ自体は DB に依存しない（雛形 main.go は jobs polling loop の skeleton まで）。実際に DB を読み書きするのは LLM プロバイダ抽象化フェーズ以降。
 > **次フェーズ**：LLM プロバイダ抽象化レイヤ + 初期モデル選定（Worker 側に集約、→ [ADR 0007](../../../adr/0007-llm-provider-abstraction.md) / [ADR 0040](../../../adr/0040-worker-grouping-and-llm-in-worker.md)）。R1 全体の進行順は [../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクションを参照。

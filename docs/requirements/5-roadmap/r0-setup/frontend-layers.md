@@ -1,6 +1,16 @@
 # Frontend レイヤ分割（✅ 完了）
 
-> **守備範囲**：`apps/web/src/` 配下に Next.js App Router 流のレイヤ分割（5 系統 14 フォルダ）を確定し、各レイヤの責務 + import 方向 + 命名規則を `.claude/rules/frontend.md` に「実装契約」として固定する。本フェーズが終わると、R1 以降の Frontend 機能実装が「悩まずに迷わずレイヤを選ぶ」状態になる。
+## このフェーズで何ができるようになるか
+
+`apps/web/src/` 配下に Next.js App Router 流のレイヤ分割（5 系統 14 フォルダ）を確定し、各レイヤの責務 + import 方向 + 命名規則を `.claude/rules/frontend.md` に「実装契約」として固定する。本フェーズが終わると以下ができるようになる：
+
+- R1 以降の Frontend 機能実装が「悩まずに迷わずレイヤを選ぶ」状態になる
+- 各レイヤの責務・配置・import 可否が rules ファイルに固定され、Claude が自動 load して規約に従ったコードを生成できる
+- 各ディレクトリに人間向け README が揃い、feature folder / `src/{components,hooks,lib}` 配置規約が一目で分かる
+- 静的解析ツール（Biome / Knip / tsc）の対象が新ディレクトリ構造に整合する
+
+---
+
 > **前提フェーズ**：[Next.js 環境構築フェーズ](./frontend.md)完了済（`apps/web/src/app/{layout,page}.tsx` の基本構造が存在し、`mise run web:dev` で起動可能、Biome / Knip / syncpack / TypeScript の品質ゲートが揃っている）
 > **前フェーズ**：[Backend レイヤ分割フェーズ](./backend-layers.md)
 >

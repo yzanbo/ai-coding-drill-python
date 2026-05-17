@@ -1,6 +1,16 @@
 # Backend レイヤ分割（✅ 完了）
 
-> **守備範囲**：`apps/api/app/` 配下に機能別フラットなレイヤ分割（8 レイヤ + `main.py`）を確定し、各レイヤの責務 + import 方向 + 命名規則を `.claude/rules/backend.md` に「実装契約」として固定する。本フェーズが終わると、R1 以降の Backend 機能実装が「悩まずに迷わずレイヤを選ぶ」状態になる。
+## このフェーズで何ができるようになるか
+
+`apps/api/app/` 配下に機能別フラットなレイヤ分割（8 レイヤ + `main.py`）を確定し、各レイヤの責務 + import 方向 + 命名規則を `.claude/rules/backend.md` に「実装契約」として固定する。本フェーズが終わると以下ができるようになる：
+
+- R1 以降の Backend 機能実装が「悩まずに迷わずレイヤを選ぶ」状態になる
+- 各レイヤの責務・import 可否が rules ファイルに固定され、Claude が自動 load して規約に従ったコードを生成できる
+- 各ディレクトリに人間向け README が揃い、「とは何か / 機能パターン / やってはいけないこと」が一目で分かる
+- 既存テスト（health check 疎通）が引き続き緑のまま、構造変更が完了している
+
+---
+
 > **前提フェーズ**：[Python 環境構築フェーズ](./backend.md) 完了済（`apps/api/app/main.py` / `core/config.py` / `db/session.py` / `db/base.py` / `models/health_check.py` / `schemas/health.py` / `routers/health.py` / `routers/probes.py` が配置済、Postgres + Alembic の最小マイグレーションが通り、`mise run api:dev` で起動可能、ruff / pyright / pip-audit / deptry がローカル + CI 両方で緑）
 > **次フェーズ**：[Frontend レイヤ分割フェーズ](./frontend-layers.md)
 >
