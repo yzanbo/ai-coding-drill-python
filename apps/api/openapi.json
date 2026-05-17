@@ -115,7 +115,7 @@
   "paths": {
     "/auth/github": {
       "get": {
-        "description": "OAuth フロー開始。state を発行し GitHub の認可画面へ 302 リダイレクトする。\n\nクエリ:\n  - next: ログイン後の戻り先（同一オリジン相対パスのみ）。callback 時に使うため\n          state と一緒に Redis に格納する… のが理想だが、現状の state_store は\n          値を持たない設計のため、Cookie に一時格納する方式を取る（HttpOnly + Lax）。",
+        "description": "OAuth フロー開始。state を発行し GitHub の認可画面へ 302 リダイレクトする。\n\nクエリ:\n  - next: ログイン後の戻り先（同一オリジン相対パスのみ）。state レコードに\n          同梱して Redis に保存し、callback 側で 1 回使い切りで取り出す。\n          旧実装は別 Cookie（auth_next）で運んでいたが「state と next が\n          別場所に分かれて弱く結合」する設計弱点があったため state レコード\n          側に集約した。",
         "operationId": "start_github_oauth_auth_github_get",
         "parameters": [
           {

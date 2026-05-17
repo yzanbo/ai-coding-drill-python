@@ -24,9 +24,11 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  * OAuth フロー開始。state を発行し GitHub の認可画面へ 302 リダイレクトする。
  *
  * クエリ:
- * - next: ログイン後の戻り先（同一オリジン相対パスのみ）。callback 時に使うため
- * state と一緒に Redis に格納する… のが理想だが、現状の state_store は
- * 値を持たない設計のため、Cookie に一時格納する方式を取る（HttpOnly + Lax）。
+ * - next: ログイン後の戻り先（同一オリジン相対パスのみ）。state レコードに
+ * 同梱して Redis に保存し、callback 側で 1 回使い切りで取り出す。
+ * 旧実装は別 Cookie（auth_next）で運んでいたが「state と next が
+ * 別場所に分かれて弱く結合」する設計弱点があったため state レコード
+ * 側に集約した。
  */
 export const startGithubOauthAuthGithubGet = <ThrowOnError extends boolean = false>(options?: Options<StartGithubOauthAuthGithubGetData, ThrowOnError>) => (options?.client ?? client).get<unknown, StartGithubOauthAuthGithubGetErrors, ThrowOnError>({ url: '/auth/github', ...options });
 
