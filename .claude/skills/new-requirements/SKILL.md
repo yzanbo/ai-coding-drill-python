@@ -1,14 +1,14 @@
 ---
 name: new-requirements
 description: 機能別の要件 .md を対話的に新規作成する
-argument-hint: "[F-XX-feature-name] [概要の説明]"
+argument-hint: "[<category>/<name>] [概要の説明]"
 ---
 
 # 機能要件の新規作成
 
-引数 `$ARGUMENTS` の最初の単語を**フルファイル名**（`F-XX-<kebab-case>` 形式、例：`F-06-adaptive-quiz`）、残りを機能の概要として解釈する。F-XX 番号は `docs/requirements/4-features/README.md` の機能一覧表で次の空き番号を確認する。
+引数 `$ARGUMENTS` の最初の単語を**機能パス**（`<category>/<name>` 形式、例：`problem/adaptive-quiz`）、残りを機能の概要として解釈する。既存カテゴリ（auth / problem / grading / learning）に該当するなら同じ category 配下、該当しない場合は新規カテゴリ名を提案する（→ `docs/requirements/4-features/README.md` の機能一覧表を参照）。
 
-機能要件は `docs/requirements/4-features/F-XX-<feature-name>.md` に作成する。
+機能要件は `docs/requirements/4-features/<category>/<name>.md` に作成する。
 ベースとなる全体要件（[docs/requirements/](../../../docs/requirements/)）に対する**機能別の追加仕様**として位置付ける。
 
 ## 手順
@@ -37,7 +37,7 @@ argument-hint: "[F-XX-feature-name] [概要の説明]"
 
 ### 3. 機能要件 .md の生成
 
-対話で得た情報をまとめ、`docs/requirements/4-features/F-XX-<feature-name>.md` を以下のセクション構成で作成する（ファイル名は `$ARGUMENTS` の先頭単語）：
+対話で得た情報をまとめ、`docs/requirements/4-features/<category>/<name>.md` を以下のセクション構成で作成する（ファイル名は `$ARGUMENTS` の先頭単語）：
 
 ```markdown
 # 機能要件：<機能名>
@@ -93,11 +93,11 @@ argument-hint: "[F-XX-feature-name] [概要の説明]"
 
 機能要件で**新規エンドポイント・新規テーブル・新規画面・新規ユーザーストーリー**を追加した場合、それらをベース要件にも反映する：
 
-- [1-vision/01-overview.md](../../../docs/requirements/1-vision/01-overview.md)：機能俯瞰一覧に F-XX を追記（概要レベルのみ）
+- [1-vision/01-overview.md](../../../docs/requirements/1-vision/01-overview.md)：機能俯瞰一覧に 機能を追記（概要レベルのみ）
 - [1-vision/03-user-stories.md](../../../docs/requirements/1-vision/03-user-stories.md)：該当ペルソナのマトリクスにストーリーを追加（[`_template-03-user-stories.md`](../../../docs/requirements/1-vision/_template-03-user-stories.md) の形式に従う）
 - [3-cross-cutting/01-data-model.md](../../../docs/requirements/3-cross-cutting/01-data-model.md)：ER 図と命名規則・横断方針を更新
-- [3-cross-cutting/02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md)：機能別エンドポイント一覧に F-XX 行を追加
-- [4-features/README.md](../../../docs/requirements/4-features/README.md)：機能一覧表に F-XX 行を追加
+- [3-cross-cutting/02-api-conventions.md](../../../docs/requirements/3-cross-cutting/02-api-conventions.md)：機能別エンドポイント一覧に 機能行を追加
+- [4-features/README.md](../../../docs/requirements/4-features/README.md)：機能一覧表に 機能行を追加
 - [5-roadmap/01-roadmap.md](../../../docs/requirements/5-roadmap/01-roadmap.md)：プロダクトバックログに項目追加
 
 ただし詳細はベースに書かず、機能要件 .md へのリンクで誘導する。

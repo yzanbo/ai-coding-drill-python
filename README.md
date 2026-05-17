@@ -39,7 +39,7 @@
 1. **[本 README のハイライト](#ハイライト)** ← 今ここ（差別化軸の概要）
 2. **[ADR（設計判断の記録）](docs/adr/)** ← 設計力アピールの中核
 3. **[要件定義書 5 バケット構造](docs/requirements/)** ← ドキュメント設計力
-4. **個別機能の詳細仕様**：[F-01](docs/requirements/4-features/F-01-github-oauth-auth.md) 〜 [F-05](docs/requirements/4-features/F-05-learning-history.md)
+4. **個別機能の詳細仕様**：[GitHub OAuth ログイン](docs/requirements/4-features/auth/github-oauth.md) 〜 [学習履歴](docs/requirements/4-features/learning/history.md)
 5. **動くデモ** ← R5 公開後
 
 ### 評価軸別の見どころマップ
@@ -49,7 +49,7 @@
 | 設計判断・トレードオフの言語化能力 | [docs/adr/](docs/adr/) — 全 ADR の索引 |
 | アーキテクチャ設計力 | [02-architecture.md](docs/requirements/2-foundation/02-architecture.md) + [ADR 0004](docs/adr/0004-postgres-as-job-queue.md) / [0009](docs/adr/0009-disposable-sandbox-container.md) / [0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) |
 | LLM アプリ設計力 | [03-llm-pipeline.md](docs/requirements/2-foundation/03-llm-pipeline.md) + [ADR 0008](docs/adr/0008-custom-llm-judge.md) / [0007](docs/adr/0007-llm-provider-abstraction.md) |
-| セキュリティ・サンドボックス設計 | [ADR 0009](docs/adr/0009-disposable-sandbox-container.md) + [F-04 自動採点](docs/requirements/4-features/F-04-auto-grading.md) |
+| セキュリティ・サンドボックス設計 | [ADR 0009](docs/adr/0009-disposable-sandbox-container.md) + [自動採点](docs/requirements/4-features/grading/auto-grading.md) |
 | 観測性設計（分散トレース連携・Grafana 系統合） | [04-observability.md](docs/requirements/2-foundation/04-observability.md) + [ADR 0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) / [ADR 0041](docs/adr/0041-observability-stack-grafana-and-sentry.md) |
 | ドキュメント設計力 | [docs/requirements/README.md](docs/requirements/README.md)（5 バケット時系列構造） |
 | アジャイル運用力 | [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md)（DoR / DoD / バックログ / リスクレジスタ） |
@@ -259,7 +259,7 @@ LLM 呼び出しは Worker 側に集約（ADR 0040）：
 | 1 | [1-vision/](docs/requirements/1-vision/) | プロジェクトビジョン・ペルソナ・ユーザーストーリー | 極小 |
 | 2 | [2-foundation/](docs/requirements/2-foundation/) | 非機能・アーキテクチャ・LLM パイプライン・観測性・実装技術・開発フロー | 小 |
 | 3 | [3-cross-cutting/](docs/requirements/3-cross-cutting/) | ER 図・API 共通仕様 | 中 |
-| 4 | [4-features/](docs/requirements/4-features/) | 個別機能（F-XX）の詳細仕様 | 大 |
+| 4 | [4-features/](docs/requirements/4-features/) | 個別機能の詳細仕様 | 大 |
 | 5 | [5-roadmap/](docs/requirements/5-roadmap/) | ロードマップ・プロダクトバックログ・スプリント運用 | 大 |
 
 → 全体マップ：[docs/requirements/README.md](docs/requirements/README.md)
@@ -268,11 +268,11 @@ LLM 呼び出しは Worker 側に集約（ADR 0040）：
 
 | ID | 機能名 |
 |---|---|
-| [F-01](docs/requirements/4-features/F-01-github-oauth-auth.md) | GitHub OAuth ログイン |
-| [F-02](docs/requirements/4-features/F-02-problem-generation.md) | 問題生成リクエスト |
-| [F-03](docs/requirements/4-features/F-03-problem-display-and-answer.md) | 問題表示・解答入力 |
-| [F-04](docs/requirements/4-features/F-04-auto-grading.md) | 自動採点 |
-| [F-05](docs/requirements/4-features/F-05-learning-history.md) | 学習履歴・統計 |
+| [GitHub OAuth ログイン](docs/requirements/4-features/auth/github-oauth.md) | GitHub OAuth ログイン |
+| [問題生成](docs/requirements/4-features/problem/generation.md) | 問題生成リクエスト |
+| [問題表示・解答入力](docs/requirements/4-features/problem/display-and-answer.md) | 問題表示・解答入力 |
+| [自動採点](docs/requirements/4-features/grading/auto-grading.md) | 自動採点 |
+| [学習履歴](docs/requirements/4-features/learning/history.md) | 学習履歴・統計 |
 
 ### その他
 

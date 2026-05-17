@@ -1,7 +1,7 @@
 ---
 name: frontend-implement
 description: 要件 .md を読んで Next.js のフロントエンドを実装する
-argument-hint: "[F-XX-feature-name] (例: F-03-problem-display-and-answer, F-05-learning-history)"
+argument-hint: "[<category>/<name>] (例: problem/display-and-answer, learning/history)"
 ---
 
 # 要件ベースのフロントエンド実装
