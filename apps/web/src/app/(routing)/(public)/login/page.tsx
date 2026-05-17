@@ -6,7 +6,7 @@
 //   - 認証済みなら自動的にホーム（または ?next=）へリダイレクト（二重ログイン動線を消す）
 //   - URL の ?auth_error= をトーストで通知（state_invalid / oauth_canceled / oauth_failed）
 //   - ?next= は同一オリジン相対パスのみ許容（safeNextPath が外部 URL を弾く）
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button/button";
@@ -40,13 +40,22 @@ const LoginPageInner = () => {
   const nextPath = useMemo(() => safeNextPath(search.get("next")), [search]);
 
   // ?auth_error= が付いていたらトーストで通知（1 度だけ）。
+  //   通知後は router.replace で URL から auth_error を取り除く。理由：
+  //     - リロードや「戻る」で同じトーストが再表示されるのを防ぐ
+  //     - 残った ?next= は保持したいので、search からキー単位で削るのではなく
+  //       URLSearchParams を作り直して auth_error だけを除外する
+  const pathname = usePathname();
   const toastedKey = useRef<string | null>(null);
   useEffect(() => {
     const kind = search.get("auth_error");
     if (!kind || toastedKey.current === kind) return;
     toastedKey.current = kind;
     toast.error(AUTH_ERROR_MESSAGES[kind] ?? "ログインに失敗しました。もう一度お試しください。");
-  }, [search]);
+    const cleaned = new URLSearchParams(search.toString());
+    cleaned.delete("auth_error");
+    const qs = cleaned.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [search, pathname, router]);
 
   // 認証済みなら /login に居座らせない → next（既定 "/"）に飛ばす。
   useEffect(() => {

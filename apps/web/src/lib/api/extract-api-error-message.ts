@@ -18,8 +18,9 @@ export function extractApiErrorMessage(status: number | undefined, body: unknown
 
   const detail = (body as ApiErrorShape | undefined)?.detail;
   if (typeof detail === "string" && detail.length > 0) return detail;
-  if (Array.isArray(detail) && detail[0]?.msg)
-    return detail[0].msg ?? "入力内容を確認してください。";
+  // バリデーションエラー（detail が配列）の時は先頭メッセージを表示。
+  //   空配列 / msg 無し / msg が空文字 の場合は下の status 別フォールバックに流す。
+  if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg;
 
   if (status === 401) return "ログインが必要です。";
   if (status === 403) return "この操作を実行する権限がありません。";
