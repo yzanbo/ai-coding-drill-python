@@ -266,6 +266,39 @@ jobs:
       - run: mise run web:test
 
   # ====================================================================
+  # 型同期パイプライン drift 検出 — ADR 0006
+  # ----------------------------------------------------------------------
+  # Pydantic SSoT を変更したのに 3 artifact（apps/api/openapi.json /
+  # apps/api/job-schemas/ / apps/web/src/__generated__/api/）の再生成を
+  # 忘れた PR を弾く最終ゲート。lefthook の schemas-drift（pre-commit）が
+  # --no-verify でバイパスされた場合の二重防御。
+  #
+  # 仕組み：
+  #   1. mise install で uv / pnpm を含む全ツールを取得
+  #   2. 3 artifact を SSoT（Pydantic）から再生成
+  #   3. git diff --exit-code でコミット済 artifact とズレがあれば fail
+  #
+  # Worker（Go）側の生成物（apps/workers/<name>/internal/jobtypes/）は
+  # gitignore で別管理（ADR 0006）のため本ジョブの対象外。Worker 側合流
+  # フェーズで worker:types-gen を CI 必須ステップに別途追加する。
+  # ====================================================================
+  types-gen-drift:
+    name: types-gen-drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run api:openapi-export
+      - run: mise run api:job-schemas-export
+      - run: mise run web:types-gen
+      - name: Verify artifacts are in sync with Pydantic SSoT
+        run: |
+          git diff --exit-code \
+            apps/api/openapi.json \
+            apps/api/job-schemas/ \
+            apps/web/src/__generated__/api/
+
+  # ====================================================================
   # 【集約ジョブ】ci-success（umbrella / aggregator）
   #   ブランチ保護（Ruleset）の Required status checks には、このジョブ 1 つだけを
   #   登録すれば足りる：
@@ -288,6 +321,7 @@ jobs:
       - web-knip
       - web-syncpack
       - web-test
+      - types-gen-drift
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required jobs succeeded

@@ -65,6 +65,40 @@ pre-commit:
       root: apps/web
       run: mise exec -- pnpm exec knip --no-progress
 
+    # ─────────────────────────────────────────────────────────────────
+    # Pydantic SSoT → artifact 同期検証（ADR 0006、型同期パイプライン）
+    # ─────────────────────────────────────────────────────────────────
+    # apps/api/app/schemas/ 配下が変更された commit でのみ起動する。3 artifact
+    # （apps/api/openapi.json / apps/api/job-schemas/ / apps/web/src/__generated__/api/）
+    # を再生成し、git diff が出たら abort して開発者に再生成 + 再 add を促す。
+    # ローカルの早期 feedback 用。hook を --no-verify でバイパスされた場合は
+    # CI の types-gen-drift ジョブ（後続ステップ）が最終ゲートとして守る。
+    schemas-drift:
+      # glob は schemas/ 配下を丸ごと対象にする（`schemas/**/*.py` だと
+      # 直下の health.py 等が拾われないため `**` 単独で全ファイルを拾う）。
+      # 当該ディレクトリは Pydantic 専用で .py 以外を置かない運用のため
+      # 拡張子の絞り込みは省略してよい。
+      glob: "apps/api/app/schemas/**"
+      run: |
+        set -e
+        mise exec -- mise run api:openapi-export
+        mise exec -- mise run api:job-schemas-export
+        mise exec -- mise run web:types-gen
+        git diff --exit-code apps/api/openapi.json apps/api/job-schemas/ apps/web/src/__generated__/api/
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  Pydantic 変更後の artifact 再生成が漏れています（commit をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        下記を実行してから再 commit してください:
+          mise run api:openapi-export
+          mise run api:job-schemas-export
+          mise run web:types-gen
+          git add apps/api/openapi.json apps/api/job-schemas/ apps/web/src/__generated__/api/
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 pre-push:
   commands:
     # テスト実行（pytest）

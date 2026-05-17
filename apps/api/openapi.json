@@ -1,0 +1,105 @@
+{
+  "components": {
+    "schemas": {
+      "HealthCheckResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created_at"
+        ],
+        "title": "HealthCheckResponse",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "AI Coding Drill API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "description": "直近 10 件を新しい順に返す。",
+        "operationId": "list_health_checks_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HealthCheckResponse"
+                  },
+                  "title": "Response List Health Checks Health Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Health Checks",
+        "tags": [
+          "health"
+        ]
+      },
+      "post": {
+        "description": "DB に 1 行追加して、追加した行を返す。",
+        "operationId": "create_health_check_health_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Create Health Check",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "description": "liveness probe（DB 接続なし）。プロセスが生きていることだけを返す。",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Healthz Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Healthz",
+        "tags": [
+          "probes"
+        ]
+      }
+    }
+  }
+}
