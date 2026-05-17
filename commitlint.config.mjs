@@ -64,10 +64,11 @@ const config = {
     "header-max-length": [2, "always", 100],
 
     // body-max-line-length:
-    //   本文（ヘッダーの後の改行以降）の 1 行あたり最大文字数。
-    //   既定 100 を 200 に緩和（日本語の情報密度に合わせる）。
-    //   level=Error のまま運用し、長すぎる行はコミット時点で弾く。
-    "body-max-line-length": [2, "always", 200],
+    //   本文の 1 行最大文字数。本プロジェクトは body 必須 + 詳細記述方針
+    //   （→ 06-dev-workflow.md コミットメッセージ規約）で、WHAT / WHY / HOW /
+    //   影響範囲 / 関連リンク を含めるため 1 行が長くなりやすい。
+    //   level=0 で無効化（Markdown の wrap は git tool / viewer 側に任せる）。
+    "body-max-line-length": [0],
 
     // type-enum:
     //   許可する type を明示。@commitlint/config-conventional の既定値も

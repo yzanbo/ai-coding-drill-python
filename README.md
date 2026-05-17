@@ -39,7 +39,7 @@
 1. **[本 README のハイライト](#ハイライト)** ← 今ここ（差別化軸の概要）
 2. **[ADR（設計判断の記録）](docs/adr/)** ← 設計力アピールの中核
 3. **[要件定義書 5 バケット構造](docs/requirements/)** ← ドキュメント設計力
-4. **個別機能の詳細仕様**：[GitHub OAuth ログイン](docs/requirements/4-features/auth/github-oauth.md) 〜 [学習履歴](docs/requirements/4-features/learning/history.md)
+4. **個別機能の詳細仕様**：[GitHub OAuth ログイン](docs/requirements/4-features/authentication.md) 〜 [学習履歴](docs/requirements/4-features/learning.md)
 5. **動くデモ** ← R5 公開後
 
 ### 評価軸別の見どころマップ
@@ -49,7 +49,7 @@
 | 設計判断・トレードオフの言語化能力 | [docs/adr/](docs/adr/) — 全 ADR の索引 |
 | アーキテクチャ設計力 | [02-architecture.md](docs/requirements/2-foundation/02-architecture.md) + [ADR 0004](docs/adr/0004-postgres-as-job-queue.md) / [0009](docs/adr/0009-disposable-sandbox-container.md) / [0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) |
 | LLM アプリ設計力 | [03-llm-pipeline.md](docs/requirements/2-foundation/03-llm-pipeline.md) + [ADR 0008](docs/adr/0008-custom-llm-judge.md) / [0007](docs/adr/0007-llm-provider-abstraction.md) |
-| セキュリティ・サンドボックス設計 | [ADR 0009](docs/adr/0009-disposable-sandbox-container.md) + [自動採点](docs/requirements/4-features/grading/auto-grading.md) |
+| セキュリティ・サンドボックス設計 | [ADR 0009](docs/adr/0009-disposable-sandbox-container.md) + [自動採点](docs/requirements/4-features/grading.md) |
 | 観測性設計（分散トレース連携・Grafana 系統合） | [04-observability.md](docs/requirements/2-foundation/04-observability.md) + [ADR 0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) / [ADR 0041](docs/adr/0041-observability-stack-grafana-and-sentry.md) |
 | ドキュメント設計力 | [docs/requirements/README.md](docs/requirements/README.md)（5 バケット時系列構造） |
 | アジャイル運用力 | [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md)（DoR / DoD / バックログ / リスクレジスタ） |
@@ -268,11 +268,11 @@ LLM 呼び出しは Worker 側に集約（ADR 0040）：
 
 | ID | 機能名 |
 |---|---|
-| [GitHub OAuth ログイン](docs/requirements/4-features/auth/github-oauth.md) | GitHub OAuth ログイン |
-| [問題生成](docs/requirements/4-features/problem/generation.md) | 問題生成リクエスト |
-| [問題表示・解答入力](docs/requirements/4-features/problem/display-and-answer.md) | 問題表示・解答入力 |
-| [自動採点](docs/requirements/4-features/grading/auto-grading.md) | 自動採点 |
-| [学習履歴](docs/requirements/4-features/learning/history.md) | 学習履歴・統計 |
+| [GitHub OAuth ログイン](docs/requirements/4-features/authentication.md) | GitHub OAuth ログイン |
+| [問題生成](docs/requirements/4-features/problem-generation.md) | 問題生成リクエスト |
+| [問題表示・解答入力](docs/requirements/4-features/problem-display-and-answer.md) | 問題表示・解答入力 |
+| [自動採点](docs/requirements/4-features/grading.md) | 自動採点 |
+| [学習履歴](docs/requirements/4-features/learning.md) | 学習履歴・統計 |
 
 ### その他
 

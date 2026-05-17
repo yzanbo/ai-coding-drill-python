@@ -78,7 +78,7 @@ mise exec -- golangci-lint run                   # golangci-lint が動く
 
 ## 3. サンドボックスイメージ Dockerfile スケルトン
 
-**目的**：採点コンテナ（使い捨て）の Dockerfile 雛形を配置する。実際の採点ロジック（tsx + Vitest 実行）は [自動採点](../../4-features/grading/auto-grading.md) 実装フェーズで本格実装するが、ここでは「コンテナがビルド + 起動できる」状態を確立する。
+**目的**：採点コンテナ（使い捨て）の Dockerfile 雛形を配置する。実際の採点ロジック（tsx + Vitest 実行）は [自動採点](../../4-features/grading.md) 実装フェーズで本格実装するが、ここでは「コンテナがビルド + 起動できる」状態を確立する。
 
 **作業内容**：
 1. `apps/workers/grading/sandbox/Dockerfile` 配置（Node.js ベース + tsx + Vitest 入りの最小構成。Node.js の版数は `mise.toml` と揃える）
@@ -271,7 +271,7 @@ git restore --staged apps/workers/grading/fail_test.go && rm apps/workers/gradin
 - 🟢 規約違反コミットが pre-commit hook で弾かれる
 - 🟢 失敗 test が pre-push hook で弾かれる
 - 🟢 Go 依存の自動更新 PR が週次で来る
-- 🟢 LLM プロバイダ抽象化フェーズ以降（LLM 抽象化、[自動採点](../../4-features/grading/auto-grading.md)）の実コード投入準備が整う
+- 🟢 LLM プロバイダ抽象化フェーズ以降（LLM 抽象化、[自動採点](../../4-features/grading.md)）の実コード投入準備が整う
 
 ---
 
@@ -280,6 +280,6 @@ git restore --staged apps/workers/grading/fail_test.go && rm apps/workers/gradin
 本フェーズで揃った Worker tooling を前提に：
 
 - **LLM プロバイダ抽象化フェーズ**：抽象化レイヤを `apps/workers/grading/internal/llm/` に実装（→ [ADR 0007](../../../adr/0007-llm-provider-abstraction.md) / [ADR 0040](../../../adr/0040-worker-grouping-and-llm-in-worker.md)）
-- **[自動採点](../../4-features/grading/auto-grading.md) 実装フェーズ**：`apps/workers/grading/internal/sandbox/` に Docker クライアント（公式 `github.com/docker/docker/client`）を使った採点ロジックを実装し、本フェーズ「3. サンドボックスイメージ Dockerfile スケルトン」で配置したサンドボックス Dockerfile を本格活用
+- **[自動採点](../../4-features/grading.md) 実装フェーズ**：`apps/workers/grading/internal/sandbox/` に Docker クライアント（公式 `github.com/docker/docker/client`）を使った採点ロジックを実装し、本フェーズ「3. サンドボックスイメージ Dockerfile スケルトン」で配置したサンドボックス Dockerfile を本格活用
 
 R1 完了時点で `.claude/rules/worker.md` に「Worker 実装契約」（ディレクトリ構成 / pre-commit / pre-push / CI ジョブの対応関係）として転記する。

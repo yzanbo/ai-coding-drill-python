@@ -25,11 +25,11 @@
 
 ### 関係する機能
 
-- [GitHub OAuth ログイン](../4-features/auth/github-oauth.md)
-- [問題生成リクエスト](../4-features/problem/generation.md)
-- [問題表示・解答入力](../4-features/problem/display-and-answer.md)
-- [自動採点](../4-features/grading/auto-grading.md)
-- [学習履歴・統計](../4-features/learning/history.md)
+- [GitHub OAuth ログイン](../4-features/authentication.md)
+- [問題生成リクエスト](../4-features/problem-generation.md)
+- [問題表示・解答入力](../4-features/problem-display-and-answer.md)
+- [自動採点](../4-features/grading.md)
+- [学習履歴・統計](../4-features/learning.md)
 - 適応型出題（バックログ、[5-roadmap/01-roadmap.md](../5-roadmap/01-roadmap.md#適応型出題)）
 - [LLM ヒント機能（バックログ）](../5-roadmap/01-roadmap.md#llm-ヒント機能)
 

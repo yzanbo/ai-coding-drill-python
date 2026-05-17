@@ -326,4 +326,4 @@ git restore --staged apps/web/src/app/_test/ && rm -rf apps/web/src/app/_test/
 
 R0 全項目（[foundation.md](./foundation.md) / [backend.md](./backend.md) / 本ファイル / [worker.md](./worker.md)）が全て緑になった時点で R0 完了。`docker compose up && mise run api:dev && mise run web:dev && mise run worker:grading:dev` で開発環境が全言語で立ち上がり、CI が緑になる状態が達成される。
 
-次は R1 MVP：[../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクション（[GitHub OAuth](../../4-features/auth/github-oauth.md) から開始）。
+次は R1 MVP：[../01-roadmap.md](../01-roadmap.md) の「Now：R1 MVP」セクション（[GitHub OAuth](../../4-features/authentication.md) から開始）。

@@ -83,7 +83,7 @@
 
 ### 関係する機能
 
-- [`<category>/<name>`: 機能名](../4-features/<category>/<name>.md)
+- [`<name>`: 機能名](../4-features/<name>.md)
 - F-YY: 機能名（バックログ、[5-roadmap](../5-roadmap/01-roadmap.md#f-yy-...))
 
 ### 関係する横断テーマ（任意）

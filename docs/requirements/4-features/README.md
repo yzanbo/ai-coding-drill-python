@@ -17,22 +17,14 @@
 
 ## 配置とファイル命名
 
-機能はカテゴリ別サブディレクトリ配下に **path / slug ベース**で配置する（数値 ID は採番しない）。
+機能はフラット配置 + ドメイン名ベースで管理する（数値 ID は採番しない）。
 
-```
-4-features/
-├── README.md
-├── _template.md
-├── auth/                       ← 認証
-├── problem/                    ← 問題（生成・表示・解答）
-├── grading/                    ← 採点
-└── learning/                   ← 学習履歴
-```
-
-- ファイル名：**`<kebab-case-name>.md`**（例：`github-oauth.md`、`generation.md`）
-- カテゴリディレクトリ：**`<kebab-case-category>/`**（例：`auth/`、`problem/`）
-- **数値 ID（旧 `F-XX` 形式）は採番しない**：path 自体が安定参照子になる（例：「auth/github-oauth」が ID 相当）。詳細な根拠は [.claude/rules/docs-rules.md](../../../.claude/rules/docs-rules.md) §3 を参照
-- 1 カテゴリのファイル数が 10+ になったり明確な読み順がある場合は category 直下に `README.md` を追加して順序や依存関係を記述する（最初は不要）
+- **1 ドメイン 1 ファイル**：1 つのドメイン（認証 / 採点 / 学習履歴 等）は 1 ファイルにまとめる（`authentication.md` / `grading.md` / `learning.md`）
+- **1 ドメイン内に複数ワークフローがある場合は prefix 付きで分割**：例：問題ドメインは「生成」と「表示・解答入力」が大きく性質が違うため `problem-generation.md` / `problem-display-and-answer.md` の 2 ファイル
+- **ファイル名は kebab-case**（例：`authentication.md`、`problem-generation.md`）
+- **数値 ID（旧 `F-XX` 形式）は採番しない**：path 自体が安定参照子になる（例：「authentication」「problem-generation」が ID 相当）。詳細な根拠は [.claude/rules/docs-rules.md](../../../.claude/rules/docs-rules.md) §3 を参照
+- **alphabetical sort で関連ファイルが並ぶ**：同ドメインの複数ファイルは prefix で集まる（`problem-*` で並ぶ）
+- 10+ ドメインに広がってきたらサブディレクトリ復活を検討（現状はフラットで十分）
 - 新規作成は [`/new-requirements`](../../../.claude/CLAUDE.md) カスタムコマンド経由を推奨
 
 ---
@@ -43,23 +35,23 @@
 
 > **ステータス凡例**：「要件定義中」= 受け入れ条件確定済みだが未着手。「実装中」= スプリント着手済み。「完了」= DoD 達成。
 
-| カテゴリ | 機能 | 対象ロール | ステータス |
+| ドメイン | 機能 | 対象ロール | ステータス |
 |---|---|---|---|
-| auth | [GitHub OAuth ログイン](./auth/github-oauth.md) | ゲスト → 認証ユーザー | 要件定義中 |
-| problem | [問題生成リクエスト](./problem/generation.md) | 認証ユーザー | 要件定義中 |
-| problem | [問題表示・解答入力](./problem/display-and-answer.md) | ゲスト / 認証ユーザー | 要件定義中 |
-| grading | [自動採点](./grading/auto-grading.md) | 認証ユーザー | 要件定義中 |
-| learning | [学習履歴・統計](./learning/history.md) | 認証ユーザー | 要件定義中 |
+| 認証 | [GitHub OAuth ログイン](./authentication.md) | ゲスト → 認証ユーザー | 要件定義中 |
+| 問題 | [問題生成リクエスト](./problem-generation.md) | 認証ユーザー | 要件定義中 |
+| 問題 | [問題表示・解答入力](./problem-display-and-answer.md) | ゲスト / 認証ユーザー | 要件定義中 |
+| 採点 | [自動採点](./grading.md) | 認証ユーザー | 要件定義中 |
+| 学習 | [学習履歴・統計](./learning.md) | 認証ユーザー | 要件定義中 |
 
 ### バックログ（着手時に詳細化）
 
 リリース順。着手時に [_template.md](./_template.md) で詳細化する（現状は概要のみ、ファイル未作成）：
 
-| カテゴリ（予定） | 機能 | リリース |
+| ドメイン（予定） | 機能 | リリース |
 |---|---|---|
-| 未定（admin 等） | [管理ダッシュボード](../5-roadmap/01-roadmap.md#管理ダッシュボード) | R4 |
-| problem | [適応型出題（弱点に基づく問題生成）](../5-roadmap/01-roadmap.md#適応型出題) | R6 |
-| 未定（hint 等） | [LLM ヒント機能](../5-roadmap/01-roadmap.md#llm-ヒント機能) | R6 |
+| 管理 | [管理ダッシュボード](../5-roadmap/01-roadmap.md#管理ダッシュボード) | R4 |
+| 問題 | [適応型出題（弱点に基づく問題生成）](../5-roadmap/01-roadmap.md#適応型出題) | R6 |
+| ヒント | [LLM ヒント機能](../5-roadmap/01-roadmap.md#llm-ヒント機能) | R6 |
 
 詳細な俯瞰は [1-vision/01-overview.md](../1-vision/01-overview.md) と [5-roadmap/01-roadmap.md](../5-roadmap/01-roadmap.md#later着手未定)。
 
