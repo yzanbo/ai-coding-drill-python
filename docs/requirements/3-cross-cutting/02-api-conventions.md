@@ -36,6 +36,7 @@
 - Cookie 属性：`HttpOnly` + `Secure` + `SameSite=Lax`
 - セッション本体は **Redis**（TTL 7 日、操作のたびに延長）
 - ログアウト時はサーバ側で Redis のセッションエントリを削除
+- **ログイン時のセッション ID 再発行**：OAuth コールバックでセッションを発行する直前に、リクエストに付いている旧 `session_id` の Redis 側エントリを破棄してから新規 `sid` を発行する。再ログイン（ログアウトを挟まないアカウント切替等）で旧セッションが Redis に取り残されるのを防ぐ。詳細とビジネスルールは [authentication.md §1.3](../4-features/authentication.md#13-セッション)
 
 採用根拠（Postgres セッションテーブル / JWT を不採用とした比較、Cookie 属性の選定、double submit cookie による CSRF 対策等）の SSoT は [ADR 0047](../../adr/0047-session-store-on-redis.md) を参照。
 

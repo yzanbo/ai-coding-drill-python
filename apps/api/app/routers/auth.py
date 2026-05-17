@@ -11,14 +11,15 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import session as session_store
 from app.core import state_store
 from app.core.config import get_settings
-from app.core.cookies import sign_sid
+from app.core.cookies import sign_sid, unsign_sid
 from app.core.redis import get_redis
 from app.core.session import Session
 from app.db.session import get_async_session
@@ -120,6 +121,30 @@ def _clear_session_cookies(response: Response) -> None:
     )
 
 
+async def _invalidate_previous_session(request: Request, redis: Redis) -> None:
+    """ログイン処理の手前で、リクエストに付いている旧 sid Cookie の Redis 側を破棄する。
+
+    狙い：
+      - 同一ブラウザで再ログイン（例：別 GitHub アカウントへの切替）した時に、
+        旧セッションが TTL 切れ（最長 7 日）まで Redis に残るのを防ぐ。
+      - 旧 sid を何らかの経路で取得された場合の orphan セッション乗っ取りを縮める。
+
+    挙動：
+      - sid Cookie が無い / 署名不正 / 既に Redis から消えている、いずれも no-op
+        （session_store.delete 自体が「存在しない sid を渡しても何もしない」設計）。
+      - Set-Cookie は呼び出し側の `_set_session_cookies` が新 sid で上書きする。
+        本関数は Redis 側の状態を消すことに専念する。
+    """
+    settings = get_settings()
+    signed = request.cookies.get(settings.session_cookie_name)
+    if not signed:
+        return
+    old_sid = unsign_sid(signed)
+    if old_sid is None:
+        return
+    await session_store.delete(redis, old_sid)
+
+
 # ----------------------------------------------------------------------------
 # GET /auth/github : OAuth 開始
 # ----------------------------------------------------------------------------
@@ -165,6 +190,7 @@ async def start_github_oauth(
     responses={302: {"description": "ログイン成功はホーム /、失敗は /login へリダイレクト"}},
 )
 async def github_callback(
+    request: Request,
     db_session: DbDep,
     redis: RedisDep,
     code: Annotated[str | None, Query()] = None,
@@ -200,11 +226,17 @@ async def github_callback(
     except GitHubOAuthError:
         return _redirect_to_login_with_error(AuthErrorKind.OAUTH_FAILED)
 
-    # 5. upsert + セッション作成。
+    # 5. 既存セッションの後始末。
+    #    リクエストに sid Cookie が付いていれば、ログイン処理に入る前に Redis から
+    #    旧セッションを破棄する（再ログインで生まれる orphan セッションを残さない、
+    #    authentication.md §1.3「ログイン時の旧セッション無効化」）。
+    await _invalidate_previous_session(request, redis)
+
+    # 6. upsert + セッション作成。
     service = AuthService(db_session, redis)
     created = await service.login_with_github(user_input)
 
-    # 6. リダイレクト先：state に同梱した next を _safe_next_path で再検証
+    # 7. リダイレクト先：state に同梱した next を _safe_next_path で再検証
     # （二重防御：state を Redis に入れる時にも検証しているが、Redis の中身が
     # 何らかの理由で書き換わっても弾けるようにする）。
     target_path = _safe_next_path(raw_next) if raw_next else "/"

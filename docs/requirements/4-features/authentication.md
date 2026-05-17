@@ -87,6 +87,7 @@
 - 保存先：**Redis**（→ [ADR 0047](../../adr/0047-session-store-on-redis.md)）、TTL 7 日
 - クライアント：Cookie に `session_id` を `HttpOnly` + `Secure` + `SameSite=Lax` で発行
 - 延長ポリシー：ユーザー操作のたびに TTL リセット（rolling session）
+- **ログイン時の旧セッション無効化**：OAuth コールバックでセッションを発行する直前に、リクエストに付いている旧 `session_id` Cookie に対応する Redis セッションを破棄してから新規 `sid` を発行する。再ログイン（別アカウントへの切替等、ログアウトを挟まない遷移）で旧セッションが TTL 切れまで Redis に残り、共有端末や Cookie 漏洩経路で乗っ取りに使われる余地を縮めるための防御。新しい `sid` は CSPRNG で都度生成し、リクエストに付いていた古い値は受け継がない（セッション ID の再発行）
 - CSRF 対策（OAuth フロー）：状態を持つフローでは `state` パラメータを Redis に事前格納してコールバックで照合（具体的な扱いは §2 のプロバイダごとに定義）
 - `state` トークン運用：**TTL 10 分 + 1 回使い切り**（照合成功時に Redis から即削除、リプレイ攻撃防止）。ユーザーが GitHub 認可画面で時間を要する可能性に余裕を持たせつつ、放置されたトークンを長く残さない
 - CSRF 対策（状態変更 API 全般）：ログイン後の POST / PUT / DELETE / PATCH（本ドメインでは `/auth/logout`）には double submit cookie 方式で `X-CSRF-Token` ヘッダーを検証する。仕様の SSoT は [3-cross-cutting/02-api-conventions.md: CSRF 対策](../3-cross-cutting/02-api-conventions.md#csrf-対策double-submit-cookie)
@@ -286,6 +287,7 @@ sequenceDiagram
 - [ ] GitHub 認可画面で Cancel を押すと `/login` に戻り、トーストで「ログインをキャンセルしました」等の通知が出る（セッションは作られない）
 - [ ] ログアウト成功後はホーム `/` に遷移する（`/login` には自動で飛ばない）
 - [ ] 同一ユーザーで PC とスマホからそれぞれログインした時、両方のセッションが同時に有効（先にログインした側が切れない）
+- [ ] ログアウトを挟まずに同じブラウザで再ログインした時、ログイン直前まで使っていた旧 `session_id` で `GET /auth/me` を叩くと 401 が返る（旧セッションは Redis から破棄される）
 - [ ] GitHub プロフィールの `name` を変更してから再ログインすると、`GET /auth/me` の `displayName` が新しい値で返る（DB が最新値で上書きされる）
 - [ ] `POST /auth/logout` を `X-CSRF-Token` ヘッダーなしで送ると 403 が返る（double submit cookie 検証）
 
