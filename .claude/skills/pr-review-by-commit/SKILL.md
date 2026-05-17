@@ -69,6 +69,7 @@ git show <sha2> --stat --format=fuller
 - **セキュリティ**：秘密情報のログ漏洩 / 本番デフォルトの安全装置 / 改ざん検証 / インジェクション余地（SQL / コマンド / XSS / SSRF / オープンリダイレクト）
 - **規約整合**：プロジェクトルール（`.claude/rules/`）/ ADR / 要件 .md との一致
 - **設計**：レイヤ境界違反 / DRY 違反 / マジックナンバー / 名前の妥当性 / YAGNI 違反
+- **共通化候補**：似たロジック / 似た構造が複数ファイルに散らばっていないか。**事後検出の DRY 違反** だけでなく、**「2 箇所目で共通モジュールへ切り出すか」の proactive 判断** も含む（具体パターンはレイヤ別観点を参照）
 - **パフォーマンス**：レイヤ別観点を参照
 - **テスト容易性**：mockable か / 副作用が境界に閉じているか / 純粋関数に切り出せるか
 - **保守性**：将来の拡張で破綻しないか / hardcode list の増殖 / コメントの陳腐化リスク
@@ -82,12 +83,15 @@ git show <sha2> --stat --format=fuller
 - Pydantic SSoT 違反（schemas 以外で型定義 / from_attributes / alias_generator）
 - SQLAlchemy 2.0 async パターン違反（同期 API 混入、`Mapped[]` 不使用）
 - トランザクション境界の置き場所（Service 層で `async with session.begin()`）
-- DB クエリ N+1 / `selectinload` の不足 / `in_([])` の空ガード
 - 認可チェック漏れ（「自分のリソースか」の where 条件）
 - マイグレーション（autogenerate の限界 / `down_revision` / data migration 欠落）
-- Redis / DB 重複問い合わせ / pipeline atomicity
 - ruff / pyright / pip-audit / deptry の警告残り
 - `Depends()` を default 引数に書く B008 違反
+- 共通化候補：似た service / 似た repository / 似た schemas / 似た util / 似た deps が複数ファイルに散らばっていないか（`core/` / `schemas/common/` / `deps/` への切り出し検討）
+- クエリ / I/O 効率：
+  - DB：UPDATE→SELECT を `returning(Model)` で 1 クエリ化 / N+1 / 同一リクエスト内の重複 SELECT / `in_([])` 空ガード
+  - Redis：複数コマンドの pipeline / atomicity 要否で `transaction=True/False` / 同一リクエスト内の重複 GET
+  - HTTP クライアント：`AsyncClient` は lifespan で 1 個共有（毎回新規生成は TLS handshake 毎回）/ timeout 粒度（connect/read/pool）
 
 **Frontend（Next.js / TS）** — 変更ファイルが `apps/web/` 配下にある場合
 - Server Component / Client Component の境界（`"use client"` の位置）
@@ -95,6 +99,7 @@ git show <sha2> --stat --format=fuller
 - フォルダ構成 / 命名グローバル一意（`.claude/rules/frontend-component.md` / `frontend-hooks.md`）
 - `useGet*` 命名 / `isLoading` 初期値 / コロケーション
 - Hey API 生成型を直接編集していないか / 手書き fetch との二重実装
+- 共通化候補：似た component / 似た hook / 似た util / 似た型が複数ファイルに散らばっていないか（共通 component / hook / util への切り出し / Tailwind class の長い繰り返しは `cn` ヘルパや variant 集約 / 型は schemas 側へ寄せる）
 - アクセシビリティ（ラベル / ARIA / キーボード / フォーカス管理）
 - パフォーマンス（不要 re-render / `useMemo` 誤用 / 巨大バンドル / next/image 不使用）
 - セキュリティ（`dangerouslySetInnerHTML` / `target="_blank"` の `rel="noopener noreferrer"` / Cookie 属性）
@@ -112,6 +117,7 @@ git show <sha2> --stat --format=fuller
 - LLM 呼び出しの timeout / retry / circuit breaker / コスト上限
 - サンドボックス（Docker）リソース制限 / ネットワーク遮断
 - `gofmt` / `golangci-lint` / `govulncheck` の警告残り
+- 共通化候補：似た handler / 似たパイプラインステップ / 似た struct / 似た util が複数パッケージに散らばっていないか（`internal/<topic>/` パッケージへの切り出し検討）
 
 **Infra（Terraform）** — 変更ファイルが `infra/` 配下にある場合
 - `terraform plan` 出力の破壊的変更（destroy / replace）
