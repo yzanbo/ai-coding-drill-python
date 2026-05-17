@@ -135,6 +135,18 @@ class Settings(BaseSettings):
     )
 
     # ----- Frontend オリジン -----
+    # cookie_domain: Cookie の Domain 属性。未指定（None）の時は「発行ホスト限定」（host-only）。
+    #   ローカル開発（API:8000 / Web:3000 が共に localhost）では未指定で OK
+    #   （ブラウザは host のみで一致判定するため port 違いでも Cookie が共有される）。
+    #   本番で `api.example.com` と `app.example.com` のようにサブドメインを分ける
+    #   構成では `.example.com` を指定して両者で Cookie を共有させる。
+    #   注意：set_cookie と delete_cookie の domain 属性は一致させる必要がある
+    #   （ズレると delete が効かず Cookie が残る既知の罠）。両方とも本設定値を参照する。
+    cookie_domain: str | None = Field(
+        default=None,
+        description="Cookie の Domain 属性（None=host-only、本番でサブドメイン共有時のみ設定）",
+    )
+
     # frontend_base_url: ログイン後リダイレクト等で使うフロントの起点 URL。
     #   ?next= の同一オリジン検証では Backend ルート相対パスを優先するため、
     #   主にホーム / と /login への絶対 URL 組み立てに利用する。

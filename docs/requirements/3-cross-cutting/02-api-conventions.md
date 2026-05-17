@@ -34,6 +34,7 @@
 
 - セッション ID は HttpOnly Cookie に格納（XSS 経由で読めない）
 - Cookie 属性：`HttpOnly` + `Secure` + `SameSite=Lax`
+- `Domain` 属性：既定は **未指定**（host-only Cookie、発行ホストでのみ有効）。本番で API と Frontend を別サブドメインに分ける構成（例：`api.example.com` / `app.example.com`）を採る場合は `.example.com` 等を環境変数 `COOKIE_DOMAIN` で渡してサブドメイン間で Cookie を共有させる。`set_cookie` と `delete_cookie` で `Domain` がズレるとブラウザが別 Cookie 扱いして delete が効かない既知の罠があるため、両者は同一の設定値を参照する
 - セッション本体は **Redis**（TTL 7 日、操作のたびに延長）
 - ログアウト時はサーバ側で Redis のセッションエントリを削除
 - **ログイン時のセッション ID 再発行**：OAuth コールバックでセッションを発行する直前に、リクエストに付いている旧 `session_id` の Redis 側エントリを破棄してから新規 `sid` を発行する。再ログイン（ログアウトを挟まないアカウント切替等）で旧セッションが Redis に取り残されるのを防ぐ。詳細とビジネスルールは [authentication.md §1.3](../4-features/authentication.md#13-セッション)

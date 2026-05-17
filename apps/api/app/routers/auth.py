@@ -82,6 +82,10 @@ def _set_session_cookies(
 ) -> None:
     """ログイン成功時に sid Cookie（HttpOnly）と csrf_token Cookie（JS 可読）を発行。"""
     settings = get_settings()
+    # domain= は本番で API / Frontend をサブドメインで分ける構成のためのオプション。
+    # 未指定（None）なら host-only Cookie（発行ホストのみ）になる。set_cookie /
+    # delete_cookie の domain が一致しないと delete が効かず Cookie が残る既知の罠が
+    # あるため、両者で必ず同じ settings.cookie_domain を参照する。
     response.set_cookie(
         key=settings.session_cookie_name,
         value=sign_sid(sid),
@@ -90,6 +94,7 @@ def _set_session_cookies(
         secure=settings.cookie_secure,
         samesite="lax",
         path="/",
+        domain=settings.cookie_domain,
     )
     response.set_cookie(
         key=settings.csrf_cookie_name,
@@ -99,18 +104,22 @@ def _set_session_cookies(
         secure=settings.cookie_secure,
         samesite="lax",
         path="/",
+        domain=settings.cookie_domain,
     )
 
 
 def _clear_session_cookies(response: Response) -> None:
     """ログアウト時に両 Cookie を Max-Age=0 で消す。"""
     settings = get_settings()
+    # set_cookie 側と domain= を揃える（揃わないとブラウザが別 Cookie と判定して
+    # 古い値が残る）。
     response.delete_cookie(
         key=settings.session_cookie_name,
         path="/",
         secure=settings.cookie_secure,
         httponly=True,
         samesite="lax",
+        domain=settings.cookie_domain,
     )
     response.delete_cookie(
         key=settings.csrf_cookie_name,
@@ -118,6 +127,7 @@ def _clear_session_cookies(response: Response) -> None:
         secure=settings.cookie_secure,
         httponly=False,
         samesite="lax",
+        domain=settings.cookie_domain,
     )
 
 
