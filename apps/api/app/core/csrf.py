@@ -35,18 +35,17 @@ from app.core.redis import get_redis
 _PROTECTED_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
 
 # CSRF 検証から除外するパス。
+# - /auth/github/callback：OAuth コールバック。state トークンで別途防御済み
+#   （仕様 SSoT: 02-api-conventions.md の CSRF 対策節）。
+#   OAuth 2.0（RFC 6749 §3.1.2）/ GitHub の redirect_uri は GET 固定で
+#   POST 化されることはないため、ここでの個別列挙は仕様意図の明示として残す
+#   （exempt が無くても GET 規則で素通りするので挙動同一）。
 # - /health：疎通確認用の public POST。DB 接続生存確認のため認証不要、
 #   行を 1 つ insert するだけで副作用が事実上ないため CSRF も不要
 #   （/healthz / /readyz は GET なので _PROTECTED_METHODS で素通り）
-#
-# 設計メモ：
-#   /auth/github/callback は GET なので _PROTECTED_METHODS で素通り → ここに
-#   書く必要がない。むしろ exempt に書いてしまうと、将来 callback を POST 化
-#   した時にも素通りし続けるリスク（CSRF 無防備な状態変更経路が静かに出来る）
-#   が残る。GET 専用のままなら exempt 不要、POST 化するなら CSRF 検証が
-#   要るかを再評価する、というデフォルト挙動に揃える。
 _EXEMPT_PATHS: frozenset[str] = frozenset(
     {
+        "/auth/github/callback",
         "/health",
     }
 )
