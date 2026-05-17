@@ -11,7 +11,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import RedirectResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -137,30 +137,23 @@ async def start_github_oauth(
     """OAuth フロー開始。state を発行し GitHub の認可画面へ 302 リダイレクトする。
 
     クエリ:
-      - next: ログイン後の戻り先（同一オリジン相対パスのみ）。callback 時に使うため
-              state と一緒に Redis に格納する… のが理想だが、現状の state_store は
-              値を持たない設計のため、Cookie に一時格納する方式を取る（HttpOnly + Lax）。
+      - next: ログイン後の戻り先（同一オリジン相対パスのみ）。state レコードに
+              同梱して Redis に保存し、callback 側で 1 回使い切りで取り出す。
+              旧実装は別 Cookie（auth_next）で運んでいたが「state と next が
+              別場所に分かれて弱く結合」する設計弱点があったため state レコード
+              側に集約した。
     """
-    state = await state_store.issue(redis)
+    # next の検証は state 保存前に済ませる（同一オリジン相対パスでなければ ""）。
+    # 空文字は「戻り先指定なし = ホームへ」を意味する。
+    safe_next = _safe_next_path(next_)
+    # callback で再度ホーム判定するため、"/" は空文字に正規化する。
+    payload_next = "" if safe_next == "/" else safe_next
+
+    state = await state_store.issue(redis, next_path=payload_next)
     client = GitHubOAuthClient()
     authorize_url = client.build_authorize_url(state=state)
 
-    response = RedirectResponse(url=authorize_url, status_code=status.HTTP_302_FOUND)
-    # next を Cookie に一時保管（短命 = state と同じ 10 分）。
-    # クライアントオリジンの相対パスのみ許容済み。
-    safe_next = _safe_next_path(next_)
-    settings = get_settings()
-    if safe_next != "/":
-        response.set_cookie(
-            key="auth_next",
-            value=safe_next,
-            max_age=settings.state_ttl_seconds,
-            httponly=True,
-            secure=settings.cookie_secure,
-            samesite="lax",
-            path="/",
-        )
-    return response
+    return RedirectResponse(url=authorize_url, status_code=status.HTTP_302_FOUND)
 
 
 # ----------------------------------------------------------------------------
@@ -172,7 +165,6 @@ async def start_github_oauth(
     responses={302: {"description": "ログイン成功はホーム /、失敗は /login へリダイレクト"}},
 )
 async def github_callback(
-    request: Request,
     db_session: DbDep,
     redis: RedisDep,
     code: Annotated[str | None, Query()] = None,
@@ -195,8 +187,10 @@ async def github_callback(
     if not code or not state:
         return _redirect_to_login_with_error(AuthErrorKind.STATE_INVALID)
 
-    # 3. state を Redis から検証 + 消費（1 回使い切り）。
-    if not await state_store.verify_and_consume(redis, state):
+    # 3. state を Redis から検証 + 消費（1 回使い切り）。state レコードに同梱した
+    # next_path も同時に取り出す。
+    valid, raw_next = await state_store.verify_and_consume(redis, state)
+    if not valid:
         return _redirect_to_login_with_error(AuthErrorKind.STATE_INVALID)
 
     # 4. code を GitHub に投げてユーザー情報を取得。
@@ -210,24 +204,14 @@ async def github_callback(
     service = AuthService(db_session, redis)
     created = await service.login_with_github(user_input)
 
-    # 6. リダイレクト先：auth_next Cookie を優先、無ければホーム /。
-    next_cookie = request.cookies.get("auth_next")
-    target_path = _safe_next_path(next_cookie)
+    # 6. リダイレクト先：state に同梱した next を _safe_next_path で再検証
+    # （二重防御：state を Redis に入れる時にも検証しているが、Redis の中身が
+    # 何らかの理由で書き換わっても弾けるようにする）。
+    target_path = _safe_next_path(raw_next) if raw_next else "/"
     target_url = _absolute_frontend_url(target_path)
 
     response = RedirectResponse(url=target_url, status_code=status.HTTP_302_FOUND)
     _set_session_cookies(response, sid=created.sid, csrf_token=created.csrf_token)
-    # auth_next を消す。set 側と同じ属性で消さないと一部ブラウザが
-    # 「別 Cookie」と判定して消えないことがある（set 時に httponly/secure/samesite
-    # を付けたなら delete でも同じ属性を渡す）。
-    settings = get_settings()
-    response.delete_cookie(
-        key="auth_next",
-        path="/",
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax",
-    )
     return response
 
 
