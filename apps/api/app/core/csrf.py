@@ -1,6 +1,6 @@
 # このファイルの役割：
 #   状態変更系（POST / PUT / DELETE / PATCH）の API に対して、double submit cookie
-#   方式の CSRF 検証を行う Starlette middleware を提供する。
+#   方式の CSRF 検証を行う ASGI middleware（関数形式）を提供する。
 #
 #   フロー：
 #     1. ログイン時に SessionStore が `csrf_token` を Redis のセッション hash に保存し、
@@ -13,13 +13,21 @@
 # 関わる要件：
 #   - docs/requirements/3-cross-cutting/02-api-conventions.md「CSRF 対策（double submit cookie）」
 #   - docs/adr/0047-session-store-on-redis.md §CSRF 対策
+#
+# 実装メモ：
+#   FastAPI の @app.middleware("http") デコレータで登録する関数形式を採用する。
+#   starlette の BaseHTTPMiddleware を継承するクラス形式もあるが、deptry の DEP003
+#   （transitive dependency 直接 import）を避けるため fastapi.Request /
+#   fastapi.Response 経由で揃える。
 
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from collections.abc import Awaitable, Callable
+
+from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 
 from app.core import session as session_store
 from app.core.config import get_settings
+from app.core.cookies import unsign_sid
 from app.core.redis import get_redis
 
 # CSRF 検証対象の HTTP メソッド。
@@ -27,8 +35,8 @@ from app.core.redis import get_redis
 _PROTECTED_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
 
 # CSRF 検証から除外するパス。
-# OAuth コールバックは外部からの top-level GET（厳密には POST にはならない想定）だが、
-# 念のため明示的に exempt にしておく。state トークンで別途防御済み。
+# OAuth コールバックは外部からの top-level GET だが念のため明示。
+# state トークンで別途防御済み。
 _EXEMPT_PATHS: frozenset[str] = frozenset(
     {
         "/auth/github",
@@ -39,59 +47,56 @@ _EXEMPT_PATHS: frozenset[str] = frozenset(
 # ヘッダー名は固定（Frontend と合わせる、02-api-conventions.md）。
 _HEADER_NAME = "X-CSRF-Token"
 
+# 型エイリアス：FastAPI の middleware 関数のシグネチャ。
+# call_next は次の handler を呼ぶ非同期関数で、Response を返す。
+_CallNext = Callable[[Request], Awaitable[Response]]
 
-class CSRFMiddleware(BaseHTTPMiddleware):
-    """double submit cookie 方式の CSRF 検証 middleware。
 
-    マウント方法（main.py）::
+async def verify_csrf(request: Request, call_next: _CallNext) -> Response:
+    """double submit cookie 方式の CSRF 検証関数 middleware。
 
-        app.add_middleware(CSRFMiddleware)
+    使い方（main.py）::
+
+        app.middleware("http")(verify_csrf)
+        # または
+        @app.middleware("http")
+        async def csrf_middleware(request, call_next):
+            return await verify_csrf(request, call_next)
 
     検証ロジック：
       - GET / HEAD / OPTIONS はスキップ
       - 除外パス（/auth/github 系）はスキップ
-      - Cookie の sid が無い場合：Redis セッション未確立なので 401 を返す
-        （未ログインで POST するのが筋違い）
-      - sid → Redis に問い合わせて csrf_token を取得
+      - Cookie の sid が無い / 署名が無効：401（未ログインで POST するのが筋違い）
+      - sid → Redis に問い合わせて csrf_token を取得（セッション期限切れなら 401）
       - X-CSRF-Token ヘッダーと一致しない / 欠落していれば 403
     """
-
-    async def dispatch(
-        self,
-        request: Request,
-        call_next: RequestResponseEndpoint,
-    ) -> Response:
-        if request.method not in _PROTECTED_METHODS:
-            return await call_next(request)
-
-        if request.url.path in _EXEMPT_PATHS:
-            return await call_next(request)
-
-        settings = get_settings()
-        sid = request.cookies.get(settings.session_cookie_name)
-        if not sid:
-            return _json_error(
-                401,
-                "認証が必要です",
-            )
-
-        redis = get_redis()
-        session = await session_store.get(redis, sid)
-        if session is None:
-            return _json_error(
-                401,
-                "セッションが無効です。再度ログインしてください",
-            )
-
-        header_token = request.headers.get(_HEADER_NAME)
-        if not header_token or header_token != session.csrf_token:
-            return _json_error(
-                403,
-                "CSRF トークンが一致しません",
-            )
-
-        # 検証通過。下流のハンドラに進む。
+    if request.method not in _PROTECTED_METHODS:
         return await call_next(request)
+
+    if request.url.path in _EXEMPT_PATHS:
+        return await call_next(request)
+
+    settings = get_settings()
+    signed = request.cookies.get(settings.session_cookie_name)
+    if not signed:
+        return _json_error(401, "認証が必要です")
+
+    # 署名検証に失敗した時は未認証として扱う（Redis に問い合わせる前に弾く）。
+    sid = unsign_sid(signed)
+    if sid is None:
+        return _json_error(401, "セッションが無効です。再度ログインしてください")
+
+    redis = get_redis()
+    session = await session_store.get(redis, sid)
+    if session is None:
+        return _json_error(401, "セッションが無効です。再度ログインしてください")
+
+    header_token = request.headers.get(_HEADER_NAME)
+    if not header_token or header_token != session.csrf_token:
+        return _json_error(403, "CSRF トークンが一致しません")
+
+    # 検証通過。下流のハンドラに進む。
+    return await call_next(request)
 
 
 def _json_error(status_code: int, message: str) -> JSONResponse:

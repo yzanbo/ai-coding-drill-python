@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import session as session_store
 from app.core.config import get_settings
+from app.core.cookies import unsign_sid
 from app.core.redis import get_redis
 from app.db.session import get_async_session
 from app.models.users import User
@@ -42,8 +43,12 @@ async def get_current_user_optional(
             if user is None: ... # ゲスト動作
     """
     settings = get_settings()
-    sid = request.cookies.get(settings.session_cookie_name)
-    if not sid:
+    signed = request.cookies.get(settings.session_cookie_name)
+    if not signed:
+        return None
+    # Cookie の値は itsdangerous で署名してあるため、まず復号 + 検証して生 sid を得る。
+    sid = unsign_sid(signed)
+    if sid is None:
         return None
 
     session = await session_store.get(redis, sid)
@@ -93,7 +98,10 @@ async def get_current_session(
     ロギング情報以外を含むため、レスポンスに直接返してはいけない。
     """
     settings = get_settings()
-    sid = request.cookies.get(settings.session_cookie_name)
-    if not sid:
+    signed = request.cookies.get(settings.session_cookie_name)
+    if not signed:
+        return None
+    sid = unsign_sid(signed)
+    if sid is None:
         return None
     return await session_store.get(redis, sid)
