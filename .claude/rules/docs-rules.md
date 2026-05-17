@@ -101,7 +101,12 @@ docs/requirements/
 
 ### `4-features/` — 個別機能要件（実装単位）
 
-- `F-XX-kebab-case-name.md` 形式で 1 機能 1 ファイル
+- **配置**：カテゴリ別サブディレクトリ配下に置く（`auth/` / `problem/` / `grading/` / `learning/` ...）。1 機能 1 ファイル
+- **ファイル名**：`<kebab-case-name>.md`（数値 ID は採番しない）
+  - 例：`auth/github-oauth.md` / `problem/generation.md` / `grading/auto-grading.md`
+- **path 自体が安定参照子**：本プロジェクトは自己完結 + 単独開発 + 数十機能規模のため、グローバル数値 ID（旧 `F-XX` 形式等）の維持コストに見合う便益が無く、ロードマップ ID（R0-7 等）と ADR ID（0006 等）で代替できるため、機能側は path / slug ベースで運用する
+- 新しいカテゴリを追加する時は短い英単語の名詞でディレクトリ名を作る（複数形/単数どちらでも統一可）
+- 1 カテゴリのファイル数が 10+ になったり明確な読み順がある場合は category 直下に `README.md` を追加して順序や依存関係を記述する（最初は不要）
 - **個別機能の受け入れ条件・ユーザーストーリー・画面・API 詳細・フロー・バリデーション・ステータスは features/ が SSoT**
 - 機能の俯瞰一覧は [`4-features/README.md`](../../docs/requirements/4-features/README.md) と [`1-vision/03-user-stories.md`](../../docs/requirements/1-vision/03-user-stories.md) を参照
 
@@ -156,7 +161,7 @@ docs/requirements/
 ### 1-vision と 4-features
 
 - **1-vision/03-user-stories.md**：ペルソナ × 状況のストーリー全体俯瞰（**追記される**が、機能ファイル並みの詳細は書かない）
-- **4-features/F-XX.md**：機能単位のユーザーストーリー + 受け入れ条件 + 画面 + API + フロー（個別機能の SSoT）
+- **4-features/`<category>/<name>.md`**：機能単位のユーザーストーリー + 受け入れ条件 + 画面 + API + フロー（個別機能の SSoT）
 
 ---
 

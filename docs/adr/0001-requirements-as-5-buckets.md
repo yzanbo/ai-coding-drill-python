@@ -11,12 +11,12 @@
 ```
 docs/requirements/
 ├── base/         (10 章の章立て章；機能要件・非機能要件・アーキ・etc を一括)
-└── features/     (機能別 .md：F-XX-...md)
+└── features/     (機能別 .md：<category>/<name>.md)
 ```
 
 しかし運用していくうちに以下の問題が顕在化した：
 
-1. **`base/02_functional.md` と `features/F-XX.md` の役割重複**
+1. **`base/02_functional.md` と `features/`<category>/<name>.md`` の役割重複**
    - 機能の「俯瞰一覧」と「詳細仕様」が両方に書かれ、SSoT が曖昧
    - 機能追加時に 2 箇所更新する必要がありズレが発生
 
@@ -49,7 +49,7 @@ docs/requirements/
 | **`1-vision/`** | 極小 | プロジェクトビジョン・ペルソナ・ユーザーストーリー | `01-overview.md` / `02-personas.md` / `03-user-stories.md` |
 | **`2-foundation/`** | 小 | 変わりにくい全体要件 | 非機能 / アーキ / LLM パイプライン / 観測性 / 実装技術 / 開発フロー |
 | **`3-cross-cutting/`** | 中 | 機能追加で成長する横断要件 | ER 図 / API 共通仕様 |
-| **`4-features/`** | 大 | 個別機能（F-XX） | F-01〜F-05 |
+| **`4-features/`** | 大 | 個別機能（カテゴリ別サブディレクトリ、数値 ID 不採番） | `auth/github-oauth.md` / `problem/generation.md` / `grading/auto-grading.md` / `learning/history.md` |
 | **`5-roadmap/`** | 大 | 計画と進捗 | ロードマップ / プロダクトバックログ / DoR / DoD |
 
 ディレクトリ番号（1〜5）は **読む順序（抽象 → 具体）と作成順序（時系列）の両方**を表す。**「書く順序」は `docs/requirements/README.md` に Step 1〜9 として別途明示**し、バケット間を行き来する実態を表現する。
@@ -70,7 +70,7 @@ docs/requirements/
    - 触りたくない場所（1-vision / 2-foundation）と頻繁に触る場所（4-features / 5-roadmap）が別ディレクトリに分かれる
    - PR レビュー時に「ビジョンを変える PR」と「機能追加の PR」の警戒度を物理パスで判別できる
 3. **SSoT の責務分離**
-   - 旧構造では `base/02_functional.md` と `features/F-XX.md` で機能仕様の重複が発生し、SSoT が曖昧だった
+   - 旧構造では `base/02_functional.md` と `features/`<category>/<name>.md`` で機能仕様の重複が発生し、SSoT が曖昧だった
    - 4-features を機能個別の SSoT、2-foundation を横断方針の SSoT、3-cross-cutting を横断成長要素（ER 図 / API 共通仕様）の SSoT、5-roadmap を計画の SSoT として役割を完全分離
 4. **`3-cross-cutting/` を独立バケットにする必然性**
    - ER 図・API 共通仕様は「機能追加で成長する」性質で、変わりにくい 2-foundation とは更新頻度が違う
@@ -93,7 +93,7 @@ docs/requirements/
 | 1 ファイル巨大要件定義書（`requirements.md` 単一） | 物理シンプル | 部分更新の git diff が読みにくい、目次から目的の節に飛ぶコストが高い、複数人での編集衝突 |
 | 機能ベース完全フラット（`features/` のみ、横断は README に記述） | 機能と詳細が完全一致 | 横断テーマ（観測性・LLM パイプライン・アーキ全体）が散逸、SSoT 確立が困難 |
 | 4 バケット案（`vision / foundation / features / roadmap`、`cross-cutting` を `foundation` に統合） | バケット数を減らして単純化 | ER 図・API 共通仕様は **「変わりにくい foundation」とは性質が違う**（機能追加で成長する）。混在させると更新頻度が異なるものが同居し git diff が乱雑になる |
-| 6 バケット案（4-features を `f-mvp / f-backlog` に分離） | MVP 機能とバックログ機能を物理分離 | バックログは roadmap で管理するべきで、features ディレクトリ自体を分割するのは過剰。F-XX という連番システムも壊れる |
+| 6 バケット案（4-features を `f-mvp / f-backlog` に分離） | MVP 機能とバックログ機能を物理分離 | バックログは roadmap で管理するべきで、features ディレクトリ自体を分割するのは過剰 |
 | 章番号を作業順に振り直す（`1-vision / 2-features / 3-foundation / ...`） | 書く順序を物理順序に反映 | 「読む順序」と「書く順序」は本質的に違う。書く順序はバケット間を往復するため番号化に不向き。読み手最適化を優先 |
 
 ## Consequences（結果・トレードオフ）

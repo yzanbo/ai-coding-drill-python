@@ -15,10 +15,24 @@
 
 ---
 
-## ファイル命名
+## 配置とファイル命名
 
-- `F-XX-kebab-case-name.md`（例：`F-01-github-oauth-auth.md`）
-- 連番 `XX` は採番順、欠番不可
+機能はカテゴリ別サブディレクトリ配下に **path / slug ベース**で配置する（数値 ID は採番しない）。
+
+```
+4-features/
+├── README.md
+├── _template.md
+├── auth/                       ← 認証
+├── problem/                    ← 問題（生成・表示・解答）
+├── grading/                    ← 採点
+└── learning/                   ← 学習履歴
+```
+
+- ファイル名：**`<kebab-case-name>.md`**（例：`github-oauth.md`、`generation.md`）
+- カテゴリディレクトリ：**`<kebab-case-category>/`**（例：`auth/`、`problem/`）
+- **数値 ID（旧 `F-XX` 形式）は採番しない**：path 自体が安定参照子になる（例：「auth/github-oauth」が ID 相当）。詳細な根拠は [.claude/rules/docs-rules.md](../../../.claude/rules/docs-rules.md) §3 を参照
+- 1 カテゴリのファイル数が 10+ になったり明確な読み順がある場合は category 直下に `README.md` を追加して順序や依存関係を記述する（最初は不要）
 - 新規作成は [`/new-requirements`](../../../.claude/CLAUDE.md) カスタムコマンド経由を推奨
 
 ---
@@ -29,23 +43,23 @@
 
 > **ステータス凡例**：「要件定義中」= 受け入れ条件確定済みだが未着手。「実装中」= スプリント着手済み。「完了」= DoD 達成。
 
-| ID | 機能名 | 対象ロール | ステータス |
+| カテゴリ | 機能 | 対象ロール | ステータス |
 |---|---|---|---|
-| [F-01](./F-01-github-oauth-auth.md) | GitHub OAuth ログイン | ゲスト → 認証ユーザー | 要件定義中 |
-| [F-02](./F-02-problem-generation.md) | 問題生成リクエスト | 認証ユーザー | 要件定義中 |
-| [F-03](./F-03-problem-display-and-answer.md) | 問題表示・解答入力 | ゲスト / 認証ユーザー | 要件定義中 |
-| [F-04](./F-04-auto-grading.md) | 自動採点 | 認証ユーザー | 要件定義中 |
-| [F-05](./F-05-learning-history.md) | 学習履歴・統計 | 認証ユーザー | 要件定義中 |
+| auth | [GitHub OAuth ログイン](./auth/github-oauth.md) | ゲスト → 認証ユーザー | 要件定義中 |
+| problem | [問題生成リクエスト](./problem/generation.md) | 認証ユーザー | 要件定義中 |
+| problem | [問題表示・解答入力](./problem/display-and-answer.md) | ゲスト / 認証ユーザー | 要件定義中 |
+| grading | [自動採点](./grading/auto-grading.md) | 認証ユーザー | 要件定義中 |
+| learning | [学習履歴・統計](./learning/history.md) | 認証ユーザー | 要件定義中 |
 
 ### バックログ（着手時に詳細化）
 
-リリース順。着手時に [_template.md](./_template.md) で詳細化する（現状は概要のみ）：
+リリース順。着手時に [_template.md](./_template.md) で詳細化する（現状は概要のみ、ファイル未作成）：
 
-| ID | 機能名 | リリース |
+| カテゴリ（予定） | 機能 | リリース |
 |---|---|---|
-| F-08 | 管理ダッシュボード | R4 |
-| F-06 | 適応型出題（弱点に基づく問題生成） | R6 |
-| F-07 | LLM ヒント機能 | R6 |
+| 未定（admin 等） | [管理ダッシュボード](../5-roadmap/01-roadmap.md#管理ダッシュボード) | R4 |
+| problem | [適応型出題（弱点に基づく問題生成）](../5-roadmap/01-roadmap.md#適応型出題) | R6 |
+| 未定（hint 等） | [LLM ヒント機能](../5-roadmap/01-roadmap.md#llm-ヒント機能) | R6 |
 
 詳細な俯瞰は [1-vision/01-overview.md](../1-vision/01-overview.md) と [5-roadmap/01-roadmap.md](../5-roadmap/01-roadmap.md#later着手未定)。
 
