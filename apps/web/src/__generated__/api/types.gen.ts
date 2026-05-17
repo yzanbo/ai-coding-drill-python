@@ -5,6 +5,16 @@ export type ClientOptions = {
 };
 
 /**
+ * HTTPValidationError
+ */
+export type HttpValidationError = {
+    /**
+     * Detail
+     */
+    detail?: Array<ValidationError>;
+};
+
+/**
  * HealthCheckResponse
  */
 export type HealthCheckResponse = {
@@ -17,6 +27,139 @@ export type HealthCheckResponse = {
      */
     id: string;
 };
+
+/**
+ * UserResponse
+ *
+ * 現在ログイン中のユーザー情報。GET /auth/me が返す形。
+ *
+ * snake_case のモデル属性を camelCase で JSON 出力するよう alias を効かせる
+ * （Frontend の Hey API 生成型もそのまま camelCase になる）。
+ */
+export type UserResponse = {
+    /**
+     * Displayname
+     */
+    displayName: string;
+    /**
+     * Email
+     */
+    email?: string | null;
+    /**
+     * Id
+     */
+    id: string;
+};
+
+/**
+ * ValidationError
+ */
+export type ValidationError = {
+    /**
+     * Context
+     */
+    ctx?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Input
+     */
+    input?: unknown;
+    /**
+     * Location
+     */
+    loc: Array<string | number>;
+    /**
+     * Message
+     */
+    msg: string;
+    /**
+     * Error Type
+     */
+    type: string;
+};
+
+export type StartGithubOauthAuthGithubGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Next
+         */
+        next?: string | null;
+    };
+    url: '/auth/github';
+};
+
+export type StartGithubOauthAuthGithubGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartGithubOauthAuthGithubGetError = StartGithubOauthAuthGithubGetErrors[keyof StartGithubOauthAuthGithubGetErrors];
+
+export type GithubCallbackAuthGithubCallbackGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Code
+         */
+        code?: string | null;
+        /**
+         * State
+         */
+        state?: string | null;
+        /**
+         * Error
+         */
+        error?: string | null;
+    };
+    url: '/auth/github/callback';
+};
+
+export type GithubCallbackAuthGithubCallbackGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GithubCallbackAuthGithubCallbackGetError = GithubCallbackAuthGithubCallbackGetErrors[keyof GithubCallbackAuthGithubCallbackGetErrors];
+
+export type LogoutAuthLogoutPostData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/auth/logout';
+};
+
+export type LogoutAuthLogoutPostResponses = {
+    /**
+     * ログアウト成功（ボディなし）
+     */
+    204: void;
+};
+
+export type LogoutAuthLogoutPostResponse = LogoutAuthLogoutPostResponses[keyof LogoutAuthLogoutPostResponses];
+
+export type GetMeAuthMeGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/auth/me';
+};
+
+export type GetMeAuthMeGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserResponse;
+};
+
+export type GetMeAuthMeGetResponse = GetMeAuthMeGetResponses[keyof GetMeAuthMeGetResponses];
 
 export type ListHealthChecksHealthGetData = {
     body?: never;

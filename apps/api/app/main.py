@@ -19,9 +19,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+# verify_csrf: 状態変更 API（POST/PUT/DELETE/PATCH）の double submit cookie 検証
+#              middleware（中身は core/csrf.py）。
+from app.core.csrf import verify_csrf
+
 # open_redis / close_redis: Redis 接続の生成と解放（中身は core/redis.py）。
 from app.core.redis import close_redis, open_redis
-from app.routers import health, probes
+from app.routers import auth, health, probes
 
 
 # lifespan: FastAPI の起動 / 終了フックを 1 関数にまとめる関数。
@@ -49,7 +53,14 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 # lifespan= で上記の起動 / 終了処理を紐付ける。
 app = FastAPI(title="AI Coding Drill API", lifespan=lifespan)
 
+# CSRF middleware：状態変更系（POST/PUT/DELETE/PATCH）の double submit cookie 検証
+# （02-api-conventions.md「CSRF 対策（double submit cookie）」）。
+# GET / HEAD / OPTIONS と /auth/github 系は中で skip する。
+# 認証ガード自体は各ルーター内で Depends(get_current_user) を使う（backend.md）。
+app.middleware("http")(verify_csrf)
+
 # ルーター登録：URL のグルーピング単位で main から読み込む。
 # 新しい機能を作ったらここに 1 行追加していく。
 app.include_router(probes.router)
 app.include_router(health.router)
+app.include_router(auth.router)

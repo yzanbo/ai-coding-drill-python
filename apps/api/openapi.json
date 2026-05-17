@@ -1,6 +1,19 @@
 {
   "components": {
     "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
       "HealthCheckResponse": {
         "properties": {
           "created_at": {
@@ -20,6 +33,77 @@
         ],
         "title": "HealthCheckResponse",
         "type": "object"
+      },
+      "UserResponse": {
+        "description": "現在ログイン中のユーザー情報。GET /auth/me が返す形。\n\nsnake_case のモデル属性を camelCase で JSON 出力するよう alias を効かせる\n（Frontend の Hey API 生成型もそのまま camelCase になる）。",
+        "properties": {
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName"
+        ],
+        "title": "UserResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
       }
     }
   },
@@ -29,6 +113,171 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/auth/github": {
+      "get": {
+        "description": "OAuth フロー開始。state を発行し GitHub の認可画面へ 302 リダイレクトする。\n\nクエリ:\n  - next: ログイン後の戻り先（同一オリジン相対パスのみ）。callback 時に使うため\n          state と一緒に Redis に格納する… のが理想だが、現状の state_store は\n          値を持たない設計のため、Cookie に一時格納する方式を取る（HttpOnly + Lax）。",
+        "operationId": "start_github_oauth_auth_github_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "next",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Next"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "GitHub 認可画面へリダイレクト"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Github Oauth",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/github/callback": {
+      "get": {
+        "description": "GitHub からのコールバック。\n\n成功時：Set-Cookie で sid / csrf_token を発行してホーム（または ?next= 指定先）へ 302。\nstate 不一致 / 期限切れ / 再使用：/login?auth_error=state_invalid へ 302。\nGitHub が ?error= を返した時：/login?auth_error=oauth_canceled へ 302。\nその他例外：/login?auth_error=oauth_failed へ 302。",
+        "operationId": "github_callback_auth_github_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "ログイン成功はホーム /、失敗は /login へリダイレクト"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Github Callback",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "description": "セッションを破棄し、Cookie を Max-Age=0 で消す。\n\n- 内部的に Redis から `session:<sid>` を DELETE + `user:<id>:sessions` から SREM\n- 204 No Content（ボディなし）。Cookie だけがレスポンスヘッダーに残る",
+        "operationId": "logout_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "ログアウト成功（ボディなし）"
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "description": "ログイン中のユーザー情報を返す。未認証なら 401（get_current_user が投げる）。",
+        "operationId": "get_me_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Me",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "description": "直近 10 件を新しい順に返す。",
