@@ -11,12 +11,16 @@
 //
 //   注意: configureApiClient() は src/test/render-with-query.tsx で 1 度だけ
 //   呼ばれている（idempotent）。本テストでは追加の初期化は不要。
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getMeAuthMeGet, logoutAuthLogoutPost } from "@/__generated__/api/sdk.gen";
 
 import { API_BASE, server } from "../../test/msw-server";
+import { CSRF_COOKIE_NAME } from "./api-client";
 
 const clearCookies = () => {
   // jsdom の document.cookie は append 形式なので、各 cookie を expires=過去 で
@@ -92,6 +96,23 @@ describe("configureApiClient: CSRF ヘッダー注入", () => {
     await logoutAuthLogoutPost();
 
     expect(captured).toBe("a+b/c");
+  });
+
+  it("FE 側 CSRF_COOKIE_NAME が API 側 csrf_cookie_name の既定値と一致する（drift 検出）", () => {
+    // 役割: api-client.ts の CSRF_COOKIE_NAME は API 側 apps/api/app/core/config.py の
+    //   `csrf_cookie_name: str = Field(default=...)` と手動で揃える前提。drift すると
+    //   POST/PUT/DELETE が全部 403 で落ちる「遠い症状」になる。
+    //   ここで Python ソースを直接読んで既定値を抜き出し、両者の一致を CI で機械検証する。
+    //   API 側を改名したら本テストが落ちて、FE 側 CSRF_COOKIE_NAME も更新する必要があると
+    //   気付ける（README / コメント運用だけだと見落とすため）。
+    const configPath = resolve(__dirname, "../../../../api/app/core/config.py");
+    const source = readFileSync(configPath, "utf8");
+    // csrf_cookie_name: str = Field( ... default="csrf_token", ... ) の default= 値を拾う。
+    //   Field(...) 内で複数行に分かれている前提で / s フラグを使う。
+    const match = source.match(/csrf_cookie_name:\s*str\s*=\s*Field\([^)]*default="([^"]+)"/s);
+    expect(match, "config.py から csrf_cookie_name の default を抽出できなかった").not.toBeNull();
+    const apiDefault = match?.[1];
+    expect(CSRF_COOKIE_NAME).toBe(apiDefault);
   });
 
   it("不正な URL エンコード（decodeURIComponent が URIError）の Cookie はヘッダーを付けない", async () => {

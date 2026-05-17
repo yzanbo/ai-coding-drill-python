@@ -23,7 +23,8 @@ const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 //   ハードコードで一致させる前提。API 側で名前を変えたらここも揃えて更新する
 //   （drift すると POST/PUT/DELETE が全部 403 で落ちる経路になる）。
 //   env で動的に上書きする必要が出てきたら NEXT_PUBLIC_CSRF_COOKIE_NAME を導入する。
-const CSRF_COOKIE_NAME = "csrf_token";
+//   この定数は api-client.test.ts で API 側の既定値と一致しているかを機械検証するため export している。
+export const CSRF_COOKIE_NAME = "csrf_token";
 
 // readCookie: document.cookie から指定の Cookie 値を取り出す。
 //   見つからない / SSR で document が無い場合は undefined。
