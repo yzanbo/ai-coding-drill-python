@@ -22,12 +22,12 @@
    - `.claude/rules/backend.md`（Backend 全般の実装契約）
    - `.claude/CLAUDE.md`（「ルールファイルの管理」リストに `backend.md` が列挙されていること）
    - `docs/requirements/5-roadmap/01-roadmap.md`（本フェーズに該当する行の状態列とリンク列）
-3. **新規ブランチを切ってから作業する**：[CLAUDE.md: ブランチ運用](../../../../.claude/CLAUDE.md#ブランチ運用) に従い、`feature/api/r0-5-backend-layers`（または同等の `feature/api/<名前>`）で作業する。`main` で直接作業しない。
+3. **新規ブランチを切ってから作業する**：[CLAUDE.md: ブランチ運用](../../../../.claude/CLAUDE.md#ブランチ運用) に従い、`feature/api/backend-layers`（または同等の `feature/api/<名前>`）で作業する。`main` で直接作業しない。
 4. **コミット・PR 作成は明示指示があるまで行わない**：[CLAUDE.md: Git 操作の禁止](../../../../.claude/CLAUDE.md#git-操作の禁止) に従い、`git add` / `git commit` / `git push` / PR 作成はユーザーから明示指示が出るまで保留する。ファイル作成・編集は自動で進めてよい。
 5. **初期状態のばらつきに対する方針**：
    - 想定フォルダが存在しない → 作る（`__init__.py` + `README.md` を入れる）
    - 想定フォルダが存在し中身が空 → README を入れる
-   - 想定フォルダが存在し中身がある（既存の `routers/` `schemas/` `models/` `core/` `db/` 等、backend.md フェーズで埋まったもの） → 中身を確認して `§決定値` と矛盾する部分のみ書き換える。`backend.md` 由来の実装ファイル（`config.py` / `session.py` / `base.py` / `health_check.py` / `health.py`（schemas）/ `health.py`（router）/ `probes.py`）は本フェーズでは触らない（02 の SSoT を尊重する）
+   - 想定フォルダが存在し中身がある（既存の `routers/` `schemas/` `models/` `core/` `db/` 等、backend.md フェーズで埋まったもの） → 中身を確認して `§決定値` と矛盾する部分のみ書き換える。`backend.md` 由来の実装ファイル（`config.py` / `session.py` / `base.py` / `health_check.py` / `health.py`（schemas）/ `health.py`（router）/ `probes.py`）は本フェーズでは触らない（Python 環境構築フェーズの SSoT を尊重する）
    - `.claude/rules/backend.md` に「§ディレクトリ構成（`apps/api/app/`）」「§レイヤ間の import 方向」セクションが無い、または `§A` / `§C` / `§D` と矛盾する → 機械可読版に展開して追加 or 書き換える（手順 4 が SSoT）
    - `.claude/CLAUDE.md` の「ルールファイルの管理」リストに `backend.md` が無ければ追加する
 6. **完了後に検証コマンドを必ず流す**：`mise run api:lint` / `mise run api:typecheck` / `mise run api:test` を順に実行し、3 つすべて clean になることを確認する。失敗があれば修正して再実行（ユーザーに投げ返さない）

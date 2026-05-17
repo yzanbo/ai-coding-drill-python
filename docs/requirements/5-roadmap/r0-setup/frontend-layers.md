@@ -25,7 +25,7 @@
    - `.claude/CLAUDE.md`（「ルールファイルの管理」リストに上記 3 ファイルが列挙されていること）
    - `apps/web/biome.jsonc` / `apps/web/knip.config.ts`（生成物パスの除外設定）
    - `docs/requirements/5-roadmap/01-roadmap.md`（本フェーズに該当する行の状態列とリンク列）
-3. **新規ブランチを切ってから作業する**：[CLAUDE.md: ブランチ運用](../../../../.claude/CLAUDE.md#ブランチ運用) に従い、`feature/web/r0-6-app-directory-skeleton`（または同等の `feature/web/<名前>`）で作業する。`main` で直接作業しない。
+3. **新規ブランチを切ってから作業する**：[CLAUDE.md: ブランチ運用](../../../../.claude/CLAUDE.md#ブランチ運用) に従い、`feature/web/frontend-layers`（または同等の `feature/web/<名前>`）で作業する。`main` で直接作業しない。
 4. **コミット・PR 作成は明示指示があるまで行わない**：[CLAUDE.md: Git 操作の禁止](../../../../.claude/CLAUDE.md#git-操作の禁止) に従い、`git add` / `git commit` / `git push` / PR 作成はユーザーから明示指示が出るまで保留する。ファイル作成・編集は自動で進めてよい。
 5. **初期状態のばらつきに対する方針**：
    - 想定フォルダが存在しない → 作る

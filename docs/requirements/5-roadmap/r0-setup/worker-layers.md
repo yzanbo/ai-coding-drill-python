@@ -22,7 +22,7 @@
    - `.claude/rules/worker.md`（Worker 全般の実装契約）
    - `.claude/CLAUDE.md`（「ルールファイルの管理」リストに `worker.md` が列挙されていること）
    - `docs/requirements/5-roadmap/01-roadmap.md`（本フェーズに該当する行の状態列とリンク列）
-3. **新規ブランチを切る**：[CLAUDE.md: ブランチ運用](../../../../.claude/CLAUDE.md#ブランチ運用) に従い、`feature/worker/r0-7-layers`（または同等の `feature/worker/<名前>`）で作業する。`main` で直接作業しない。
+3. **新規ブランチを切る**：[CLAUDE.md: ブランチ運用](../../../../.claude/CLAUDE.md#ブランチ運用) に従い、`feature/worker/layers`（または同等の `feature/worker/<名前>`）で作業する。`main` で直接作業しない。
 4. **コミット・PR 作成は明示指示があるまで行わない**：[CLAUDE.md: Git 操作の禁止](../../../../.claude/CLAUDE.md#git-操作の禁止) に従い、`git add` / `git commit` / `git push` / PR 作成はユーザーから明示指示が出るまで保留する。ファイル作成・編集は自動で進めてよい。
 5. **初期状態のばらつきに対する方針**：
    - 想定 package が存在しない → 作る（空ディレクトリ + `.gitkeep` ではなく `README.md` を入れる）
