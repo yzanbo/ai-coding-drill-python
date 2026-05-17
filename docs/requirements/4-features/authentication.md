@@ -87,8 +87,9 @@
 - 保存先：**Redis**（→ [ADR 0047](../../adr/0047-session-store-on-redis.md)）、TTL 7 日
 - クライアント：Cookie に `session_id` を `HttpOnly` + `Secure` + `SameSite=Lax` で発行
 - 延長ポリシー：ユーザー操作のたびに TTL リセット（rolling session）
-- CSRF 対策：状態を持つフローでは `state` パラメータを Redis に事前格納してコールバックで照合（具体的な扱いは §2 のプロバイダごとに定義）
+- CSRF 対策（OAuth フロー）：状態を持つフローでは `state` パラメータを Redis に事前格納してコールバックで照合（具体的な扱いは §2 のプロバイダごとに定義）
 - `state` トークン運用：**TTL 10 分 + 1 回使い切り**（照合成功時に Redis から即削除、リプレイ攻撃防止）。ユーザーが GitHub 認可画面で時間を要する可能性に余裕を持たせつつ、放置されたトークンを長く残さない
+- CSRF 対策（状態変更 API 全般）：ログイン後の POST / PUT / DELETE / PATCH（本ドメインでは `/auth/logout`）には double submit cookie 方式で `X-CSRF-Token` ヘッダーを検証する。仕様の SSoT は [3-cross-cutting/02-api-conventions.md: CSRF 対策](../3-cross-cutting/02-api-conventions.md#csrf-対策double-submit-cookie)
 
 ### §1.4 共通 API
 
@@ -285,6 +286,7 @@ sequenceDiagram
 - [ ] ログアウト成功後はホーム `/` に遷移する（`/login` には自動で飛ばない）
 - [ ] 同一ユーザーで PC とスマホからそれぞれログインした時、両方のセッションが同時に有効（先にログインした側が切れない）
 - [ ] GitHub プロフィールの `name` を変更してから再ログインすると、`GET /auth/me` の `displayName` が新しい値で返る（DB が最新値で上書きされる）
+- [ ] `POST /auth/logout` を `X-CSRF-Token` ヘッダーなしで送ると 403 が返る（double submit cookie 検証）
 
 ## ステータス
 

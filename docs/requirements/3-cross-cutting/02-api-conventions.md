@@ -39,6 +39,15 @@
 
 採用根拠（Postgres セッションテーブル / JWT を不採用とした比較、Cookie 属性の選定、double submit cookie による CSRF 対策等）の SSoT は [ADR 0047](../../adr/0047-session-store-on-redis.md) を参照。
 
+### CSRF 対策（double submit cookie）
+
+`SameSite=Lax` だけでは OAuth callback 互換と引き換えに CSRF 余地が残るため、状態変更系（POST / PUT / DELETE / PATCH）には **double submit cookie** を二重防御として併用する：
+
+- **発行**：ログイン成功時にセッションと同時に `csrf_token`（32 byte CSPRNG）を Redis（`session:<sid>` の hash 内）に保存し、`csrf_token` Cookie として配信する（**`HttpOnly` なし**、Frontend が JS で読めるように `Secure` + `SameSite=Lax` のみ）
+- **送信**：Frontend は状態変更リクエストの `X-CSRF-Token` ヘッダーに Cookie の値を詰める（Hey API 生成クライアントの interceptor で組み込む）
+- **検証**：Backend は Cookie の `sid` で Redis セッションを引き、ヘッダーの `X-CSRF-Token` と保存された `csrf_token` が一致するか検証。不一致 / 欠落は 403
+- **対象外**：`GET` / `HEAD` / `OPTIONS`（仕様上副作用なし）、`/auth/github/callback`（外部からの top-level GET、別途 OAuth `state` トークンで防御）
+
 ### 認証要否の制御
 
 - FastAPI の依存（`Depends(get_current_user)`）をルーター単位で適用し、デフォルト認証必須に揃える
