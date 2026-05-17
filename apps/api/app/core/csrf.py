@@ -35,14 +35,11 @@ from app.core.redis import get_redis
 _PROTECTED_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
 
 # CSRF 検証から除外するパス。
-# OAuth コールバックは外部からの top-level GET だが念のため明示。
-# state トークンで別途防御済み。
-_EXEMPT_PATHS: frozenset[str] = frozenset(
-    {
-        "/auth/github",
-        "/auth/github/callback",
-    }
-)
+# OAuth コールバックは外部からの top-level GET だが、現状の運用は GET のため
+# _PROTECTED_METHODS でも弾かれるが、外部からのリダイレクトを受ける性質を明示する
+# ため exempt list にも明示的に載せる。state トークンで別途防御済み
+# （仕様 SSoT: 02-api-conventions.md の CSRF 対策節）。
+_EXEMPT_PATHS: frozenset[str] = frozenset({"/auth/github/callback"})
 
 # ヘッダー名は固定（Frontend と合わせる、02-api-conventions.md）。
 _HEADER_NAME = "X-CSRF-Token"
