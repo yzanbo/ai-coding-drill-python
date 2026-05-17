@@ -152,7 +152,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 ### サイト全体の禁止事項（commit / PR / issue / `.md` ドキュメント全てに適用）
 
 - **`#数字` 形式の使い分け**
-  - ❌ プロジェクト内部の項目参照に使わない：要件・タスク・機能等の内部 ID を「#5」のように書くと、GitHub が issue / PR #5 に自動リンクして誤誘導を招く。内部 ID は `R0-2` / `R1-1` 等のプレフィックス付き形式 / 機能は path（例：`auth/github-oauth`）を使う
+  - ❌ プロジェクト内部の項目参照に使わない：要件・タスク・機能等の内部 ID を「#5」のように書くと、GitHub が issue / PR #5 に自動リンクして誤誘導を招く。内部 ID は `R0-2` / `R1-1` 等のプレフィックス付き形式 / 機能は path（例：`authentication`）を使う
   - ✅ GitHub の issue / PR / discussion の意図的参照には使う：`#11` / `PR #10` の形式が正しい用途（自動リンク化が望ましい挙動）
 - **AI 生成文言を含めない**（「Claude」「AI」「Generated with」「Co-Authored-By」等、署名・ヘッダー含む）
 
@@ -187,8 +187,9 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 > SSoT は [06-dev-workflow.md: コミットメッセージ規約](../docs/requirements/2-foundation/06-dev-workflow.md#コミットメッセージ規約)、機械強制は [commitlint.config.mjs](../commitlint.config.mjs)、採用根拠は [ADR 0029](../docs/adr/0029-commit-scope-convention.md)。本セクションは Claude が直接読む用の縮約版（SSoT 更新時はここも合わせて更新する）。
 
 - 日本語で記載、commitlint で機械強制
-- 形式は `<type>(<scope>): <subject>` / scope 任意 / ヘッダー 100 文字以内 / 本文 1 行 200 文字以内
+- 形式は `<type>(<scope>): <subject>` / scope 任意 / ヘッダー 100 文字以内 / **本文の 1 行長制限なし**（`body-max-line-length` 無効化済み）
 - 複数領域はカンマ区切り（例：`feat(api,worker): ...`）
+- **本文（body）は必須で詳細に書く**：WHAT（何を変えたか）/ WHY（なぜ変えたか・代替案を退けた根拠）/ HOW（採用手法の要点）/ 影響範囲 / 関連 ADR・要件 .md・Issue のリンクを含める。trivial な fix typo / format only でも body で「何を / なぜ」を補足する。**header だけのコミットは禁止**（数ヶ月後に `git log` を読んだメンテナが判断できないため）
 
 #### type（Conventional Commits 標準、下記から 1 つ選ぶ）
 

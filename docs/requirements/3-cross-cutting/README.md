@@ -39,7 +39,7 @@
 | 詳細仕様の SSoT | 配置 |
 |---|---|
 | テーブル単位のカラム定義 | SQLAlchemy 2.0 model（`apps/api/app/models/`、`Mapped[T]` 方式） |
-| 個別エンドポイントの req/res | [4-features/](../4-features/) 各 `<category>/<name>.md` + OpenAPI（`apps/api/openapi.json`） |
+| 個別エンドポイントの req/res | [4-features/](../4-features/) 各 `<name>.md` + OpenAPI（`apps/api/openapi.json`） |
 | ジョブペイロードの完全な仕様 | Pydantic モデル（`apps/api/app/schemas/jobs.py`、Worker とは JSON Schema (`apps/api/job-schemas/`) → quicktype 生成 Go struct で型共有、→ [ADR 0006](../../adr/0006-json-schema-as-single-source-of-truth.md)） |
 
 ---

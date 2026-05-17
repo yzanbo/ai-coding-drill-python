@@ -1,7 +1,7 @@
 ---
 name: worker-implement
 description: 要件 .md を読んで Go Worker を実装する
-argument-hint: "[<category>/<name>] (例: grading/auto-grading, problem/generation)"
+argument-hint: "[<name>] (例: grading, problem-generation)"
 ---
 
 # 要件ベースの Worker 実装

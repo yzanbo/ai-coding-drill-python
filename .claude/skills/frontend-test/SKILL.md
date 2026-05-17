@@ -1,7 +1,7 @@
 ---
 name: frontend-test
 description: 要件 .md に基づいてフロントエンドのテストを生成・実行する
-argument-hint: "[<category>/<name>] (例: problem/display-and-answer, learning/history)"
+argument-hint: "[<name>] (例: problem-display-and-answer, learning)"
 ---
 
 # 要件ベースのフロントエンドテスト

@@ -63,7 +63,7 @@ features/ 用テンプレは [../4-features/_template.md](../4-features/_templat
 - **関連する他章**：
   - [NN-xxx.md](./NN-xxx.md) — {何がそちらにあるか}
 - **関連する機能要件**：
-  - [`<category>/<name>`](../4-features/<category>/<name>.md) — {この章の方針が直接効く機能}
+  - [`<name>`](../4-features/<name>.md) — {この章の方針が直接効く機能}
 - **実装ルール**：
   - [`.claude/rules/`](../../../.claude/rules/) — 該当するレイヤのルール
 

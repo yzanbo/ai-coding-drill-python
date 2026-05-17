@@ -43,7 +43,7 @@
 
 - FastAPI の依存（`Depends(get_current_user)`）をルーター単位で適用し、デフォルト認証必須に揃える
 - 例外（OAuth コールバック・ヘルスチェック等）は依存を外す or `Depends(get_current_user_optional)` を使う
-- 認証フロー詳細は [GitHub OAuth ログイン](../4-features/auth/github-oauth.md) を参照
+- 認証フロー詳細は [GitHub OAuth ログイン](../4-features/authentication.md) を参照
 
 ---
 
@@ -101,8 +101,8 @@
 
 | エンドポイント分類 | 制限 |
 |---|---|
-| `POST /problems/generate`（[問題生成](../4-features/problem/generation.md)） | 1 ユーザー / 1 分 / 5 回 |
-| `POST /submissions`（[自動採点](../4-features/grading/auto-grading.md)） | 1 ユーザー / 1 分 / 30 回 |
+| `POST /problems/generate`（[問題生成](../4-features/problem-generation.md)） | 1 ユーザー / 1 分 / 5 回 |
+| `POST /submissions`（[自動採点](../4-features/grading.md)） | 1 ユーザー / 1 分 / 30 回 |
 | `GET /*`（読み取り全般） | 1 IP / 1 分 / 300 回 |
 
 超過時は 429 + RFC 7807 形式で `detail` にリトライ可能時刻を含める。閾値は運用データを見て調整可能。
@@ -142,11 +142,11 @@ FastAPI の `APIRouter` を機能単位で分割し、`apps/api/app/main.py` で
 
 | router モジュール | prefix | 担当 feature | 主なエンドポイント |
 |---|---|---|---|
-| `routers/auth` | `/auth` | [GitHub OAuth ログイン](../4-features/auth/github-oauth.md) | `/auth/github` / `/auth/github/callback` / `/auth/logout` / `/auth/me` |
-| `routers/problems` | `/problems` | [問題生成](../4-features/problem/generation.md) / [問題表示・解答入力](../4-features/problem/display-and-answer.md) | `/problems` / `/problems/:id` / `/problems/generate` / `/problems/generate/:requestId` |
-| `routers/submissions` | `/submissions` | [自動採点](../4-features/grading/auto-grading.md) | `/submissions` / `/submissions/:id` |
+| `routers/auth` | `/auth` | [GitHub OAuth ログイン](../4-features/authentication.md) | `/auth/github` / `/auth/github/callback` / `/auth/logout` / `/auth/me` |
+| `routers/problems` | `/problems` | [問題生成](../4-features/problem-generation.md) / [問題表示・解答入力](../4-features/problem-display-and-answer.md) | `/problems` / `/problems/:id` / `/problems/generate` / `/problems/generate/:requestId` |
+| `routers/submissions` | `/submissions` | [自動採点](../4-features/grading.md) | `/submissions` / `/submissions/:id` |
 | `routers/jobs` | `/jobs` | 横断（enqueue 内部 API） | API 内部でジョブ enqueue 用途。書き戻しは Worker が直接 DB に行うため公開エンドポイントは持たない |
-| `routers/me` | `/me` | [学習履歴](../4-features/learning/history.md) | `/me/stats` / `/me/weakness`（R1 MVP に含む）。Web 画面ルート `/me/history` は API としては `GET /submissions` を呼ぶ（→ [学習履歴](../4-features/learning/history.md)） |
+| `routers/me` | `/me` | [学習履歴](../4-features/learning.md) | `/me/stats` / `/me/weakness`（R1 MVP に含む）。Web 画面ルート `/me/history` は API としては `GET /submissions` を呼ぶ（→ [学習履歴](../4-features/learning.md)） |
 | `routers/healthz` | `/` | 横断 | `/healthz` / `/readyz` |
 
 router の物理配置・依存定義（`Depends(get_current_user)` 等）の詳細規約は [.claude/rules/backend.md](../../../.claude/rules/backend.md) を参照。
@@ -159,10 +159,10 @@ router の物理配置・依存定義（`Depends(get_current_user)` 等）の詳
 
 | 機能 | エンドポイント例 |
 |---|---|
-| [GitHub OAuth ログイン](../4-features/auth/github-oauth.md) | `/auth/github`, `/auth/github/callback`, `/auth/logout`, `/auth/me` |
-| [問題生成リクエスト](../4-features/problem/generation.md) | `/problems/generate`, `/problems/generate/:requestId` |
-| [問題表示・解答入力](../4-features/problem/display-and-answer.md) | `/problems`, `/problems/:id` |
-| [自動採点](../4-features/grading/auto-grading.md) | `/submissions`, `/submissions/:id` |
-| [学習履歴・統計](../4-features/learning/history.md) | `/me/stats`, `/me/weakness` |
+| [GitHub OAuth ログイン](../4-features/authentication.md) | `/auth/github`, `/auth/github/callback`, `/auth/logout`, `/auth/me` |
+| [問題生成リクエスト](../4-features/problem-generation.md) | `/problems/generate`, `/problems/generate/:requestId` |
+| [問題表示・解答入力](../4-features/problem-display-and-answer.md) | `/problems`, `/problems/:id` |
+| [自動採点](../4-features/grading.md) | `/submissions`, `/submissions/:id` |
+| [学習履歴・統計](../4-features/learning.md) | `/me/stats`, `/me/weakness` |
 
 機械可読の最新一覧は OpenAPI が SSoT。

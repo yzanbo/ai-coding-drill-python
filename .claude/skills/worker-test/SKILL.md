@@ -1,7 +1,7 @@
 ---
 name: worker-test
 description: 要件 .md に基づいて Go Worker のテストを生成・実行する
-argument-hint: "[<category>/<name>] (例: grading/auto-grading, problem/generation)"
+argument-hint: "[<name>] (例: grading, problem-generation)"
 ---
 
 # 要件ベースの Worker テスト

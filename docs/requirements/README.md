@@ -40,7 +40,7 @@ docs/requirements/
   ↓
 2-foundation/03-llm-pipeline.md  本サービスの差別化軸（LLM × サンドボックス）
   ↓
-4-features/<category>/<name>.md   個別機能の詳細（auth/ / problem/ / grading/ / learning/）
+4-features/<name>.md   個別機能の詳細（auth/ / problem/ / grading/ / learning/）
   ↓
 5-roadmap/01-roadmap.md          いつ何を作るか
   ↓
@@ -60,7 +60,7 @@ docs/adr/                        各種設計判断の根拠
 | 3 | **Week 1** | [`1-vision/03-user-stories.md`](./1-vision/03-user-stories.md) | ペルソナ × 状況のストーリーマトリクス（MVP 範囲） |
 | 4 | **MVP 着手前** | [`2-foundation/02-architecture.md`](./2-foundation/02-architecture.md) | システム全体構造・コンポーネント責務 |
 | 5 | **MVP 計画時** | [`5-roadmap/01-roadmap.md`](./5-roadmap/01-roadmap.md) | リリース計画（R0〜R5）+ プロダクトバックログ |
-| 6 | **MVP 着手時** | [`4-features/<category>/<name>.md`](./4-features/) 〜 | 各機能の受け入れ条件・画面・API |
+| 6 | **MVP 着手時** | [`4-features/<name>.md`](./4-features/) 〜 | 各機能の受け入れ条件・画面・API |
 | 7 | **最初のスキーマ定義時** | [`3-cross-cutting/01-data-model.md`](./3-cross-cutting/01-data-model.md) | ER 図・命名規則・横断方針 |
 | 8 | **採用技術が固まった時** | [`2-foundation/05-runtime-stack.md`](./2-foundation/05-runtime-stack.md) | 技術選定 + 選定理由（同時に [`docs/adr/`](../adr/) に判断を記録） |
 | 9 | **必要に応じて** | [`2-foundation/01-non-functional.md`](./2-foundation/01-non-functional.md)、[`2-foundation/03-llm-pipeline.md`](./2-foundation/03-llm-pipeline.md)、[`2-foundation/04-observability.md`](./2-foundation/04-observability.md)、[`3-cross-cutting/02-api-conventions.md`](./3-cross-cutting/02-api-conventions.md) 等 | 非機能要件の詳細・LLM パイプライン・観測性・API 共通仕様（実装着手段階で必要が出た時に書く） |

@@ -1,14 +1,14 @@
 ---
 name: new-requirements
 description: 機能別の要件 .md を対話的に新規作成する
-argument-hint: "[<category>/<name>] [概要の説明]"
+argument-hint: "[<name>] [概要の説明]"
 ---
 
 # 機能要件の新規作成
 
-引数 `$ARGUMENTS` の最初の単語を**機能パス**（`<category>/<name>` 形式、例：`problem/adaptive-quiz`）、残りを機能の概要として解釈する。既存カテゴリ（auth / problem / grading / learning）に該当するなら同じ category 配下、該当しない場合は新規カテゴリ名を提案する（→ `docs/requirements/4-features/README.md` の機能一覧表を参照）。
+引数 `$ARGUMENTS` の最初の単語を**機能ファイル名**（`<name>` 形式、例：`problem-adaptive-quiz`）、残りを機能の概要として解釈する。既存ドメイン（`authentication` / `problem-*` / `grading` / `learning` 等）に該当するなら同じドメイン名を使う（**1 ドメイン 1 ファイル**）、同ドメイン内に複数ワークフローを置く場合はドメイン名 prefix で分割する（例：`problem-generation` / `problem-display-and-answer`）。→ `docs/requirements/4-features/README.md` の機能一覧表で既存命名を確認できる。
 
-機能要件は `docs/requirements/4-features/<category>/<name>.md` に作成する。
+機能要件は `docs/requirements/4-features/<name>.md` に作成する。
 ベースとなる全体要件（[docs/requirements/](../../../docs/requirements/)）に対する**機能別の追加仕様**として位置付ける。
 
 ## 手順
@@ -37,7 +37,7 @@ argument-hint: "[<category>/<name>] [概要の説明]"
 
 ### 3. 機能要件 .md の生成
 
-対話で得た情報をまとめ、`docs/requirements/4-features/<category>/<name>.md` を以下のセクション構成で作成する（ファイル名は `$ARGUMENTS` の先頭単語）：
+対話で得た情報をまとめ、`docs/requirements/4-features/<name>.md` を以下のセクション構成で作成する（ファイル名は `$ARGUMENTS` の先頭単語）：
 
 ```markdown
 # 機能要件：<機能名>

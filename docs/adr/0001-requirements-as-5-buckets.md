@@ -11,12 +11,12 @@
 ```
 docs/requirements/
 ├── base/         (10 章の章立て章；機能要件・非機能要件・アーキ・etc を一括)
-└── features/     (機能別 .md：<category>/<name>.md)
+└── features/     (機能別 .md：<name>.md)
 ```
 
 しかし運用していくうちに以下の問題が顕在化した：
 
-1. **`base/02_functional.md` と `features/`<category>/<name>.md`` の役割重複**
+1. **`base/02_functional.md` と `features/`<name>.md`` の役割重複**
    - 機能の「俯瞰一覧」と「詳細仕様」が両方に書かれ、SSoT が曖昧
    - 機能追加時に 2 箇所更新する必要がありズレが発生
 
@@ -49,7 +49,7 @@ docs/requirements/
 | **`1-vision/`** | 極小 | プロジェクトビジョン・ペルソナ・ユーザーストーリー | `01-overview.md` / `02-personas.md` / `03-user-stories.md` |
 | **`2-foundation/`** | 小 | 変わりにくい全体要件 | 非機能 / アーキ / LLM パイプライン / 観測性 / 実装技術 / 開発フロー |
 | **`3-cross-cutting/`** | 中 | 機能追加で成長する横断要件 | ER 図 / API 共通仕様 |
-| **`4-features/`** | 大 | 個別機能（カテゴリ別サブディレクトリ、数値 ID 不採番） | `auth/github-oauth.md` / `problem/generation.md` / `grading/auto-grading.md` / `learning/history.md` |
+| **`4-features/`** | 大 | 個別機能（カテゴリ別サブディレクトリ、数値 ID 不採番） | `authentication.md` / `problem-generation.md` / `grading.md` / `learning.md` |
 | **`5-roadmap/`** | 大 | 計画と進捗 | ロードマップ / プロダクトバックログ / DoR / DoD |
 
 ディレクトリ番号（1〜5）は **読む順序（抽象 → 具体）と作成順序（時系列）の両方**を表す。**「書く順序」は `docs/requirements/README.md` に Step 1〜9 として別途明示**し、バケット間を行き来する実態を表現する。
@@ -70,7 +70,7 @@ docs/requirements/
    - 触りたくない場所（1-vision / 2-foundation）と頻繁に触る場所（4-features / 5-roadmap）が別ディレクトリに分かれる
    - PR レビュー時に「ビジョンを変える PR」と「機能追加の PR」の警戒度を物理パスで判別できる
 3. **SSoT の責務分離**
-   - 旧構造では `base/02_functional.md` と `features/`<category>/<name>.md`` で機能仕様の重複が発生し、SSoT が曖昧だった
+   - 旧構造では `base/02_functional.md` と `features/`<name>.md`` で機能仕様の重複が発生し、SSoT が曖昧だった
    - 4-features を機能個別の SSoT、2-foundation を横断方針の SSoT、3-cross-cutting を横断成長要素（ER 図 / API 共通仕様）の SSoT、5-roadmap を計画の SSoT として役割を完全分離
 4. **`3-cross-cutting/` を独立バケットにする必然性**
    - ER 図・API 共通仕様は「機能追加で成長する」性質で、変わりにくい 2-foundation とは更新頻度が違う
