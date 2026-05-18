@@ -1,5 +1,5 @@
 # quicktype --src-lang schema で apps/api/job-schemas/ から生成される Go struct を
-# 置く場所（ADR 0006）。生成物は git 管理せず、各環境で `mise run worker:grading:types-gen`
+# 置く場所（ADR 0006）。生成物は git 管理せず、各環境で `mise run worker:generation:types-gen`
 # で生成する運用とする。
 #
 # 本ファイル自身と README.md は commit してディレクトリ存在と説明を残す。

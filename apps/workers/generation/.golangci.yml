@@ -1,0 +1,38 @@
+# golangci-lint v2 設定（ADR 0019）。
+#
+# 役割：問題生成 Worker の Go コードに対するリント・フォーマット規約。
+# 内容は apps/workers/grading/.golangci.yml と同一（両 Worker で同じ品質ゲートを敷く）。
+# 有効リンター一覧と選定根拠は .claude/rules/worker.md（コードスタイル節）と
+# ADR 0019 を参照。本ファイルは「どのリンターを ON にするか」の SSoT。
+#
+# 起動経路：
+#   mise run worker:generation:lint   # = `cd apps/workers/generation && golangci-lint run`
+#   pre-commit / CI は同じタスクを呼ぶため、ローカル緑 = CI 緑 が成立する。
+#
+# 公式リファレンス: https://golangci-lint.run/docs/configuration/file/
+---
+version: "2"
+
+linters:
+  # default: none = 何も有効化せず、enable に列挙したリンターだけ走らせる。
+  # 「予期せぬ新リンター追加で CI が突然赤になる」事故を防ぐ運用にする。
+  default: none
+  enable:
+    # errcheck: error 戻り値の取り扱い忘れを検出。Go の流儀（error は必ず確認）の機械強制。
+    - errcheck
+    # govet: go vet と同じチェック群（shadow / printf 引数不一致 等）。
+    - govet
+    # staticcheck: 包括的な静的解析。dead code / 冗長な条件 / API 誤用 を検出。
+    - staticcheck
+    # ineffassign: 代入したが読まれない変数の検出。
+    - ineffassign
+    # unused: 未使用の関数・変数・型を検出。
+    - unused
+    # gosec: セキュリティ系の問題（hardcoded credential / 弱い乱数 / コマンドインジェクション 等）。
+    - gosec
+
+formatters:
+  # v2 では gofmt / gofumpt / goimports はリンターではなく formatter 分類。
+  # gofumpt は gofmt の superset で、より厳しい整形ルールを当てる。
+  enable:
+    - gofumpt

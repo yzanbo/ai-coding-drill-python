@@ -249,37 +249,43 @@ description = "採点サンドボックスイメージをビルド（ai-coding-d
 # Dockerfile を含む dir を引数に取り、cwd を変えると build context だけ変わる）。
 run = "docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox"
 
-# --- 問題生成 Worker（apps/workers/generation/、ADR 0040、将来追加） ---
+# --- 問題生成 Worker（apps/workers/generation/、ADR 0040） ---
 #
-# apps/workers/generation/ はディレクトリ未作成のスケルトン状態。タスクは登録だけしておき、
-# 呼ばれた際は「未着手」を echo して終了 0 で抜ける（CLAUDE.md の表記との齟齬を防ぐため）。
-# 着手時に各タスクの body を grading 側と対称な実装（dir + go run / go test / golangci-lint /
-# quicktype 等）に差し替え、横断タスク（worker:test / worker:lint / worker:types-gen）に
-# 入れる depends コメントも合わせて外す。
+# R0-8 で grading と同じ品質ゲート（go run / go test / golangci-lint / govulncheck /
+# go mod tidy -diff / quicktype types-gen）を揃える。sandbox image は grading 所有のため
+# generation 側に sandbox-build タスクは置かない（image を共有起動する、ADR 0009）。
 
 [tasks."worker:generation:dev"]
-description = "問題生成 Worker 起動（apps/workers/generation 未着手、ADR 0040）"
-run = "echo 'apps/workers/generation は未着手（ADR 0040、着手時に実装）'"
+description = "問題生成 Worker 起動"
+dir = "apps/workers/generation"
+run = "go run ./cmd/generation"
 
 [tasks."worker:generation:test"]
-description = "問題生成 Worker テスト（未着手）"
-run = "echo 'apps/workers/generation は未着手（ADR 0040、着手時に実装）'"
+description = "問題生成 Worker テスト（testing + testify）"
+dir = "apps/workers/generation"
+run = "go test ./..."
 
 [tasks."worker:generation:lint"]
-description = "Go lint（apps/workers/generation、未着手）"
-run = "echo 'apps/workers/generation は未着手（ADR 0040、着手時に実装）'"
+description = "Go lint（gofmt + golangci-lint、unused linter で未使用検出）"
+dir = "apps/workers/generation"
+run = "golangci-lint run"
 
 [tasks."worker:generation:deps-check"]
-description = "Go 依存整理確認（apps/workers/generation、未着手）"
-run = "echo 'apps/workers/generation は未着手（ADR 0040、着手時に実装）'"
+description = "Go 依存整理確認（go mod tidy -diff、Go 1.23+）"
+dir = "apps/workers/generation"
+# `go mod tidy -diff` は go.mod / go.sum を破壊的に書き換えず、tidy 結果との差分を
+# 標準出力に流し exit 1 で返す（Go 1.23+）。grading 側と同じパターン。
+run = "go mod tidy -diff"
 
 [tasks."worker:generation:audit"]
-description = "Go 脆弱性スキャン（apps/workers/generation、未着手）"
-run = "echo 'apps/workers/generation は未着手（ADR 0040、着手時に実装）'"
+description = "Go 脆弱性スキャン（govulncheck）"
+dir = "apps/workers/generation"
+run = "govulncheck ./..."
 
 [tasks."worker:generation:types-gen"]
-description = "quicktype で Go struct 生成（apps/workers/generation、未着手）"
-run = "echo 'apps/workers/generation は未着手（ADR 0040、着手時に実装）'"
+description = "quicktype --src-lang schema で apps/api/job-schemas/ から Go struct 生成（Job キュー境界、ADR 0006）"
+dir = "apps/workers/generation"
+run = "quicktype --src-lang schema --src ../../api/job-schemas/ --out internal/jobtypes/types.go --lang go --package jobtypes"
 
 # ============================================================================
 # 横断タスク — 全言語まとめ実行
@@ -320,8 +326,7 @@ depends = [
   "worker:grading:types-gen",
 ]
 
-# 横断タスクは generation 側もスケルトン（echo "未着手"）として配線済み。着手時は
-# worker:generation:* の body を実装に差し替えるだけで、横断タスクの depends は触らなくてよい。
+# 横断タスクは両 Worker の同名タスクを depends で並べる（R0-8 で両 Worker 実体化済み）。
 # worker:dev は系統別の起動コマンドが Worker ごとに異なるため横断タスクを設けず、
 # worker:grading:dev / worker:generation:dev を直接呼ぶ運用とする。
 
@@ -356,14 +361,14 @@ mise run dev:all
 """
 
 [tasks."worker:test"]
-description = "全 Worker の go test（generation はスケルトン）"
+description = "全 Worker の go test（両 Worker 並列）"
 depends = [
   "worker:grading:test",
   "worker:generation:test",
 ]
 
 [tasks."worker:lint"]
-description = "全 Worker の golangci-lint（generation はスケルトン）"
+description = "全 Worker の golangci-lint（両 Worker 並列）"
 depends = [
   "worker:grading:lint",
   "worker:generation:lint",

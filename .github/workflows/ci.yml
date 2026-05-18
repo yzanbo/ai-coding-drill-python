@@ -28,8 +28,58 @@ concurrency:
 # permissions: 最小権限の原則。デプロイ系 job 追加時は当該 job に個別追加。
 permissions:
   contents: read
+  pull-requests: read  # dorny/paths-filter が pull_request イベントで変更ファイル一覧を取得するため
 
 jobs:
+  # ====================================================================
+  # job: changes — path-based 条件起動の元データ
+  #   PR / push で変更されたパスを検出し、後続 job を条件起動する。
+  #   全 PR で全 job を走らせるのは無駄（apps/api だけ変えた PR で apps/web の
+  #   CI が走るのは Actions 分の浪費）。各 job は自身のスコープに該当する
+  #   パスが変わった時 + 共有 artifact / 設定が変わった時のみ走る。
+  #
+  #   commitlint と ci-success は changes に依存せず常時起動（commitlint は
+  #   どんな PR でも message を検証、ci-success は umbrella ジョブとして必須）。
+  # ====================================================================
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+      grading: ${{ steps.filter.outputs.grading }}
+      generation: ${{ steps.filter.outputs.generation }}
+      shared: ${{ steps.filter.outputs.shared }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            # apps/api/ 配下の変更（Pydantic / routers / models 等、Backend ロジック）
+            api:
+              - 'apps/api/**'
+            # apps/web/ 配下の変更（Next.js / components / lib 等、Frontend ロジック）
+            web:
+              - 'apps/web/**'
+            # apps/workers/grading/ 配下の変更（採点 Worker、Go）
+            grading:
+              - 'apps/workers/grading/**'
+            # apps/workers/generation/ 配下の変更（問題生成 Worker、Go）
+            generation:
+              - 'apps/workers/generation/**'
+            # 横断設定 / CI 自身の変更 — 全 job を走らせる安全側のトリガ：
+            #   - mise.toml: tool 版数の変更（全言語の依存）
+            #   - lefthook.yml / dependabot.yml: 共通ガード設定
+            #   - commitlint.config.mjs: scope 一覧 / 型一覧
+            #   - .github/workflows/**: CI 設定自身の変更（filter の動作確認も含む）
+            shared:
+              - 'mise.toml'
+              - 'lefthook.yml'
+              - 'commitlint.config.mjs'
+              - '.github/workflows/**'
+              - '.github/dependabot.yml'
+
   # ====================================================================
   # job: commitlint
   #   コミットメッセージが Conventional Commits 規約（commitlint.config.mjs）に従うか検証。
@@ -148,6 +198,8 @@ jobs:
 
   api-lint:
     name: api-lint
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -156,6 +208,8 @@ jobs:
 
   api-typecheck:
     name: api-typecheck
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -164,6 +218,8 @@ jobs:
 
   api-audit:
     name: api-audit
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -172,6 +228,8 @@ jobs:
 
   api-deps-check:
     name: api-deps-check
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -185,6 +243,8 @@ jobs:
   # 仕組みを検討する。R0 では手動同期で許容）
   api-test:
     name: api-test
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -227,6 +287,8 @@ jobs:
 
   web-lint:
     name: web-lint
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -235,6 +297,8 @@ jobs:
 
   web-typecheck:
     name: web-typecheck
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -243,6 +307,8 @@ jobs:
 
   web-knip:
     name: web-knip
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -251,6 +317,8 @@ jobs:
 
   web-syncpack:
     name: web-syncpack
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -259,6 +327,8 @@ jobs:
 
   web-test:
     name: web-test
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -280,6 +350,8 @@ jobs:
 
   worker-grading-lint:
     name: worker-grading-lint
+    needs: changes
+    if: ${{ needs.changes.outputs.grading == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -288,6 +360,8 @@ jobs:
 
   worker-grading-test:
     name: worker-grading-test
+    needs: changes
+    if: ${{ needs.changes.outputs.grading == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -296,6 +370,8 @@ jobs:
 
   worker-grading-audit:
     name: worker-grading-audit
+    needs: changes
+    if: ${{ needs.changes.outputs.grading == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -304,11 +380,60 @@ jobs:
 
   worker-grading-deps-check:
     name: worker-grading-deps-check
+    needs: changes
+    if: ${{ needs.changes.outputs.grading == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
       - run: mise run worker:grading:deps-check
+
+  # ====================================================================
+  # apps/workers/generation（Go）品質ゲート — ADR 0019 / 0026 / 0028 / 0038 / 0040
+  # ----------------------------------------------------------------------
+  # grading と同じ 4 ジョブ構成（lint / test / audit / deps-check）を generation 側にも
+  # 対称に配置する。両 Worker 独立 Go module（ADR 0040）なので CI も per-Worker。
+  # ====================================================================
+
+  worker-generation-lint:
+    name: worker-generation-lint
+    needs: changes
+    if: ${{ needs.changes.outputs.generation == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:lint
+
+  worker-generation-test:
+    name: worker-generation-test
+    needs: changes
+    if: ${{ needs.changes.outputs.generation == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:test
+
+  worker-generation-audit:
+    name: worker-generation-audit
+    needs: changes
+    if: ${{ needs.changes.outputs.generation == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:audit
+
+  worker-generation-deps-check:
+    name: worker-generation-deps-check
+    needs: changes
+    if: ${{ needs.changes.outputs.generation == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:deps-check
 
   # ====================================================================
   # 型同期パイプライン drift 検出 — ADR 0006
@@ -329,6 +454,10 @@ jobs:
   # ====================================================================
   types-gen-drift:
     name: types-gen-drift
+    needs: changes
+    # api / web のどちらかが変わったら drift チェックを走らせる
+    # （Pydantic SSoT 変更 or 生成物の手動編集の検出）。shared 変更時も念のため起動。
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -349,12 +478,14 @@ jobs:
   #   登録すれば足りる：
   #     - 新規 job 追加は `needs:` への 1 行追加で Required 網に組込
   #     - ジョブ名リネームでも Ruleset 側 status check 名は不変
-  #     - skip / cancelled / failure を `if: always()` で正しく失敗扱いにする
+  #     - failure / cancelled は失敗扱い、skipped は path-filter による意図的スキップ
+  #       なので成功扱い（changes job + 各 job の if: で制御）
   # ====================================================================
   ci-success:
     name: ci-success
     if: always()
     needs:
+      - changes
       - commitlint
       - api-lint
       - api-typecheck
@@ -370,16 +501,24 @@ jobs:
       - worker-grading-test
       - worker-grading-audit
       - worker-grading-deps-check
+      - worker-generation-lint
+      - worker-generation-test
+      - worker-generation-audit
+      - worker-generation-deps-check
       - types-gen-drift
     runs-on: ubuntu-latest
     steps:
-      - name: Verify all required jobs succeeded
+      - name: Verify all required jobs succeeded or were intentionally skipped
         run: |
+          # path-filter で意図的にスキップされた job（skipped）は OK 扱い。
+          # failure / cancelled のみを失敗とみなす。
+          # changes job 自体が失敗した場合は他全 job が連鎖的に skipped になるが、
+          # その時は needs.*.result に 'failure' が含まれるため検知できる。
           if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]] \
-             || [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]] \
-             || [[ "${{ contains(needs.*.result, 'skipped') }}" == "true" ]]; then
-            echo "::error::One or more required jobs did not succeed"
+             || [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "::error::One or more required jobs failed or were cancelled"
             echo "results: ${{ join(needs.*.result, ', ') }}"
             exit 1
           fi
-          echo "All required jobs succeeded"
+          echo "All required jobs succeeded or were intentionally skipped (path-filter)"
+          echo "results: ${{ join(needs.*.result, ', ') }}"

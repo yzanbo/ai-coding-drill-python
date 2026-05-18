@@ -79,11 +79,16 @@ pre-commit:
       stage_fixed: true
 
     # golangci-lint: 全体走査ではなく `--new-from-rev=HEAD` で「未コミットの差分行のみ」を検査して高速化。
-    # 全体走査は pre-push の go test 経由 + CI の worker-grading-lint ジョブで担保する。
-    # grading のみを対象にする（generation 着手時に対称な行を追加する）。
+    # 全体走査は pre-push の go test 経由 + CI の worker-<worker>-lint ジョブで担保する。
+    # 独立 Go module（ADR 0040）のため Worker ごとに hook を分ける（module 跨ぎで lint 不可）。
     worker-grading-golangci-lint:
       glob: "apps/workers/grading/**/*.go"
       root: apps/workers/grading
+      run: mise exec -- golangci-lint run --new-from-rev=HEAD ./...
+
+    worker-generation-golangci-lint:
+      glob: "apps/workers/generation/**/*.go"
+      root: apps/workers/generation
       run: mise exec -- golangci-lint run --new-from-rev=HEAD ./...
 
     # ─────────────────────────────────────────────────────────────────
@@ -222,7 +227,23 @@ pre-push:
       fail_text: |
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        ⚠️  go test が失敗しました（push をブロック）
+        ⚠️  grading の go test が失敗しました（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        失敗の詳細は上の go test ログを確認してください。
+        DB 依存テストの場合は testcontainers が docker daemon に接続できているか、
+        Docker Desktop / OrbStack が起動しているかをまず疑う。
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    worker-generation-go-test:
+      glob: "apps/workers/generation/**/*.go"
+      root: apps/workers/generation
+      run: mise exec -- go test ./...
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  generation の go test が失敗しました（push をブロック）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         失敗の詳細は上の go test ログを確認してください。
