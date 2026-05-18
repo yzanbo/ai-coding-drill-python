@@ -26,7 +26,7 @@
 | `apps/web/` | Next.js 16+（App Router、Frontend ツーリング（Biome / Knip / syncpack / tsconfig）も同 app 配下に閉じる） | TypeScript |
 | `apps/api/` | FastAPI（**認証・問題 CRUD・ジョブ enqueue のみ**、LLM 呼び出しは Worker に委譲、Pydantic SSoT） | Python |
 | `apps/workers/grading/` | 採点 Worker（Postgres ジョブ取得 + Docker サンドボックス + judge LLM 呼び出し） | Go |
-| `apps/workers/generation/` | 問題生成 Worker（Postgres ジョブ取得 + 問題生成 LLM 呼び出し、R7 以降。R1〜R6 は grading Worker が兼務）。**現状はディレクトリ雛形（README + prompts のみ）で Go module 未着手** — `mise run worker:generation:*` は「未着手」を echo するスタブ | Go |
+| `apps/workers/generation/` | 問題生成 Worker（Postgres ジョブ取得 + 問題生成 LLM 呼び出し、R7 以降。R1〜R6 は grading Worker が兼務）。**R0-8 で grading と対称にスキャフォールド済み**（go.mod / cmd/generation/main.go skeleton / .golangci.yml / mise / dependabot / CI / lefthook）。実機能は R7 で実装 | Go |
 | `infra/` | Terraform（AWS） | HCL |
 | `docs/requirements/` | 要件定義書（時系列 5 バケット：1-vision / 2-foundation / 3-cross-cutting / 4-features / 5-roadmap） | Markdown |
 | `docs/adr/` | Architecture Decision Records | Markdown |
@@ -96,7 +96,7 @@ mise run worker:grading:lint         # apps/workers/grading の golangci-lint
 mise run worker:grading:audit        # govulncheck
 mise run worker:grading:deps-check   # go mod tidy 後の差分チェック
 mise run worker:grading:types-gen    # apps/api/job-schemas/ から quicktype で Go struct 生成
-mise run worker:generation:dev       # apps/workers/generation（R7 以降。現状はスタブで「未着手」を echo）
+mise run worker:generation:dev       # apps/workers/generation の go run（R0-8 で skeleton 配置済）
 # 横断（全 worker）
 mise run worker:test             # 全 Worker の go test
 mise run worker:lint             # 全 Worker の golangci-lint

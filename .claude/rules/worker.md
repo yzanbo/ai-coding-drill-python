@@ -7,46 +7,154 @@ paths:
 
 Worker 群は Go で実装する独立プロセス。Postgres `jobs` テーブルからジョブを取得し、種別ごとの処理（採点・問題生成）を実行する。詳細な選定理由は [ADR 0016](../../docs/adr/0016-go-for-grading-worker.md)、Worker のグルーピングと LLM の所在は [ADR 0040](../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)。
 
-## ディレクトリ構成
+## ディレクトリ構成（両 Worker 共有 9 package パターン）
 
-Worker は `apps/workers/<name>/` グループ配下に **1 Worker = 1 独立 Go module** で配置（→ [ADR 0040](../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）：
+Worker は `apps/workers/<name>/` グループ配下に **1 Worker = 1 独立 Go module** で配置し、**両 Worker で同一の 9 package パターン**を使う（[ADR 0040](../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)、配置決定の根拠と手順は [worker-layers.md §B](../../docs/requirements/5-roadmap/r0-setup/worker-layers.md)）。
+
+**テンプレートツリー**（`<worker>` = `grading` / `generation`）：
 
 ```
-apps/workers/
-├── grading/                    # 採点 Worker（独立 Go module）
-│   ├── cmd/
-│   │   └── grading/
-│   │       └── main.go         # エントリポイント
-│   ├── internal/
-│   │   ├── job/                # ジョブ取得・状態遷移
-│   │   │   ├── claim.go        # SELECT ... FOR UPDATE SKIP LOCKED
-│   │   │   ├── listener.go     # LISTEN/NOTIFY
-│   │   │   └── reclaim.go      # スタックジョブ回収
-│   │   ├── sandbox/            # Docker クライアント、採点コンテナ管理
-│   │   │   ├── runner.go       # コンテナ作成・実行・破棄
-│   │   │   └── result.go       # 結果パース（Vitest JSON 出力。将来多言語対応時は言語別 adapter で切替、ADR 0009）
-│   │   ├── judge/              # judge LLM 呼び出し（ADR 0040）
-│   │   ├── db/                 # Postgres 接続（pgx）
-│   │   ├── jobtypes/           # JSON Schema → quicktype で生成された Go struct（gitignore）
-│   │   ├── log/                # 構造化ログ（log/slog）
-│   │   ├── otel/               # OpenTelemetry セットアップ
-│   │   └── config/             # 環境変数読み込み
-│   ├── prompts/                # judge プロンプト YAML（ADR 0040）
-│   ├── sandbox/                # 採点用コンテナのイメージ定義
-│   │   └── Dockerfile
-│   ├── go.mod
-│   ├── go.sum
-│   └── Dockerfile              # Worker 本体のコンテナイメージ
-│
-└── generation/                 # 問題生成 Worker（独立 Go module、将来追加）
-    ├── cmd/generation/main.go
-    ├── internal/
-    │   ├── job/
-    │   ├── llm/                # 生成 LLM 呼び出し
-    │   └── ...
-    ├── prompts/                # generation プロンプト YAML
-    ├── go.mod
-    └── go.sum
+apps/workers/<worker>/
+├── go.mod / go.sum
+├── .golangci.yml / .gitignore
+├── README.md                       # 全体図 + 呼び出し方向 ASCII + やってはいけないこと
+├── cmd/
+│   └── <worker>/                   # binary 名 = <worker>（cmd/worker/ 共通名は不採用、対称性のため）
+│       ├── README.md
+│       └── main.go                 # エントリポイント、internal を組み立て + signal handling のみ
+├── internal/                       # private packages（他 module から import 不可、Go 規約）
+│   ├── README.md
+│   ├── config/                     # 環境変数読み込み（caarlos0/env/v11）
+│   ├── observability/              # slog + OpenTelemetry + (R4) Prometheus（lump、log/otel は分割しない）
+│   ├── db/                         # pgx pool + transaction helpers（純 infrastructure）
+│   ├── job/                        # claim / listener / reclaim / complete（queue domain logic、db を使う）
+│   │   ├── claim.go                # SELECT ... FOR UPDATE SKIP LOCKED
+│   │   ├── listener.go             # LISTEN/NOTIFY
+│   │   └── reclaim.go              # スタックジョブ回収
+│   ├── sandbox/                    # Docker SDK ラッパ + 隔離設定（両 Worker が同 image を起動）
+│   │   ├── runner.go               # コンテナ作成・実行・破棄
+│   │   └── result.go               # 結果パース（Vitest JSON 出力、ADR 0009）
+│   ├── llm/                        # LLM プロバイダ抽象化（ADR 0007）。実装は internal/llm/<provider>/
+│   ├── judge/                      # LLM-as-a-Judge prompt 整形 + response パース（grading: 解答評価 / generation: 問題評価）
+│   ├── jobtypes/                   # JSON Schema → quicktype で生成された Go struct（gitignore、ADR 0006）
+│   └── <worker>/                   # オーケストレーター（採点 / 生成フロー本体、main.go から呼ばれる）
+└── prompts/                        # LLM プロンプト YAML（ADR 0040）
+    └── <worker専用 subdir>/        # grading: judge/、generation: generation/ + judge/
+```
+
+**Worker 固有の差分**（テンプレートからの逸脱はこれだけ）：
+
+| 差分項目 | grading | generation |
+|---|---|---|
+| `cmd/<worker>/` | `cmd/grading/` | `cmd/generation/` |
+| orchestrator package | `internal/grading/`（採点フロー：job → sandbox + judge → db） | `internal/generation/`（生成フロー：job → llm + sandbox + judge → db） |
+| sandbox Dockerfile 所有 | **所有**：`apps/workers/grading/sandbox/{Dockerfile,.dockerignore}` | **所有しない**：grading の `ai-coding-drill-sandbox:latest` image を Docker SDK で起動 |
+| `prompts/` subdir | `prompts/judge/` | `prompts/generation/` + `prompts/judge/` |
+| go module 名 | `github.com/yzanbo/.../apps/workers/grading` | `github.com/yzanbo/.../apps/workers/generation` |
+
+## package 間の import 方向（両 Worker 共通、layer-based）
+
+```
+Layer 3（entrypoint）
+  cmd/<worker>/                 → 全 internal/* を組み立て
+
+Layer 2（orchestration）
+  internal/<worker>/            → job, sandbox, judge, db, jobtypes
+                                   ※ generation は llm も直接使う（問題生成本体は judge 経由しない）
+
+Layer 1（domain）
+  internal/job/                 → db, jobtypes
+  internal/judge/               → llm, jobtypes
+
+Layer 0（leaf / infrastructure）
+  internal/config/              → caarlos0/env のみ
+  internal/observability/       → slog + OTel SDK のみ
+  internal/db/                  → pgx のみ
+  internal/sandbox/             → Docker SDK のみ
+  internal/llm/                 → HTTP client + provider SDK のみ
+  internal/jobtypes/            → 生成物、標準ライブラリのみ
+```
+
+**import 可否表**（両 Worker で同じ表が対称適用される、`<worker>` を grading / generation に置換）：
+
+| package | import してよい（internal） | import 禁止 |
+|---|---|---|
+| `cmd/<worker>/` | 全 `internal/*` | （上位なし） |
+| `internal/<worker>/` | `job` / `sandbox` / `judge` / `db` / `jobtypes`（generation はさらに `llm`） | `cmd/` / `config`（main で組み立てて DI で受け取る） |
+| `internal/job/` | `db` / `jobtypes` | `cmd/` / `<worker>` / `judge` / `llm` / `sandbox` |
+| `internal/judge/` | `llm` / `jobtypes` | `cmd/` / `<worker>` / `job` / `db` / `sandbox` |
+| `internal/db/` | （pgx のみ）| `cmd/` / 全 `internal/*` |
+| `internal/sandbox/` | （Docker SDK のみ）| `cmd/` / 全 `internal/*` |
+| `internal/llm/` | （HTTP / provider SDK のみ）| `cmd/` / 全 `internal/*` |
+| `internal/config/` | （caarlos0/env のみ）| `cmd/` / 全 `internal/*` |
+| `internal/observability/` | （slog + OTel SDK のみ）| 業務 package 全て |
+| `internal/jobtypes/` | （標準ライブラリのみ、生成物のため終端）| 全て |
+
+**補足ルール**：
+
+- **依存は一方向**：A → B かつ B → A を作らない
+- **両 Worker module 跨ぎの import は禁止**：`apps/workers/grading/internal/llm/` を `apps/workers/generation/` から import 不可（Go の `internal/` 規約 + 独立 module）。LLM 抽象化を再利用する時は同名 package を両 Worker に複製する（[ADR 0040](../../docs/adr/0040-worker-grouping-and-llm-in-worker.md) は当面コード重複を許容）
+- **`internal/observability/` は context 経由で透過利用**：初期化は `cmd/<worker>/main.go` で 1 回だけ、業務 package は `slog.InfoContext(ctx, ...)` / `otel.Tracer("name").Start(ctx, ...)` を直接使う
+- **`internal/config/` は entrypoint でのみ読む**：業務 package は `*Config` を引数で受け取る、`os.Getenv` を直接呼ばない
+- **`internal/<worker>/` を集約点に**：ジョブ処理本体は orchestrator が `job` + `sandbox` + `judge` + `db`（generation は + `llm`）を組み合わせる
+
+### OK / NG コード例
+
+✅ **OK**：`cmd/grading/main.go` が全 `internal/*` を組み立てる
+```go
+package main
+
+import (
+    "github.com/yzanbo/.../apps/workers/grading/internal/config"
+    "github.com/yzanbo/.../apps/workers/grading/internal/db"
+    "github.com/yzanbo/.../apps/workers/grading/internal/grading"
+    "github.com/yzanbo/.../apps/workers/grading/internal/judge"
+    "github.com/yzanbo/.../apps/workers/grading/internal/llm"
+    "github.com/yzanbo/.../apps/workers/grading/internal/observability"
+    "github.com/yzanbo/.../apps/workers/grading/internal/sandbox"
+)
+
+func main() {
+    cfg, _ := config.Load()
+    logger, shutdown, _ := observability.Init(ctx, cfg)
+    defer shutdown(ctx)
+    pool, _ := db.NewPool(ctx, cfg)
+    llmProvider, _ := llm.New(cfg)
+    grading.Run(ctx, grading.Deps{Pool: pool, Sandbox: sandbox.New(...), Judge: judge.New(llmProvider, ...)})
+}
+```
+
+❌ **NG**：`internal/llm/` が `internal/grading/` を import（逆流、Layer 0 → Layer 2）
+```go
+package llm
+
+import "github.com/yzanbo/.../apps/workers/grading/internal/grading" // ← 禁止、依存方向は逆
+```
+
+❌ **NG**：`internal/jobtypes/` を手書きで拡張（quicktype 再生成で消える）
+```go
+package jobtypes
+// types.go は quicktype 生成物。手書きの追加は再生成で消える
+func (g *GradingJob) Custom() error { ... } // ← 禁止、wrapper struct を別 package で作る
+```
+
+❌ **NG**：別 Worker module から `internal/` を import（Go の `internal/` 規約違反）
+```go
+package generation_internal
+
+import "github.com/yzanbo/.../apps/workers/grading/internal/llm" // ← コンパイルエラー
+```
+
+❌ **NG**：業務 package が `os.Getenv` を直接呼ぶ（`internal/config/` で集約すべき）
+```go
+package judge
+
+import "os"
+
+func New() *Judge {
+    apiKey := os.Getenv("LLM_API_KEY") // ← 禁止、main で config.Load() → DI で受け取る
+    ...
+}
 ```
 
 ## 設計原則
@@ -274,46 +382,62 @@ func main() {
 }
 ```
 
-## コマンド（mise）
+## 新規機能の追加パターン
 
-タスク命名は `<scope>:<sub>:<verb>` 階層コロン形式（→ [ADR 0039](../../docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）：
+新しいジョブ種別を追加する時の標準手順（`<job_type>` 例：`grade_problem` / `generate_problem`）：
+
+1. `apps/api/app/schemas/jobs/<job_type>.py` に Pydantic で payload 定義
+2. `mise run api:job-schemas-export` で `apps/api/job-schemas/<job_type>.json` を出力
+3. `mise run worker:<worker>:types-gen` で対象 Worker の `internal/jobtypes/types.go` を quicktype で再生成（両 Worker に必要なら両方で実行）
+4. `apps/workers/<worker>/internal/<worker>/`（orchestrator）に dispatch を追加：`switch job.Type { case "<job_type>": ... }`
+5. 必要な package を拡張（`judge` のプロンプト追加 / `sandbox` の adapter 追加 等）。新たに package を切る必要があるなら **§ディレクトリ構成** の Layer ルールに従って配置
+6. 単体テスト（`*_test.go`）と integration テスト（testcontainers-go）を追加
+7. `mise run worker:<worker>:lint` / `worker:<worker>:test` を通してから commit
+
+## コマンド（mise、両 Worker 対称）
+
+タスク命名は `<scope>:<sub>:<verb>` 階層コロン形式（→ [ADR 0039](../../docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）。**両 Worker で同じ 6 タスクが対称に揃う**（grading のみ追加で `sandbox-build`）。
 
 ```bash
 # 採点 Worker
-mise run worker:grading:dev          # apps/workers/grading の go run
+mise run worker:grading:dev          # apps/workers/grading の go run ./cmd/grading
 mise run worker:grading:test         # go test ./...
 mise run worker:grading:lint         # golangci-lint run
 mise run worker:grading:audit        # govulncheck ./...
-mise run worker:grading:deps-check   # go mod tidy 後の差分チェック
-mise run worker:grading:types-gen    # quicktype で Go struct 生成
+mise run worker:grading:deps-check   # go mod tidy -diff（Go 1.23+）
+mise run worker:grading:types-gen    # quicktype で internal/jobtypes/ 生成
+mise run worker:grading:sandbox-build  # ai-coding-drill-sandbox:latest（両 Worker で共有）
 
-# 問題生成 Worker（apps/workers/generation 着手時に有効化）
-mise run worker:generation:dev
+# 問題生成 Worker（R0-8 で grading と対称にスキャフォールド済み）
+mise run worker:generation:dev          # apps/workers/generation の go run ./cmd/generation
 mise run worker:generation:test
 mise run worker:generation:lint
+mise run worker:generation:audit
+mise run worker:generation:deps-check
+mise run worker:generation:types-gen
 
-# 横断（全 Worker）
-mise run worker:test                 # 全 Worker の go test
-mise run worker:lint                 # 全 Worker の golangci-lint
-mise run worker:types-gen            # 全 Worker の Go struct 生成
+# 横断（両 Worker 並列）
+mise run worker:test                 # 両 Worker の go test
+mise run worker:lint                 # 両 Worker の golangci-lint
+mise run worker:types-gen            # 両 Worker の Go struct 生成
 
 # Go 直接（mise を介さない場合）
-cd apps/workers/grading
-go run ./cmd/grading
+cd apps/workers/grading              # または apps/workers/generation
+go run ./cmd/grading                 # または ./cmd/generation
 go test ./...
 golangci-lint run
 
-# サンドボックスイメージ
+# サンドボックスイメージ（grading が所有、generation も同 image を共有起動）
 docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 ```
 
-## 環境変数
+## 環境変数（両 Worker 共通、`internal/config/` で集約）
 
 - `DATABASE_URL` — Postgres 接続文字列
 - `REDIS_URL` — LLM キャッシュ参照時のみ
 - `WORKER_ID` — `locked_by` に書く識別子（既定はホスト名）
 - `WORKER_CONCURRENCY` — 並列 goroutine 数（既定 4）
-- `SANDBOX_IMAGE` — 採点コンテナのイメージタグ（採点 Worker のみ、既定 `ai-coding-drill-sandbox:latest`）
-- `JOB_TIMEOUT_SECONDS` — タイムアウト秒（採点 Worker 既定 5）
+- `SANDBOX_IMAGE` — サンドボックスのイメージタグ（両 Worker で同じ image を起動、既定 `ai-coding-drill-sandbox:latest`）
+- `JOB_TIMEOUT_SECONDS` — タイムアウト秒（grading 既定 5、generation は LLM 呼び出しが長いため大きめが望ましい、`config/` 既定で個別調整）
 - `RECLAIM_AFTER_MINUTES` — スタックジョブとみなす経過時間（既定 5）
 - `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` — LLM 呼び出し設定（→ [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md)）
