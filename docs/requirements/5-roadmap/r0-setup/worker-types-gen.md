@@ -166,22 +166,42 @@ apps/workers/<worker>/internal/jobtypes/
 
 ---
 
-## 5. CI への組込
+## 5. CI / pre-push への組込
 
-**目的**：PR で「Pydantic を変えたら quicktype が落ちる」「生成 Go が `go vet` を通らない」を main マージ前に弾く。
+**目的**：PR で「Pydantic を変えたら quicktype が落ちる」「生成 Go が `go vet` を通らない」を main マージ前に弾く + push 前にローカルでも先回り検知する。
 
-**最終状態**（[.github/workflows/ci.yml](../../../../.github/workflows/ci.yml) が以下を満たす）：
+### 5-A. mise タスクの depends 連結
 
-- `worker-types-gen` ジョブが追加されている
-  - 起動条件：`changes.outputs.api == 'true' || .grading == 'true' || .generation == 'true' || .shared == 'true'`
-  - ステップ：`actions/checkout` → `jdx/mise-action` → `mise run api:job-schemas-export` → `mise run worker:types-gen` → `mise exec -- go -C apps/workers/grading vet ./internal/jobtypes/...` → 同じく generation
-- `ci-success.needs` に `worker-types-gen` が 1 行追加されている（[ADR 0031](../../../adr/0031-required-status-checks-umbrella-job.md) の umbrella パターン）
-- `types-gen-drift` ジョブのコメントに「Worker 側は worker-types-gen ジョブで別管理」と明記されている
+**最終状態**：[mise.toml](../../../../mise.toml) の `worker:<worker>:types-gen` が `api:job-schemas-export` に `depends` している。これで 1 行（`mise run worker:<worker>:types-gen`）を呼べば schemas-export + Go 生成が完結する。CI / lefthook の両方からこの 1 行で済むことが下記 5-B / 5-C の前提。
 
-**完了基準**：
+### 5-B. CI ジョブの構成（[.github/workflows/ci.yml](../../../../.github/workflows/ci.yml)）
 
-- 上記変更を含む PR で `worker-types-gen` がチェックリストに現れて緑になる
-- `ci-success` Required status checks の網に自動で組込まれる
+**最終状態**（次のすべてを満たす）：
+
+- **`worker-types-gen` 専用ジョブ**：起動条件 `changes.outputs.api == 'true' || .grading == 'true' || .generation == 'true' || .shared == 'true'`。ステップは `actions/checkout` → `jdx/mise-action` → `mise run worker:types-gen` → 両 Worker で `mise exec -- go -C apps/workers/<worker> vet ./internal/jobtypes/...`。パイプラインの「実行可能性 + 生成 Go の build 可能性」を担保
+- **Worker compile を伴うジョブの pre-step**：`worker-{grading,generation}-{lint,test,audit}` の **計 6 ジョブ**の steps 先頭に `mise run worker:<worker>:types-gen` を 1 行入れる。R1-2 以降で Worker コードが `internal/jobtypes` を import した瞬間に、CI フレッシュチェックアウトで types.go（gitignored）が無くてコンパイルが落ちるのを防ぐ。`deps-check` は `go mod tidy -diff` のみで types.go 不要のため対象外
+- **`ci-success.needs`** に `worker-types-gen` が 1 行追加されている（[ADR 0031](../../../adr/0031-required-status-checks-umbrella-job.md) の umbrella パターン）
+- **`types-gen-drift` ジョブのコメント**に「Worker 側生成物は gitignored、worker-types-gen で別管理」と明記されている
+
+**設計判断（types-gen をどこで走らせるか）**：
+
+- ✅ **採用**：各 compile 系ジョブの pre-step に 1 行入れる（自己完結 / 並列性保持 / wall-clock 影響 < 5s / YAML 簡潔）
+- ❌ **不採用**：独立 `worker-types-gen` ジョブの artifact を `actions/upload-artifact` で各ジョブに配布。types-gen は 3 秒程度で artifact 上下行のオーバーヘッドのほうが大きく、ジョブ系列化で wall-clock がむしろ悪化する公算が大きいため
+
+### 5-C. pre-push hook（[lefthook.yml](../../../../lefthook.yml)）
+
+**最終状態**（`worker-{grading,generation}-go-test` の 2 hook が以下を満たす）：
+
+- glob で **`apps/workers/<worker>/**/*.go` だけでなく `apps/api/app/schemas/jobs/**` も trigger 対象**にする。Pydantic だけ触って Worker `.go` を一切触らない push でも検証が走る
+- run を **`mise run worker:<worker>:types-gen && go test ./...`** の 2 段に変更（types-gen で types.go を強制再生成してから go test）。ローカルの古い types.go が silently に通る事故を防ぐ
+- fail_text は「types-gen が落ちた場合 / go test が落ちた場合」の見分け方を併記
+- 詳細な hook ブロックの YAML は [worker.md §6](./worker.md) 側に転記（lefthook hooks の SSoT は worker.md）
+
+### 5-D. 完了基準
+
+- 上記変更を含む PR で `worker-types-gen` ジョブが緑、`worker-{grading,generation}-{lint,test,audit}` も pre-step を経て緑になる
+- `ci-success` Required status checks の網に `worker-types-gen` が自動で組込まれる
+- ローカルで `apps/api/app/schemas/jobs/` 配下の Pydantic を変更して `git push` すると、pre-push の `worker-*-go-test` hook が types-gen → go test の順で走る
 
 ---
 

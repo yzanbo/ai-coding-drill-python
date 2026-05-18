@@ -221,19 +221,28 @@ git restore --staged apps/workers/<worker>/cmd/<worker>/_test.go && rm apps/work
 pre-push:
   commands:
     worker-grading-go-test:
-      glob: "apps/workers/grading/**/*.go"
-      root: apps/workers/grading
-      run: mise exec -- go test ./...
+      # lefthook の glob はカンマ区切り文字列で複数パターンを指定する。
+      # R0-11 で apps/api/app/schemas/jobs/** も trigger 対象に追加。
+      glob: "apps/workers/grading/**/*.go,apps/api/app/schemas/jobs/**"
+      run: |
+        set -e
+        mise exec -- mise run worker:grading:types-gen   # ← R0-11 で追加
+        cd apps/workers/grading
+        mise exec -- go test ./...
 
     worker-generation-go-test:
-      glob: "apps/workers/generation/**/*.go"
-      root: apps/workers/generation
-      run: mise exec -- go test ./...
+      glob: "apps/workers/generation/**/*.go,apps/api/app/schemas/jobs/**"
+      run: |
+        set -e
+        mise exec -- mise run worker:generation:types-gen
+        cd apps/workers/generation
+        mise exec -- go test ./...
 ```
 
 **設計判断**：
 - **go test は両 Worker を per-module で全体実行**：Go の test は通常高速（数秒）。pytest と違い DB 依存テストは「testcontainers でテストごとに spin up」する Go 慣習なので graceful skip 不要
-- **glob で同 Worker の変更時だけ発火**：grading だけ触った push では generation の go test は skip される
+- **glob で同 Worker の変更時 + 関連 Pydantic 変更時に発火**：grading だけ触った push では generation hook は skip される。`apps/api/app/schemas/jobs/**` を trigger に含めるのは R0-11 で追加された配線で、Pydantic だけ触って Worker `.go` を一切触らない push でも types-gen → go test を走らせて型ズレを先回り検知するため
+- **types-gen を go test の前に挟む**：`internal/jobtypes/*.go` は gitignored（[ADR 0006](../../../adr/0006-json-schema-as-single-source-of-truth.md)）のため、ローカル workspace の types.go が Pydantic 更新後も古いまま残ると go test が silently に古い型で通ってしまう。pre-push で types-gen を強制再生成して防ぐ。詳細手順は [worker-types-gen.md §5](./worker-types-gen.md) を SSoT として参照
 - **govulncheck は pre-push に含めない**：脆弱性スキャンは依存衛生系と同じく週次で十分なため CI 専用
 
 **完了確認**：失敗テストを `apps/workers/<worker>/cmd/<worker>/fail_test.go` に仕込んで `git push` が exit 1 でブロックされること。
