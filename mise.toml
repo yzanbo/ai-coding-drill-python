@@ -251,6 +251,10 @@ dir = "apps/api"
 # quicktype に --src DIR を渡すとスキーマをデータ扱いしてしまうため、positional 引数で
 # 1 ファイルずつ渡す必要がある（R0-11 ドキュメント参照）。
 # uv run を使う理由：このリポジトリで Python を実行する標準経路（ADR 0035）。
+#
+# depends で先に schemas-export を走らせる：Worker 系 CI ジョブが本タスク 1 つだけを
+# 呼ぶ運用にするため。Pydantic 変更後の schemas/*.schema.json 再生成を取りこぼさない。
+depends = ["api:job-schemas-export"]
 run = "uv run python -m scripts.generate_worker_jobtypes ../workers/grading"
 
 [tasks."worker:grading:sandbox-build"]
@@ -296,6 +300,7 @@ run = "govulncheck ./..."
 description = "apps/api/job-schemas/ の各 schema を quicktype で Go struct に展開（Job キュー境界、ADR 0006）"
 dir = "apps/api"
 # grading 側と同パターン（scripts/generate_worker_jobtypes.py の引数だけ違う）。
+depends = ["api:job-schemas-export"]
 run = "uv run python -m scripts.generate_worker_jobtypes ../workers/generation"
 
 # ============================================================================
