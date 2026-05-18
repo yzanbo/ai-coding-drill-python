@@ -348,6 +348,12 @@ jobs:
   # `mise run worker:grading:<task>` を呼ぶ。Go 本体含むツールは全て mise.toml が SSoT。
   # ====================================================================
 
+  # lint / test / audit は Go コンパイルを伴う（golangci-lint / go test / govulncheck）
+  # ため、jobtypes/*.go が存在しないと「import "internal/jobtypes" の package が空」で
+  # コケる可能性がある。types.go は gitignored（ADR 0006、R0-11）なので各ジョブの先頭で
+  # mise run worker:grading:types-gen を呼んで生成する。types-gen 自身が
+  # api:job-schemas-export に depends しているので 1 行で schemas-export + Go 生成が完結。
+  # deps-check は go mod tidy -diff のみで types.go 不要のため pre-step を入れない。
   worker-grading-lint:
     name: worker-grading-lint
     needs: changes
@@ -356,6 +362,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:grading:types-gen
       - run: mise run worker:grading:lint
 
   worker-grading-test:
@@ -366,6 +373,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:grading:types-gen
       - run: mise run worker:grading:test
 
   worker-grading-audit:
@@ -376,6 +384,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:grading:types-gen
       - run: mise run worker:grading:audit
 
   worker-grading-deps-check:
@@ -395,6 +404,7 @@ jobs:
   # 対称に配置する。両 Worker 独立 Go module（ADR 0040）なので CI も per-Worker。
   # ====================================================================
 
+  # grading 側と同パターン：lint / test / audit の各先頭で types-gen を呼ぶ。
   worker-generation-lint:
     name: worker-generation-lint
     needs: changes
@@ -403,6 +413,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:types-gen
       - run: mise run worker:generation:lint
 
   worker-generation-test:
@@ -413,6 +424,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:types-gen
       - run: mise run worker:generation:test
 
   worker-generation-audit:
@@ -423,6 +435,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:types-gen
       - run: mise run worker:generation:audit
 
   worker-generation-deps-check:
@@ -497,11 +510,10 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
-      # 1. Pydantic から job-schemas/ を再エクスポート（types-gen-drift と同じ）。
-      - run: mise run api:job-schemas-export
-      # 2. 両 Worker の jobtypes/*.go を生成（quicktype は mise tools 経由で導入済）。
+      # mise run worker:types-gen は depends で api:job-schemas-export + 両 Worker の
+      # types-gen を順に走らせる（mise.toml の depends 参照）。
       - run: mise run worker:types-gen
-      # 3. 生成 Go が両 Worker で build 可能か確認（vet は lint 同等の軽量チェック）。
+      # 生成 Go が両 Worker で build 可能か確認（vet は lint 同等の軽量チェック）。
       - run: mise exec -- go -C apps/workers/grading vet ./internal/jobtypes/...
       - run: mise exec -- go -C apps/workers/generation vet ./internal/jobtypes/...
 
