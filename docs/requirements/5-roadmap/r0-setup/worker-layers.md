@@ -105,7 +105,7 @@ apps/workers/<worker>/
 >
 > **`main.go` は移動しない**：worker.md フェーズで両 Worker とも `cmd/<worker>/main.go` に配置済。`apps/workers/<worker>/cmd/<worker>/main.go` で `<worker>` 名が一致する慣習で確定済み（binary 名衝突を避けるため `cmd/worker/` 共通名は不採用）。
 >
-> **README 個数**：**両 Worker 合計 22 ファイル**＝Worker ごとに 11 ファイル × 2。1 Worker 分の内訳＝top（`apps/workers/<worker>/README.md`）+ `cmd/<worker>/README.md` + `internal/README.md` + `internal/{config,observability,db,job,sandbox,llm,judge,jobtypes,<worker>}/README.md`（9 個）。
+> **README 個数**：**両 Worker 合計 24 ファイル**＝Worker ごとに 12 ファイル × 2。1 Worker 分の内訳＝top（`apps/workers/<worker>/README.md`）+ `cmd/<worker>/README.md` + `internal/README.md` + `internal/{config,observability,db,job,sandbox,llm,judge,jobtypes,<worker>}/README.md`（9 個）。
 
 ### B. 配置に関する重要な選択（なぜそうしたか）
 
@@ -220,7 +220,7 @@ Layer 0（leaf / infrastructure）
 - 両 Worker（`apps/workers/grading/` / `apps/workers/generation/`）配下が §A のテンプレートツリーに一致している：
   - `cmd/<worker>/main.go` が存在（R0-8 = [worker.md](./worker.md) で配置済み skeleton、本フェーズでは触らない）
   - `internal/{config,observability,db,job,sandbox,llm,judge,jobtypes,<worker>}/` の 9 サブディレクトリすべてに README が存在
-- **両 Worker 合計 22 個の `README.md` ファイル**が存在する（1 Worker 11 個 × 2）：
+- **両 Worker 合計 24 個の `README.md` ファイル**が存在する（1 Worker 12 個 × 2）：
   - `apps/workers/<worker>/README.md`（1 個、Worker 直下）
   - `cmd/<worker>/README.md`（1 個）
   - `internal/README.md` + `internal/{config,observability,db,job,sandbox,llm,judge,jobtypes,<worker>}/README.md`（10 個 = 1 + 9）
@@ -228,7 +228,7 @@ Layer 0（leaf / infrastructure）
 
 **完了基準**：
 
-- 上記 22 個の README.md が（空でも可）存在する
+- 上記 24 個の README.md が（空でも可）存在する
 - `mise run worker:grading:dev` / `mise run worker:generation:dev` が両 Worker でエラーなく起動する
 - `mise run worker:grading:lint` / `worker:grading:test` / `worker:grading:audit` および `worker:generation:lint` / `worker:generation:test` / `worker:generation:audit` の**計 6 つすべて**が clean で通る
 - [worker.md](./worker.md) 配置済の `go.mod` / `.golangci.yml` / `.gitignore` / `cmd/<worker>/main.go` / `internal/jobtypes/.gitignore` / `apps/workers/grading/sandbox/{Dockerfile,.dockerignore}` / `prompts/<subdir>/` に変更が入っていない
@@ -241,7 +241,7 @@ Layer 0（leaf / infrastructure）
 
 **目的**：両 Worker の各サブ package に人間向けの 1 ファイル README を置き、初学者が階層を辿る時に「この package は何の置き場か」を即把握できるようにする。Backend / Frontend レイヤ分割フェーズと同じ書き分け方針（[backend-layers.md §2](./backend-layers.md) / [frontend-layers.md §2](./frontend-layers.md) 参照）。
 
-**最終状態で存在すべき README**（**両 Worker 合計 22 ファイル**、`<worker>` を `grading` / `generation` 両方で展開）：
+**最終状態で存在すべき README**（**両 Worker 合計 24 ファイル**、`<worker>` を `grading` / `generation` 両方で展開）：
 
 | パス | 重視する内容 |
 |---|---|
@@ -264,7 +264,7 @@ Layer 0（leaf / infrastructure）
 
 **完了基準**：
 
-- 上記 22 個の README.md が存在する
+- 上記 24 個の README.md が存在する
 - 各 README は「とは何か」セクションを冒頭に持つ
 - 紛らわしい組（`internal/<worker>/` と `internal/llm/`、`internal/sandbox/` と grading 直下の `sandbox/`、`internal/db/` と Backend `apps/api/app/db/`、`internal/db/` と `internal/job/`）には対比的な記述がある
 - 全 README で `§E` の NG パターンから該当する 1〜4 件が「やってはいけないこと」または本文の戒めとして転記されている
