@@ -59,6 +59,23 @@ go version  # 例：go version go1.26.3 darwin/arm64
 
 **目的**：`apps/workers/grading/` と `apps/workers/generation/` の **2 つの独立 Go module** を初期化し、main.go skeleton と golangci-lint 設定を揃える。**この時点から各 Worker の `go.mod` + `go.sum` がその Worker の依存版数の SSoT** — README / 他ドキュメントに具体版数を重複記載しない。両 Worker の `go.mod` の Go 版数は `mise.toml` と揃える。
 
+**事前準備：Go バイナリツールを mise [tools] に追加**（両 Worker 共通、1 回だけ実行）：
+
+両 Worker の lint / 脆弱性スキャンで `mise exec -- golangci-lint` / `govulncheck` を使うため、`mise.toml [tools]` に**`go:` backend**で追加してから `mise install` で取得する。`go:` backend は `[tools].go` と同じ Go ランタイムを使って `go install` で binary を取得する：
+
+```toml
+[tools]
+# --- Worker（Go）ツール（ADR 0019、両 Worker 共通）---
+"go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "latest"  # Go lint メタリンター
+"go:golang.org/x/vuln/cmd/govulncheck" = "latest"                       # Go 脆弱性スキャン
+```
+
+```bash
+mise install                                     # golangci-lint / govulncheck を取得
+mise exec -- golangci-lint --version             # 動作確認
+mise exec -- govulncheck -version                # 動作確認
+```
+
 **作業内容**（`<worker>` = `grading` / `generation` の両方に対称適用）：
 1. `apps/workers/<worker>/` ディレクトリの存在確認（既存の README + `prompts/<worker専用>/` がある場合はそのまま）
 2. `cd apps/workers/<worker> && go mod init github.com/yzanbo/ai-coding-drill-python/apps/workers/<worker>`（module 名は `mise.toml` の規約に従う）
@@ -72,7 +89,7 @@ go version  # 例：go version go1.26.3 darwin/arm64
 cd apps/workers/<worker>
 mise exec -- go build ./...                      # cmd/<worker>/main.go がビルド成功
 mise exec -- go vet ./...                        # vet が動く
-mise exec -- golangci-lint run                   # golangci-lint が動く
+mise exec -- golangci-lint run                   # 事前準備で取得した binary が動く
 ```
 
 **前提**：本ファイルの「1. mise install go」
@@ -273,7 +290,8 @@ pre-push:
 
 - **プロジェクトの進捗トラッカー**（このプロジェクトでは [docs/requirements/5-roadmap/01-roadmap.md](../01-roadmap.md)。別プロジェクトでは GitHub Project / Notion / README 等、各プロジェクトの慣習に従う）で、本フェーズに該当する項目が**完了状態**として記録されている
 - 進捗トラッカー上の該当エントリから、**本ファイル**（または同等の手順詳細）への**リンク**が辿れる
-- 本ファイル冒頭のステータスマークが完了状態を示している（完了時に `# 04. Go 環境構築（🔴 未着手）` を `# 04. Go 環境構築（✅ 完了）` に書き換える）
+- 本ファイル冒頭のステータスマークが完了状態を示している（完了時に `# Worker（Go）環境構築（🔴 未着手）` を `# Worker（Go）環境構築（✅ 完了）` に書き換える）
+- **`.claude/CLAUDE.md` の事実整合**：apps/workers/generation の役割行に「Go module 未着手」「`mise run worker:generation:*` は『未着手』を echo するスタブ」等の旧記述が残っていたら、本フェーズで両 Worker をスキャフォールド済みである事実に書き換える（Claude が毎セッション読み込む meta-doc のため、ズレを残すと後続作業で誤誘導の元になる）
 
 > **このプロジェクトでの具体例**：[01-roadmap.md](../01-roadmap.md) の 本フェーズに該当する行が、完了時に状態列 `✅ 完了` + 詳細手順列が本ファイルへのリンク `[r0-setup/worker.md](./r0-setup/worker.md)` になっている状態。本フェーズ完了前の `🔴 未着手` 表記は完了時に `✅ 完了` へ書き換える運用とする。
 
@@ -282,6 +300,7 @@ pre-push:
 - 進捗トラッカー上で本フェーズが完了になっている
 - 本ファイルへのリンクが進捗トラッカーから辿れる
 - 本ファイル冒頭のステータスマークが完了状態（`✅`）になっている
+- `.claude/CLAUDE.md` の generation 関連記述が本フェーズの実態（両 Worker scaffold 完了）と整合している
 
 ---
 
