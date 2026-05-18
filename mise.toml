@@ -51,6 +51,12 @@ lefthook = "latest"                               # Git フック管理（ADR 00
 "go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "latest"  # Go lint メタリンター（ADR 0019）
 "go:golang.org/x/vuln/cmd/govulncheck" = "latest"                       # Go 脆弱性スキャン（ADR 0019）
 
+# --- 型同期パイプライン（Job キュー境界）ツール（ADR 0006、R0-11 で追加）---
+# quicktype: apps/api/job-schemas/*.schema.json から Go struct を生成する CLI。
+# apps/web には入れない（Frontend は OpenAPI 経由で Hey API を使うため不要）。
+# mise tools に置くことで Worker dir からも CI からも同一バイナリで起動できる。
+"npm:quicktype" = "latest"                                              # JSON Schema → Go 型生成（ADR 0006）
+
 # ============================================================================
 # settings
 # ============================================================================
@@ -239,9 +245,17 @@ dir = "apps/workers/grading"
 run = "govulncheck ./..."
 
 [tasks."worker:grading:types-gen"]
-description = "quicktype --src-lang schema で apps/api/job-schemas/ から Go struct 生成（Job キュー境界、ADR 0006）"
-dir = "apps/workers/grading"
-run = "quicktype --src-lang schema --src ../../api/job-schemas/ --out internal/jobtypes/types.go --lang go --package jobtypes"
+description = "apps/api/job-schemas/ の各 schema を quicktype で Go struct に展開（Job キュー境界、ADR 0006）"
+dir = "apps/api"
+# scripts/generate_worker_jobtypes.py が schema ファイル単位で quicktype を呼ぶ。
+# quicktype に --src DIR を渡すとスキーマをデータ扱いしてしまうため、positional 引数で
+# 1 ファイルずつ渡す必要がある（R0-11 ドキュメント参照）。
+# uv run を使う理由：このリポジトリで Python を実行する標準経路（ADR 0035）。
+#
+# depends で先に schemas-export を走らせる：Worker 系 CI ジョブが本タスク 1 つだけを
+# 呼ぶ運用にするため。Pydantic 変更後の schemas/*.schema.json 再生成を取りこぼさない。
+depends = ["api:job-schemas-export"]
+run = "uv run python -m scripts.generate_worker_jobtypes ../workers/grading"
 
 [tasks."worker:grading:sandbox-build"]
 description = "採点サンドボックスイメージをビルド（ai-coding-drill-sandbox:latest、ADR 0009）"
@@ -283,9 +297,11 @@ dir = "apps/workers/generation"
 run = "govulncheck ./..."
 
 [tasks."worker:generation:types-gen"]
-description = "quicktype --src-lang schema で apps/api/job-schemas/ から Go struct 生成（Job キュー境界、ADR 0006）"
-dir = "apps/workers/generation"
-run = "quicktype --src-lang schema --src ../../api/job-schemas/ --out internal/jobtypes/types.go --lang go --package jobtypes"
+description = "apps/api/job-schemas/ の各 schema を quicktype で Go struct に展開（Job キュー境界、ADR 0006）"
+dir = "apps/api"
+# grading 側と同パターン（scripts/generate_worker_jobtypes.py の引数だけ違う）。
+depends = ["api:job-schemas-export"]
+run = "uv run python -m scripts.generate_worker_jobtypes ../workers/generation"
 
 # ============================================================================
 # 横断タスク — 全言語まとめ実行
@@ -324,6 +340,7 @@ depends = [
   "api:job-schemas-export",
   "web:types-gen",
   "worker:grading:types-gen",
+  "worker:generation:types-gen",
 ]
 
 # 横断タスクは両 Worker の同名タスクを depends で並べる（R0-8 で両 Worker 実体化済み）。
@@ -375,8 +392,9 @@ depends = [
 ]
 
 [tasks."worker:types-gen"]
-description = "全 Worker の Go struct 生成（quicktype、ADR 0006、generation はスケルトン）"
+description = "全 Worker の Go struct 生成（quicktype、両 Worker 対称適用、ADR 0006）"
 depends = [
+  "api:job-schemas-export",
   "worker:grading:types-gen",
   "worker:generation:types-gen",
 ]
