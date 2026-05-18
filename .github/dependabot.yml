@@ -182,26 +182,23 @@ updates:
         update-types:
           - version-update:semver-major
 
-  # generation Worker（R7 以降。apps/workers/generation/ 着手時にコメントアウト解除）。
-  # 現状は go.mod が存在しないため有効化すると Dependabot が「manifest not found」で
-  # warning を出すので無効のまま据え置く。
-  #
-  # - package-ecosystem: gomod
-  #   directory: /apps/workers/generation
-  #   schedule:
-  #     interval: weekly
-  #     day: monday
-  #     time: "06:00"
-  #     timezone: Asia/Tokyo
-  #   open-pull-requests-limit: 5
-  #   labels:
-  #     - dependencies
-  #     - go
-  #   commit-message:
-  #     prefix: build
-  #     prefix-development: build
-  #     include: scope
-  #   ignore:
-  #     - dependency-name: "*"
-  #       update-types:
-  #         - version-update:semver-major
+  # generation Worker（R0-8 で go module 配置済、両 Worker 対称にスキャフォールド）
+  - package-ecosystem: gomod
+    directory: /apps/workers/generation
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - go
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major

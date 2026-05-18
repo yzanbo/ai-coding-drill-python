@@ -311,6 +311,45 @@ jobs:
       - run: mise run worker:grading:deps-check
 
   # ====================================================================
+  # apps/workers/generation（Go）品質ゲート — ADR 0019 / 0026 / 0028 / 0038 / 0040
+  # ----------------------------------------------------------------------
+  # grading と同じ 4 ジョブ構成（lint / test / audit / deps-check）を generation 側にも
+  # 対称に配置する。両 Worker 独立 Go module（ADR 0040）なので CI も per-Worker。
+  # ====================================================================
+
+  worker-generation-lint:
+    name: worker-generation-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:lint
+
+  worker-generation-test:
+    name: worker-generation-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:test
+
+  worker-generation-audit:
+    name: worker-generation-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:audit
+
+  worker-generation-deps-check:
+    name: worker-generation-deps-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:deps-check
+
+  # ====================================================================
   # 型同期パイプライン drift 検出 — ADR 0006
   # ----------------------------------------------------------------------
   # Pydantic SSoT を変更したのに 3 artifact（apps/api/openapi.json /
@@ -370,6 +409,10 @@ jobs:
       - worker-grading-test
       - worker-grading-audit
       - worker-grading-deps-check
+      - worker-generation-lint
+      - worker-generation-test
+      - worker-generation-audit
+      - worker-generation-deps-check
       - types-gen-drift
     runs-on: ubuntu-latest
     steps:

@@ -1,0 +1,7 @@
+# quicktype --src-lang schema で apps/api/job-schemas/ から生成される Go struct を
+# 置く場所（ADR 0006）。生成物は git 管理せず、各環境で `mise run worker:generation:types-gen`
+# で生成する運用とする。
+#
+# 本ファイル自身は commit してディレクトリ存在を残す。
+*
+!.gitignore
