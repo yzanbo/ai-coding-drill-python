@@ -17,6 +17,17 @@ SDK は公式の [`google.golang.org/genai`](https://pkg.go.dev/google.golang.or
 | [provider.go](./provider.go) | `Provider` interface 実装本体（`Generate` / `Name`）、エラー正規化、SystemInstruction 抽出、Usage 抽出 |
 | [pricing.go](./pricing.go) | モデル単価表（USD / 1M tokens、ADR 0049 が SSoT） |
 | [provider_test.go](./provider_test.go) | helpers の unit test（ネットワーク叩かない） |
+| [provider_integration_test.go](./provider_integration_test.go) | 実 Gemini API を叩く統合テスト。**build tag `integration` で隔離**、デフォルトの `go test ./...` では走らない |
+
+## 統合テストの走らせ方
+
+`provider_integration_test.go` は build tag `integration` で隔離されており、`GOOGLE_API_KEY` が設定されている時のみ実行する：
+
+```bash
+GOOGLE_API_KEY=xxxxx go test -tags=integration ./internal/llm/google/...
+```
+
+API キー未設定の状態でも tag を有効化すれば test 自体は走るが、`t.Skip` で抜ける。CI ではコスト / 鍵管理の都合上、本テストは走らせない。
 
 ## 登録方法（cmd/grading/main.go から）
 
