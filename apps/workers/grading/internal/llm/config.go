@@ -35,6 +35,16 @@ type Config struct {
 // RoleConfigFor: 指定ロールに対応する RoleConfig を返す。
 // orchestrator や judge から「自分のロールはどの (provider, model) か」を
 // 引きやすくするためのヘルパ。
+//
+// 既知ロール (RoleGeneration / RoleRegeneration / RoleJudge) 以外を
+// 渡した場合は panic する。Role 値は package 内 const で網羅される
+// enum であり、未知ロールが渡るのは「新規 Role 追加時の switch 追従漏れ」
+// または「Role(string) で外部入力を直接キャストした」のいずれかで
+// プログラマエラーに該当する (config / YAML からの role 文字列は
+// バリデーション層で正規化してから渡す前提)。
+// silent に空 RoleConfig を返すと、空 Provider 文字列のまま LLM ファクトリに
+// 渡って遠い場所での「API キーが見つからない」エラーになり、原因究明が
+// 困難になる。
 func (c Config) RoleConfigFor(role Role) RoleConfig {
 	switch role {
 	case RoleGeneration:
@@ -44,6 +54,6 @@ func (c Config) RoleConfigFor(role Role) RoleConfig {
 	case RoleJudge:
 		return c.Judge
 	default:
-		return RoleConfig{}
+		panic("llm: unknown role: " + string(role))
 	}
 }

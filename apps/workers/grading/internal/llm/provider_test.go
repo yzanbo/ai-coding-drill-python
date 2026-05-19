@@ -67,5 +67,18 @@ func TestRoleConfigFor_ReturnsMatchingRole(t *testing.T) {
 	assert.Equal(t, "anthropic", cfg.RoleConfigFor(RoleGeneration).Provider)
 	assert.Equal(t, "sonnet", cfg.RoleConfigFor(RoleRegeneration).Model)
 	assert.Equal(t, "google", cfg.RoleConfigFor(RoleJudge).Provider)
-	assert.Empty(t, cfg.RoleConfigFor(Role("unknown")).Provider, "未知ロールは空 struct")
+}
+
+func TestRoleConfigFor_PanicsOnUnknownRole(t *testing.T) {
+	t.Parallel()
+
+	// 未知ロールはプログラマエラー (switch 追従漏れ / 不正キャスト) として
+	// panic させ、silent な空 RoleConfig 返却で後段の「API キーなし」エラーに
+	// 化けるのを防ぐ。
+	cfg := Config{}
+	assert.PanicsWithValue(t,
+		"llm: unknown role: unknown",
+		func() { _ = cfg.RoleConfigFor(Role("unknown")) },
+		"未知ロールは panic すべき",
+	)
 }
