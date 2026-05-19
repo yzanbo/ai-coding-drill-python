@@ -18,10 +18,17 @@ type modelPricing struct {
 
 // pricingTable: モデル ID -> 単価。
 // 出典は ADR 0049 §Context の価格表 (2026-05 時点)。
+//
+// gemini-3.5-flash は公式 pricing ページに未掲載のため、
+// gemini-3-flash-preview と同単価を暫定値として置く (ADR 0049 §Context
+// 参照、最安 flash + 無料枠の意図と整合)。Google が公式公開した時点で
+// 確定値に差し替える (本ファイル + ADR 0049 同時更新)。
 var pricingTable = map[string]modelPricing{
-	"gemini-3-flash":        {InputUSDPer1M: 0.50, OutputUSDPer1M: 3.00},
-	"gemini-3.1-flash-lite": {InputUSDPer1M: 0.25, OutputUSDPer1M: 1.50},
-	"gemini-3.1-pro":        {InputUSDPer1M: 2.00, OutputUSDPer1M: 12.00},
+	// gemini-3.5-flash: 暫定 = gemini-3-flash-preview 同等
+	"gemini-3.5-flash":       {InputUSDPer1M: 0.50, OutputUSDPer1M: 3.00},
+	"gemini-3-flash-preview": {InputUSDPer1M: 0.50, OutputUSDPer1M: 3.00},
+	"gemini-3.1-flash-lite":  {InputUSDPer1M: 0.25, OutputUSDPer1M: 1.50},
+	"gemini-3.1-pro-preview": {InputUSDPer1M: 2.00, OutputUSDPer1M: 12.00},
 }
 
 // calcCostUSD: input / output トークン数からドル換算する。

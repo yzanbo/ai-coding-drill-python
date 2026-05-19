@@ -63,7 +63,7 @@ flowchart TB
 - **🟩 処理ノード**（生成 / パース / 上位モデル再生成）
 - **🟥 失敗終端**（最大試行超過で破棄）
 
-> **MVP 段階の例外運用**：図中 Judge ノードの「別プロバイダ・別モデル」は ADR 0008 が定める長期方針。**MVP では Gemini 単独運用**（generation / regeneration / judge すべて `gemini-3-flash`）とし、R2 ベンチマーク開始時点で別プロバイダ Judge に切替える（→ [ADR 0049: 初期 LLM モデル選定](../../adr/0049-initial-llm-model-selection.md)）。
+> **MVP 段階の例外運用**：図中 Judge ノードの「別プロバイダ・別モデル」は ADR 0008 が定める長期方針。**MVP では Gemini 単独運用**（generation / regeneration / judge すべて `gemini-3.5-flash`）とし、R2 ベンチマーク開始時点で別プロバイダ Judge に切替える（→ [ADR 0049: 初期 LLM モデル選定](../../adr/0049-initial-llm-model-selection.md)）。
 
 **設計上のキーポイント**：
 

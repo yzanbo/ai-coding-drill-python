@@ -15,32 +15,35 @@
 
 参考にした情報源：
 
-- [Gemini API ドキュメント（2026-05 時点）](https://ai.google.dev/gemini-api/docs/models)：`gemini-3-flash` / `gemini-3.1-flash-lite` / `gemini-3.1-pro` の 3 系統が現役
+- [Gemini API ドキュメント（2026-05 時点）](https://ai.google.dev/gemini-api/docs/models)：実 API v1beta で `generateContent` が叩ける flash 系 stable は `gemini-3.5-flash` / `gemini-3.1-flash-lite` / `gemini-2.5-flash` / `gemini-2.0-flash`、preview は `gemini-3-flash-preview` / `gemini-3.1-flash-lite-preview`。pro 系は `gemini-3-pro-preview` / `gemini-3.1-pro-preview`（preview のみ）
 - 2026-04-01 から Gemini Pro は有料化、Flash / Flash-Lite は無料枠維持（無料枠は日次クォータ縮小済み）
-- 価格（2026-05 時点、$/1M tokens）：
-  - `gemini-3-flash`: input $0.50 / output $3.00（無料枠あり）
+- 価格（2026-05 時点、$/1M tokens、[公式 pricing ページ](https://ai.google.dev/gemini-api/docs/pricing)）：
+  - `gemini-3.5-flash`: **公式未掲載**。`gemini-3-flash-preview` と同等の input $0.50 / output $3.00 を暫定値として運用（無料枠あり）
+  - `gemini-3-flash-preview`: input $0.50 / output $3.00（無料枠あり）
   - `gemini-3.1-flash-lite`: input $0.25 / output $1.50（無料枠あり）
-  - `gemini-3.1-pro`: input $2.00 / output $12.00（< 200K context）
+  - `gemini-3.1-pro-preview`: input $2.00 / output $12.00（< 200K context、preview のみ）
 
 ## Decision（決定内容）
 
-**MVP の初期 LLM プロバイダは Google Gemini 単独**とし、3 ロール（`generation` / `regeneration` / `judge`）すべてに `gemini-3-flash` を割り当てる。ADR 0008「生成と Judge は別ベンダー」の方針は R2 のベンチマーク開始時点まで例外的に保留する。
+**MVP の初期 LLM プロバイダは Google Gemini 単独**とし、3 ロール（`generation` / `regeneration` / `judge`）すべてに `gemini-3.5-flash` を割り当てる。ADR 0008「生成と Judge は別ベンダー」の方針は R2 のベンチマーク開始時点まで例外的に保留する。
+
+> **モデル ID の訂正経緯**：本 ADR の初版は `gemini-3-flash`（preview suffix 落ち）を採用 model として指定していたが、R1-2 後半の integration test で v1beta API に該当モデル ID が存在しないことが判明（HTTP 404 NOT_FOUND）。Google AI Studio `models.list` で実在する flash 系 stable のうち、当初意図（最安 + 無料枠付き + 3.x 世代）に最も近い `gemini-3.5-flash` に訂正。公式 pricing ページに `gemini-3.5-flash` 単価が未掲載のため、`gemini-3-flash-preview` と同等（input $0.50 / output $3.00）を [pricing.go](../../apps/workers/grading/internal/llm/google/pricing.go) で暫定値として運用、公式公開時に確定値へ差し替える。
 
 ### 役割 × モデル割り当て（YAML SSoT は実装時に `apps/workers/grading/llm.yaml` 等で配置）
 
 | ロール | プロバイダ | モデル ID | 既定 temperature |
 |---|---|---|---|
-| `generation` | google | `gemini-3-flash` | 0.7 |
-| `regeneration` | google | `gemini-3-flash` | 0.7 |
-| `judge` | google | `gemini-3-flash` | 0.0 |
+| `generation` | google | `gemini-3.5-flash` | 0.7 |
+| `regeneration` | google | `gemini-3.5-flash` | 0.7 |
+| `judge` | google | `gemini-3.5-flash` | 0.0 |
 
 設定形式は ADR 0007 §設定駆動の切替に従う：
 
 ```yaml
 providers:
-  generation:   { provider: google, model: gemini-3-flash }
-  regeneration: { provider: google, model: gemini-3-flash }
-  judge:        { provider: google, model: gemini-3-flash }
+  generation:   { provider: google, model: gemini-3.5-flash }
+  regeneration: { provider: google, model: gemini-3.5-flash }
+  judge:        { provider: google, model: gemini-3.5-flash }
 ```
 
 `temperature` / `max_tokens` / `json_mode` の役割別既定値は **[03-llm-pipeline.md: 構造化出力](../requirements/2-foundation/03-llm-pipeline.md#構造化出力)** が SSoT。Go 定数として **[apps/workers/grading/internal/llm/provider.go の DefaultOptions(Role)](../../apps/workers/grading/internal/llm/provider.go)** に固定済み（数値が二重管理にならない構造）。
@@ -76,7 +79,7 @@ providers:
 4. **R2 ベンチマーク前に「最適モデル」を議論しても無駄**
    - ADR 0007「品質の主因はモデルではなくプロンプト × 評価 × キャッシュ戦略」に沿い、R2 評価基盤が立ち上がってから実データで選び直す
    - MVP では「動作することを示す」以外の選定根拠はベンチマーク不在で全て主観
-5. **`gemini-3-flash` は構造化出力（JSON mode）と関数呼び出しを安定サポート**
+5. **`gemini-3.5-flash` は構造化出力（JSON mode）と関数呼び出しを安定サポート**
    - 03-llm-pipeline.md「構造化出力」で必須要件としている JSON mode 強制が Gemini API の `response_mime_type: application/json` + `response_schema` で実現できる
    - quicktype で生成した Go struct によるバリデーション（[ADR 0006](./0006-json-schema-as-single-source-of-truth.md)）と組み合わせて 2 段防御が成立する
 6. **2026-06-01 に Gemini 2.0 系がシャットダウンするため、3 系を初期採用するのが最も賢い**

@@ -1,7 +1,7 @@
 // Package google は LLM プロバイダ抽象化レイヤ (../) の Google Gemini 実装。
 //
 // SDK は公式の google.golang.org/genai を使う。MVP では Gemini 単独運用で、
-// 役割 (generation / regeneration / judge) すべてに gemini-3-flash を割り当てる
+// 役割 (generation / regeneration / judge) すべてに gemini-3.5-flash を割り当てる
 // (詳細は ADR 0049)。プロバイダの差分 (Anthropic Prompt Caching 等) は
 // 各 sub-package に閉じ込め、呼び出し側は llm.Provider interface 経由でしか
 // 触れない (ADR 0007)。

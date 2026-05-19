@@ -21,13 +21,13 @@ import (
 const sampleYAML = `providers:
   generation:
     provider: google
-    model: gemini-3-flash
+    model: gemini-3.5-flash
   regeneration:
     provider: google
-    model: gemini-3-flash
+    model: gemini-3.5-flash
   judge:
     provider: google
-    model: gemini-3-flash
+    model: gemini-3.5-flash
 `
 
 func writeYAML(t *testing.T, content string) string {
@@ -52,7 +52,7 @@ func TestLoad_HappyPath(t *testing.T) {
 	assert.Equal(t, 4, cfg.Concurrency, "envDefault が効いて 4 になるべき")
 	assert.Equal(t, "ai-coding-drill-sandbox:latest", cfg.SandboxImage)
 	assert.Equal(t, "google", cfg.LLM.Generation.Provider)
-	assert.Equal(t, "gemini-3-flash", cfg.LLM.Judge.Model)
+	assert.Equal(t, "gemini-3.5-flash", cfg.LLM.Judge.Model)
 }
 
 func TestLoad_MissingDatabaseURL(t *testing.T) {

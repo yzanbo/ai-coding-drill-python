@@ -8,7 +8,7 @@ SDK は公式の [`google.golang.org/genai`](https://pkg.go.dev/google.golang.or
 
 ## MVP での役割
 
-[ADR 0049: 初期 LLM モデル選定](../../../../../docs/adr/0049-initial-llm-model-selection.md) により、**MVP は Gemini 単独運用**。`generation` / `regeneration` / `judge` の全ロールに `gemini-3-flash` を割り当て、起動確認が取れた後に R2 ベンチマーク開始時点で `judge` を別ベンダーへ切替える計画（ADR 0008「Judge は別プロバイダ」例外保留中）。
+[ADR 0049: 初期 LLM モデル選定](../../../../../docs/adr/0049-initial-llm-model-selection.md) により、**MVP は Gemini 単独運用**。`generation` / `regeneration` / `judge` の全ロールに `gemini-3.5-flash` を割り当て、起動確認が取れた後に R2 ベンチマーク開始時点で `judge` を別ベンダーへ切替える計画（ADR 0008「Judge は別プロバイダ」例外保留中）。
 
 ## ファイル構成
 

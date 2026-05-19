@@ -44,9 +44,9 @@ func TestGenerate_Integration_HappyPath(t *testing.T) {
 	}
 
 	cfg := llm.Config{
-		Generation:   llm.RoleConfig{Provider: Name, Model: "gemini-3-flash"},
-		Regeneration: llm.RoleConfig{Provider: Name, Model: "gemini-3-flash"},
-		Judge:        llm.RoleConfig{Provider: Name, Model: "gemini-3-flash"},
+		Generation:   llm.RoleConfig{Provider: Name, Model: "gemini-3.5-flash"},
+		Regeneration: llm.RoleConfig{Provider: Name, Model: "gemini-3.5-flash"},
+		Judge:        llm.RoleConfig{Provider: Name, Model: "gemini-3.5-flash"},
 		APIKeys:      map[string]string{Name: apiKey},
 	}
 	provider, err := New(cfg)
@@ -58,8 +58,11 @@ func TestGenerate_Integration_HappyPath(t *testing.T) {
 
 	opts := llm.DefaultOptions(llm.RoleGeneration)
 	// JSONMode + 最小プロンプト: 1+1 の答えを JSON で返してもらう。
-	// 実 API 課金 / レート制限を抑えるため出力トークンを絞る。
-	opts.MaxTokens = 100
+	// gemini-3.5-flash は thinking モデルで、推論トークンを内部的に消費する。
+	// MaxTokens を厳しく絞ると thinking で全部使われて応答が途切れるため
+	// (thinking + JSON 応答の余裕として) 1024 を割り当てる。
+	// それでも数百トークン以内に収まり、無料枠 / 課金抑制の観点で十分安価。
+	opts.MaxTokens = 1024
 	opts.JSONSchema = []byte(`{"type":"object","required":["answer"],"properties":{"answer":{"type":"integer"}}}`)
 
 	resp, err := provider.Generate(ctx, []llm.Message{
@@ -69,12 +72,12 @@ func TestGenerate_Integration_HappyPath(t *testing.T) {
 	require.NoError(t, err, "正常系の Generate は成功するべき: got %v", err)
 
 	assert.Equal(t, Name, resp.Provider)
-	assert.Equal(t, "gemini-3-flash", resp.Model)
+	assert.Equal(t, "gemini-3.5-flash", resp.Model)
 	assert.NotEmpty(t, resp.Content, "応答テキストは空でないべき")
 	assert.True(t, strings.Contains(resp.Content, "answer"),
 		"JSONSchema の required フィールドが応答に含まれるべき: got %q", resp.Content)
 	assert.Greater(t, resp.Usage.InputTokens, 0, "input トークン数 > 0")
 	assert.Greater(t, resp.Usage.OutputTokens, 0, "output トークン数 > 0")
-	assert.Greater(t, resp.Usage.CostUSD, 0.0, "cost > 0 (pricingTable で gemini-3-flash がヒット)")
+	assert.Greater(t, resp.Usage.CostUSD, 0.0, "cost > 0 (pricingTable で gemini-3.5-flash がヒット)")
 	assert.NotEqual(t, "", resp.FinishReason, "FinishReason は埋まるべき")
 }

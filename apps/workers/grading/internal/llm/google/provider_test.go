@@ -24,13 +24,13 @@ import (
 func TestCalcCostUSD_KnownModel(t *testing.T) {
 	t.Parallel()
 
-	// gemini-3-flash: input $0.50 / output $3.00 per 1M tokens (ADR 0049)。
+	// gemini-3.5-flash: input $0.50 / output $3.00 per 1M tokens (pricing.go 暫定値、ADR 0049)。
 	// 1M / 1M トークンなら $0.50 + $3.00 = $3.50。
-	got := calcCostUSD("gemini-3-flash", 1_000_000, 1_000_000)
+	got := calcCostUSD("gemini-3.5-flash", 1_000_000, 1_000_000)
 	assert.InDelta(t, 3.50, got, 1e-9, "1M+1M tokens で $3.50 になるべき")
 
 	// 100K / 50K トークン: $0.50 * 0.1 + $3.00 * 0.05 = $0.05 + $0.15 = $0.20。
-	got2 := calcCostUSD("gemini-3-flash", 100_000, 50_000)
+	got2 := calcCostUSD("gemini-3.5-flash", 100_000, 50_000)
 	assert.InDelta(t, 0.20, got2, 1e-9, "100K+50K tokens で $0.20 になるべき")
 }
 
@@ -201,7 +201,7 @@ func TestNew_MissingAPIKey(t *testing.T) {
 	// APIKeys に "google" が無い場合は ErrUnauthorized を wrap して即返す
 	// (起動時 fail-fast)。
 	p, err := New(llm.Config{
-		Generation: llm.RoleConfig{Provider: "google", Model: "gemini-3-flash"},
+		Generation: llm.RoleConfig{Provider: "google", Model: "gemini-3.5-flash"},
 		APIKeys:    map[string]string{},
 	})
 	assert.Nil(t, p)
@@ -219,9 +219,9 @@ func TestExtractFinishReason_NilResponse(t *testing.T) {
 func TestExtractUsage_NilResponse(t *testing.T) {
 	t.Parallel()
 
-	got := extractUsage(nil, "gemini-3-flash")
+	got := extractUsage(nil, "gemini-3.5-flash")
 	assert.Equal(t, llm.Usage{}, got)
 
-	got2 := extractUsage(&genai.GenerateContentResponse{}, "gemini-3-flash")
+	got2 := extractUsage(&genai.GenerateContentResponse{}, "gemini-3.5-flash")
 	assert.Equal(t, llm.Usage{}, got2)
 }
