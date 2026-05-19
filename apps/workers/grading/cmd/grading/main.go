@@ -25,6 +25,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -49,6 +50,26 @@ func main() {
 		os.Exit(1)
 	}
 
+	// WorkerID の hostname フォールバック: WORKER_ID が未設定なら os.Hostname() を当てる。
+	// 未設定のままだと jobs.locked_by が空文字で書き込まれ、ジョブを誰が持っているか
+	// 追跡不能になる。ホスト名取得失敗時は明示的にプレースホルダを置いて起動を続ける
+	// (Worker 1 個ローカル開発時に Hostname() が空を返すケースに備える)。
+	if cfg.WorkerID == "" {
+		if hostname, hostErr := os.Hostname(); hostErr == nil && hostname != "" {
+			cfg.WorkerID = hostname
+		} else {
+			cfg.WorkerID = "unknown-host"
+		}
+	}
+
+	// 起動時に読まれた llm.yaml の絶対パスをログに残す。
+	// 相対パスで起動された時にどのファイルが採用されたか operator が即時確認できる。
+	// 失敗時は元の (相対の可能性がある) path をそのまま使う。
+	llmConfigPath := cfg.LLMConfigPath
+	if abs, absErr := filepath.Abs(llmConfigPath); absErr == nil {
+		llmConfigPath = abs
+	}
+
 	// LLM プロバイダ抽象化レイヤの結線 (ADR 0007 / 0049):
 	//   1. Register: google sub-package のファクトリを llm package の登録 map に入れる
 	//   2. New: cfg.LLM.Generation.Provider の値で factory を引いて Provider を組み立てる
@@ -64,6 +85,7 @@ func main() {
 		"worker_id", cfg.WorkerID,
 		"concurrency", cfg.Concurrency,
 		"sandbox_image", cfg.SandboxImage,
+		"llm_config_path", llmConfigPath,
 		"llm_provider", provider.Name(),
 		"llm_generation_model", cfg.LLM.Generation.Model,
 		"llm_judge_model", cfg.LLM.Judge.Model,

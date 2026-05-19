@@ -63,8 +63,9 @@ type Config struct {
 	// 直後の pgx 接続で落ちるため、ここで空も拒否する方が原因究明が早い。
 	DatabaseURL string `env:"DATABASE_URL,notEmpty"`
 
-	// WorkerID: jobs.locked_by に書く識別子。空ならホスト名を使う想定
-	// (実装は cmd/grading/main.go 側)。
+	// WorkerID: jobs.locked_by に書く識別子。
+	// 空のまま Load を抜けた場合は cmd/grading/main.go 側で os.Hostname() に
+	// フォールバックする (本 package は os.Hostname を読まず、cmd 層で詰める)。
 	WorkerID string `env:"WORKER_ID"`
 
 	// Concurrency: 並列 goroutine 数。worker.md 既定 4。
