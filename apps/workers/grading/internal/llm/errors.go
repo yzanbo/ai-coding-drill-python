@@ -37,9 +37,6 @@ var (
 	//     合算し、業務上限と比較する。超過時にこの ErrCostExceeded を
 	//     呼び出し元へ返す (Provider 自身がこのエラーを返すことはない)。
 	ErrCostExceeded = errors.New("llm: per-job cost cap exceeded")
-
-	// ErrNotImplemented: R1-2 skeleton 段階で各プロバイダ実装が
-	// 未配置であることを示す。初期モデル選定 ADR (0049) 確定後に
-	// 対応する sub-package を実装すると、このエラーは返らなくなる。
-	ErrNotImplemented = errors.New("llm: provider implementation not wired (R1-2 skeleton)")
 )
+
+// 未登録 provider 判定用 sentinel は new.go の ErrUnknownProvider を参照。

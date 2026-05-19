@@ -1,13 +1,16 @@
 package llm
 
-// provider_test.go: skeleton 段階で interface の最小契約を確認するテスト。
-// 実プロバイダ実装が増えたら、各 sub-package の *_test.go で
-// Provider interface 充足を別途検証する。
+// provider_test.go: interface の最小契約 + DefaultOptions の役割別既定値 +
+// Register / New の登録パターンの動作を検証する。
+// 実プロバイダ (google 等) の API 呼び出しテストは各 sub-package の
+// *_test.go で行い、本ファイルでは llm package 内に閉じる。
 
 import (
-	// errors: ErrNotImplemented との一致判定に使う。
+	// context: fakeProvider が Generate(ctx, ...) を受けるため。
+	// errors:  ErrUnknownProvider との一致判定 (errors.Is) に使う。
 	// testing: 標準テストフレームワーク。
 	// time:    SingleCallTimeoutDefault の検証用。
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -42,17 +45,46 @@ func TestDefaultOptions_GenerationIsDiverse(t *testing.T) {
 	}
 }
 
-func TestNew_ReturnsNotImplementedInSkeleton(t *testing.T) {
+func TestNew_EmptyProviderReturnsUnknown(t *testing.T) {
 	t.Parallel()
 
-	// R1-2 skeleton 時点では各プロバイダ実装が未配線のため、
-	// New は必ず ErrNotImplemented を返す。
-	// このテストは初期モデル選定 ADR 後に各プロバイダ実装が入った
-	// 時点で削除 or 書き換える (skeleton 用 sentinel).
+	// Config.Generation.Provider が空のままだと「llm.yaml の typo or
+	// 読み込み漏れ」のサインなので即 ErrUnknownProvider を返す。
 	p, err := New(Config{})
 	assert.Nil(t, p)
-	assert.True(t, errors.Is(err, ErrNotImplemented),
-		"skeleton 段階の New は ErrNotImplemented を返す: got %v", err)
+	assert.True(t, errors.Is(err, ErrUnknownProvider),
+		"空 Provider 名は ErrUnknownProvider を wrap して返すべき: got %v", err)
+}
+
+func TestNew_UnregisteredProviderReturnsUnknown(t *testing.T) {
+	t.Parallel()
+
+	cfg := Config{Generation: RoleConfig{Provider: "definitely-not-registered"}}
+	p, err := New(cfg)
+	assert.Nil(t, p)
+	assert.True(t, errors.Is(err, ErrUnknownProvider),
+		"未登録 provider は ErrUnknownProvider を wrap して返すべき: got %v", err)
+}
+
+func TestNew_RegisteredProviderIsCalled(t *testing.T) {
+	// Register は global state を mutate するため t.Parallel しない。
+	// テスト用に専用名 (本番では使わない) を register し、Cleanup で消す。
+	const name = "fake-provider-for-unit-test"
+
+	Register(name, func(_ Config) (Provider, error) {
+		return &fakeProvider{}, nil
+	})
+	t.Cleanup(func() {
+		providerMu.Lock()
+		defer providerMu.Unlock()
+		delete(providerFactories, name)
+	})
+
+	cfg := Config{Generation: RoleConfig{Provider: name}}
+	p, err := New(cfg)
+	require.NoError(t, err)
+	require.NotNil(t, p)
+	assert.Equal(t, "fake", p.Name())
 }
 
 func TestRoleConfigFor_ReturnsMatchingRole(t *testing.T) {
@@ -82,3 +114,12 @@ func TestRoleConfigFor_PanicsOnUnknownRole(t *testing.T) {
 		"未知ロールは panic すべき",
 	)
 }
+
+// fakeProvider: Register / New の動作確認用ダミー実装。
+type fakeProvider struct{}
+
+func (f *fakeProvider) Generate(_ context.Context, _ []Message, _ Options) (Response, error) {
+	return Response{}, nil
+}
+
+func (f *fakeProvider) Name() string { return "fake" }
