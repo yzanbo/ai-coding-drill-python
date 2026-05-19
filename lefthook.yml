@@ -299,6 +299,57 @@ pre-push:
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    # Worker (Go) 脆弱性スキャン（govulncheck）
+    # api-audit (pip-audit) と同じ位置づけ：依存ファイル変更時のみ発火する pre-push。
+    # govulncheck はシンボル単位の到達可能性解析を行うため、コードから実際に呼ばれる
+    # 脆弱な API があるパスだけ exit 1 で push をブロックする。transitive 依存に
+    # 脆弱性があってもコードが触れていない場合は exit 0 で通る (誤検知抑制)。
+    # glob を go.mod / go.sum に限定: 脆弱性は「コード変更」ではなく「依存バージョン」で
+    # 決まるため、.go を 1 行直しただけの push で audit を走らせるのは無駄。
+    # 新規 CVE 発見の自動追従は Dependabot + 週次 CI で別途担保する。
+    # 独立 Go module (ADR 0040) のため Worker ごとに hook を分ける。
+    worker-grading-audit:
+      glob: "apps/workers/grading/{go.mod,go.sum}"
+      root: apps/workers/grading
+      run: mise exec -- govulncheck ./...
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  govulncheck が grading worker の依存に到達可能な脆弱性を検出（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        上の govulncheck ログから Module / Fixed in を確認し、以下で bump:
+          cd apps/workers/grading
+          go get <module>@<fixed-version>
+          go mod tidy
+          git add go.mod go.sum
+          git commit -m "chore(deps): <module> を <old> から <new> へ bump (<CVE>)"
+
+        【脆弱性が transitive 依存の場合】
+          直接 require 行を追加せず、go.mod の require ブロックに version 指定だけ
+          書く方法もある (Go の MVS で最小選択が上書きされる)。
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    worker-generation-audit:
+      glob: "apps/workers/generation/{go.mod,go.sum}"
+      root: apps/workers/generation
+      run: mise exec -- govulncheck ./...
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  govulncheck が generation worker の依存に到達可能な脆弱性を検出（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        上の govulncheck ログから Module / Fixed in を確認し、以下で bump:
+          cd apps/workers/generation
+          go get <module>@<fixed-version>
+          go mod tidy
+          git add go.mod go.sum
+          git commit -m "chore(deps): <module> を <old> から <new> へ bump (<CVE>)"
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 commit-msg:
   commands:
     # コミットメッセージ規約検証（commitlint）
