@@ -31,6 +31,11 @@ import (
 // Worker 起動時に fail-fast させるための sentinel。
 var ErrLLMYAMLMissing = errors.New("config: llm.yaml not found")
 
+// ErrInvalidRange: 数値設定値が許容範囲外 (負値・0 等) の時に Load が返す。
+// Concurrency / JobTimeoutSeconds / ReclaimAfterMinutes が想定外値で
+// Worker が起動して後段で undefined behavior になるのを防ぐための sentinel。
+var ErrInvalidRange = errors.New("config: numeric setting out of range")
+
 // RoleProvider: 1 ロール分の (provider, model) 設定。
 // llm.RoleConfig と同じ構造だが、本 package は llm を import できないため
 // 独立した型として持ち、main で llm.RoleConfig に詰め直す。
@@ -105,6 +110,7 @@ type Config struct {
 //   - 必須環境変数 (DATABASE_URL) 欠落 -> caarlos0/env のエラー
 //   - llm.yaml が見つからない -> ErrLLMYAMLMissing を wrap
 //   - llm.yaml が壊れている -> yaml.Unmarshal のエラー
+//   - 数値設定値が範囲外 (負値・0) -> ErrInvalidRange を wrap
 func Load() (*Config, error) {
 	cfg := &Config{}
 	if err := env.Parse(cfg); err != nil {
@@ -113,7 +119,27 @@ func Load() (*Config, error) {
 	if err := loadLLMYAML(cfg); err != nil {
 		return nil, err
 	}
+	if err := validateRanges(cfg); err != nil {
+		return nil, err
+	}
 	return cfg, nil
+}
+
+// validateRanges: 数値設定値が想定範囲内かを検証する。
+// caarlos0/env は型チェック (int / string 等) だけで範囲チェックはしないため
+// ここで明示的に弾く。負値や 0 でも env タグ的には valid として通ってしまうが、
+// goroutine 並列数 0 や timeout 0 で起動すると undefined behavior になる。
+func validateRanges(cfg *Config) error {
+	if cfg.Concurrency <= 0 {
+		return fmt.Errorf("%w: WORKER_CONCURRENCY=%d must be > 0", ErrInvalidRange, cfg.Concurrency)
+	}
+	if cfg.JobTimeoutSeconds <= 0 {
+		return fmt.Errorf("%w: JOB_TIMEOUT_SECONDS=%d must be > 0", ErrInvalidRange, cfg.JobTimeoutSeconds)
+	}
+	if cfg.ReclaimAfterMinutes <= 0 {
+		return fmt.Errorf("%w: RECLAIM_AFTER_MINUTES=%d must be > 0", ErrInvalidRange, cfg.ReclaimAfterMinutes)
+	}
+	return nil
 }
 
 // loadLLMYAML: cfg.LLMConfigPath を読み込んで cfg.LLM に詰める。

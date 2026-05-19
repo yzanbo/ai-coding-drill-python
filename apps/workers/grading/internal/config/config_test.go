@@ -86,6 +86,45 @@ func TestLoad_LLMYAMLInvalid(t *testing.T) {
 	assert.Contains(t, err.Error(), "unmarshal")
 }
 
+func TestLoad_ConcurrencyZeroIsRejected(t *testing.T) {
+	yamlPath := writeYAML(t, sampleYAML)
+	t.Setenv("DATABASE_URL", "postgres://test/test")
+	t.Setenv("LLM_CONFIG_PATH", yamlPath)
+	t.Setenv("WORKER_CONCURRENCY", "0")
+
+	_, err := Load()
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrInvalidRange),
+		"WORKER_CONCURRENCY=0 は ErrInvalidRange で弾かれるべき: got %v", err)
+	assert.Contains(t, err.Error(), "WORKER_CONCURRENCY")
+}
+
+func TestLoad_NegativeJobTimeoutIsRejected(t *testing.T) {
+	yamlPath := writeYAML(t, sampleYAML)
+	t.Setenv("DATABASE_URL", "postgres://test/test")
+	t.Setenv("LLM_CONFIG_PATH", yamlPath)
+	t.Setenv("JOB_TIMEOUT_SECONDS", "-1")
+
+	_, err := Load()
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrInvalidRange),
+		"JOB_TIMEOUT_SECONDS=-1 は ErrInvalidRange で弾かれるべき: got %v", err)
+	assert.Contains(t, err.Error(), "JOB_TIMEOUT_SECONDS")
+}
+
+func TestLoad_NegativeReclaimMinutesIsRejected(t *testing.T) {
+	yamlPath := writeYAML(t, sampleYAML)
+	t.Setenv("DATABASE_URL", "postgres://test/test")
+	t.Setenv("LLM_CONFIG_PATH", yamlPath)
+	t.Setenv("RECLAIM_AFTER_MINUTES", "-5")
+
+	_, err := Load()
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrInvalidRange),
+		"RECLAIM_AFTER_MINUTES=-5 は ErrInvalidRange で弾かれるべき: got %v", err)
+	assert.Contains(t, err.Error(), "RECLAIM_AFTER_MINUTES")
+}
+
 func TestLoad_EnvDefaultsOnlyDB(t *testing.T) {
 	// 最小構成: DATABASE_URL のみ与えて他は envDefault に任せる。
 	yamlPath := writeYAML(t, sampleYAML)
