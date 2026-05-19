@@ -89,6 +89,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 | **`pyright`**（型チェック） | Python（Backend） | pre-commit（着手時に組込） | `*.py` | `pyright` | `typeCheckingMode = "basic"` 開始、設定 SSoT は `pyproject.toml` の `[tool.pyright]` |
 | **`gofmt` / `golangci-lint`** | Go（Worker） | pre-commit（実装時に組込） | `*.go` | `golangci-lint` | `go build` 内蔵の型チェックで型ゲートも兼ねる |
 | **`pip-audit`**（脆弱性スキャン） | Python（Backend） | pre-push + CI | `apps/api/{uv.lock,pyproject.toml}` 変更時 | `pip-audit` | `uv.lock` を入力源、PyPI Advisory + OSV.dev を照会。pre-commit には置かない（ネットワーク I/O のため）。新規 CVE は Dependabot で別途追従（多重ゲート、→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)） |
+| **`govulncheck`**（脆弱性スキャン） | Go（Worker） | pre-push + CI | `apps/workers/<name>/{go.mod,go.sum}` 変更時 | `govulncheck` | シンボル単位の到達可能性解析。コードが触れない transitive 脆弱性は exit 0（誤検知抑制）。独立 Go module（ADR 0040）のため worker ごとに hook を分ける（→ [ADR 0019](../../adr/0019-go-code-quality.md)） |
 | **commitlint** | 言語横断 | commit-msg | （glob なし、毎回） | `commitlint`（PR は base..head、push は before..after） | 過去履歴は遡及修正不可のため hook と CI の両方で常時起動 |
 | **syncpack** | TS（Frontend 限定） | pre-commit | `package.json` | `syncpack` | pre-commit は `lint` のみ。自動修正は `mise run web:syncpack` を手動実行（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)） |
 | **Knip** | TS（Frontend 限定） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json}` | `knip` | ファイル単位起動できないため glob トリガー時に全プロジェクト解析。自動修正は `mise run web:knip-fix` を手動実行 |
