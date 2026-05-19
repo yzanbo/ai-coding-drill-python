@@ -37,7 +37,11 @@ const config = {
     // footer-leading-blank: footer の前に空行が必要（Warning）
     "footer-leading-blank": [1, "always"],
     // footer-max-line-length: footer の 1 行最大文字数
-    "footer-max-line-length": [2, "always", 100],
+    //   body-max-line-length と同様、本プロジェクトの「body / footer に
+    //   詳細を書く」方針（→ 06-dev-workflow.md コミットメッセージ規約）と
+    //   日本語コミットの情報密度の事情で 1 行が長くなりやすい。
+    //   level=0 で無効化（Markdown の wrap は git tool / viewer 側に任せる）。
+    "footer-max-line-length": [0],
     // type-case: type は lower-case
     "type-case": [2, "always", "lower-case"],
     // type-empty: type 必須

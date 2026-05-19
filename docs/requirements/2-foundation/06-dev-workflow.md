@@ -227,7 +227,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 - 言語：日本語で記載（subject は英語でも可、一貫していれば良い）
 - ヘッダー全体：100 文字以内
-- 本文：**1 行の長さ制限なし**（commitlint の `body-max-line-length` は無効化済み）。複数行で WHAT / WHY / HOW / 影響範囲 / 関連リンクを構造化して書く。改行は意味的な区切り（段落・項目）で入れる
+- 本文・footer：**1 行の長さ制限なし**（commitlint の `body-max-line-length` / `footer-max-line-length` ともに無効化済み）。複数行で WHAT / WHY / HOW / 影響範囲 / 関連リンクを構造化して書く。改行は意味的な区切り（段落・項目）で入れる
 - 複数領域に跨る変更：scope をカンマ区切り（例：`feat(api,worker): ...`）。ブランチ名には詰めず commit 側で表現する
 
 ### 本文（body）は必須・詳細記述する
