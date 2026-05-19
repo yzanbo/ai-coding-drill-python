@@ -92,7 +92,7 @@ type Usage struct {
 	InputTokens  int
 	OutputTokens int
 	// CostUSD: モデル単価 × トークン数の換算結果。
-	// 単価表は実装側で持ち、ADR 0048 (初期モデル選定 ADR) に対応する。
+	// 単価表は実装側で持ち、ADR 0049 (初期モデル選定 ADR) に対応する。
 	CostUSD float64
 }
 

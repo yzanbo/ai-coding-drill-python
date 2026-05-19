@@ -32,7 +32,7 @@ var (
 	ErrCostExceeded = errors.New("llm: per-job cost cap exceeded")
 
 	// ErrNotImplemented: R1-2 skeleton 段階で各プロバイダ実装が
-	// 未配置であることを示す。初期モデル選定 ADR (0048) 確定後に
+	// 未配置であることを示す。初期モデル選定 ADR (0049) 確定後に
 	// 対応する sub-package を実装すると、このエラーは返らなくなる。
 	ErrNotImplemented = errors.New("llm: provider implementation not wired (R1-2 skeleton)")
 )

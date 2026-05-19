@@ -3,7 +3,7 @@ package llm
 // new.go: 設定から Provider 実装を組み立てるファクトリ。
 //
 // R1-2 skeleton 段階では各 provider sub-package が未実装のため、
-// New は ErrNotImplemented を返す。初期モデル選定 ADR (0048) で
+// New は ErrNotImplemented を返す。初期モデル選定 ADR (0049) で
 // 第一プロバイダが確定したら、対応する sub-package を import して
 // switch ケースを実装で埋める。
 //

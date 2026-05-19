@@ -15,7 +15,7 @@ package llm
 type RoleConfig struct {
 	// Provider: "anthropic" / "google" / "openai" / "openrouter" 等。
 	Provider string
-	// Model: ベンダー側のモデル ID。具体値は ADR 0048 (初期モデル選定) を SSoT とする。
+	// Model: ベンダー側のモデル ID。具体値は ADR 0049 (初期モデル選定) を SSoT とする。
 	Model string
 }
 
