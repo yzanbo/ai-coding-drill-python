@@ -13,6 +13,7 @@ Worker プロセスが起動時に**環境変数 + `llm.yaml` を 1 回だけ読
 ## 役割
 
 - 環境変数のマッピング：`DATABASE_URL` / `WORKER_ID` / `WORKER_CONCURRENCY` / `SANDBOX_IMAGE` / `JOB_TIMEOUT_SECONDS` / `RECLAIM_AFTER_MINUTES` / `LLM_CONFIG_PATH` / `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` を `Config` 構造体のフィールドにする
+- ローカル開発時は `apps/workers/grading/.env.example` をコピーして `apps/workers/grading/.env` を作り、機密値（API キー等）を埋める。`mise.toml` の `[env] _.file` 設定で `mise run worker:grading:*` 起動時に自動 load される
 - LLM プロバイダ・モデル設定の読み込み：`LLM_CONFIG_PATH` (既定 `llm.yaml`) のファイルを yaml.Unmarshal で `Config.LLM` (`LLMProviders`) に詰める。`cmd/grading/main.go` でここから `llm.Config` に詰め直す（本 package は worker.md Layer 0 制約で `llm` を import しないため中立 struct で保持）
 - 既定値の宣言：`envDefault:"..."` タグで設定（`grading` worker 既定 `JOB_TIMEOUT_SECONDS=5` など）
 - 必須項目のバリデーション：`env:"...,notEmpty"` で起動時に空文字を検出して fail-fast（`required` だけだと空文字を通すため）

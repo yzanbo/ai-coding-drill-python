@@ -440,6 +440,8 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 
 ## 環境変数（両 Worker 共通、`internal/config/` で集約）
 
+> ローカル開発では `apps/workers/grading/.env.example` をコピーして `apps/workers/grading/.env` を作る。`mise.toml` の `[env] _.file` 設定により `mise run worker:grading:*` 経由のタスク起動時に自動 load される（ADR 0039）。`.env` は gitignore 済み。
+
 - `DATABASE_URL` — Postgres 接続文字列
 - `REDIS_URL` — LLM キャッシュ参照時のみ
 - `WORKER_ID` — `locked_by` に書く識別子（既定はホスト名、`os.Hostname()` 失敗時はプレースホルダ `unknown-host`）
