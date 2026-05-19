@@ -53,7 +53,13 @@ providers:
 
 ### 実装の優先順位
 
-1. R1-2 後半：`apps/workers/grading/internal/llm/google/` sub-package で Provider interface を Gemini API に対して実装（JSON mode 強制・cost 計算・OTel span・指数バックオフリトライ）
+1. R1-2 後半（**部分完了**）：`apps/workers/grading/internal/llm/google/` sub-package で Provider interface を Gemini API に対して実装
+   - ✅ Provider interface 実装（[provider.go](../../apps/workers/grading/internal/llm/google/provider.go)）
+   - ✅ JSON mode 強制（`ResponseMIMEType=application/json`）
+   - ✅ cost 計算（[pricing.go](../../apps/workers/grading/internal/llm/google/pricing.go)、本 ADR の価格表が SSoT）
+   - ✅ registration pattern + `llm.yaml` + `internal/config/` + `cmd/grading/main.go` 結線
+   - ⏳ OTel span 統合（`internal/observability/` の本実装着手と同時に追加、別 PR）
+   - ⏳ 指数バックオフリトライ（HTTP 429 / `llm.ErrRateLimit` 時、別 PR）
 2. R2：ベンチマーク基盤を作って Anthropic / OpenAI / OpenRouter の sub-package を追加。`judge` ロールを別ベンダーに切替
 
 ## Why（採用理由）

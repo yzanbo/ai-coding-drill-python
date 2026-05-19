@@ -110,6 +110,7 @@ import (
     "github.com/yzanbo/.../apps/workers/grading/internal/grading"
     "github.com/yzanbo/.../apps/workers/grading/internal/judge"
     "github.com/yzanbo/.../apps/workers/grading/internal/llm"
+    "github.com/yzanbo/.../apps/workers/grading/internal/llm/google"
     "github.com/yzanbo/.../apps/workers/grading/internal/observability"
     "github.com/yzanbo/.../apps/workers/grading/internal/sandbox"
 )
@@ -119,7 +120,10 @@ func main() {
     logger, shutdown, _ := observability.Init(ctx, cfg)
     defer shutdown(ctx)
     pool, _ := db.NewPool(ctx, cfg)
-    llmProvider, _ := llm.New(cfg)
+    // LLM プロバイダ抽象化レイヤは registration pattern で循環インポートを回避する
+    // (database/sql / image/png と同じ方式)。詳細は internal/llm/new.go。
+    llm.Register(google.Name, google.New)
+    llmProvider, _ := llm.New(buildLLMConfig(cfg))
     grading.Run(ctx, grading.Deps{Pool: pool, Sandbox: sandbox.New(...), Judge: judge.New(llmProvider, ...)})
 }
 ```
@@ -440,4 +444,5 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 - `SANDBOX_IMAGE` — サンドボックスのイメージタグ（両 Worker で同じ image を起動、既定 `ai-coding-drill-sandbox:latest`）
 - `JOB_TIMEOUT_SECONDS` — タイムアウト秒（grading 既定 5、generation は LLM 呼び出しが長いため大きめが望ましい、`config/` 既定で個別調整）
 - `RECLAIM_AFTER_MINUTES` — スタックジョブとみなす経過時間（既定 5）
-- `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` — LLM 呼び出し設定（→ [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md)）
+- `LLM_CONFIG_PATH` — LLM プロバイダ・モデル割り当て YAML のパス（既定 `llm.yaml`、apps/workers/grading/llm.yaml が SSoT。Worker 再ビルド不要で切替可能、→ [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md) / [ADR 0049](../../docs/adr/0049-initial-llm-model-selection.md)）
+- `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` — provider 別 API キー（YAML に書かず環境変数経由で渡す。Worker は使う provider 分だけ設定すれば足りる）
