@@ -226,6 +226,14 @@ description = "採点 Worker テスト（testing + testify）"
 dir = "apps/workers/grading"
 run = "go test ./..."
 
+[tasks."worker:grading:test:integration"]
+description = "採点 Worker 統合テスト（build tag integration、実 LLM API を叩く。GOOGLE_API_KEY 必須）"
+dir = "apps/workers/grading"
+# build tag `integration` でデフォルト test から隔離されたファイル群を走らせる。
+# GOOGLE_API_KEY 未設定なら各 test が t.Skip で抜ける設計。
+# CI では本タスクを呼ばない（課金 / 鍵管理の都合）。ローカル動作確認専用。
+run = "go test -tags=integration ./..."
+
 [tasks."worker:grading:lint"]
 description = "Go lint（gofmt + golangci-lint、unused linter で未使用検出）"
 dir = "apps/workers/grading"

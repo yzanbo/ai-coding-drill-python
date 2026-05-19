@@ -92,6 +92,7 @@ mise run web:types-gen    # Hey API で OpenAPI から TS / Zod / HTTP クライ
 # Workers (Go) — apps/workers/<name>/ ごとに mise タスクを定義（ADR 0040）
 mise run worker:grading:dev          # apps/workers/grading の go run
 mise run worker:grading:test         # apps/workers/grading の go test
+mise run worker:grading:test:integration  # 実 LLM API を叩く統合テスト（GOOGLE_API_KEY 必須、CI では走らせない）
 mise run worker:grading:lint         # apps/workers/grading の golangci-lint
 mise run worker:grading:audit        # govulncheck
 mise run worker:grading:deps-check   # go mod tidy 後の差分チェック

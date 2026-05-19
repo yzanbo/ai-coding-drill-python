@@ -442,10 +442,12 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 
 - `DATABASE_URL` — Postgres 接続文字列
 - `REDIS_URL` — LLM キャッシュ参照時のみ
-- `WORKER_ID` — `locked_by` に書く識別子（既定はホスト名）
-- `WORKER_CONCURRENCY` — 並列 goroutine 数（既定 4）
+- `WORKER_ID` — `locked_by` に書く識別子（既定はホスト名、`os.Hostname()` 失敗時はプレースホルダ `unknown-host`）
+- `WORKER_CONCURRENCY` — 並列 goroutine 数（既定 4、**> 0 必須**）
 - `SANDBOX_IMAGE` — サンドボックスのイメージタグ（両 Worker で同じ image を起動、既定 `ai-coding-drill-sandbox:latest`）
-- `JOB_TIMEOUT_SECONDS` — タイムアウト秒（grading 既定 5、generation は LLM 呼び出しが長いため大きめが望ましい、`config/` 既定で個別調整）
-- `RECLAIM_AFTER_MINUTES` — スタックジョブとみなす経過時間（既定 5）
+- `JOB_TIMEOUT_SECONDS` — タイムアウト秒（grading 既定 5、generation は LLM 呼び出しが長いため大きめが望ましい、`config/` 既定で個別調整、**> 0 必須**）
+- `RECLAIM_AFTER_MINUTES` — スタックジョブとみなす経過時間（既定 5、**> 0 必須**）
+
+> 数値項目の **「> 0 必須」** は `internal/config/config.go` の `validateRanges` が SSoT。違反時は `ErrInvalidRange` を wrap して `Load()` が起動を fail-fast させる（後段の goroutine spawn 0 個 / context.WithTimeout(0) で undefined behavior になるのを防ぐ）。
 - `LLM_CONFIG_PATH` — LLM プロバイダ・モデル割り当て YAML のパス（既定 `llm.yaml`、apps/workers/grading/llm.yaml が SSoT。Worker 再ビルド不要で切替可能、→ [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md) / [ADR 0049](../../docs/adr/0049-initial-llm-model-selection.md)）
 - `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` — provider 別 API キー（YAML に書かず環境変数経由で渡す。Worker は使う provider 分だけ設定すれば足りる）
