@@ -29,6 +29,13 @@ var (
 	// ErrCostExceeded: ジョブ累積コストが業務上の上限 (USD 0.20 等、
 	// problem-generation.md「ビジネスルール」) を超えた。
 	// 呼び出し側で再生成を打ち切り failed 扱いにする。
+	//
+	// 責務境界 (二重カウント / カウント漏れ防止):
+	//   - Provider 実装: 単発呼び出しのコストを Response.Usage.CostUSD に
+	//     詰めて返す。累積コストは持たない。
+	//   - 呼び出し側 (orchestrator / judge): ジョブ単位で CostUSD を
+	//     合算し、業務上限と比較する。超過時にこの ErrCostExceeded を
+	//     呼び出し元へ返す (Provider 自身がこのエラーを返すことはない)。
 	ErrCostExceeded = errors.New("llm: per-job cost cap exceeded")
 
 	// ErrNotImplemented: R1-2 skeleton 段階で各プロバイダ実装が
