@@ -58,8 +58,8 @@ providers:
    - ✅ JSON mode 強制（`ResponseMIMEType=application/json`）
    - ✅ cost 計算（[pricing.go](../../apps/workers/grading/internal/llm/google/pricing.go)、本 ADR の価格表が SSoT）
    - ✅ registration pattern + `llm.yaml` + `internal/config/` + `cmd/grading/main.go` 結線
-   - ⏳ OTel span 統合（`internal/observability/` の本実装着手と同時に追加、別 PR）
-   - ⏳ 指数バックオフリトライ（HTTP 429 / `llm.ErrRateLimit` 時、別 PR）
+   - ⏳ OTel span 統合 → **R4「観測性」** で追加（OpenTelemetry SDK 組み込みと Grafana / Tempo 等の収集基盤が R4 で揃うため、LLM スパンだけ先行で出しても可視化先がない。[01-roadmap.md L113](../requirements/5-roadmap/01-roadmap.md) の R4 項目を参照）
+   - ⏳ 指数バックオフリトライ → **R1-3「問題生成リクエスト」** で追加（orchestrator (`internal/grading/`) が provider を呼び始めるタイミングと同時に 429 リトライを `google/provider.go` の `Generate` 内ループとして入れるのが自然。なお **ジョブレベル**のリトライ・DLQ・スタックジョブ回収は別概念で R2「非同期ジョブ化の完全実装」に属する）
 2. R2：ベンチマーク基盤を作って Anthropic / OpenAI / OpenRouter の sub-package を追加。`judge` ロールを別ベンダーに切替
 
 ## Why（採用理由）
