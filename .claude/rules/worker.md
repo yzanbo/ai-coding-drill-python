@@ -123,6 +123,9 @@ func main() {
     // LLM プロバイダ抽象化レイヤは registration pattern で循環インポートを回避する
     // (database/sql / image/png と同じ方式)。詳細は internal/llm/new.go。
     llm.Register(google.Name, google.New)
+    // buildLLMConfig: cmd 層ローカルの helper (main.go に定義)。
+    // config.Config (中立 struct) を llm.Config に詰め直す。
+    // internal/config が llm を import 不可な Layer 0 制約のため cmd 層で変換する。
     llmProvider, _ := llm.New(buildLLMConfig(cfg))
     grading.Run(ctx, grading.Deps{Pool: pool, Sandbox: sandbox.New(...), Judge: judge.New(llmProvider, ...)})
 }

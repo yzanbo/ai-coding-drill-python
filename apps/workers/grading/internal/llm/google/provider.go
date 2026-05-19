@@ -241,6 +241,10 @@ func extractFinishReason(resp *genai.GenerateContentResponse) string {
 // context.DeadlineExceeded の判定は err 本体 (errors.Is) と callCtx の状態の
 // 両方を見る: SDK が err を返した時点で callCtx が deadline 超過していれば
 // 原因は timeout と判断する。
+//
+// HTTP Code が立っていれば優先し、Code が 0 で Status のみ立っているケース
+// (SDK 内部実装変更や gRPC ライク応答) でも RESOURCE_EXHAUSTED 等から
+// 同じ sentinel へ正規化する。
 func mapError(err error, callCtx context.Context) error {
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(callCtx.Err(), context.DeadlineExceeded) {
 		return fmt.Errorf("google: %w: %v", llm.ErrTimeout, err)
@@ -251,6 +255,14 @@ func mapError(err error, callCtx context.Context) error {
 			return fmt.Errorf("google: %w (http=%d): %v", llm.ErrRateLimit, code, err)
 		case 401, 403:
 			return fmt.Errorf("google: %w (http=%d): %v", llm.ErrUnauthorized, code, err)
+		}
+	}
+	if status, ok := apiErrorStatus(err); ok {
+		switch status {
+		case "RESOURCE_EXHAUSTED":
+			return fmt.Errorf("google: %w (status=%s): %v", llm.ErrRateLimit, status, err)
+		case "UNAUTHENTICATED", "PERMISSION_DENIED":
+			return fmt.Errorf("google: %w (status=%s): %v", llm.ErrUnauthorized, status, err)
 		}
 	}
 	return fmt.Errorf("google: GenerateContent failed: %w", err)
@@ -268,4 +280,19 @@ func httpStatusCode(err error) (int, bool) {
 		return apiErrVal.Code, true
 	}
 	return 0, false
+}
+
+// apiErrorStatus: err の chain から genai.APIError を取り出し Status 文字列を返す。
+// HTTP Code が 0 のまま Status のみセットされるケース (SDK 内部実装変更 /
+// gRPC ライク応答) に備えて httpStatusCode と独立した fallback として使う。
+func apiErrorStatus(err error) (string, bool) {
+	var apiErrPtr *genai.APIError
+	if errors.As(err, &apiErrPtr) && apiErrPtr != nil && apiErrPtr.Status != "" {
+		return apiErrPtr.Status, true
+	}
+	var apiErrVal genai.APIError
+	if errors.As(err, &apiErrVal) && apiErrVal.Status != "" {
+		return apiErrVal.Status, true
+	}
+	return "", false
 }

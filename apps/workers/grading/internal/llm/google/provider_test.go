@@ -153,6 +153,26 @@ func TestMapError_APIError429(t *testing.T) {
 		"HTTP 429 は ErrRateLimit に正規化されるべき: got %v", mapped)
 }
 
+func TestMapError_StatusResourceExhaustedWithoutCode(t *testing.T) {
+	t.Parallel()
+
+	// HTTP Code が 0 のまま Status のみ立っているケース (SDK 内部実装変更や
+	// gRPC ライク応答想定) でも RESOURCE_EXHAUSTED は ErrRateLimit に正規化されるべき。
+	apiErr := genai.APIError{Code: 0, Status: "RESOURCE_EXHAUSTED", Message: "quota exceeded"}
+	mapped := mapError(apiErr, context.Background())
+	assert.True(t, errors.Is(mapped, llm.ErrRateLimit),
+		"Code=0 + Status=RESOURCE_EXHAUSTED は ErrRateLimit に正規化されるべき: got %v", mapped)
+}
+
+func TestMapError_StatusUnauthenticatedWithoutCode(t *testing.T) {
+	t.Parallel()
+
+	apiErr := genai.APIError{Code: 0, Status: "UNAUTHENTICATED", Message: "invalid api key"}
+	mapped := mapError(apiErr, context.Background())
+	assert.True(t, errors.Is(mapped, llm.ErrUnauthorized),
+		"Code=0 + Status=UNAUTHENTICATED は ErrUnauthorized に正規化されるべき: got %v", mapped)
+}
+
 func TestMapError_APIError401Unauthorized(t *testing.T) {
 	t.Parallel()
 

@@ -40,10 +40,12 @@ genai SDK が返すエラーは `Generate` 内で [llm の sentinel](../errors.g
 
 | 元エラー | 正規化先 |
 |---|---|
-| HTTP 429 / `RESOURCE_EXHAUSTED` | `llm.ErrRateLimit` |
-| HTTP 401 / 403 | `llm.ErrUnauthorized` |
+| HTTP 429 / `Status="RESOURCE_EXHAUSTED"` | `llm.ErrRateLimit` |
+| HTTP 401 / 403 / `Status="UNAUTHENTICATED"` / `Status="PERMISSION_DENIED"` | `llm.ErrUnauthorized` |
 | `context.DeadlineExceeded`（単発 30 秒 or ジョブ累積 180 秒） | `llm.ErrTimeout` |
 | 応答 text が空（JSONMode 強制下） | `llm.ErrInvalidSchema` |
+
+HTTP Code が 0 のまま Status のみセットされる SDK 内部実装変更にも耐性を持たせるため、`mapError` は `APIError.Code` と `APIError.Status` の両方を見る（[provider.go](./provider.go) の `httpStatusCode` / `apiErrorStatus` 参照）。
 
 `ErrCostExceeded` は **呼び出し側**（orchestrator / judge）がジョブ単位の累積コストで判定し返す（[llm/errors.go](../errors.go) §責務境界）。Provider 自身はこのエラーを返さない。
 
@@ -52,7 +54,7 @@ genai SDK が返すエラーは `Generate` 内で [llm の sentinel](../errors.g
 [problem-generation.md「観測ログ DoD」](../../../../../docs/requirements/4-features/problem-generation.md#ビジネスルール) で必須となる以下を `Response` 構造体に詰めて返す：
 
 - `provider` / `model`：それぞれ `"google"` / `cfg.Generation.Model` 等
-- `input_tokens` / `output_tokens`：`UsageMetadata.PromptTokenCount` / `ResponseTokenCount`
+- `input_tokens` / `output_tokens`：`UsageMetadata.PromptTokenCount` / `CandidatesTokenCount`（genai v1.57.0 では output 側は `CandidatesTokenCount` で公開される、全 candidate 合計）
 - `cost_usd`：`pricing.go` の単価表で計算
 - `cache_hit`：`UsageMetadata.CachedContentTokenCount > 0`
 - `finish_reason`：先頭 candidate の FinishReason
