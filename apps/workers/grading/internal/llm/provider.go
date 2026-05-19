@@ -60,6 +60,14 @@ type Message struct {
 // 既定値は DefaultOptions(Role) で生成され、YAML や呼び出し側で必要な
 // フィールドだけ上書きする想定。
 type Options struct {
+	// Role: この呼び出しのロール (generation / regeneration / judge)。
+	// DefaultOptions(role) が必ずセットする。Provider 実装はこの値を
+	// 観測ログ (OTel span 属性 / 構造化ログ) に乗せ、Config.RoleConfigFor
+	// で (provider, model) を引く際の鍵にもする。
+	// DefaultOptions 適用後に値を書き換えるのは禁止 (temperature 等の
+	// 役割別既定値との整合性が崩れるため)。
+	Role Role
+
 	// Temperature: サンプリング温度。nil の場合は role 既定を採用。
 	// 役割別既定: generation/regeneration=0.7, judge=0.0。
 	Temperature *float64
@@ -139,18 +147,21 @@ func DefaultOptions(role Role) Options {
 	switch role {
 	case RoleJudge:
 		return Options{
+			Role:        role,
 			Temperature: floatPtr(0.0),
 			JSONMode:    true,
 			Timeout:     SingleCallTimeoutDefault,
 		}
 	case RoleGeneration, RoleRegeneration:
 		return Options{
+			Role:        role,
 			Temperature: floatPtr(0.7),
 			JSONMode:    true,
 			Timeout:     SingleCallTimeoutDefault,
 		}
 	default:
 		return Options{
+			Role:    role,
 			Timeout: SingleCallTimeoutDefault,
 		}
 	}

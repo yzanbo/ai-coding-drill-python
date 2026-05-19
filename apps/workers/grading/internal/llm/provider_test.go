@@ -22,6 +22,7 @@ func TestDefaultOptions_JudgeIsDeterministic(t *testing.T) {
 	t.Parallel()
 
 	opts := DefaultOptions(RoleJudge)
+	assert.Equal(t, RoleJudge, opts.Role, "Options.Role に呼び出しロールが乗るべき (観測ログ用)")
 	require.NotNil(t, opts.Temperature, "judge の temperature は明示既定値を返すべき")
 	assert.InDelta(t, 0.0, *opts.Temperature, 1e-9, "judge は temperature=0.0 (03-llm-pipeline.md)")
 	assert.True(t, opts.JSONMode, "judge は JSON mode 強制")
@@ -33,6 +34,7 @@ func TestDefaultOptions_GenerationIsDiverse(t *testing.T) {
 
 	for _, role := range []Role{RoleGeneration, RoleRegeneration} {
 		opts := DefaultOptions(role)
+		assert.Equal(t, role, opts.Role, "Options.Role に呼び出しロールが乗るべき (観測ログ用)")
 		require.NotNil(t, opts.Temperature, "%s の temperature は既定値を返すべき", role)
 		assert.InDelta(t, 0.7, *opts.Temperature, 1e-9, "%s は多様性確保のため temperature=0.7", role)
 		assert.True(t, opts.JSONMode, "%s は JSON mode 強制", role)
