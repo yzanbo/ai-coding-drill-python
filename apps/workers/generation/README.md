@@ -54,7 +54,7 @@
 
 **読み方**：
 
-- `cmd/generation` が起動 → `internal/generation` が `job.Claim` でジョブ取得 → `llm`（生成 LLM）で問題作成 → `sandbox`（模範解答実行で検証）→ `judge`（問題品質評価、別 provider 推奨）→ `problems` テーブルに INSERT
+- `cmd/generation` が起動 → `internal/generation` が `job.Claim` でジョブ取得 → `llm`（生成 LLM）で問題作成 → `sandbox`（模範解答実行で検証）→ `judge`（問題品質評価、別 provider 推奨。**MVP は Gemini 単独で例外保留**、R2 で切替、→ [ADR 0049](../../../docs/adr/0049-initial-llm-model-selection.md)）→ `problems` テーブルに INSERT
 - `jobtypes/` は **生成物のため終端**（手書きしない、終端を壊さない）
 - `observability/` + `config/` は起動時 1 回だけ初期化
 - 矢印の向きは [.claude/rules/worker.md](../../../.claude/rules/worker.md) の import 方向表と一致
@@ -68,7 +68,7 @@
   ├─ [generation.invoke]        生成 LLM 呼び出し（ADR 0040）
   ├─ [schema.validate]          JSON Schema → quicktype 生成 Go struct でバリデーション
   ├─ [sandbox.run]              模範解答を sandbox で実行して動作確認
-  ├─ [judge.invoke]             別プロバイダ judge で問題品質を評価
+  ├─ [judge.invoke]             別プロバイダ judge で問題品質を評価（MVP は Gemini 単独で例外保留、R2 で切替 / ADR 0049）
   └─ [job.complete]             problems INSERT + state='done'
 ```
 

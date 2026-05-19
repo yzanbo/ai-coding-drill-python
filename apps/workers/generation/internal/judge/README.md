@@ -9,7 +9,7 @@
 - grading worker：受験者の**解答**を評価
 - generation worker：LLM が生成した**問題**を評価
 - 評価軸（rubric）が違うため prompts も別物：[prompts/judge/](../../prompts/judge/) を generation 専用に整備（[ADR 0040](../../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)、両 Worker でプロンプトは同居しない）
-- 評価の信頼性を上げるため、**generation で使う judge は問題生成と別の provider** で動かす戦略がある（[03-llm-pipeline.md](../../../../docs/requirements/2-foundation/03-llm-pipeline.md)）
+- 評価の信頼性を上げるため、**generation で使う judge は問題生成と別の provider** で動かす戦略がある（[03-llm-pipeline.md](../../../../docs/requirements/2-foundation/03-llm-pipeline.md)）。**MVP は Gemini 単独で例外保留**、R2 ベンチマーク開始時に切替（→ [ADR 0049](../../../../docs/adr/0049-initial-llm-model-selection.md)）
 
 ## 役割
 
