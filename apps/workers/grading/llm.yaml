@@ -1,0 +1,22 @@
+# LLM プロバイダ・モデルの役割別割り当て (MVP)。
+#
+# SSoT: ADR 0049 (../../docs/adr/0049-initial-llm-model-selection.md)。
+# 役割別パラメータ (temperature / json mode) は internal/llm/provider.go の
+# DefaultOptions(Role) が SSoT。
+#
+# 切替方法: provider / model の値を変えるだけで Worker 再ビルド不要。
+# 認証情報 (API キー) はここに書かず、環境変数 GOOGLE_API_KEY 等で渡す
+# (internal/config/ が読み込む)。
+#
+# R2 ベンチマーク開始時に judge を別ベンダー (Anthropic Haiku 4.5 等) へ切替予定。
+
+providers:
+  generation:
+    provider: google
+    model: gemini-3-flash
+  regeneration:
+    provider: google
+    model: gemini-3-flash
+  judge:
+    provider: google
+    model: gemini-3-flash
