@@ -43,7 +43,7 @@ internal/llm/
 - grading: `judge/` 経由で「解答評価」用に使う
 - generation: 主に「問題生成」用に使う + `judge/` 経由で「問題評価」にも使う
 - **同名 package を両 Worker に置く**：Go の `internal/` 規約と独立 module（[ADR 0040](../../../../docs/adr/0040-worker-grouping-and-llm-in-worker.md)）のため、当面コード重複を許容する（将来共通 module 切り出しを検討）
-- generation での judge 評価は grading で使うのと**別 provider**で動かしてバイアスを下げる戦略がある（[03-llm-pipeline.md](../../../../docs/requirements/2-foundation/03-llm-pipeline.md)）
+- generation での judge 評価は grading で使うのと**別 provider**で動かしてバイアスを下げる戦略がある（[03-llm-pipeline.md](../../../../docs/requirements/2-foundation/03-llm-pipeline.md)）。**MVP は Gemini 単独で例外保留**、R2 ベンチマーク開始時に切替（→ [ADR 0049](../../../../docs/adr/0049-initial-llm-model-selection.md)）
 
 ## やってはいけないこと
 

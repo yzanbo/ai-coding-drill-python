@@ -22,7 +22,8 @@ type RoleConfig struct {
 // Config: LLM 抽象化レイヤ全体の設定。
 // 役割ごとに別 provider/model を持てる構造になっており、生成と Judge を
 // 別ベンダーで動かす運用 (ADR 0008「自己評価バイアス回避」) を要件として
-// 表現する。
+// 表現する。MVP は Gemini 単独運用で ADR 0008 を例外保留し、R2 ベンチマーク
+// 開始時に別ベンダー Judge へ切替える (ADR 0049)。
 type Config struct {
 	Generation   RoleConfig
 	Regeneration RoleConfig

@@ -88,7 +88,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 | **`ruff check` / `ruff format`** | Python（Backend） | pre-commit（着手時に組込） | `*.py` | `ruff` | format は自動修正、lint は検証のみ。設定 SSoT は `pyproject.toml` の `[tool.ruff]` |
 | **`pyright`**（型チェック） | Python（Backend） | pre-commit（着手時に組込） | `*.py` | `pyright` | `typeCheckingMode = "basic"` 開始、設定 SSoT は `pyproject.toml` の `[tool.pyright]` |
 | **`gofmt` / `golangci-lint`** | Go（Worker） | pre-commit（実装時に組込） | `*.go` | `golangci-lint` | `go build` 内蔵の型チェックで型ゲートも兼ねる |
-| **`pip-audit`**（脆弱性スキャン） | Python（Backend） | （pre-commit には組込まない、CI のみ） | `uv.lock` 変更時 | `pip-audit` | `uv.lock` を入力源、PyPI Advisory + OSV.dev を照会。Dependabot との二重ゲート（→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)） |
+| **`pip-audit`**（脆弱性スキャン） | Python（Backend） | pre-push + CI | `apps/api/{uv.lock,pyproject.toml}` 変更時 | `pip-audit` | `uv.lock` を入力源、PyPI Advisory + OSV.dev を照会。pre-commit には置かない（ネットワーク I/O のため）。新規 CVE は Dependabot で別途追従（多重ゲート、→ [ADR 0035](../../adr/0035-uv-for-python-package-management.md)） |
 | **commitlint** | 言語横断 | commit-msg | （glob なし、毎回） | `commitlint`（PR は base..head、push は before..after） | 過去履歴は遡及修正不可のため hook と CI の両方で常時起動 |
 | **syncpack** | TS（Frontend 限定） | pre-commit | `package.json` | `syncpack` | pre-commit は `lint` のみ。自動修正は `mise run web:syncpack` を手動実行（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)） |
 | **Knip** | TS（Frontend 限定） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json}` | `knip` | ファイル単位起動できないため glob トリガー時に全プロジェクト解析。自動修正は `mise run web:knip-fix` を手動実行 |
@@ -227,7 +227,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 
 - 言語：日本語で記載（subject は英語でも可、一貫していれば良い）
 - ヘッダー全体：100 文字以内
-- 本文：**1 行の長さ制限なし**（commitlint の `body-max-line-length` は無効化済み）。複数行で WHAT / WHY / HOW / 影響範囲 / 関連リンクを構造化して書く。改行は意味的な区切り（段落・項目）で入れる
+- 本文・footer：**1 行の長さ制限なし**（commitlint の `body-max-line-length` / `footer-max-line-length` ともに無効化済み）。複数行で WHAT / WHY / HOW / 影響範囲 / 関連リンクを構造化して書く。改行は意味的な区切り（段落・項目）で入れる
 - 複数領域に跨る変更：scope をカンマ区切り（例：`feat(api,worker): ...`）。ブランチ名には詰めず commit 側で表現する
 
 ### 本文（body）は必須・詳細記述する

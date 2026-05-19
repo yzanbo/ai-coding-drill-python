@@ -339,7 +339,7 @@ slog.InfoContext(ctx, "job claimed",
   ├─ [generation.invoke]        # 生成 LLM 呼び出し（ADR 0040）
   ├─ [schema.validate]          # JSON Schema → quicktype 生成 Go struct でバリデーション
   ├─ [sandbox.run]              # 模範解答をサンドボックス検証
-  ├─ [judge.invoke]             # 別プロバイダ Judge 評価
+  ├─ [judge.invoke]             # 別プロバイダ Judge 評価（MVP は Gemini 単独で例外保留、R2 で切替 / ADR 0049）
   └─ [job.complete]             # problems INSERT + state='done'
 ```
 

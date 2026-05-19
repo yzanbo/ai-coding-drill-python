@@ -159,6 +159,37 @@ pre-push:
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    # 脆弱性スキャン（pip-audit）
+    # 依存パッケージの既知 CVE を PyPI Advisory DB / OSV と突き合わせて検出する。
+    # pre-commit ではなく pre-push に置く理由：pip-audit はネットワーク I/O を伴い
+    # （DB 取得）pre-commit ではコスト過大、かつ脆弱性検知は commit 単位より push 単位で
+    # 確認すれば CI 失敗を十分先回りできるため。
+    # glob を uv.lock / pyproject.toml に限定する理由：脆弱性は「コード変更」ではなく
+    # 「依存バージョン」で決まるため、.py を 1 行直しただけの push で audit を走らせるのは
+    # 無駄。依存追加・更新時のみ発火させ、開発者の手を止めるタイミングを最小化する。
+    # 新規 CVE 発見の自動追従は Dependabot（GitHub） + 週次 CI で別途担保する。
+    api-audit:
+      glob: "apps/api/{uv.lock,pyproject.toml}"
+      root: apps/api
+      run: mise exec -- uv run pip-audit
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  pip-audit が依存パッケージの脆弱性を検出しました（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        上の pip-audit ログから Name / ID / Fix Versions を確認し、以下で bump:
+          cd apps/api
+          uv lock --upgrade-package <package-name>
+          git add uv.lock
+          git commit -m "chore(deps): <package> を <old> から <new> へ bump (<CVE>)"
+
+        【ネットワーク疎通エラーの場合】
+          OSV / PyPI Advisory DB への接続に失敗している可能性。プロキシ環境では
+          オフライン bump 後に CI でゲートする運用に切り替える。
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     # 依存衛生（deptry）
     # pyproject.toml の dependencies と実コードの import を突き合わせ、
     # 「宣言したのに未使用」「import してるのに未宣言」「transitive 依存への参照」を検出する。
