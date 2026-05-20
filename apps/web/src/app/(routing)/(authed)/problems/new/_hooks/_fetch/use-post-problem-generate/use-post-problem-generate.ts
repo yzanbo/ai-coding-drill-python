@@ -13,7 +13,7 @@ import type {
   ProblemGenerateAcceptedResponse,
   ProblemGenerateRequest,
 } from "@/__generated__/api/types.gen";
-import { throwIfError } from "@/lib/api/api-error";
+import { type ApiError, throwIfError } from "@/lib/api/api-error";
 
 type UsePostProblemGenerateOptions = {
   // onSuccess: 受付完了で requestId が確定した時に呼ばれる（ページ側でリダイレクトする想定）。
@@ -24,15 +24,15 @@ type UsePostProblemGenerateReturn = {
   requestGenerate: (body: ProblemGenerateRequest) => void;
   // isPending: 送信中フラグ（mutation 用。useGet* の isLoading とは別物）。
   isPending: boolean;
-  error: unknown;
+  // error: throwIfError が ApiError しか投げないので、型を明示して呼び出し側の narrowing コストを減らす。
+  error: ApiError | null;
 };
 
 export const usePostProblemGenerate = (
   options: UsePostProblemGenerateOptions = {},
 ): UsePostProblemGenerateReturn => {
-  const mutation = useMutation({
-    mutationFn: (body: ProblemGenerateRequest) =>
-      throwIfError(requestProblemGenerationProblemsGeneratePost({ body })),
+  const mutation = useMutation<ProblemGenerateAcceptedResponse, ApiError, ProblemGenerateRequest>({
+    mutationFn: (body) => throwIfError(requestProblemGenerationProblemsGeneratePost({ body })),
     onSuccess: (data) => {
       options.onSuccess?.(data);
     },

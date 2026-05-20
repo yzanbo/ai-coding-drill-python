@@ -23,7 +23,13 @@ type UseGetProblemGenerationStatusReturn = {
   status: ProblemGenerateStatusResponse | undefined;
   // isLoading: 初回フェッチ中。fetch 条件（requestId 確定）を満たすので初期値は true（frontend.md ルール）。
   isLoading: boolean;
-  error: unknown;
+  // error: useQuery が ApiError 限定で型付けされているためそのまま伝播する。
+  //   呼び出し側で status 等を見て分岐できるよう unknown でなく明示型を返す。
+  error: ApiError | null;
+  // refetch: 失敗後にユーザー操作で再取得を起動するための明示 API。
+  //   ポーリングが停止した状態でも、これを呼ぶと query が再走し成功すれば
+  //   refetchInterval が再開する。
+  refetch: () => void;
 };
 
 export const useGetProblemGenerationStatus = (
@@ -35,11 +41,15 @@ export const useGetProblemGenerationStatus = (
       throwIfError(
         getProblemGenerationStatusProblemsGenerateRequestIdGet({ path: { request_id: requestId } }),
       ),
-    // refetchInterval: 終端状態（completed / failed）に達したら false を返してポーリング停止。
-    //   query.state.data から最新ステータスを参照する（クロージャに残った古い値で判断しない）。
+    // refetchInterval: 以下のいずれかでポーリングを停止する。
+    //   - データが終端状態（completed / failed）に達した
+    //   - エラーが確定（retry 上限到達）：裏で 1.5s ごとに 5xx を叩き続けて
+    //     負荷とログを汚さないように止める。再開はユーザー操作（refetch）で行う。
+    //   query.state から最新値を参照する（クロージャに残った古い値で判断しない）。
     refetchInterval: (q) => {
       const current = q.state.data?.status;
       if (current === "completed" || current === "failed") return false;
+      if (q.state.error) return false;
       return POLLING_INTERVAL_MS;
     },
     // refetchOnWindowFocus: ポーリング中はタブ戻り時の余分なフェッチを抑止（POLLING_INTERVAL_MS で十分）。
@@ -50,5 +60,9 @@ export const useGetProblemGenerationStatus = (
     status: query.data,
     isLoading: query.isLoading,
     error: query.error,
+    refetch: () => {
+      // void で握り潰す（戻り値の Promise は呼び出し側で必要ないため）。
+      void query.refetch();
+    },
   };
 };

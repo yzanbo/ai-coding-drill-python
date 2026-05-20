@@ -22,16 +22,19 @@ type GenerationStatusViewProps = {
 
 export const GenerationStatusView = ({ requestId }: GenerationStatusViewProps) => {
   const router = useRouter();
-  const { status, isLoading, error } = useGetProblemGenerationStatus(requestId);
+  const { status, isLoading, error, refetch } = useGetProblemGenerationStatus(requestId);
 
   // 完了したら問題詳細画面に自動遷移。
   //   useEffect で実行することで、レンダリング中の navigate を避ける（Next.js が警告を出すため）。
   //   replace を使うのは生成ステータス画面に戻れないようにするため（「戻る」で再ポーリングしても意味がない）。
+  //   依存は status?.status と status?.problemId に絞る：status オブジェクトは
+  //   ポーリングのたびに新しい reference になるので、オブジェクト自体を deps に
+  //   置くと完了後も replace が連発される。フィールド値だけ見れば値ベースで安定する。
   useEffect(() => {
     if (status?.status === "completed" && status.problemId) {
       router.replace(`/problems/${status.problemId}`);
     }
-  }, [status, router]);
+  }, [status?.status, status?.problemId, router]);
 
   if (isLoading) {
     return (
@@ -50,7 +53,7 @@ export const GenerationStatusView = ({ requestId }: GenerationStatusViewProps) =
       <div className="flex flex-col items-center gap-3 py-12 text-center">
         <p className="text-base font-semibold">生成状況を取得できませんでした</p>
         <p className="text-sm text-muted-foreground">時間を置いて再度お試しください。</p>
-        <Button variant="outline" size="sm" onClick={() => router.refresh()}>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
           再読み込み
         </Button>
       </div>
