@@ -45,7 +45,7 @@
 - パスワードリセット機能：OAuth のみのため不要
 - Google / Apple / Email-Password OAuth：拡張余地として設計上は残すが本機能の対象外
 - ユーザープロフィール編集（表示名変更等）：別機能として切り出す
-- アカウント削除（退会）：[01-non-functional.md](../2-foundation/01-non-functional.md) のハードデリート方針に従い、必要になったら別機能化
+- アカウント削除（退会）：[ADR 0048](../../adr/0048-soft-delete-for-user-facing-tables.md) で `users.deleted_at` 方式を採用（行は残しつつ PII を NULL クリア）。本機能の対象外、退会フロー UI は別機能として切り出す
 
 ## 機能一覧
 

@@ -41,6 +41,7 @@
 - **trace_id の連結**：API リクエスト → ジョブ → 採点 Worker（`apps/workers/grading`）処理 → 採点結果が単一トレースで追える（→ [ADR 0010](../../adr/0010-w3c-trace-context-in-job-payload.md)、[ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）
 - **解答送信は冪等的に蓄積**：同じ問題に何度送信しても submission が新しい行として作られる（履歴目的）
 - **採点結果の所有権チェック**：`submissions.user_id` と現在ユーザーが一致するもののみ閲覧可（実装制約）
+- **採点に LLM は使わない**：本ドメインの「採点」は**サンドボックス + テストケース判定のみ**で完結する（決定論的判定、再現性確保）。`apps/workers/grading/prompts/judge/` 配下に Judge プロンプトが置かれるが、これは同 Worker が R1〜R6 に問題生成を兼務する都合の便宜的配置で、**責務は問題生成側**にある（→ [problem-generation.md: ビジネスルール](./problem-generation.md#ビジネスルール)）。LLM ヒント機能は R6 で別途実装（→ スコープ外）
 
 ## スコープ外（このスプリントでは扱わない）
 
