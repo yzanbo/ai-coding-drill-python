@@ -213,9 +213,12 @@ def _build_app() -> FastAPI:
             # / problems の FK を辿る)。将来 submissions 等が users FK を持った時に
             # 意図しない巻き込みを防ぐため、reset 対象を増やす時はこの行を編集する強制力を持たせる。
             # problems は user_id を持たないが、E2E で問題行が累積しないよう同時に消す。
+            # submissions は users / problems に FK + ON DELETE CASCADE なので
+            # 上記 TRUNCATE で消えるが、明示列挙して reset 対象を読みやすくする
+            # （CASCADE の暗黙挙動に頼ると将来 FK 制約が変わった時に気付けない）。
             await conn.execute(
                 "TRUNCATE TABLE users, auth_providers, "
-                "generation_requests, problems, jobs "
+                "generation_requests, problems, submissions, jobs "
                 "RESTART IDENTITY CASCADE"
             )
         finally:
@@ -333,6 +336,58 @@ def _build_app() -> FastAPI:
             )
 
         return {"status": "failed"}
+
+    @app.post("/_test/seed-problem")
+    async def seed_problem(
+        title: str = Query("E2E 配列の合計", description="seed する問題のタイトル"),
+        category: str = Query("array", description="カテゴリ（problems.category 列に入れる文字列）"),
+        difficulty: str = Query(
+            "easy", description="難易度（problems.difficulty 列に入れる文字列）"
+        ),
+    ) -> dict[str, str]:
+        """problems に 1 行 INSERT して problem_id を返す E2E 専用エンドポイント。
+
+        R1-4 の /problems 一覧 / 詳細 / 解答送信フローを E2E で叩くために、
+        Worker 未実装期間でも問題行を即座に用意できるショートカット。
+        generation_requests / jobs は介在させない（最短ルートで problems を生やすだけ）。
+
+        SSoT は apps/api/app/models/problems.py。NOT NULL 列が増えたら本関数も更新する。
+        """
+        _ensure_test_reset_enabled()
+
+        conn = await _connect_local_db()
+        try:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO problems
+                  (title, description, category, difficulty, language,
+                   examples, test_cases, reference_solution, judge_scores)
+                VALUES
+                  ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9::jsonb)
+                RETURNING id
+                """,
+                title,
+                "E2E 用ダミー：数値配列の合計を返す関数 solve を実装してください。",
+                category,
+                difficulty,
+                "typescript",
+                json.dumps([{"input": "[1,2,3]", "output": "6"}]),
+                json.dumps(
+                    [
+                        {"input": "[1,2,3]", "expected": "6"},
+                        {"input": "[]", "expected": "0"},
+                    ]
+                ),
+                "export const solve = (a: number[]) => a.reduce((s, n) => s + n, 0);",
+                json.dumps({}),
+            )
+            if row is None:
+                raise HTTPException(status_code=500, detail="problems INSERT failed")
+            problem_id = row["id"]
+        finally:
+            await conn.close()
+
+        return {"problem_id": str(problem_id)}
 
     return app
 
