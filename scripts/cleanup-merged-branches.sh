@@ -13,8 +13,11 @@
 #   1. ステージ（index）+ 作業ツリー + untracked を **すべて** auto-stash
 #   2. main へ切替 → `git pull --ff-only` で最新化
 #   3. `git fetch --prune` でリモート追跡参照を整理
-#   4. `[gone]` 状態のローカルブランチを列挙し、PROTECTED_BRANCHES と
-#      他 worktree チェックアウト中のものを除外してから順次削除
+#   4a. `.claude/worktrees/` 配下の **マージ済 + クリーン + 非 locked** な worktree を
+#       `git worktree remove` で片付け（Claude Code Agent ツール由来の一過性 worktree
+#       の自動回収。ブランチ本体は 4b で削除）
+#   4b. `[gone]` 状態のローカルブランチを列挙し、PROTECTED_BRANCHES と
+#       他 worktree チェックアウト中（4a で片付けられなかったもの）を除外してから順次削除
 #   5. 元ブランチが残っていれば戻る（main / detached HEAD / 削除済みの場合は main に残る）
 #   6. 退避した stash を **戻った先のブランチ上で pop**（trap で終了時に必ず実行）
 #   7. 削除に失敗したブランチがあれば非ゼロで終了
@@ -29,6 +32,9 @@
 #   - 他の git worktree でチェックアウト中のブランチは自動でスキップ（branch -D 失敗を回避）
 #   - rebase / merge / cherry-pick / revert / bisect の途中なら stash 前にエラー終了
 #     （これらの最中に stash / switch すると状態が壊れるため事前ガード）
+#   - `.claude/worktrees/` 配下の worktree 自動回収は **未コミット変更なし** + **非 locked**
+#     + **ブランチが [gone]** の 3 条件 AND を満たす場合のみ。未保存作業 / 明示ロック /
+#     未マージは触らない（`--force` は使わない）
 #
 # 設計判断：`git branch -D`（force-delete）を使う理由
 #   `-d`（safe-delete）はマージされていないブランチで失敗するが、本スクリプトは
@@ -168,6 +174,112 @@ is_protected() {
 
 all_gone=$(git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads \
   | awk '$2 == "[gone]" {print $1}')
+
+# ── ステップ 4a：.claude/worktrees/ 配下のマージ済 worktree を片付ける
+#    Claude Code の Agent ツール（isolation: "worktree"）は .claude/worktrees/ 配下に
+#    一過性 worktree を作る。ブランチがマージ + リモート削除済（=[gone]）の worktree は、
+#    Agent ジョブが終わっている前提で自動回収して問題ない。
+#    `git worktree remove` が成功すればブランチの「checked-out 状態」が外れて、
+#    後段の branch -D ループで自然に削除される。
+#
+#    削除条件（すべて AND を満たした worktree のみ remove）：
+#      1. パスが ${repo_root}/.claude/worktrees/ 配下
+#         （他の場所に作った worktree、たとえばユーザー個人用には触らない）
+#      2. ブランチが [gone]（マージ + リモート削除済み。未マージ作業を消さない）
+#      3. worktree 内に未コミット変更が無い（未保存の作業を勝手に捨てない）
+#      4. worktree が locked でない（locked は「消すな」の明示。守る）
+#    どれか 1 つでも欠ければ remove せずに skip 一覧へ振り分けて表示する。
+repo_root=$(git rev-parse --show-toplevel)
+worktrees_dir="${repo_root}/.claude/worktrees"
+
+# git worktree list --porcelain の各レコードを 1 行 TSV（path<TAB>branch<TAB>locked）に
+# 畳む。レコードは空行で区切られる。
+worktree_records=$(git worktree list --porcelain | awk '
+  function flush() {
+    if (path != "" && branch != "") {
+      print path "\t" branch "\t" locked
+    }
+    path=""; branch=""; locked=""
+  }
+  /^worktree / { flush(); path=$2 }
+  /^branch /   { sub(/^refs\/heads\//, "", $2); branch=$2 }
+  /^locked/    { locked="yes" }
+  /^$/         { flush() }
+  END          { flush() }
+')
+
+removed_worktrees=""
+wt_locked_skipped=""
+wt_dirty_skipped=""
+wt_not_gone_skipped=""
+
+while IFS=$'\t' read -r wt_path wt_branch wt_locked; do
+  [[ -z "${wt_path}" ]] && continue
+  # 条件 1: .claude/worktrees/ 配下のみ対象
+  case "${wt_path}" in
+    "${worktrees_dir}/"*) ;;
+    *) continue ;;
+  esac
+  # 条件 4: locked は守る
+  if [[ "${wt_locked}" == "yes" ]]; then
+    wt_locked_skipped+="${wt_path} (${wt_branch})"$'\n'
+    continue
+  fi
+  # 条件 2: ブランチが [gone] か
+  if ! grep -Fxq "${wt_branch}" <<<"${all_gone}"; then
+    wt_not_gone_skipped+="${wt_path} (${wt_branch})"$'\n'
+    continue
+  fi
+  # 条件 3: 未コミット変更が無いか（status --porcelain が空）
+  if [[ -n "$(git -C "${wt_path}" status --porcelain 2>/dev/null)" ]]; then
+    wt_dirty_skipped+="${wt_path} (${wt_branch})"$'\n'
+    continue
+  fi
+  # 4 条件すべて満たした → remove。失敗時は dirty 扱いに振り分けて先へ進む
+  if git worktree remove "${wt_path}"; then
+    removed_worktrees+="${wt_path} (${wt_branch})"$'\n'
+  else
+    wt_dirty_skipped+="${wt_path} (${wt_branch}) [remove failed]"$'\n'
+  fi
+done <<<"${worktree_records}"
+
+removed_worktrees="${removed_worktrees%$'\n'}"
+wt_locked_skipped="${wt_locked_skipped%$'\n'}"
+wt_dirty_skipped="${wt_dirty_skipped%$'\n'}"
+wt_not_gone_skipped="${wt_not_gone_skipped%$'\n'}"
+
+if [[ -n "${removed_worktrees}" ]]; then
+  echo
+  echo ".claude/worktrees/ 配下のマージ済 worktree を片付けました："
+  while IFS= read -r line; do
+    [[ -z "${line}" ]] && continue
+    echo "  - ${line}"
+  done <<<"${removed_worktrees}"
+fi
+if [[ -n "${wt_locked_skipped}" ]]; then
+  echo
+  echo "worktree がロック中のためスキップ（手動で git worktree unlock 後に再実行）："
+  while IFS= read -r line; do
+    [[ -z "${line}" ]] && continue
+    echo "  - ${line}"
+  done <<<"${wt_locked_skipped}"
+fi
+if [[ -n "${wt_dirty_skipped}" ]]; then
+  echo
+  echo "worktree 内に未コミット変更があるためスキップ："
+  while IFS= read -r line; do
+    [[ -z "${line}" ]] && continue
+    echo "  - ${line}"
+  done <<<"${wt_dirty_skipped}"
+fi
+if [[ -n "${wt_not_gone_skipped}" ]]; then
+  echo
+  echo "worktree のブランチが [gone] でないためスキップ："
+  while IFS= read -r line; do
+    [[ -z "${line}" ]] && continue
+    echo "  - ${line}"
+  done <<<"${wt_not_gone_skipped}"
+fi
 
 gone_branches=""
 skipped_branches=""
