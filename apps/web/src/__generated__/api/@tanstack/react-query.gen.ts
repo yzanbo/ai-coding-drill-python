@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createHealthCheckHealthPost, getMeAuthMeGet, getProblemDetailApiProblemsProblemIdGet, getProblemGenerationStatusApiProblemsGenerateRequestIdGet, githubCallbackAuthGithubCallbackGet, healthzHealthzGet, listHealthChecksHealthGet, listProblemsApiProblemsGet, logoutAuthLogoutPost, type Options, requestProblemGenerationApiProblemsGeneratePost, startGithubOauthAuthGithubGet } from '../sdk.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponse, GetMeAuthMeGetData, GetMeAuthMeGetResponse, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetError, GetProblemDetailApiProblemsProblemIdGetResponse, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetError, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetError, HealthzHealthzGetData, HealthzHealthzGetResponse, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponse, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponse, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostError, RequestProblemGenerationApiProblemsGeneratePostResponse, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetError } from '../types.gen';
+import { createHealthCheckHealthPost, getMeAuthMeGet, getProblemDetailApiProblemsProblemIdGet, getProblemGenerationStatusApiProblemsGenerateRequestIdGet, githubCallbackAuthGithubCallbackGet, healthzHealthzGet, listHealthChecksHealthGet, listProblemsApiProblemsGet, logoutAuthLogoutPost, type Options, requestProblemGenerationApiProblemsGeneratePost, startGithubOauthAuthGithubGet, submitAnswerApiSubmissionsPost } from '../sdk.gen';
+import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponse, GetMeAuthMeGetData, GetMeAuthMeGetResponse, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetError, GetProblemDetailApiProblemsProblemIdGetResponse, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetError, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetError, HealthzHealthzGetData, HealthzHealthzGetResponse, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponse, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponse, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostError, RequestProblemGenerationApiProblemsGeneratePostResponse, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetError, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostError, SubmitAnswerApiSubmissionsPostResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -198,6 +198,34 @@ export const getProblemDetailApiProblemsProblemIdGetOptions = (options: Options<
     },
     queryKey: getProblemDetailApiProblemsProblemIdGetQueryKey(options)
 });
+
+/**
+ * Submit Answer
+ *
+ * 解答コードを受け付けて submissions 行を作成し、202 で submissionId を返す。
+ *
+ * 挙動（R1-4）：
+ * - 対象問題の存在確認（存在しない / soft delete 済みは 404）
+ * - submissions に 1 行 INSERT（status='pending'）
+ * - レート制限: 1 ユーザー 1 分 / 20 回まで
+ *
+ * R1-5 で追加する挙動：
+ * - 同一トランザクション内で jobs に 1 行 INSERT + NOTIFY new_job
+ * - GET /api/submissions/:id でポーリング、status が graded / failed へ遷移
+ */
+export const submitAnswerApiSubmissionsPostMutation = (options?: Partial<Options<SubmitAnswerApiSubmissionsPostData>>): UseMutationOptions<SubmitAnswerApiSubmissionsPostResponse, SubmitAnswerApiSubmissionsPostError, Options<SubmitAnswerApiSubmissionsPostData>> => {
+    const mutationOptions: UseMutationOptions<SubmitAnswerApiSubmissionsPostResponse, SubmitAnswerApiSubmissionsPostError, Options<SubmitAnswerApiSubmissionsPostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await submitAnswerApiSubmissionsPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export const startGithubOauthAuthGithubGetQueryKey = (options?: Options<StartGithubOauthAuthGithubGetData>) => createQueryKey('startGithubOauthAuthGithubGet', options);
 

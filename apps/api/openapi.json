@@ -247,6 +247,49 @@
         "title": "ProblemSummaryResponse",
         "type": "object"
       },
+      "SubmissionAcceptedResponse": {
+        "description": "解答送信の受付完了。クライアントは submissionId を持って結果取得 API を叩く。",
+        "properties": {
+          "status": {
+            "const": "pending",
+            "default": "pending",
+            "title": "Status",
+            "type": "string"
+          },
+          "submissionId": {
+            "format": "uuid",
+            "title": "Submissionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "submissionId"
+        ],
+        "title": "SubmissionAcceptedResponse",
+        "type": "object"
+      },
+      "SubmissionCreateRequest": {
+        "description": "解答送信リクエスト。",
+        "properties": {
+          "code": {
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "problemId": {
+            "format": "uuid",
+            "title": "Problemid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "problemId",
+          "code"
+        ],
+        "title": "SubmissionCreateRequest",
+        "type": "object"
+      },
       "UserResponse": {
         "description": "現在ログイン中のユーザー情報。GET /auth/me が返す形。\n\nsnake_case のモデル属性を camelCase で JSON 出力するよう alias を効かせる\n（Frontend の Hey API 生成型もそのまま camelCase になる）。",
         "properties": {
@@ -540,6 +583,48 @@
         "summary": "Get Problem Detail",
         "tags": [
           "problems"
+        ]
+      }
+    },
+    "/api/submissions": {
+      "post": {
+        "description": "解答コードを受け付けて submissions 行を作成し、202 で submissionId を返す。\n\n挙動（R1-4）：\n  - 対象問題の存在確認（存在しない / soft delete 済みは 404）\n  - submissions に 1 行 INSERT（status='pending'）\n  - レート制限: 1 ユーザー 1 分 / 20 回まで\n\nR1-5 で追加する挙動：\n  - 同一トランザクション内で jobs に 1 行 INSERT + NOTIFY new_job\n  - GET /api/submissions/:id でポーリング、status が graded / failed へ遷移",
+        "operationId": "submit_answer_api_submissions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Answer",
+        "tags": [
+          "submissions"
         ]
       }
     },

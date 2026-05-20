@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetErrors, GetProblemDetailApiProblemsProblemIdGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetErrors, ListProblemsApiProblemsGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostErrors, RequestProblemGenerationApiProblemsGeneratePostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors } from './types.gen';
+import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetErrors, GetProblemDetailApiProblemsProblemIdGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetErrors, ListProblemsApiProblemsGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostErrors, RequestProblemGenerationApiProblemsGeneratePostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostErrors, SubmitAnswerApiSubmissionsPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -71,6 +71,29 @@ export const getProblemGenerationStatusApiProblemsGenerateRequestIdGet = <ThrowO
  * 落とすマスキングは ProblemDetailResponse のスキーマ定義で実施される
  */
 export const getProblemDetailApiProblemsProblemIdGet = <ThrowOnError extends boolean = false>(options: Options<GetProblemDetailApiProblemsProblemIdGetData, ThrowOnError>) => (options.client ?? client).get<GetProblemDetailApiProblemsProblemIdGetResponses, GetProblemDetailApiProblemsProblemIdGetErrors, ThrowOnError>({ url: '/api/problems/{problem_id}', ...options });
+
+/**
+ * Submit Answer
+ *
+ * 解答コードを受け付けて submissions 行を作成し、202 で submissionId を返す。
+ *
+ * 挙動（R1-4）：
+ * - 対象問題の存在確認（存在しない / soft delete 済みは 404）
+ * - submissions に 1 行 INSERT（status='pending'）
+ * - レート制限: 1 ユーザー 1 分 / 20 回まで
+ *
+ * R1-5 で追加する挙動：
+ * - 同一トランザクション内で jobs に 1 行 INSERT + NOTIFY new_job
+ * - GET /api/submissions/:id でポーリング、status が graded / failed へ遷移
+ */
+export const submitAnswerApiSubmissionsPost = <ThrowOnError extends boolean = false>(options: Options<SubmitAnswerApiSubmissionsPostData, ThrowOnError>) => (options.client ?? client).post<SubmitAnswerApiSubmissionsPostResponses, SubmitAnswerApiSubmissionsPostErrors, ThrowOnError>({
+    url: '/api/submissions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Start Github Oauth

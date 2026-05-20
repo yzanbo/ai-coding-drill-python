@@ -125,6 +125,26 @@ export const zProblemListResponse = z.object({
 });
 
 /**
+ * SubmissionAcceptedResponse
+ *
+ * 解答送信の受付完了。クライアントは submissionId を持って結果取得 API を叩く。
+ */
+export const zSubmissionAcceptedResponse = z.object({
+    status: z.literal('pending').optional().default('pending'),
+    submissionId: z.uuid()
+});
+
+/**
+ * SubmissionCreateRequest
+ *
+ * 解答送信リクエスト。
+ */
+export const zSubmissionCreateRequest = z.object({
+    code: z.string().min(1).max(100000),
+    problemId: z.uuid()
+});
+
+/**
  * UserResponse
  *
  * 現在ログイン中のユーザー情報。GET /auth/me が返す形。
@@ -191,6 +211,13 @@ export const zGetProblemDetailApiProblemsProblemIdGetPath = z.object({
  * Successful Response
  */
 export const zGetProblemDetailApiProblemsProblemIdGetResponse = zProblemDetailResponse;
+
+export const zSubmitAnswerApiSubmissionsPostBody = zSubmissionCreateRequest;
+
+/**
+ * Successful Response
+ */
+export const zSubmitAnswerApiSubmissionsPostResponse = zSubmissionAcceptedResponse;
 
 export const zStartGithubOauthAuthGithubGetQuery = z.object({
     next: z.string().nullish()

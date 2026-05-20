@@ -174,6 +174,38 @@ export type ProblemSummaryResponse = {
 };
 
 /**
+ * SubmissionAcceptedResponse
+ *
+ * 解答送信の受付完了。クライアントは submissionId を持って結果取得 API を叩く。
+ */
+export type SubmissionAcceptedResponse = {
+    /**
+     * Status
+     */
+    status?: 'pending';
+    /**
+     * Submissionid
+     */
+    submissionId: string;
+};
+
+/**
+ * SubmissionCreateRequest
+ *
+ * 解答送信リクエスト。
+ */
+export type SubmissionCreateRequest = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Problemid
+     */
+    problemId: string;
+};
+
+/**
  * UserResponse
  *
  * 現在ログイン中のユーザー情報。GET /auth/me が返す形。
@@ -356,6 +388,31 @@ export type GetProblemDetailApiProblemsProblemIdGetResponses = {
 };
 
 export type GetProblemDetailApiProblemsProblemIdGetResponse = GetProblemDetailApiProblemsProblemIdGetResponses[keyof GetProblemDetailApiProblemsProblemIdGetResponses];
+
+export type SubmitAnswerApiSubmissionsPostData = {
+    body: SubmissionCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/submissions';
+};
+
+export type SubmitAnswerApiSubmissionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SubmitAnswerApiSubmissionsPostError = SubmitAnswerApiSubmissionsPostErrors[keyof SubmitAnswerApiSubmissionsPostErrors];
+
+export type SubmitAnswerApiSubmissionsPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: SubmissionAcceptedResponse;
+};
+
+export type SubmitAnswerApiSubmissionsPostResponse = SubmitAnswerApiSubmissionsPostResponses[keyof SubmitAnswerApiSubmissionsPostResponses];
 
 export type StartGithubOauthAuthGithubGetData = {
     body?: never;

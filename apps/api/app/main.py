@@ -38,7 +38,7 @@ from app.core.redis import close_redis, open_redis
 # limiter: アプリ全体で 1 個の slowapi Limiter（中身は deps/rate_limit.py）。
 # rate_limit_exceeded_handler: 超過時に 429 JSON を返す関数。
 from app.deps.rate_limit import limiter, rate_limit_exceeded_handler
-from app.routers import auth, health, probes, problems
+from app.routers import auth, health, probes, problems, submissions
 
 
 # lifespan: FastAPI の起動 / 終了フックを 1 関数にまとめる関数。
@@ -100,3 +100,4 @@ app.include_router(probes.router)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(problems.router)
+app.include_router(submissions.router)
