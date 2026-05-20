@@ -115,3 +115,37 @@ describe("ProblemsListPage の page 範囲外リダイレクト", () => {
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 });
+
+describe("ProblemsListPage のヘッダー導線", () => {
+  it("ヘッダーに /problems/new への新規問題を生成リンクを描画する", async () => {
+    // 要件: problem-display-and-answer.md §受け入れ条件「一覧画面のヘッダー領域に
+    //   新規問題を生成ボタン」/ problem-generation.md §到達経路
+    mockListResponse = { items: [], total: 0, page: 1, totalPages: 0 };
+
+    const tree = await ProblemsListPage({
+      searchParams: Promise.resolve({}),
+    });
+
+    // JSX ツリーを再帰探索して href="/problems/new" を含む Link/anchor を探す。
+    //   Server Component なので Testing Library を介さず、戻り値の React ノードを
+    //   そのまま辿る形で確認する（既存テストの直接 await パターンを踏襲）。
+    const found = findHrefInTree(tree, "/problems/new");
+    expect(found).toBe(true);
+  });
+});
+
+// findHrefInTree: React node を再帰的に走査し、props.href === target を含むかを返す。
+//   Server Component の戻り値検証用の小道具。Link / a / Button asChild のいずれでも
+//   最終的に href prop で識別できれば足りる。
+function findHrefInTree(node: unknown, target: string): boolean {
+  if (node == null || typeof node !== "object") return false;
+  if (Array.isArray(node)) return node.some((n) => findHrefInTree(n, target));
+  const el = node as { props?: Record<string, unknown> };
+  if (el.props) {
+    if (el.props.href === target) return true;
+    if (el.props.children !== undefined && findHrefInTree(el.props.children, target)) {
+      return true;
+    }
+  }
+  return false;
+}
