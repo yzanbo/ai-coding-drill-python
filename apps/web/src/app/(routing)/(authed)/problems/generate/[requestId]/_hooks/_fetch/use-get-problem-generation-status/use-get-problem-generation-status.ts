@@ -14,7 +14,8 @@ import { type ApiError, throwIfError } from "@/lib/api/api-error";
 
 // POLLING_INTERVAL_MS: ポーリング間隔。生成は数秒〜数十秒のオーダーなので
 //   サーバ負荷と UX の体感反応速度のバランスで 1.5 秒に置く。
-const POLLING_INTERVAL_MS = 1500;
+//   テストでも同じ値を使うため export する（数値の二重管理回避）。
+export const POLLING_INTERVAL_MS = 1500;
 
 const problemGenerationStatusQueryKey = (requestId: string) =>
   ["problems", "generate", requestId] as const;
@@ -23,6 +24,9 @@ type UseGetProblemGenerationStatusReturn = {
   status: ProblemGenerateStatusResponse | undefined;
   // isLoading: 初回フェッチ中。fetch 条件（requestId 確定）を満たすので初期値は true（frontend.md ルール）。
   isLoading: boolean;
+  // isFetching: 再フェッチ中（refetch / ポーリング）を含む取得中フラグ。
+  //   「再読み込み」ボタン押下後の押下感維持に使う。
+  isFetching: boolean;
   // error: useQuery が ApiError 限定で型付けされているためそのまま伝播する。
   //   呼び出し側で status 等を見て分岐できるよう unknown でなく明示型を返す。
   error: ApiError | null;
@@ -41,9 +45,14 @@ export const useGetProblemGenerationStatus = (
       throwIfError(
         getProblemGenerationStatusProblemsGenerateRequestIdGet({ path: { request_id: requestId } }),
       ),
+    // retry: 5xx 時に既定 1 回リトライが走るとポーリング停止判定が遅れ、
+    //   裏で 1.5 秒ごとに失敗 GET を叩き続けるリスクが残る。
+    //   ポーリングという仕組み自体が「失敗したら次の周期で再試行」を内包しているため、
+    //   1 回のリクエストでの retry は不要。即 error に倒して refetchInterval を停める。
+    retry: 0,
     // refetchInterval: 以下のいずれかでポーリングを停止する。
     //   - データが終端状態（completed / failed）に達した
-    //   - エラーが確定（retry 上限到達）：裏で 1.5s ごとに 5xx を叩き続けて
+    //   - エラーが確定：裏で 1.5s ごとに 5xx を叩き続けて
     //     負荷とログを汚さないように止める。再開はユーザー操作（refetch）で行う。
     //   query.state から最新値を参照する（クロージャに残った古い値で判断しない）。
     refetchInterval: (q) => {
@@ -59,6 +68,7 @@ export const useGetProblemGenerationStatus = (
   return {
     status: query.data,
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
     error: query.error,
     refetch: () => {
       // void で握り潰す（戻り値の Promise は呼び出し側で必要ないため）。

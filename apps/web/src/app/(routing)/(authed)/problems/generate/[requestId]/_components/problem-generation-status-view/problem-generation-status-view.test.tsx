@@ -1,4 +1,4 @@
-// GenerationStatusView の結合テスト。
+// ProblemGenerationStatusView の結合テスト。
 //   要件: problem-generation.md §生成ステータス画面
 //   - pending: 「生成中…」を表示
 //   - completed: /problems/:problemId に router.replace で遷移
@@ -12,15 +12,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_BASE, server } from "@/test/msw-server";
 import { withQueryClient } from "@/test/render-with-query";
 
-import { GenerationStatusView } from "./generation-status-view";
+import { POLLING_INTERVAL_MS } from "../../_hooks/_fetch/use-get-problem-generation-status/use-get-problem-generation-status";
+
+import { ProblemGenerationStatusView } from "./problem-generation-status-view";
 
 // next/navigation の router.replace を spy できるよう差し替える。
-//   refresh はフックの refetch を使うようになったため監視対象から外す。
 const mockReplace = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     replace: mockReplace,
-    refresh: vi.fn(),
     push: vi.fn(),
     prefetch: vi.fn(),
   }),
@@ -30,7 +30,7 @@ beforeEach(() => {
   mockReplace.mockReset();
 });
 
-describe("GenerationStatusView", () => {
+describe("ProblemGenerationStatusView", () => {
   it("pending: 「生成中…」を表示する", async () => {
     server.use(
       http.get(`${API_BASE}/problems/generate/req-pending`, () =>
@@ -38,7 +38,9 @@ describe("GenerationStatusView", () => {
       ),
     );
 
-    render(<GenerationStatusView requestId="req-pending" />, { wrapper: withQueryClient() });
+    render(<ProblemGenerationStatusView requestId="req-pending" />, {
+      wrapper: withQueryClient(),
+    });
 
     expect(await screen.findByText("生成中…")).toBeInTheDocument();
     expect(mockReplace).not.toHaveBeenCalled();
@@ -55,7 +57,7 @@ describe("GenerationStatusView", () => {
       ),
     );
 
-    render(<GenerationStatusView requestId="req-ok" />, { wrapper: withQueryClient() });
+    render(<ProblemGenerationStatusView requestId="req-ok" />, { wrapper: withQueryClient() });
 
     await vi.waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/problems/prob-xyz"));
   });
@@ -67,7 +69,7 @@ describe("GenerationStatusView", () => {
       ),
     );
 
-    render(<GenerationStatusView requestId="req-ng" />, { wrapper: withQueryClient() });
+    render(<ProblemGenerationStatusView requestId="req-ng" />, { wrapper: withQueryClient() });
 
     expect(await screen.findByText("生成に失敗しました")).toBeInTheDocument();
     const retry = screen.getByRole("button", { name: "もう一度生成する" });
@@ -78,8 +80,6 @@ describe("GenerationStatusView", () => {
   it("取得失敗: エラー文言と再読み込みボタンを表示し、押下で再フェッチが走る", async () => {
     // 1 回目は 500、2 回目以降は pending を返すハンドラ。
     //   「再読み込み」を押下したらサーバへの GET 件数が増えることで refetch が発火したと確認する。
-    //   router.refresh を呼ぶだけだと TanStack Query の error 状態は解消されないため、
-    //   このテストは「ボタンが実際にデータ再取得に繋がる」ことを担保する。
     let getCount = 0;
     server.use(
       http.get(`${API_BASE}/problems/generate/req-err`, () => {
@@ -89,7 +89,7 @@ describe("GenerationStatusView", () => {
       }),
     );
 
-    render(<GenerationStatusView requestId="req-err" />, { wrapper: withQueryClient() });
+    render(<ProblemGenerationStatusView requestId="req-err" />, { wrapper: withQueryClient() });
 
     expect(await screen.findByText("生成状況を取得できませんでした")).toBeInTheDocument();
     const callsBefore = getCount;
@@ -114,12 +114,13 @@ describe("GenerationStatusView", () => {
       ),
     );
 
-    render(<GenerationStatusView requestId="req-once" />, { wrapper: withQueryClient() });
+    render(<ProblemGenerationStatusView requestId="req-once" />, { wrapper: withQueryClient() });
 
     await vi.waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/problems/prob-once"));
 
-    // ポーリング 1 周期分の余白を待ってから、replace が増えていないことを確認。
-    await new Promise((resolve) => setTimeout(resolve, 1800));
+    // ポーリング 1 周期分 + 余白を待ってから、replace が増えていないことを確認。
+    //   POLLING_INTERVAL_MS をフックから取り込むことで、間隔調整時にテスト側の追従漏れを防ぐ。
+    await new Promise((resolve) => setTimeout(resolve, POLLING_INTERVAL_MS + 300));
     expect(mockReplace).toHaveBeenCalledTimes(1);
   });
 });

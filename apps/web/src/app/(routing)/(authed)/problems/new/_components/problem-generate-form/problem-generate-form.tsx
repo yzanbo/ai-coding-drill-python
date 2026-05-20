@@ -4,16 +4,21 @@
 //   - 入力は radio-group のカード型 UI（候補が少なく、初学者が一覧で選べる方が UX が良いため）
 //   - 送信成功で /problems/generate/:requestId に遷移（同期で待たせない設計）
 //   要件: docs/requirements/4-features/problem-generation.md §問題生成画面
+//
+// a11y のエラー結び付け方:
+//   role="alert" は live region で「画面の主役を割り込み読み上げ」するため、フォームのインラインエラーには強すぎる。
+//   代わりに <p id="...-error"> + RadioGroup の aria-describedby/aria-errormessage で関連付け、
+//   スクリーンリーダーにラジオへフォーカスが当たった時にだけエラーを読ませる。
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import { useId } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group/radio-group";
 import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
 import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
-import { cn } from "@/lib/utils";
 import {
   type ProblemGenerateFormValues,
   problemGenerateFormSchema,
@@ -42,6 +47,13 @@ export const ProblemGenerateForm = () => {
     defaultValues: { category: undefined, difficulty: undefined },
   });
 
+  // useId: SSR / CSR で安定したユニーク ID を生成。
+  //   エラー文の id を RadioGroup の aria-describedby / aria-errormessage に紐付けるために使う。
+  //   同じフォームが画面に複数描画されても衝突しないようにフィールド名を suffix に付ける。
+  const idPrefix = useId();
+  const categoryErrorId = `${idPrefix}-category-error`;
+  const difficultyErrorId = `${idPrefix}-difficulty-error`;
+
   const { requestGenerate, isPending } = usePostProblemGenerate({
     onSuccess: (data) => {
       // 受付完了で requestId を持って生成ステータス画面へ。replace で履歴を汚さない。
@@ -68,6 +80,8 @@ export const ProblemGenerateForm = () => {
               onBlur={field.onBlur}
               className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
               aria-invalid={!!fieldState.error || undefined}
+              // aria-errormessage: エラー発生時のみ参照させて、スクリーンリーダーに余計な要素を読ませない。
+              aria-errormessage={fieldState.error ? categoryErrorId : undefined}
             >
               {PROBLEM_CATEGORY_OPTIONS.map((option) => {
                 const id = `category-${option.value}`;
@@ -84,7 +98,7 @@ export const ProblemGenerateForm = () => {
               })}
             </RadioGroup>
             {fieldState.error && (
-              <p className={cn("text-sm text-destructive")} role="alert">
+              <p id={categoryErrorId} className="text-sm text-destructive">
                 {fieldState.error.message}
               </p>
             )}
@@ -104,6 +118,7 @@ export const ProblemGenerateForm = () => {
               onBlur={field.onBlur}
               className="grid gap-3 sm:grid-cols-3"
               aria-invalid={!!fieldState.error || undefined}
+              aria-errormessage={fieldState.error ? difficultyErrorId : undefined}
             >
               {PROBLEM_DIFFICULTY_OPTIONS.map((option) => {
                 const id = `difficulty-${option.value}`;
@@ -119,7 +134,7 @@ export const ProblemGenerateForm = () => {
               })}
             </RadioGroup>
             {fieldState.error && (
-              <p className="text-sm text-destructive" role="alert">
+              <p id={difficultyErrorId} className="text-sm text-destructive">
                 {fieldState.error.message}
               </p>
             )}

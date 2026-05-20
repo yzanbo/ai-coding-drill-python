@@ -1,6 +1,6 @@
 "use client";
 
-// GenerationStatusView: 生成ステータスをポーリングして UI を出し分ける本体。
+// ProblemGenerationStatusView: 生成ステータスをポーリングして UI を出し分ける本体。
 //   - pending: 「生成中…」を表示し、引き続きポーリング
 //   - completed: /problems/:problemId に自動遷移
 //   - failed: 失敗メッセージ + 再試行ボタン（/problems/new に戻す）
@@ -16,13 +16,14 @@ import { Button } from "@/components/ui/button/button";
 
 import { useGetProblemGenerationStatus } from "../../_hooks/_fetch/use-get-problem-generation-status/use-get-problem-generation-status";
 
-type GenerationStatusViewProps = {
+type ProblemGenerationStatusViewProps = {
   requestId: string;
 };
 
-export const GenerationStatusView = ({ requestId }: GenerationStatusViewProps) => {
+export const ProblemGenerationStatusView = ({ requestId }: ProblemGenerationStatusViewProps) => {
   const router = useRouter();
-  const { status, isLoading, error, refetch } = useGetProblemGenerationStatus(requestId);
+  const { status, isLoading, isFetching, error, refetch } =
+    useGetProblemGenerationStatus(requestId);
 
   // 完了したら問題詳細画面に自動遷移。
   //   useEffect で実行することで、レンダリング中の navigate を避ける（Next.js が警告を出すため）。
@@ -48,13 +49,15 @@ export const GenerationStatusView = ({ requestId }: GenerationStatusViewProps) =
   }
 
   // ステータス取得自体が失敗（404 / 通信断 等）。トーストは ApiErrorProvider が出すのでここではインライン補足のみ。
+  //   isFetching=true は「再読み込み」ボタン押下後の refetch 中。
+  //   ボタンを押した直後に押下感が消えると操作の手応えが分かりにくいので、文言を切り替えて押下中であることを示す。
   if (error) {
     return (
       <div className="flex flex-col items-center gap-3 py-12 text-center">
         <p className="text-base font-semibold">生成状況を取得できませんでした</p>
         <p className="text-sm text-muted-foreground">時間を置いて再度お試しください。</p>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          再読み込み
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+          {isFetching ? "再読み込み中…" : "再読み込み"}
         </Button>
       </div>
     );

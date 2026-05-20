@@ -1,18 +1,20 @@
 // /problems/generate/:requestId: 生成ステータス画面（ポーリング）。
 //   - 認証必須（(authed) layout が担保）
-//   - ページ本体は params から requestId を取り出して GenerationStatusView に渡すだけ
+//   - ページ本体は params から requestId を取り出して ProblemGenerationStatusView に渡すだけ
 //   - 実際のポーリングと表示分岐は子の Client Component 側で行う
 //   要件: docs/requirements/4-features/problem-generation.md §生成ステータス画面
 //
 //   Next.js 16 (App Router) の dynamic segment params は async（Promise）。await で同期化してから渡す。
 
-import { GenerationStatusView } from "./_components/generation-status-view/generation-status-view";
+import { ProblemGenerationStatusView } from "./_components/problem-generation-status-view/problem-generation-status-view";
 
-type GenerationStatusPageProps = {
+type ProblemGenerationStatusPageProps = {
   params: Promise<{ requestId: string }>;
 };
 
-export default async function GenerationStatusPage({ params }: GenerationStatusPageProps) {
+export default async function ProblemGenerationStatusPage({
+  params,
+}: ProblemGenerationStatusPageProps) {
   const { requestId } = await params;
 
   return (
@@ -23,7 +25,7 @@ export default async function GenerationStatusPage({ params }: GenerationStatusP
           リクエスト ID: <span className="font-mono">{requestId}</span>
         </p>
       </header>
-      <GenerationStatusView requestId={requestId} />
+      <ProblemGenerationStatusView requestId={requestId} />
     </main>
   );
 }

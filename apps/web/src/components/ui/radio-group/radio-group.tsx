@@ -9,6 +9,7 @@
 "use client";
 
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
+import { Circle } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -35,8 +36,8 @@ export const RadioGroupItem = React.forwardRef<
       {...props}
     >
       <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
-        {/* Indicator: 選択された時だけ表示される中の点（CSS で円を作るだけなので外部アイコン不要）。 */}
-        <span className="block h-2 w-2 rounded-full bg-current" />
+        {/* Circle: 選択された時だけ表示される中の点（lucide のアイコン、fill で塗りつぶす）。 */}
+        <Circle className="h-2.5 w-2.5 fill-current text-current" />
       </RadioGroupPrimitive.Indicator>
     </RadioGroupPrimitive.Item>
   );
