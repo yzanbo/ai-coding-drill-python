@@ -28,7 +28,7 @@ import (
 // が欠落している場合に返す。orchestrator はこれを「再生成」候補として扱う。
 var ErrInvalidProblem = fmt.Errorf("grading: invalid problem response")
 
-// GenerationPrompt: problem-gen.v1.yaml の Go 側表現。
+// GenerationPrompt: problem-gen.v<N>.yaml の Go 側表現。
 type GenerationPrompt struct {
 	Version      string `yaml:"version"`
 	Language     string `yaml:"language"`
