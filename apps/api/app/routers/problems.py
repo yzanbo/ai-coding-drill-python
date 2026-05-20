@@ -1,8 +1,10 @@
 # このファイルの役割：
-#   問題ドメインの APIRouter。R1-3 時点では問題生成リクエストの 2 エンドポイントを持つ。
+#   問題ドメインの APIRouter。R1-3 + R1-4 時点で 4 エンドポイントを持つ。
 #
-#   - POST /api/problems/generate              : 生成リクエストの enqueue（202 即返）
-#   - GET  /api/problems/generate/:requestId   : 生成ステータス取得（ポーリング用）
+#   - POST /api/problems/generate              : 生成リクエストの enqueue（202 即返、R1-3）
+#   - GET  /api/problems/generate/:requestId   : 生成ステータス取得（ポーリング用、R1-3）
+#   - GET  /api/problems                       : 問題一覧（フィルタ + ページング、R1-4）
+#   - GET  /api/problems/:problemId            : 問題詳細（テストケース一部マスク、R1-4）
 #
 #   prefix に /api を被せている理由：
 #     Frontend の Next.js ページパス（/problems/new, /problems/generate/:requestId）と
@@ -23,7 +25,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Request, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
@@ -31,11 +33,16 @@ from app.deps.auth import get_current_user
 from app.deps.rate_limit import limiter
 from app.models.users import User
 from app.schemas.problems import (
+    ProblemCategory,
+    ProblemDetailResponse,
+    ProblemDifficulty,
     ProblemGenerateAcceptedResponse,
     ProblemGenerateRequest,
     ProblemGenerateStatusResponse,
+    ProblemListResponse,
 )
 from app.services.problem_generation import ProblemGenerationService
+from app.services.problems import ProblemService
 
 # APIRouter: URL をグループ単位でまとめる箱。
 # 認証は各エンドポイントの `user: CurrentUser` 引数で必須化する。
@@ -120,3 +127,66 @@ async def get_problem_generation_status(
         user_id=user.id,
         request_id=request_id,
     )
+
+
+# ----------------------------------------------------------------------------
+# GET /api/problems : 問題一覧（ゲスト閲覧可、フィルタ + ページング、R1-4）
+# ----------------------------------------------------------------------------
+# 認証不要：problem-display-and-answer.md §ビジネスルール
+#   「問題閲覧はゲストでも可」のため CurrentUser を取らない。
+#
+# ルーティング順の注意：
+#   /api/problems の prefix 下に既に POST /generate, GET /generate/{request_id}
+#   が登録されている。本ルートは "" でルート直下、次ルートは "/{problem_id}"
+#   で UUID 受け。FastAPI は登録順に match を試みるため、/generate 系を
+#   先に登録した状態でこの 2 つを後置すれば衝突しない（/generate は文字列
+#   リテラルとして先に当たる）。
+@router.get(
+    "",
+    response_model=ProblemListResponse,
+)
+async def list_problems(
+    db_session: DbDep,
+    # Query(...): URL クエリパラメータ。Annotated + Query で OpenAPI に反映。
+    #   category / difficulty は未指定（None）ならフィルタしない。
+    #   page は 1 始まり、上限は付けない（DB 側で範囲外なら空 items を返す）。
+    category: Annotated[ProblemCategory | None, Query(description="カテゴリで絞り込み")] = None,
+    difficulty: Annotated[
+        ProblemDifficulty | None, Query(description="難易度で絞り込み")
+    ] = None,
+    page: Annotated[int, Query(ge=1, description="ページ番号（1 始まり）")] = 1,
+) -> ProblemListResponse:
+    """カテゴリ・難易度フィルタ付きで問題一覧を返す。
+
+    - 認証不要（ゲスト閲覧可、problem-display-and-answer.md §ビジネスルール）
+    - 並び順は created_at DESC（新着優先）
+    - 0 件でも 200 + items=[] / totalPages=0 で返す
+    """
+    service = ProblemService(db_session)
+    return await service.list_problems(
+        category=category,
+        difficulty=difficulty,
+        page=page,
+    )
+
+
+# ----------------------------------------------------------------------------
+# GET /api/problems/:problemId : 問題詳細（テストケース一部マスク、R1-4）
+# ----------------------------------------------------------------------------
+@router.get(
+    "/{problem_id}",
+    response_model=ProblemDetailResponse,
+)
+async def get_problem_detail(
+    db_session: DbDep,
+    problem_id: Annotated[UUID, Path(description="問題の ID")],
+) -> ProblemDetailResponse:
+    """問題詳細を返す。テストケース全体は返さず examples（公開用 1〜数件）のみ含む。
+
+    - 認証不要（problem-display-and-answer.md §ビジネスルール）
+    - 存在しない / ソフトデリート済みは 404
+    - レスポンスから test_cases / reference_solution / judge_scores を完全に
+      落とすマスキングは ProblemDetailResponse のスキーマ定義で実施される
+    """
+    service = ProblemService(db_session)
+    return await service.get_detail(problem_id=problem_id)

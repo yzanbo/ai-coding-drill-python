@@ -39,6 +39,14 @@ class GenerationRequestNotFoundError(DomainError):
     """
 
 
+class ProblemNotFoundError(DomainError):
+    """指定の problemId が存在しない / ソフトデリート済みの時に投げる。
+
+    HTTP では 404 に変換する。problems はゲスト閲覧可能だが、
+    存在しないものは認証有無に関わらず 404（problem-display-and-answer.md §受け入れ条件）。
+    """
+
+
 # ----------------------------------------------------------------------------
 # handler 群
 # ----------------------------------------------------------------------------
@@ -58,6 +66,17 @@ async def _generation_request_not_found_handler(
     )
 
 
+async def _problem_not_found_handler(
+    _request: Request,
+    _exc: ProblemNotFoundError,
+) -> JSONResponse:
+    """ProblemNotFoundError → 404 JSON レスポンスに変換。"""
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"detail": "指定された問題が見つかりません"},
+    )
+
+
 # ----------------------------------------------------------------------------
 # 一括登録
 # ----------------------------------------------------------------------------
@@ -72,4 +91,8 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(
         GenerationRequestNotFoundError,
         _generation_request_not_found_handler,  # type: ignore[arg-type]
+    )
+    app.add_exception_handler(
+        ProblemNotFoundError,
+        _problem_not_found_handler,  # type: ignore[arg-type]
     )

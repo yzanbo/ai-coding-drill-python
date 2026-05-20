@@ -54,6 +54,47 @@
         "title": "ProblemCategory",
         "type": "string"
       },
+      "ProblemDetailResponse": {
+        "description": "問題詳細。テストケースの一部のみ examples として公開する。",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/ProblemCategory"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/ProblemDifficulty"
+          },
+          "examples": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemExample"
+            },
+            "title": "Examples",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "examples",
+          "category",
+          "difficulty"
+        ],
+        "title": "ProblemDetailResponse",
+        "type": "object"
+      },
       "ProblemDifficulty": {
         "enum": [
           "easy",
@@ -62,6 +103,25 @@
         ],
         "title": "ProblemDifficulty",
         "type": "string"
+      },
+      "ProblemExample": {
+        "description": "画面表示用の入出力例。input / output は表示用の文字列。",
+        "properties": {
+          "input": {
+            "title": "Input",
+            "type": "string"
+          },
+          "output": {
+            "title": "Output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "input",
+          "output"
+        ],
+        "title": "ProblemExample",
+        "type": "object"
       },
       "ProblemGenerateAcceptedResponse": {
         "description": "生成リクエスト受付完了。クライアントは requestId でポーリングを始める。",
@@ -130,6 +190,61 @@
           "status"
         ],
         "title": "ProblemGenerateStatusResponse",
+        "type": "object"
+      },
+      "ProblemListResponse": {
+        "description": "問題一覧 + ページネーション情報。\n\n一覧クエリ単発で SSoT が固定されており、PaginationMeta + Page の\n汎用化（backend.md 推奨）は 2 つ目の paginated エンドポイントが\n出てきた時点で行う（YAGNI、CLAUDE.md §設計原則）。",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemSummaryResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "totalPages": {
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "totalPages"
+        ],
+        "title": "ProblemListResponse",
+        "type": "object"
+      },
+      "ProblemSummaryResponse": {
+        "description": "問題一覧の 1 行分。タイトル / カテゴリ / 難易度のみで一覧 UI に必要十分。",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/ProblemCategory"
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/ProblemDifficulty"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "category",
+          "difficulty"
+        ],
+        "title": "ProblemSummaryResponse",
         "type": "object"
       },
       "UserResponse": {
@@ -211,6 +326,89 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/problems": {
+      "get": {
+        "description": "カテゴリ・難易度フィルタ付きで問題一覧を返す。\n\n- 認証不要（ゲスト閲覧可、problem-display-and-answer.md §ビジネスルール）\n- 並び順は created_at DESC（新着優先）\n- 0 件でも 200 + items=[] / totalPages=0 で返す",
+        "operationId": "list_problems_api_problems_get",
+        "parameters": [
+          {
+            "description": "カテゴリで絞り込み",
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ProblemCategory"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "カテゴリで絞り込み",
+              "title": "Category"
+            }
+          },
+          {
+            "description": "難易度で絞り込み",
+            "in": "query",
+            "name": "difficulty",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ProblemDifficulty"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "難易度で絞り込み",
+              "title": "Difficulty"
+            }
+          },
+          {
+            "description": "ページ番号（1 始まり）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "ページ番号（1 始まり）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Problems",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
     "/api/problems/generate": {
       "post": {
         "description": "カテゴリ・難易度を受け取って生成ジョブを enqueue する。\n\n挙動：\n  - generation_requests へ 1 行 INSERT（status='pending'）\n  - jobs へ 1 行 INSERT + NOTIFY new_job を同一トランザクションで実行\n  - 202 で requestId を返す。実際の生成は Worker が非同期で処理する\n  - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す",
@@ -294,6 +492,52 @@
           }
         },
         "summary": "Get Problem Generation Status",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/api/problems/{problem_id}": {
+      "get": {
+        "description": "問題詳細を返す。テストケース全体は返さず examples（公開用 1〜数件）のみ含む。\n\n- 認証不要（problem-display-and-answer.md §ビジネスルール）\n- 存在しない / ソフトデリート済みは 404\n- レスポンスから test_cases / reference_solution / judge_scores を完全に\n  落とすマスキングは ProblemDetailResponse のスキーマ定義で実施される",
+        "operationId": "get_problem_detail_api_problems__problem_id__get",
+        "parameters": [
+          {
+            "description": "問題の ID",
+            "in": "path",
+            "name": "problem_id",
+            "required": true,
+            "schema": {
+              "description": "問題の ID",
+              "format": "uuid",
+              "title": "Problem Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Problem Detail",
         "tags": [
           "problems"
         ]
