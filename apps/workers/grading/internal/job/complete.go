@@ -81,7 +81,7 @@ WHERE id = $1;
 //
 // 呼び出し側は claim 時点の Job.Attempts を渡す (= claim で +1 された後の値)。
 func MarkFailed(ctx context.Context, pool *pgxpool.Pool, jobID int64, attempts int, lastErr string) error {
-	if attempts >= MaxAttempts {
+	if IsTerminalAttempt(attempts) {
 		return markDead(ctx, pool, jobID, lastErr)
 	}
 	backoff := backoffFor(attempts)

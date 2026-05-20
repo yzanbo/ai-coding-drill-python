@@ -160,7 +160,7 @@ func (o *Orchestrator) handleHandlerError(ctx context.Context, j *job.Job, handl
 	)
 
 	retryable := errors.Is(handlerErr, ErrInvalidProblem)
-	dead := !retryable || j.Attempts >= job.MaxAttempts
+	dead := !retryable || job.IsTerminalAttempt(j.Attempts)
 
 	if dead {
 		logger.WarnContext(ctx, "orchestrator: marking job dead")

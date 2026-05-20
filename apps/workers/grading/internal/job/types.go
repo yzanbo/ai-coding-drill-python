@@ -44,6 +44,14 @@ const MaxAttempts = 3
 // 呼び出し側は errors.Is(err, job.ErrNoJob) で判定し、ポーリング待機に入る。
 var ErrNoJob = errors.New("job: no job available")
 
+// IsTerminalAttempt: 与えられた attempts 値が「これ以上リトライしない」
+// 境界に到達しているかを返す。MaxAttempts と比較する箇所が複数あると
+// 片方を変えた時にもう片方が陳腐化するため、ここに集約する
+// (orchestrator の dead 判定 + complete.MarkFailed の内部 dead 落とし)。
+func IsTerminalAttempt(attempts int) bool {
+	return attempts >= MaxAttempts
+}
+
 // Job: jobs テーブル 1 行分のうち、Worker が処理に必要なカラムだけ抜粋した型。
 // 全カラム (locked_at / locked_by / result 等) は claim 後の SQL で書き込むため
 // 本 struct には保持しない。
