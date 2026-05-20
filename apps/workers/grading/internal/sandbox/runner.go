@@ -35,8 +35,22 @@ import (
 	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/client"
 )
+
+// sandboxPidsLimit: コンテナあたりの PID 上限。
+// LLM が生成するコードを信用しない方針に従い、`fork()` を無制限に繰り返す
+// プロセスでホストの PID テーブルを食い潰される事故を防ぐ。Vitest 1 ファイル
+// 実行に必要なプロセス数 (node 本体 + tsx loader + 数個の child) を踏まえて
+// 余裕を持って 128 に置く。--read-only / --network none / --memory 等と
+// 並ぶ強制制約の 1 つ (.claude/rules/worker.md「採点コンテナの制約」)。
+const sandboxPidsLimit int64 = 128
+
+// ptrInt64: int64 から *int64 を作る薄い helper。
+// container.Resources.PidsLimit が *int64 を要求 (nil = 制限なし、値あり = 上限)
+// のため、定数 sandboxPidsLimit のアドレスを直接渡せず変換ヘルパを挟む。
+func ptrInt64(v int64) *int64 { return &v }
 
 // FileSource: コンテナにマウントする 1 ファイル。
 // Name は /sandbox/ 配下に置かれるファイル名 (e.g. "solution.ts")。
@@ -149,10 +163,12 @@ func (r *Runner) Run(ctx context.Context, files []FileSource, cmd []string) (*Re
 			User: "1000:1000",
 		},
 		HostConfig: &container.HostConfig{
-			NetworkMode: "none",
+			// network.NetworkNone = "none": 完全ネット遮断。文字列直書きより型 safety。
+			NetworkMode: container.NetworkMode(network.NetworkNone),
 			Resources: container.Resources{
-				Memory:   256 * 1024 * 1024, //nolint:mnd // 256 MiB (worker.md SSoT)
-				NanoCPUs: 500_000_000,       //nolint:mnd // 0.5 CPU (worker.md SSoT)
+				Memory:    256 * 1024 * 1024,          //nolint:mnd // 256 MiB (worker.md SSoT)
+				NanoCPUs:  500_000_000,                //nolint:mnd // 0.5 CPU (worker.md SSoT)
+				PidsLimit: ptrInt64(sandboxPidsLimit), // fork 爆弾耐性 (LLM 生成コードを信用しない哲学)
 			},
 			ReadonlyRootfs: true,
 			Tmpfs: map[string]string{

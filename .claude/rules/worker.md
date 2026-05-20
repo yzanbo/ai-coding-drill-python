@@ -295,6 +295,7 @@ resp, err := cli.ContainerCreate(ctx, &container.Config{
 - `--network none`：ネットワーク完全遮断
 - `--memory 256m`：メモリ上限
 - `--cpus 0.5`：CPU 上限
+- `--pids-limit 128`：プロセス数上限。LLM 生成コードに fork 爆弾耐性を持たせる（実装値の SSoT は `apps/workers/grading/internal/sandbox/runner.go` の `sandboxPidsLimit`）
 - `--read-only`：ルート FS 読み取り専用
 - `--tmpfs /tmp:rw,size=64m`：書き込みは /tmp のみ
 - `--user 1000:1000`：非 root 実行
