@@ -29,6 +29,9 @@ const _API_ENV = {
   GITHUB_AUTHORIZE_URL: `${MOCK_GITHUB_ORIGIN}/login/oauth/authorize`,
   GITHUB_TOKEN_URL: `${MOCK_GITHUB_ORIGIN}/login/oauth/access_token`,
   GITHUB_USER_API_URL: `${MOCK_GITHUB_ORIGIN}/user`,
+  // FRONTEND_BASE_URL: callback 後のリダイレクト先 (Backend が組み立てる絶対 URL)。
+  // 既定は :3000 だが E2E では :3001 で Web を立てているので明示的に渡す。
+  FRONTEND_BASE_URL: `http://localhost:${WEB_PORT}`,
   // SESSION_SIGNING_SECRET は dev 既定値で十分 (production チェックは APP_ENV=production でのみ発火)
   SESSION_SIGNING_SECRET: "e2e-only-non-production-secret-do-not-use-anywhere-else",
 };
@@ -69,8 +72,11 @@ export default defineConfig({
   // webServer: テスト起動時に並行起動する補助プロセス群。
   // 3 つのサーバを同時に立てる:
   //   1. Mock GitHub OAuth サーバ (uvicorn) - port 18001
-  //   2. Backend FastAPI - port 8000 (env で GITHUB_* URL を mock に向ける)
-  //   3. Web Next.js dev - port 3000
+  //   2. Backend FastAPI - port 8001 (env で GITHUB_* URL を mock に向ける)
+  //   3. Web Next.js dev - port 3001
+  //
+  // dev サーバ (:3000 / :8000) と完全にポートを分けている。理由は constants.ts の
+  // API_PORT / WEB_PORT のコメントを参照 (dev backend を E2E backend と取り違える事故防止)。
   //
   // 各プロセスは url で起動完了を待つ (Playwright が HTTP HEAD をポーリング)。
   // reuseExistingServer は dev でローカル起動済みのサーバを使い回す (CI は新規起動)。
@@ -86,8 +92,8 @@ export default defineConfig({
       stderr: "pipe",
     },
     {
-      // Backend: GITHUB_* URL を mock に向けて起動。
-      command: "cd ../api && uv run fastapi dev --port 8000",
+      // Backend: GITHUB_* URL を mock に向けて起動 (E2E 専用ポート)。
+      command: `cd ../api && uv run fastapi dev --port ${API_PORT}`,
       url: `http://localhost:${API_PORT}/healthz`,
       timeout: 60_000,
       reuseExistingServer: !process.env.CI,
@@ -96,13 +102,18 @@ export default defineConfig({
       stderr: "pipe",
     },
     {
-      // Web: Next.js dev サーバ (rewrites で /auth/* を Backend に転送)。
+      // Web: Next.js dev サーバ (rewrites で /auth/* を Backend に転送、E2E 専用ポート)。
+      // PORT: pnpm run dev (next dev) は PORT 環境変数を読んで listen ポートを決める。
+      // API_PROXY_TARGET: next.config.ts の rewrites 転送先を E2E backend に向ける。
       command: "pnpm run dev",
       url: `http://localhost:${WEB_PORT}`,
       timeout: 60_000,
       reuseExistingServer: !process.env.CI,
       env: {
+        PORT: String(WEB_PORT),
         API_PROXY_TARGET: `http://localhost:${API_PORT}`,
+        // NEXT_DIST_DIR: dev:all の `next dev` (.next/ にロック) と並行起動するため別 distDir。
+        NEXT_DIST_DIR: ".next-e2e",
       },
       stdout: "pipe",
       stderr: "pipe",

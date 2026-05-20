@@ -5,8 +5,14 @@
 export const MOCK_GITHUB_PORT = 18001;
 export const MOCK_GITHUB_ORIGIN = `http://127.0.0.1:${MOCK_GITHUB_PORT}`;
 
-export const API_PORT = 8000;
-export const WEB_PORT = 3000;
+// E2E は dev サーバ (:3000 / :8000) と完全に別ポートで起動する。
+// 理由: Playwright の reuseExistingServer:true が「同じポートを listen していれば中身を
+// 問わず使い回す」挙動のため、dev:all で先に起動済みの Backend (本物の GitHub OAuth 設定
+// を読んだ .env で起動) を E2E 用 mock 設定の Backend と取り違える事故が起きていた。
+// dev と E2E のポートをそもそも分けると、reuseExistingServer は同じ E2E プロセス
+// (前テスト実行の残り) のみを正しく拾うようになる。
+export const API_PORT = 8001;
+export const WEB_PORT = 3001;
 
 // DATABASE_URL / REDIS_URL: 環境変数で上書き可能。CI と dev で同じ config を
 // 使い回せるよう、ハードコードではなく env fallback 構造にしている。
