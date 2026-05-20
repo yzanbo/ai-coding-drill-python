@@ -37,6 +37,15 @@
 - DinD（Docker in Docker）を使う：パフォーマンス・セキュリティ両面で劣るため不採用（[ADR 0045](../../../../docs/adr/0045-sandbox-container-runtime-dood.md)）
 - `apps/workers/generation/sandbox/Dockerfile` を作る：grading の image を共有起動する（[worker-layers.md §E §9](../../../../docs/requirements/5-roadmap/r0-setup/worker-layers.md)）
 
+## 既知の脆弱性 (govulncheck)
+
+`github.com/docker/docker@v28.5.2`（2026-05 時点の最新）に以下 2 件が報告されているが、いずれも本 Worker の使い方では到達しない（AuthZ plugin パスを叩かない、`--network none` + plugin 不使用）。両者とも **Fixed in: N/A** で fix 版が未リリースのため、当面そのまま運用する：
+
+- **GO-2026-4887**：Moby has AuthZ plugin bypass when provided oversized request bodies
+- **GO-2026-4883**：Moby has an Off-by-one error in its plugin privilege validation
+
+`mise run worker:grading:audit` の Symbol traces はライブラリ init からの間接的なシンボル到達であり、攻撃面（AuthZ plugin）には到達しない。fix 版がリリースされた時点で go.mod を更新する。
+
 ## 関連
 
 - 規約 SSoT：[.claude/rules/worker.md「サンドボックス操作」セクション](../../../../.claude/rules/worker.md)
