@@ -207,15 +207,16 @@ sequenceDiagram
 >
 > **長期運用**：機能の振る舞い仕様の累積。機能が育つほど条件は**追加されていく**し、既存条件も仕様変更で**更新される**。**変更・追加された条件は再検証が必要なので未チェックに戻す**（既存で変わってない条件はチェック維持、全リセットはしない）。観測可能な振る舞いが変わったらここを直すのが SSoT 更新の第一歩。過去版の履歴は git log で辿る。
 
-- [ ] 問題生成画面でカテゴリ・難易度を選択して送信できる
-- [ ] 送信後、API は `202 Accepted` + `requestId` を即座に返す（同期で待たせない）
-- [ ] 生成中はステータス画面で「生成中…」と表示される
-- [ ] `GET /api/problems/generate/:requestId` のポーリングでステータス遷移が取得できる
-- [ ] 生成成功時：新規作成された問題ページに自動遷移する
-- [ ] 生成失敗時（最大 3 回再生成しても全失敗）：失敗ステータスを表示し、再試行ボタンを提供する
-- [ ] LLM 単発呼び出し 30 秒 / ジョブ全体 180 秒のタイムアウト超過時に `status='failed'` が返る
-- [ ] 1 生成あたりの累積コストが USD 0.20 を超えた時点で再生成を打ち切り `status='failed'` が返る
-- [ ] 観測ログに `provider` / `model` / `prompt_version` / `input_tokens` / `output_tokens` / `cost_usd` / `cache_hit` / 所要時間が記録される（→ [04-observability.md](../2-foundation/04-observability.md)）
+- [x] 問題生成画面でカテゴリ・難易度を選択して送信できる
+- [x] 送信後、API は `202 Accepted` + `requestId` を即座に返す（同期で待たせない）
+- [x] 生成中はステータス画面で「生成中…」と表示される
+- [x] `GET /api/problems/generate/:requestId` のポーリングでステータス遷移が取得できる
+- [x] 生成成功時：新規作成された問題ページに自動遷移する
+- [x] 生成失敗時（最大 3 回再生成しても全失敗）：失敗ステータスを表示し、再試行ボタンを提供する
+- [x] LLM 単発呼び出しが 30 秒を超えた場合に `status='failed'` が返る（単発タイムアウトの SSoT は `internal/llm/provider.go:SingleCallTimeoutDefault`）
+- [ ] **ジョブ全体 180 秒タイムアウト超過時に `status='failed'` が返る**（R2「非同期ジョブ化の完全実装」で対応予定、→ [01-roadmap.md](../5-roadmap/01-roadmap.md#next次スプリント候補すべて-r2)）
+- [ ] **1 生成あたりの累積コストが USD 0.20 を超えた時点で再生成を打ち切り `status='failed'` が返る**（R2「非同期ジョブ化の完全実装」で対応予定、ジョブ跨ぎのコスト集計が必要なため `generation_requests` スキーマ拡張を伴う）
+- [x] 観測ログに `provider` / `model` / `prompt_version` / `input_tokens` / `output_tokens` / `cost_usd` / `cache_hit` / 所要時間が記録される（→ [04-observability.md](../2-foundation/04-observability.md)。slog フィールドは `problem_generate.go:llm done` ログで全項目記録、OTel span 統合は R4 で追加（→ [ADR 0049 §実装の優先順位](../../adr/0049-initial-llm-model-selection.md)））
 - [x] レート制限：同一ユーザーで `1 分 / 5 回` を超えると `429` を返す（→ [02-api-conventions.md](../3-cross-cutting/02-api-conventions.md#レート制限)）
 
 ## ステータス
@@ -230,8 +231,8 @@ sequenceDiagram
 - [x] フロントエンドユニットテスト完了（Vitest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [x] ワーカー実装完了（生成 Worker。R1〜R6 は `apps/workers/grading` が兼務（`problem_generate.go` / `generation_prompt.go`）、R7 以降に `apps/workers/generation` に切り出し予定）
 - [x] ワーカーユニットテスト完了（Go testing + testify、`problem_generate_test.go` / `generation_prompt_test.go`、実 LLM を叩く smoke は `generation_smoke_integration_test.go`、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
-- [ ] E2E テスト完了（生成 → 完了 → 問題遷移の主要フロー、Playwright、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
-- [ ] **受け入れ条件すべて満たす**
+- [x] E2E テスト完了（生成 → 完了 → 問題遷移の主要フロー、Playwright、`apps/web/e2e/problem-generation.spec.ts`、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
+- [ ] **受け入れ条件すべて満たす**（R2 分離の 2 項目（ジョブ全体 180 秒 / コスト USD 0.20 累積上限）は R2 完了後に達成）
 
 ## 関連
 

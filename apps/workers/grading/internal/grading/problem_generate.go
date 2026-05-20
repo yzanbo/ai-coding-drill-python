@@ -177,12 +177,21 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 	if err != nil {
 		return classifyHandlerError(err)
 	}
+	// 観測ログ必須フィールド (04-observability.md「LLM 呼び出し時の追加フィールド」):
+	//   provider / model / prompt_version / input_tokens / output_tokens /
+	//   cost_usd / cache_hit / 所要時間。R1 から全フィールドを記録する
+	//   (後追加だと過去ログの集計が不可能になるため)。
 	slog.InfoContext(ctx, "problem.generate: llm done",
 		"job_id", j.ID,
 		"title", draft.Title,
+		"provider", draft.GeneratedBy.Provider,
+		"model", draft.GeneratedBy.Model,
+		"prompt_version", draft.GeneratedBy.PromptVersion,
 		"cost_usd", draft.GeneratedBy.CostUSD,
 		"input_tokens", draft.GeneratedBy.InputTokens,
 		"output_tokens", draft.GeneratedBy.OutputTokens,
+		"cache_hit", draft.GeneratedBy.CacheHit,
+		"latency_ms", draft.GeneratedBy.LatencyMs,
 	)
 
 	// 2. サンドボックス検証
