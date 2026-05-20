@@ -1,0 +1,131 @@
+# 問題生成プロンプト (TypeScript 学習用、v2)
+# v1 からの変更点:
+#   - test_cases.input を「常に引数の配列」と明文化 (LLM が単一値で返すケースを抑制)
+#   - reference_solution に `export function solve` の形を必須化 (default export 禁止)
+#   - few-shot example を 1 件追加 (期待 JSON 構造を実例で固定)
+#   - 「文字列で式を書かない」「コメント・余計な改行を含めない」を system_prompt に追加
+#
+# 関連:
+#   - 規約 SSoT: ../../../../.claude/rules/prompts.md (YAML スキーマ)
+#   - 配置根拠 : ADR 0040 (Worker 内 LLM 集約)
+#   - 出力境界 : apps/api/app/models/problems.py の Problem スキーマと整合
+#   - test harness: internal/grading/test_template.go が input を spread して solve に渡す
+#                    (= input は必ず配列でないと TypeError になる)
+#
+# バージョン管理:
+#   - 一度配布した vN は書き換えない (履歴保持、prompts.md §不変性)
+#   - 軸追加・スキーマ変更時は vN+1 を新規作成
+
+version: v2
+language: typescript
+model_role: generator
+
+# ─────────────────────────────────────────────
+# システムプロンプト (出題者の役割定義)
+# ─────────────────────────────────────────────
+system_prompt: |
+  あなたは TypeScript の中級学習者向けに練習問題を作る出題者です。
+
+  以下のルールを必ず守ってください:
+    1. 出力は厳密に JSON 形式のみ。前後に説明文・コードフェンス (```json) を付けない
+    2. 問題本文は Markdown で書く。何を実装すべきかが一意に決まる文言にする
+    3. test_cases[i].input は **必ず配列**。引数が 1 個でも `[value]` の形にする
+       (内部の Vitest harness は `solve(...input)` と spread するため、配列でないと
+        実行時エラーになる)
+    4. test_cases[i].input の要素は JSON 値 (数値 / 文字列 / boolean / null /
+        配列 / オブジェクト) のみ。`"1+2"` のような式の文字列、関数、undefined、
+        NaN、Infinity は禁止
+    5. test_cases[i].expected も JSON 値のみ。比較は `expect(actual).toEqual(expected)`
+        の深い等価で行うので、オブジェクト / 配列も可
+    6. reference_solution は単一ファイルの TypeScript として完結させる
+       (Node 24 + tsx + Vitest で `tsx solution.ts` 実行可能)
+    7. reference_solution は必ず `export function solve(...)` の形にする
+       (default export / アロー関数代入 / class メソッドは禁止)
+    8. examples の input / output は人間に見せる文字列。テストは test_cases を使う
+    9. category と difficulty は指定された値に厳密に従う
+
+# ─────────────────────────────────────────────
+# ユーザープロンプトテンプレート
+# ─────────────────────────────────────────────
+user_template: |
+  カテゴリ: {{category}}
+  難易度: {{difficulty}}
+
+  上記の条件で TypeScript の練習問題を 1 問作ってください。
+
+  ===== 出力形式 (厳密にこの JSON 構造) =====
+  {
+    "title": "<60 文字以内のタイトル>",
+    "description": "<問題本文 (Markdown)。入力・出力の説明を含める>",
+    "examples": [
+      { "input": "<人間可読の例 (引数表現)>", "output": "<期待戻り値の例>", "explanation": "<任意>" }
+    ],
+    "test_cases": [
+      { "input": [<引数 1>, <引数 2>, ...], "expected": <期待戻り値> }
+    ],
+    "reference_solution": "<単一 TS ファイルとして実行可能な模範解答コード>"
+  }
+
+  ===== 制約 =====
+    - test_cases は最低 3 件、エッジケース (空入力 / 境界値 / 異常系) を含めること
+    - test_cases[i].input は **必ず配列**。引数 1 個でも `[value]` と書く
+      (例: 数値 5 を渡すなら `"input": [5]`、`"input": 5` は禁止)
+    - reference_solution は `export function solve(...)` の形 (default export 禁止)
+
+  ===== few-shot example (この形式に厳密に従う) =====
+  入力:
+    カテゴリ: 配列操作
+    難易度: easy
+
+  出力:
+  {
+    "title": "配列の合計",
+    "description": "数値配列を受け取り、全要素の合計を返す `solve` 関数を実装してください。\n\n## 入力\n- `nums`: `number[]` — 0 個以上の整数。\n\n## 出力\n- `number` — `nums` の総和。空配列のときは `0`。",
+    "examples": [
+      { "input": "solve([1, 2, 3])", "output": "6" },
+      { "input": "solve([])", "output": "0" }
+    ],
+    "test_cases": [
+      { "input": [[1, 2, 3]], "expected": 6 },
+      { "input": [[]], "expected": 0 },
+      { "input": [[-1, 1, -2, 2]], "expected": 0 }
+    ],
+    "reference_solution": "export function solve(nums: number[]): number {\n  return nums.reduce((sum, n) => sum + n, 0);\n}\n"
+  }
+
+  上記 example の test_cases に注目: `solve([1,2,3])` を呼びたいので
+  input は `[[1, 2, 3]]` (= 外側が引数リスト、内側が配列引数そのもの)。
+  この入れ子構造を必ず守ってください。
+
+# ─────────────────────────────────────────────
+# 出力スキーマへの参照
+# ─────────────────────────────────────────────
+# 本 PR では JSON Schema validate は実装せず、Go 側で json.Unmarshal +
+# 必須フィールドチェックで弾く。将来 problems.schema.json を ADR 0006 経路で
+# 自動生成したら output_schema_ref に切替える。
+output_schema_ref: null
+
+# ─────────────────────────────────────────────
+# パラメータ
+# ─────────────────────────────────────────────
+parameters:
+  # 多様性確保のため温度高め (03-llm-pipeline.md「構造化出力」)
+  # v1 と同値。few-shot 追加で安定性が出れば v3 で 0.5〜0.6 に下げる余地あり
+  temperature: 0.7
+  max_tokens: 4096
+
+# ─────────────────────────────────────────────
+# メタ情報
+# ─────────────────────────────────────────────
+metadata:
+  created_at: "2026-05-20"
+  notes: |
+    v2: test_cases.input 形式の厳密化 + few-shot example 追加。
+    狙い:
+      - v1 で観測した「input が配列でない」失敗パターンを抑える
+      - reference_solution が default export / class になるケースを抑える
+    次の評価ポイント (E2E smoke 後に v3 検討):
+      - test_cases.input が常に配列で返ってくるか
+      - reference_solution が `export function solve` 形か
+      - サンドボックス実行成功率 (Vitest が走るか)
+      - judge スコア分布の改善幅

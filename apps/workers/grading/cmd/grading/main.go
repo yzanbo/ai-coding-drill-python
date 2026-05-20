@@ -99,7 +99,7 @@ func main() {
 	// 問題生成 prompt YAML を読み込む。Worker 起動時に fail-fast。
 	// パスは config.LLMConfigPath と同じディレクトリ規約 (cwd 基準 or 絶対パス)。
 	// 本 PR では prompts/ 配置を固定 (R7 の generation worker 切り出しでパス変える)。
-	genPrompt, err := grading.LoadGenerationPrompt(resolvePromptPath("prompts/generation/problem-gen.v1.yaml"))
+	genPrompt, err := grading.LoadGenerationPrompt(resolvePromptPath("prompts/generation/problem-gen.v2.yaml"))
 	if err != nil {
 		logger.ErrorContext(ctx, "generation prompt load failed", "err", err.Error())
 		os.Exit(1)
