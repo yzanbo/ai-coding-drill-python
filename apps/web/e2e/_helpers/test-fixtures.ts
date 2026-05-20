@@ -51,6 +51,19 @@ async function loginViaMockGithub(
 }
 
 /**
+ * ログイン → 認証必須ページへの遷移を 1 つにまとめたショートカット。
+ * loginViaMockGithub の直後に page.goto すると、Cookie がブラウザに
+ * セットされ切る前に (authed) layout が未認証扱いで /login にリダイレクト
+ * する race を踏むため、必ず /（ログイン後の終端着地）を待ってから次の
+ * URL に進む。3 spec で同じ手順を繰り返さないよう helper に閉じ込める。
+ */
+async function loginAndGoto(page: Page, path: string): Promise<void> {
+  await loginViaMockGithub(page);
+  await page.waitForURL("/");
+  await page.goto(path);
+}
+
+/**
  * ログアウト POST のショートカット。CSRF token を Cookie から取り出して
  * X-CSRF-Token ヘッダに詰める (double submit cookie の正規経路を再現)。
  */
@@ -79,4 +92,4 @@ export const test = base.extend<{ resetState: () => Promise<void> }>({
 });
 
 export { expect } from "@playwright/test";
-export { loginViaMockGithub, logoutViaApi, resetState };
+export { loginAndGoto, loginViaMockGithub, logoutViaApi, resetState };

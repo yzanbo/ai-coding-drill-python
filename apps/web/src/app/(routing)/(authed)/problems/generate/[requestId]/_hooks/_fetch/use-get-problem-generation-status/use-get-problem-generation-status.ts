@@ -1,14 +1,14 @@
 "use client";
 
 // useGetProblemGenerationStatus: 生成リクエストのステータスをポーリング取得するフック。
-//   - GET /problems/generate/:requestId を 1.5 秒間隔で叩く
+//   - GET /api/problems/generate/:requestId を 1.5 秒間隔で叩く
 //   - status が completed / failed になった時点で自動停止（refetchInterval を false に倒す）
 //   - 取得結果は呼び出し側でハンドリング（completed → 問題ページへ遷移、failed → 再試行 UI）
 //   要件: docs/requirements/4-features/problem-generation.md §生成ステータス画面
 
 import { useQuery } from "@tanstack/react-query";
 
-import { getProblemGenerationStatusProblemsGenerateRequestIdGet } from "@/__generated__/api/sdk.gen";
+import { getProblemGenerationStatusApiProblemsGenerateRequestIdGet } from "@/__generated__/api/sdk.gen";
 import type { ProblemGenerateStatusResponse } from "@/__generated__/api/types.gen";
 import { type ApiError, throwIfError } from "@/lib/api/api-error";
 
@@ -42,7 +42,9 @@ export const useGetProblemGenerationStatus = (
     queryKey: problemGenerationStatusQueryKey(requestId),
     queryFn: () =>
       throwIfError(
-        getProblemGenerationStatusProblemsGenerateRequestIdGet({ path: { request_id: requestId } }),
+        getProblemGenerationStatusApiProblemsGenerateRequestIdGet({
+          path: { request_id: requestId },
+        }),
       ),
     // retry: 5xx 時に既定 1 回リトライが走るとポーリング停止判定が遅れ、
     //   裏で 1.5 秒ごとに失敗 GET を叩き続けるリスクが残る。

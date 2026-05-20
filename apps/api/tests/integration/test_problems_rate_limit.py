@@ -1,4 +1,4 @@
-# POST /problems/generate のレート制限の結合テスト。
+# POST /api/problems/generate のレート制限の結合テスト。
 #
 # 要件:
 #   - docs/requirements/3-cross-cutting/02-api-conventions.md §レート制限
@@ -67,7 +67,7 @@ class TestProblemsGenerateRateLimit:
 
         for i in range(5):
             res = await client.post(
-                "/problems/generate",
+                "/api/problems/generate",
                 json={"category": "array", "difficulty": "easy"},
                 headers={"X-CSRF-Token": csrf},
             )
@@ -85,14 +85,14 @@ class TestProblemsGenerateRateLimit:
         # 5 回までは流して、6 回目で 429 を観測する。
         for _ in range(5):
             res = await client.post(
-                "/problems/generate",
+                "/api/problems/generate",
                 json={"category": "array", "difficulty": "easy"},
                 headers={"X-CSRF-Token": csrf},
             )
             assert res.status_code == 202
 
         res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "array", "difficulty": "easy"},
             headers={"X-CSRF-Token": csrf},
         )
@@ -119,7 +119,7 @@ class TestProblemsGenerateRateLimit:
         csrf_a = await login_via_github(client, gh_id=2001)
         for _ in range(5):
             res = await client.post(
-                "/problems/generate",
+                "/api/problems/generate",
                 json={"category": "array", "difficulty": "easy"},
                 headers={"X-CSRF-Token": csrf_a},
             )
@@ -134,7 +134,7 @@ class TestProblemsGenerateRateLimit:
         csrf_b = await login_via_github(client, gh_id=2002)
         for _ in range(5):
             res = await client.post(
-                "/problems/generate",
+                "/api/problems/generate",
                 json={"category": "array", "difficulty": "easy"},
                 headers={"X-CSRF-Token": csrf_b},
             )

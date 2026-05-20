@@ -24,7 +24,7 @@ beforeEach(() => {
 describe("ProblemGenerateForm", () => {
   it("正常系: カテゴリと難易度を選んで送信すると、ステータス画面に router.replace される", async () => {
     server.use(
-      http.post(`${API_BASE}/problems/generate`, () =>
+      http.post(`${API_BASE}/api/problems/generate`, () =>
         HttpResponse.json({ requestId: "req-001", status: "pending" }, { status: 202 }),
       ),
     );

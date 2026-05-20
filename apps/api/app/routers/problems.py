@@ -1,8 +1,18 @@
 # このファイルの役割：
 #   問題ドメインの APIRouter。R1-3 時点では問題生成リクエストの 2 エンドポイントを持つ。
 #
-#   - POST /problems/generate              : 生成リクエストの enqueue（202 即返）
-#   - GET  /problems/generate/:requestId   : 生成ステータス取得（ポーリング用）
+#   - POST /api/problems/generate              : 生成リクエストの enqueue（202 即返）
+#   - GET  /api/problems/generate/:requestId   : 生成ステータス取得（ポーリング用）
+#
+#   prefix に /api を被せている理由：
+#     Frontend の Next.js ページパス（/problems/new, /problems/generate/:requestId）と
+#     API パスを構造的に分離するため。Hey API クライアントは同一オリジン相対パスで
+#     叩く設計（apps/web/src/lib/api/api-client.ts の baseUrl: ""）で、
+#     Next.js の rewrites（apps/web/next.config.ts）が /api/* を FastAPI に
+#     裏で転送する。/api prefix が無いと /problems/generate/:requestId が
+#     Next.js のページパスと完全衝突して、ブラウザナビゲーションが API JSON に
+#     置き換わってしまう。/auth, /health, /healthz は callback URL 登録や
+#     インフラ慣習の都合で /api を被せず素のまま残してある。
 #
 #   LLM 呼び出しは Worker 側に閉じる（ADR 0040）ため、本 Router は
 #   「DB に行を作って NOTIFY を撃つ」「DB から状態を引いて返す」だけ。
@@ -35,7 +45,7 @@ from app.services.problem_generation import ProblemGenerationService
 #   - 既存 auth router（routers/auth.py）も router-level dep を持たない統一感
 # tags: Swagger UI のグルーピング表示。
 router = APIRouter(
-    prefix="/problems",
+    prefix="/api/problems",
     tags=["problems"],
 )
 
@@ -45,7 +55,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 # ----------------------------------------------------------------------------
-# POST /problems/generate : 生成リクエストの受付（202 + requestId 即返）
+# POST /api/problems/generate : 生成リクエストの受付（202 + requestId 即返）
 # ----------------------------------------------------------------------------
 @router.post(
     "/generate",
@@ -85,7 +95,7 @@ async def request_problem_generation(
 
 
 # ----------------------------------------------------------------------------
-# GET /problems/generate/:requestId : 生成ステータス取得（ポーリング）
+# GET /api/problems/generate/:requestId : 生成ステータス取得（ポーリング）
 # ----------------------------------------------------------------------------
 @router.get(
     "/generate/{request_id}",

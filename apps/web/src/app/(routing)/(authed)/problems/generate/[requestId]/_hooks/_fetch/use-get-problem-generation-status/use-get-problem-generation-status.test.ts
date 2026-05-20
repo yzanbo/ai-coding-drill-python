@@ -1,5 +1,5 @@
 // useGetProblemGenerationStatus のフックテスト。
-//   要件: problem-generation.md §GET /problems/generate/:requestId
+//   要件: problem-generation.md §GET /api/problems/generate/:requestId
 //   - pending → completed の遷移を検知できる（ポーリングが動く）
 //   - completed / failed に到達したら以後フェッチしない（refetchInterval 停止）
 import { renderHook, waitFor } from "@testing-library/react";
@@ -15,7 +15,7 @@ describe("useGetProblemGenerationStatus", () => {
   it("正常系: pending → completed の遷移を取得できる", async () => {
     let callCount = 0;
     server.use(
-      http.get(`${API_BASE}/problems/generate/req-001`, () => {
+      http.get(`${API_BASE}/api/problems/generate/req-001`, () => {
         callCount += 1;
         if (callCount >= 2) {
           return HttpResponse.json({
@@ -42,7 +42,7 @@ describe("useGetProblemGenerationStatus", () => {
 
   it("正常系: 即 failed が返った場合も status に反映される", async () => {
     server.use(
-      http.get(`${API_BASE}/problems/generate/req-002`, () =>
+      http.get(`${API_BASE}/api/problems/generate/req-002`, () =>
         HttpResponse.json({ requestId: "req-002", status: "failed" }),
       ),
     );
@@ -58,7 +58,7 @@ describe("useGetProblemGenerationStatus", () => {
   it("異常系: 5xx エラーで error が確定する", async () => {
     server.use(
       http.get(
-        `${API_BASE}/problems/generate/req-err`,
+        `${API_BASE}/api/problems/generate/req-err`,
         () => new HttpResponse(null, { status: 500 }),
       ),
     );

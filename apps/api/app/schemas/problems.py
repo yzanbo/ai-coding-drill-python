@@ -56,7 +56,7 @@ class _CamelModel(BaseModel):
     )
 
 
-# ProblemGenerateRequest: POST /problems/generate のリクエスト JSON。
+# ProblemGenerateRequest: POST /api/problems/generate のリクエスト JSON。
 #   要件側 JSON 例：{ "category": "array", "difficulty": "easy" }
 class ProblemGenerateRequest(_CamelModel):
     """問題生成リクエストの入力。
@@ -69,7 +69,7 @@ class ProblemGenerateRequest(_CamelModel):
     difficulty: ProblemDifficulty
 
 
-# ProblemGenerateAcceptedResponse: POST /problems/generate の 202 レスポンス。
+# ProblemGenerateAcceptedResponse: POST /api/problems/generate の 202 レスポンス。
 #   要件側 JSON 例：{ "requestId": "<uuid>", "status": "pending" }
 class ProblemGenerateAcceptedResponse(_CamelModel):
     """生成リクエスト受付完了。クライアントは requestId でポーリングを始める。"""
@@ -78,7 +78,7 @@ class ProblemGenerateAcceptedResponse(_CamelModel):
     status: Literal[GenerationStatus.PENDING] = GenerationStatus.PENDING
 
 
-# ProblemGenerateStatusResponse: GET /problems/generate/:requestId の 200 レスポンス。
+# ProblemGenerateStatusResponse: GET /api/problems/generate/:requestId の 200 レスポンス。
 #   要件側 JSON 例（pending / completed / failed の 3 形）：
 #     { "requestId": "<uuid>", "status": "pending" }
 #     { "requestId": "<uuid>", "status": "completed", "problemId": "<uuid>" }

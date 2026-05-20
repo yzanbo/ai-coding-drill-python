@@ -105,6 +105,22 @@ export const zHttpValidationError = z.object({
     detail: z.array(zValidationError).optional()
 });
 
+export const zRequestProblemGenerationApiProblemsGeneratePostBody = zProblemGenerateRequest;
+
+/**
+ * Successful Response
+ */
+export const zRequestProblemGenerationApiProblemsGeneratePostResponse = zProblemGenerateAcceptedResponse;
+
+export const zGetProblemGenerationStatusApiProblemsGenerateRequestIdGetPath = z.object({
+    request_id: z.uuid()
+});
+
+/**
+ * Successful Response
+ */
+export const zGetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse = zProblemGenerateStatusResponse;
+
 export const zStartGithubOauthAuthGithubGetQuery = z.object({
     next: z.string().nullish()
 });
@@ -143,19 +159,3 @@ export const zCreateHealthCheckHealthPostResponse = zHealthCheckResponse;
  * Successful Response
  */
 export const zHealthzHealthzGetResponse = z.record(z.string(), z.string());
-
-export const zRequestProblemGenerationProblemsGeneratePostBody = zProblemGenerateRequest;
-
-/**
- * Successful Response
- */
-export const zRequestProblemGenerationProblemsGeneratePostResponse = zProblemGenerateAcceptedResponse;
-
-export const zGetProblemGenerationStatusProblemsGenerateRequestIdGetPath = z.object({
-    request_id: z.uuid()
-});
-
-/**
- * Successful Response
- */
-export const zGetProblemGenerationStatusProblemsGenerateRequestIdGetResponse = zProblemGenerateStatusResponse;

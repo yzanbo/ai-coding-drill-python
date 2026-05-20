@@ -1,4 +1,4 @@
-# /problems/generate 系ルーター（POST / GET）の結合テスト。
+# /api/problems/generate 系ルーター（POST / GET）の結合テスト。
 #
 # テスト方針：
 #   - 実 FastAPI アプリ（main.app）+ 実 Postgres + fakeredis + respx の組み合わせ
@@ -48,7 +48,7 @@ async def reset_generation_tables() -> AsyncIterator[None]:
 
 
 # ----------------------------------------------------------------------------
-# POST /problems/generate
+# POST /api/problems/generate
 # ----------------------------------------------------------------------------
 class TestPostGenerateUnauthenticated:
     async def test_異常系_未認証なら401_CSRF_middlewareが先に弾く(
@@ -59,7 +59,7 @@ class TestPostGenerateUnauthenticated:
         """CSRF middleware は POST に対して認証情報なしを 401 にする（routers より前段）。"""
         del fake_redis  # fixture 起動だけ
         res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "array", "difficulty": "easy"},
         )
         assert res.status_code == 401
@@ -76,7 +76,7 @@ class TestPostGenerateSuccess:
         csrf = await login_via_github(client)
 
         res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "array", "difficulty": "easy"},
             headers={"X-CSRF-Token": csrf},
         )
@@ -99,7 +99,7 @@ class TestPostGenerateSuccess:
         user_id = await current_user_id(client)
 
         res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "string", "difficulty": "medium"},
             headers={"X-CSRF-Token": csrf},
         )
@@ -167,7 +167,7 @@ class TestPostGenerateTransactionRollback:
         # 観たいので、例外発生自体は想定内として受け止め、続けて DB 状態を assert。
         with pytest.raises(RuntimeError, match="simulated enqueue failure"):
             await client.post(
-                "/problems/generate",
+                "/api/problems/generate",
                 json={"category": "array", "difficulty": "easy"},
                 headers={"X-CSRF-Token": csrf},
             )
@@ -192,7 +192,7 @@ class TestPostGenerateValidation:
         csrf = await login_via_github(client)
 
         res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "physics", "difficulty": "easy"},
             headers={"X-CSRF-Token": csrf},
         )
@@ -208,7 +208,7 @@ class TestPostGenerateValidation:
         csrf = await login_via_github(client)
 
         res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "array", "difficulty": "impossible"},
             headers={"X-CSRF-Token": csrf},
         )
@@ -225,7 +225,7 @@ class TestPostGenerateValidation:
 
         # difficulty 欠落。
         res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "array"},
             headers={"X-CSRF-Token": csrf},
         )
@@ -242,14 +242,14 @@ class TestPostGenerateValidation:
         await login_via_github(client)
 
         res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "array", "difficulty": "easy"},
         )
         assert res.status_code == 403
 
 
 # ----------------------------------------------------------------------------
-# GET /problems/generate/:request_id
+# GET /api/problems/generate/:request_id
 # ----------------------------------------------------------------------------
 class TestGetStatusUnauthenticated:
     async def test_異常系_未認証なら401(
@@ -258,7 +258,7 @@ class TestGetStatusUnauthenticated:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        res = await client.get(f"/problems/generate/{uuid.uuid4()}")
+        res = await client.get(f"/api/problems/generate/{uuid.uuid4()}")
         assert res.status_code == 401
 
 
@@ -274,13 +274,13 @@ class TestGetStatusReturnsCorrectShape:
         csrf = await login_via_github(client)
 
         post_res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "array", "difficulty": "easy"},
             headers={"X-CSRF-Token": csrf},
         )
         request_id = post_res.json()["requestId"]
 
-        res = await client.get(f"/problems/generate/{request_id}")
+        res = await client.get(f"/api/problems/generate/{request_id}")
         assert res.status_code == 200
         body = res.json()
         assert body["requestId"] == request_id
@@ -303,7 +303,7 @@ class TestGetStatusReturnsCorrectShape:
         csrf = await login_via_github(client)
 
         post_res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "recursion", "difficulty": "medium"},
             headers={"X-CSRF-Token": csrf},
         )
@@ -321,7 +321,7 @@ class TestGetStatusReturnsCorrectShape:
             gr.produced_problem_id = problem_id
             await s.commit()
 
-        res = await client.get(f"/problems/generate/{request_id}")
+        res = await client.get(f"/api/problems/generate/{request_id}")
         assert res.status_code == 200
         body = res.json()
         assert body["status"] == "completed"
@@ -337,7 +337,7 @@ class TestGetStatusReturnsCorrectShape:
         csrf = await login_via_github(client)
 
         post_res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "async", "difficulty": "hard"},
             headers={"X-CSRF-Token": csrf},
         )
@@ -352,7 +352,7 @@ class TestGetStatusReturnsCorrectShape:
             gr.status = "failed"
             await s.commit()
 
-        res = await client.get(f"/problems/generate/{request_id}")
+        res = await client.get(f"/api/problems/generate/{request_id}")
         assert res.status_code == 200
         body = res.json()
         assert body["status"] == "failed"
@@ -369,7 +369,7 @@ class TestGetStatusAuthorization:
         del fake_redis
         await login_via_github(client)
 
-        res = await client.get(f"/problems/generate/{uuid.uuid4()}")
+        res = await client.get(f"/api/problems/generate/{uuid.uuid4()}")
         assert res.status_code == 404
         # 統一メッセージ（情報漏洩防止、core/exceptions.py）。
         assert res.json() == {"detail": "指定された生成リクエストが見つかりません"}
@@ -386,7 +386,7 @@ class TestGetStatusAuthorization:
         # ユーザー A でログインしてリクエストを作る。
         csrf_a = await login_via_github(client, gh_id=100)
         post_res = await client.post(
-            "/problems/generate",
+            "/api/problems/generate",
             json={"category": "string", "difficulty": "easy"},
             headers={"X-CSRF-Token": csrf_a},
         )
@@ -398,7 +398,7 @@ class TestGetStatusAuthorization:
         respx.reset()
         await login_via_github(client, gh_id=200)
 
-        res = await client.get(f"/problems/generate/{owner_request_id}")
+        res = await client.get(f"/api/problems/generate/{owner_request_id}")
         assert res.status_code == 404
         assert res.json() == {"detail": "指定された生成リクエストが見つかりません"}
 
@@ -412,7 +412,7 @@ class TestGetStatusAuthorization:
         del fake_redis
         await login_via_github(client)
 
-        res = await client.get("/problems/generate/not-a-uuid")
+        res = await client.get("/api/problems/generate/not-a-uuid")
         assert res.status_code == 422
 
 
