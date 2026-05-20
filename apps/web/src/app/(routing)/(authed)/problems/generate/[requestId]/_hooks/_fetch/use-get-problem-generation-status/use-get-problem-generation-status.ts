@@ -14,8 +14,7 @@ import { type ApiError, throwIfError } from "@/lib/api/api-error";
 
 // POLLING_INTERVAL_MS: ポーリング間隔。生成は数秒〜数十秒のオーダーなので
 //   サーバ負荷と UX の体感反応速度のバランスで 1.5 秒に置く。
-//   テストでも同じ値を使うため export する（数値の二重管理回避）。
-export const POLLING_INTERVAL_MS = 1500;
+const POLLING_INTERVAL_MS = 1500;
 
 const problemGenerationStatusQueryKey = (requestId: string) =>
   ["problems", "generate", requestId] as const;

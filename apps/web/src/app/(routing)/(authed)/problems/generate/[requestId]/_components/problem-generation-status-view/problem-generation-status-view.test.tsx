@@ -12,8 +12,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { API_BASE, server } from "@/test/msw-server";
 import { withQueryClient } from "@/test/render-with-query";
 
-import { POLLING_INTERVAL_MS } from "../../_hooks/_fetch/use-get-problem-generation-status/use-get-problem-generation-status";
-
 import { ProblemGenerationStatusView } from "./problem-generation-status-view";
 
 // next/navigation の router.replace を spy できるよう差し替える。
@@ -99,11 +97,13 @@ describe("ProblemGenerationStatusView", () => {
     await vi.waitFor(() => expect(getCount).toBeGreaterThan(callsBefore));
   });
 
-  it("completed が一度確定したら、ポーリングで状態が再描画されても replace は 1 回しか呼ばれない", async () => {
-    // 同じ completed レスポンスを返し続けるハンドラ。
-    //   refetchInterval が completed で false を返す実装が正しければ追加リクエストは
-    //   発生しないが、たとえポーリングが続いた場合でも router.replace は問題 ID ベースの
-    //   useEffect deps により 1 回しか呼ばれないことを担保する（ナビゲーション暴発防止）。
+  it("completed 確定後の再描画で useEffect が再発火せず replace は 1 回しか呼ばれない", async () => {
+    // 守りたいバグ: status オブジェクトの reference 揺れで useEffect が再発火し、
+    //   router.replace が連発される。これはレンダー直後に同期で再現するため、
+    //   ポーリング 1 周期分の壁時計待ちは不要（refetchInterval も completed で false を
+    //   返すため、そもそも追加 fetch も発生しない）。
+    //   waitFor で 1 回目の replace 到達を見届けた後、マイクロタスクと 1 タイマー tick を
+    //   flush してから、replace が増えていないことを確認する。
     server.use(
       http.get(`${API_BASE}/problems/generate/req-once`, () =>
         HttpResponse.json({
@@ -118,9 +118,11 @@ describe("ProblemGenerationStatusView", () => {
 
     await vi.waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/problems/prob-once"));
 
-    // ポーリング 1 周期分 + 余白を待ってから、replace が増えていないことを確認。
-    //   POLLING_INTERVAL_MS をフックから取り込むことで、間隔調整時にテスト側の追従漏れを防ぐ。
-    await new Promise((resolve) => setTimeout(resolve, POLLING_INTERVAL_MS + 300));
+    // マイクロタスクキュー + 直近のタイマー tick を 1 巡 flush。
+    //   useEffect の再発火はレンダー直後に同期で起きるので、これで十分捕まる。
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
     expect(mockReplace).toHaveBeenCalledTimes(1);
   });
 });
