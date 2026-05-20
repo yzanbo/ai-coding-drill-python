@@ -146,6 +146,52 @@ class TestListProblems:
         assert body["page"] == 1
         assert body["totalPages"] == 0
 
+    async def test_正常系_最終ページに残りの_items_が返る(
+        self,
+        client: AsyncClient,
+        fake_redis: fakeredis.aioredis.FakeRedis,
+    ) -> None:
+        """1 ページ 20 件の境界：total=21 で page=2 を踏むと 1 件返る。
+        Frontend は totalPages=2 を信じてページネーション UI を出すので、
+        最終ページに items が確実に返る契約を担保する。
+        """
+        del fake_redis
+        for i in range(21):
+            await _insert_problem(title=f"P{i:02d}", category="array", difficulty="easy")
+
+        res = await client.get("/api/problems?page=2")
+
+        assert res.status_code == 200
+        body = res.json()
+        assert body["page"] == 2
+        assert body["totalPages"] == 2
+        # 21 件 - 20 件（page 1 で消費） = 1 件が最終ページに残る。
+        assert len(body["items"]) == 1
+
+    async def test_正常系_page超過時は200で_items_空配列_を返す(
+        self,
+        client: AsyncClient,
+        fake_redis: fakeredis.aioredis.FakeRedis,
+    ) -> None:
+        """page > totalPages を直接踏んだ時の挙動：
+          - 404 ではなく 200 + items=[] を返す（Frontend 側で最終ページへ redirect する前提）
+          - totalPages は実体に基づく値（例：5 件しか無いなら totalPages=1）
+
+        この契約が壊れると `/problems/page.tsx` の redirect ロジック（page.tsx:106-108）が
+        前提を失い、無限 redirect / 真っ白画面の事故になる。
+        """
+        del fake_redis
+        for i in range(5):
+            await _insert_problem(title=f"P{i:02d}", category="array", difficulty="easy")
+
+        res = await client.get("/api/problems?page=999")
+
+        assert res.status_code == 200
+        body = res.json()
+        assert body["page"] == 999
+        assert body["totalPages"] == 1
+        assert body["items"] == []
+
     async def test_異常系_未定義カテゴリは422(
         self,
         client: AsyncClient,
