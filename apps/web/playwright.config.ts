@@ -2,16 +2,18 @@
 // R1-1 GitHub OAuth ログインの E2E テスト着地に伴い webServer を本格構成化。
 // 詳細: https://playwright.dev/docs/test-configuration
 import { defineConfig, devices } from "@playwright/test";
+import {
+  API_PORT,
+  DATABASE_URL,
+  MOCK_GITHUB_ORIGIN,
+  MOCK_GITHUB_PORT,
+  REDIS_URL,
+  WEB_PORT,
+} from "./e2e/_helpers/constants";
 
-// E2E 専用環境変数。docker compose で起動した dev DB / Redis に向ける想定。
-// 機密値は含まないため (E2E 用 dummy CLIENT_ID / SECRET / dev 接続情報) 本ファイルで定義してよい。
-// _ プレフィックスは「Playwright 起動スクリプト内専用、production には流さない」目印。
-const _MOCK_GITHUB_PORT = 18001;
-const _API_PORT = 8000;
-const _WEB_PORT = 3000;
-const _DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill";
-const _REDIS_URL = "redis://localhost:6379/0";
-const _MOCK_GITHUB_ORIGIN = `http://127.0.0.1:${_MOCK_GITHUB_PORT}`;
+// 機密値は含まないため (E2E 用 dummy CLIENT_ID / SECRET + dev 接続情報) 本ファイル
+// で定義してよい。DB / Redis URL は constants.ts 側で env fallback 構造にしているため
+// CI / dev で同じ config を使い回せる。
 
 // Backend (FastAPI) を E2E 向け env で起動するための環境変数セット。
 // - GITHUB_* URL 3 つを mock サーバに向ける (apps/api/app/services/github_oauth.py が参照)
@@ -19,22 +21,22 @@ const _MOCK_GITHUB_ORIGIN = `http://127.0.0.1:${_MOCK_GITHUB_PORT}`;
 // - GITHUB_CLIENT_ID / SECRET は mock 側では一致チェックしないので dummy で OK
 const _API_ENV = {
   APP_ENV: "dev",
-  DATABASE_URL: _DATABASE_URL,
-  REDIS_URL: _REDIS_URL,
+  DATABASE_URL: DATABASE_URL,
+  REDIS_URL: REDIS_URL,
   GITHUB_CLIENT_ID: "e2e-client-id",
   GITHUB_CLIENT_SECRET: "e2e-client-secret",
-  GITHUB_REDIRECT_URI: `http://localhost:${_API_PORT}/auth/github/callback`,
-  GITHUB_AUTHORIZE_URL: `${_MOCK_GITHUB_ORIGIN}/login/oauth/authorize`,
-  GITHUB_TOKEN_URL: `${_MOCK_GITHUB_ORIGIN}/login/oauth/access_token`,
-  GITHUB_USER_API_URL: `${_MOCK_GITHUB_ORIGIN}/user`,
+  GITHUB_REDIRECT_URI: `http://localhost:${API_PORT}/auth/github/callback`,
+  GITHUB_AUTHORIZE_URL: `${MOCK_GITHUB_ORIGIN}/login/oauth/authorize`,
+  GITHUB_TOKEN_URL: `${MOCK_GITHUB_ORIGIN}/login/oauth/access_token`,
+  GITHUB_USER_API_URL: `${MOCK_GITHUB_ORIGIN}/user`,
   // SESSION_SIGNING_SECRET は dev 既定値で十分 (production チェックは APP_ENV=production でのみ発火)
   SESSION_SIGNING_SECRET: "e2e-only-non-production-secret-do-not-use-anywhere-else",
 };
 
 // Mock GitHub サーバを E2E reset 対応で起動するための env。
 const _MOCK_GITHUB_ENV = {
-  DATABASE_URL: _DATABASE_URL,
-  REDIS_URL: _REDIS_URL,
+  DATABASE_URL: DATABASE_URL,
+  REDIS_URL: REDIS_URL,
   E2E_RESET_ENABLED: "true",
 };
 
@@ -55,7 +57,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? "github" : "html",
   use: {
-    baseURL: `http://localhost:${_WEB_PORT}`,
+    baseURL: `http://localhost:${WEB_PORT}`,
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
@@ -71,8 +73,8 @@ export default defineConfig({
   webServer: [
     {
       // Mock GitHub OAuth サーバ: apps/api の uv env で動かす (python-multipart を含む)。
-      command: `cd ../api && uv run python ../web/e2e/_mock-github/server.py --port ${_MOCK_GITHUB_PORT}`,
-      url: `${_MOCK_GITHUB_ORIGIN}/_health`,
+      command: `cd ../api && uv run python ../web/e2e/_mock-github/server.py --port ${MOCK_GITHUB_PORT}`,
+      url: `${MOCK_GITHUB_ORIGIN}/_health`,
       timeout: 30_000,
       reuseExistingServer: !process.env.CI,
       env: _MOCK_GITHUB_ENV,
@@ -82,7 +84,7 @@ export default defineConfig({
     {
       // Backend: GITHUB_* URL を mock に向けて起動。
       command: "cd ../api && uv run fastapi dev --port 8000",
-      url: `http://localhost:${_API_PORT}/healthz`,
+      url: `http://localhost:${API_PORT}/healthz`,
       timeout: 60_000,
       reuseExistingServer: !process.env.CI,
       env: _API_ENV,
@@ -92,11 +94,11 @@ export default defineConfig({
     {
       // Web: Next.js dev サーバ (rewrites で /auth/* を Backend に転送)。
       command: "pnpm run dev",
-      url: `http://localhost:${_WEB_PORT}`,
+      url: `http://localhost:${WEB_PORT}`,
       timeout: 60_000,
       reuseExistingServer: !process.env.CI,
       env: {
-        API_PROXY_TARGET: `http://localhost:${_API_PORT}`,
+        API_PROXY_TARGET: `http://localhost:${API_PORT}`,
       },
       stdout: "pipe",
       stderr: "pipe",

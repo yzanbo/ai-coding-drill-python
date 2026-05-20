@@ -12,7 +12,7 @@
 //   - 各 test は beforeEach で /_test/reset を叩いて DB / Redis をクリーン化
 //   - Mock の挙動切替は e2e/_helpers/test-fixtures.ts の loginViaMockGithub を経由
 
-import { expect, loginViaMockGithub, test } from "./_helpers/test-fixtures";
+import { expect, loginViaMockGithub, logoutViaApi, test } from "./_helpers/test-fixtures";
 
 test.beforeEach(async ({ resetState }) => {
   // 各テスト前に DB users / auth_providers TRUNCATE + Redis FLUSHDB。
@@ -52,15 +52,8 @@ test.describe("ログアウトフロー", () => {
 
     // /auth/logout は POST + CSRF 必須 (double submit cookie)。
     // ブラウザ経由でヘッダーのログアウトボタンを押す方が UX 通りだが、
-    // 本テストは「セッション破棄」の存在保証に絞る。CSRF token は Cookie から取り出す。
-    const cookies = await page.context().cookies();
-    const csrfToken = cookies.find((c) => c.name === "csrf_token")?.value;
-    expect(csrfToken).toBeTruthy();
-
-    const logoutRes = await page.request.post("/auth/logout", {
-      headers: { "X-CSRF-Token": csrfToken ?? "" },
-    });
-    expect(logoutRes.status()).toBe(204);
+    // 本テストは「セッション破棄」の存在保証に絞る。CSRF token 取り出しは helper に集約。
+    expect(await logoutViaApi(page)).toBe(204);
 
     // ログアウト後の /auth/me は 401。
     const meAfter = await page.request.get("/auth/me");
@@ -92,7 +85,7 @@ test.describe("next= パラメータの外部 URL 拒否", () => {
 });
 
 test.describe("Cancel フロー", () => {
-  test("GitHub 認可画面で Cancel すると /login?auth_error=oauth_failed へ", async ({ page }) => {
+  test("GitHub 認可画面で Cancel すると /login へ戻り /auth/me 401", async ({ page }) => {
     // mock の /authorize に ?_mode=cancel を渡して error=access_denied を返させる。
     await loginViaMockGithub(page, { mode: "cancel" });
 
@@ -119,12 +112,8 @@ test.describe("同一 GitHub アカウントの再ログイン (user 一意性)"
     const firstUserId = body1.id;
     expect(firstUserId).toBeTruthy();
 
-    // ログアウト (CSRF token を読んで POST)
-    const cookies = await page.context().cookies();
-    const csrf = cookies.find((c) => c.name === "csrf_token")?.value ?? "";
-    await page.request.post("/auth/logout", {
-      headers: { "X-CSRF-Token": csrf },
-    });
+    // ログアウト (CSRF token を Cookie から取り出して POST)
+    await logoutViaApi(page);
 
     // 2 回目: 同じ mock user (同じ GitHub id) で再ログイン。
     await loginViaMockGithub(page);

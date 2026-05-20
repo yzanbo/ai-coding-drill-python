@@ -8,17 +8,14 @@
 //     軽量に Playwright の test.extend で実現する
 
 import { test as base, type Page } from "@playwright/test";
-
-// _MOCK_GITHUB_ORIGIN: playwright.config.ts と同じ値を持つ (循環参照を避けるため定数複製)。
-// 将来この値が増えたら e2e/_helpers/constants.ts に切り出す。
-const _MOCK_GITHUB_ORIGIN = "http://127.0.0.1:18001";
+import { MOCK_GITHUB_ORIGIN } from "./constants";
 
 /**
  * DB (users / auth_providers) と Redis (session / state / rate limit) を全消去する。
  * 各 test の beforeEach から呼ぶ想定。
  */
 async function resetState(page: Page): Promise<void> {
-  const res = await page.request.post(`${_MOCK_GITHUB_ORIGIN}/_test/reset`);
+  const res = await page.request.post(`${MOCK_GITHUB_ORIGIN}/_test/reset`);
   if (!res.ok()) {
     throw new Error(`state reset failed: ${res.status()} ${await res.text()}`);
   }
@@ -32,21 +29,15 @@ async function resetState(page: Page): Promise<void> {
  */
 async function loginViaMockGithub(
   page: Page,
-  options: { mode?: "auto" | "cancel"; userVariant?: string } = {},
+  options: { mode?: "auto" | "cancel" } = {},
 ): Promise<void> {
-  // /auth/github を browser で開くと Backend が mock の /authorize に 302。
-  // mock は即 callback に 302、Backend が user 情報取得・session 発行、最終的に / に redirect。
-  // ただし mock /authorize にクエリで _mode / _user_variant を伝える必要があり、
-  // Backend が組み立てる URL に直接埋めにくいため、mock 側に存在する static endpoint で
-  // 「次に呼ばれる /authorize の挙動」を上書きする仕組みは持たず、
-  // 代わりに本ヘルパは /auth/github を踏まずに mock の /authorize を直接ブラウザで開く。
-  // (Backend の /auth/github と等価な挙動を mock 側で完結させる)
+  // 手順:
+  //   1. Backend の /auth/github をリダイレクト追従なし (maxRedirects: 0) で踏み、
+  //      state を発行させ Location ヘッダから mock /authorize の URL を取り出す
+  //   2. URL に _mode クエリを足してブラウザで開く
+  //      (Backend が組み立てる URL に _mode を埋め込めないため後付けで追加する)
+  //   3. mock /authorize が callback に 302 → Backend が user 情報取得・session 発行 → / に着地
   const mode = options.mode ?? "auto";
-  const userVariant = options.userVariant ?? "";
-  // Backend に state を発行させるため、まず /auth/github を踏む。
-  // Backend は mock の /authorize に 302 を返すが、その URL に _mode / _user_variant が
-  // 含まれないため、ブラウザのリダイレクト追従を一旦止めて URL を読み取り、
-  // _mode / _user_variant を追加した URL にブラウザを誘導する。
   const initialResponse = await page.request.get("/auth/github", {
     maxRedirects: 0,
   });
@@ -56,8 +47,20 @@ async function loginViaMockGithub(
   }
   const url = new URL(authorizeUrl);
   url.searchParams.set("_mode", mode);
-  if (userVariant) url.searchParams.set("_user_variant", userVariant);
   await page.goto(url.toString());
+}
+
+/**
+ * ログアウト POST のショートカット。CSRF token を Cookie から取り出して
+ * X-CSRF-Token ヘッダに詰める (double submit cookie の正規経路を再現)。
+ */
+async function logoutViaApi(page: Page): Promise<number> {
+  const cookies = await page.context().cookies();
+  const csrfToken = cookies.find((c) => c.name === "csrf_token")?.value ?? "";
+  const res = await page.request.post("/auth/logout", {
+    headers: { "X-CSRF-Token": csrfToken },
+  });
+  return res.status();
 }
 
 /**
@@ -76,4 +79,4 @@ export const test = base.extend<{ resetState: () => Promise<void> }>({
 });
 
 export { expect } from "@playwright/test";
-export { loginViaMockGithub, resetState };
+export { loginViaMockGithub, logoutViaApi, resetState };
