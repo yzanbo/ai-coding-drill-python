@@ -116,6 +116,7 @@ func main() {
 	sb, err := sandbox.NewRunner(sandbox.Options{
 		Image:   cfg.SandboxImage,
 		Timeout: time.Duration(cfg.JobTimeoutSeconds) * time.Second,
+		TmpDir:  cfg.SandboxTmpDir,
 	})
 	if err != nil {
 		logger.ErrorContext(ctx, "sandbox runner init failed", "err", err.Error())

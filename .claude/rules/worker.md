@@ -448,6 +448,7 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 - `WORKER_ID` — `locked_by` に書く識別子（既定はホスト名、`os.Hostname()` 失敗時はプレースホルダ `unknown-host`）
 - `WORKER_CONCURRENCY` — 並列 goroutine 数（既定 4、**> 0 必須**）
 - `SANDBOX_IMAGE` — サンドボックスのイメージタグ（両 Worker で同じ image を起動、既定 `ai-coding-drill-sandbox:latest`）
+- `SANDBOX_TMP_DIR` — sandbox runner がホスト tmp dir を作る親ディレクトリ（任意、空なら OS 既定 `$TMPDIR`）。macOS Docker Desktop の File Sharing で `$TMPDIR` 配下が許可外の環境では `/tmp` 等を明示
 - `JOB_TIMEOUT_SECONDS` — タイムアウト秒（grading 既定 5、generation は LLM 呼び出しが長いため大きめが望ましい、`config/` 既定で個別調整、**> 0 必須**）
 - `RECLAIM_AFTER_MINUTES` — スタックジョブとみなす経過時間（既定 5、**> 0 必須**）
 

@@ -83,6 +83,12 @@ type Config struct {
 	// SandboxImage: 採点コンテナの image タグ。両 Worker で同じ image を起動。
 	SandboxImage string `env:"SANDBOX_IMAGE" envDefault:"ai-coding-drill-sandbox:latest"`
 
+	// SandboxTmpDir: sandbox がコード書き出しに使うホスト tmp dir。
+	// 空文字 (既定) なら OS の $TMPDIR (macOS は /var/folders/... 等) を使う。
+	// Docker Desktop の File Sharing 許可外に $TMPDIR が落ちる環境では
+	// `SANDBOX_TMP_DIR=/tmp` 等を明示することで bind mount 失敗を回避できる。
+	SandboxTmpDir string `env:"SANDBOX_TMP_DIR"`
+
 	// JobTimeoutSeconds: 1 ジョブの最大処理時間。grading 既定 5 秒
 	// (sandbox 実行のみ)。LLM 呼び出しを含むジョブ (R1-2 以降の生成兼務) では
 	// problem-generation.md の 180 秒を別途使う想定。

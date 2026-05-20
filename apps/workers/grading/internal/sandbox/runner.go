@@ -77,12 +77,17 @@ type Runner struct {
 	cli     *client.Client
 	image   string
 	timeout time.Duration
+	// tmpDir: ホスト側で bind mount 用の一時 dir を作る親ディレクトリ。
+	// 空文字なら os.MkdirTemp の既定 ($TMPDIR / /tmp) を使う。
+	tmpDir string
 }
 
 // Options: Runner 生成パラメータ。Image / Timeout は必須。
+// TmpDir は任意 (空 = OS 既定の $TMPDIR を使う)。
 type Options struct {
 	Image   string
 	Timeout time.Duration
+	TmpDir  string
 }
 
 // NewRunner: Docker daemon に繋いで Runner を組み立てる。
@@ -102,7 +107,7 @@ func NewRunner(opts Options) (*Runner, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sandbox: docker client: %w", err)
 	}
-	return &Runner{cli: cli, image: opts.Image, timeout: opts.Timeout}, nil
+	return &Runner{cli: cli, image: opts.Image, timeout: opts.Timeout, tmpDir: opts.TmpDir}, nil
 }
 
 // Close: Docker client を閉じる。
@@ -240,7 +245,10 @@ func (r *Runner) Run(ctx context.Context, files []FileSource, cmd []string) (*Re
 // writeFiles: host の tmp dir を 1 個作って FileSource を全部書き出す。
 // 戻り値は dir path。呼び出し側が defer os.RemoveAll する。
 func (r *Runner) writeFiles(files []FileSource) (string, error) {
-	dir, err := os.MkdirTemp("", "ai-coding-drill-sandbox-*")
+	// MkdirTemp の dir 引数が "" の時は OS 既定 ($TMPDIR / /tmp) を使う。
+	// SANDBOX_TMP_DIR を設定した環境ではそのディレクトリ配下に作る
+	// (macOS Docker Desktop の File Sharing 設定回避)。
+	dir, err := os.MkdirTemp(r.tmpDir, "ai-coding-drill-sandbox-*")
 	if err != nil {
 		return "", fmt.Errorf("sandbox: mktmp: %w", err)
 	}
