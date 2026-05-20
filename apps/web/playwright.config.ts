@@ -46,15 +46,19 @@ export default defineConfig({
   testDir: "./e2e",
   // testMatch: *.spec.ts のみテストとして認識 (server.py 等の補助ファイルを誤検出しない)。
   testMatch: "**/*.spec.ts",
-  // fullyParallel: ファイル間を並列実行。
-  // ただし auth テストは DB / Redis を共有するため beforeEach で reset する設計。
+  // fullyParallel: ファイル間を並列実行できる設定だが、下記 workers: 1 で
+  // 実質逐次になる。設定自体は将来 worker 数を増やしたときの素直さのため残す。
   fullyParallel: true,
   // forbidOnly: CI 上で .only テストが残っていれば fail させる安全策。
   forbidOnly: !!process.env.CI,
   // retries: CI でだけ 2 回まで再実行 (フレーキー対策)。ローカルは 0。
   retries: process.env.CI ? 2 : 0,
-  // workers: CI では 1 (DB 共有のため衝突回避)、ローカルは並列で良い。
-  workers: process.env.CI ? 1 : undefined,
+  // workers: ローカル / CI ともに 1 で固定。
+  // 理由: 全 spec が同じ DB / Redis を共有していて、各テスト前の resetState が
+  // 他テストのログイン状態やジョブを吹き飛ばす衝突 (race) を起こすため。
+  // (auth.spec.ts と problem-generation.spec.ts のローカル並走で flaky を確認、issue #66)
+  // 並列に戻す案 (spec ごとに DB を作り分け / user 単位で消す) は将来検討。
+  workers: 1,
   reporter: process.env.CI ? "github" : "html",
   use: {
     baseURL: `http://localhost:${WEB_PORT}`,
