@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,8 @@ type fakeLLMProvider struct {
 	called   int
 	lastMsg  []llm.Message
 	lastOpt  llm.Options
-	cacheHit bool // 観測ログ cache_hit 検証用 (省略可、既定 false)。
+	cacheHit bool          // 観測ログ cache_hit 検証用 (省略可、既定 false)。
+	sleep    time.Duration // 観測ログ latency_ms 検証用 (省略可、既定 0)。応答前にこの時間だけ消費する。
 }
 
 func (f *fakeLLMProvider) Name() string { return "fake" }
@@ -29,6 +31,10 @@ func (f *fakeLLMProvider) Generate(_ context.Context, msgs []llm.Message, opts l
 	f.called++
 	f.lastMsg = msgs
 	f.lastOpt = opts
+	// sleep: 応答前に意図的に時間を消費して latency_ms が実時間を拾えていることを検証する。
+	if f.sleep > 0 {
+		time.Sleep(f.sleep)
+	}
 	if f.err != nil {
 		return llm.Response{}, f.err
 	}
@@ -77,7 +83,7 @@ func TestGenerate_ParsesValidProblem(t *testing.T) {
 	p, err := LoadGenerationPrompt(writePromptYAML(t, minimalPromptYAML))
 	require.NoError(t, err)
 
-	fake := &fakeLLMProvider{cacheHit: true, content: `{
+	fake := &fakeLLMProvider{content: `{
 "title": "配列の合計",
 "description": "数値配列を受け取り合計を返す",
 "examples": [{"input": "[1,2,3]", "output": "6"}],
@@ -100,13 +106,60 @@ func TestGenerate_ParsesValidProblem(t *testing.T) {
 	assert.Equal(t, "fake", draft.GeneratedBy.Provider)
 	assert.Equal(t, "fake-model", draft.GeneratedBy.Model)
 	assert.NotEmpty(t, draft.GeneratedBy.PromptHash)
-	// 観測ログ必須フィールド (04-observability.md): cache_hit / latency_ms を Response から拾えていること。
-	assert.True(t, draft.GeneratedBy.CacheHit)
-	assert.GreaterOrEqual(t, draft.GeneratedBy.LatencyMs, int64(0))
 	// user_template の変数置換が効いていること
 	require.Len(t, fake.lastMsg, 2)
 	assert.Contains(t, fake.lastMsg[1].Content, "category=array")
 	assert.Contains(t, fake.lastMsg[1].Content, "difficulty=easy")
+}
+
+// TestGenerate_PropagatesObservabilityFields:
+// 観測ログ必須フィールド (04-observability.md「LLM 呼び出し時の追加フィールド」) のうち、
+// Response から拾う必要がある cache_hit / latency_ms が draft.GeneratedBy に正しく伝播することを検証する。
+//
+// 検証ポイント:
+//   - cache_hit: true / false の両経路で値がそのまま伝わること (zero value 経由のバグ検出)
+//   - latency_ms: provider 呼び出しに実時間が掛かっていること (sleep を意図的に挟む)
+//     int64 + 単調クロックの性質上 0 以上は自明なので、Greater で「実時間が拾えていること」を検証する。
+func TestGenerate_PropagatesObservabilityFields(t *testing.T) {
+	t.Parallel()
+
+	const validContent = `{
+"title": "t",
+"description": "d",
+"test_cases": [{"input": [1], "expected": 1}],
+"reference_solution": "export function solve(x: number) { return x; }"
+}`
+
+	// sleepMs: latency_ms が 0 でないことを安定して検出するための最小待ち時間。
+	// CI のクロック粒度ばらつきを吸収するため数 ms 取る。
+	const sleepMs = 5
+
+	cases := []struct {
+		name     string
+		cacheHit bool
+	}{
+		{name: "cache hit", cacheHit: true},
+		{name: "cache miss", cacheHit: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			p, err := LoadGenerationPrompt(writePromptYAML(t, minimalPromptYAML))
+			require.NoError(t, err)
+
+			fake := &fakeLLMProvider{
+				content:  validContent,
+				cacheHit: tc.cacheHit,
+				sleep:    sleepMs * time.Millisecond,
+			}
+			draft, err := NewProblemGenerator(p, fake).Generate(context.Background(), "array", "easy")
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.cacheHit, draft.GeneratedBy.CacheHit)
+			assert.Greater(t, draft.GeneratedBy.LatencyMs, int64(0), "latency_ms が provider 呼び出し時間を拾えていない")
+		})
+	}
 }
 
 func TestGenerate_InvalidJSON(t *testing.T) {
