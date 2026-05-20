@@ -4,6 +4,7 @@ go 1.26.3
 
 require (
 	github.com/caarlos0/env/v11 v11.4.1
+	github.com/joho/godotenv v1.5.1
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/genai v1.57.0
 	gopkg.in/yaml.v3 v3.0.1

@@ -66,6 +66,10 @@ type Config struct {
 	// notEmpty を使う理由: caarlos0/env の `required` は環境変数の有無のみ
 	// 判定し、空文字 ("") は通してしまう。Worker は空 DSN で起動しても
 	// 直後の pgx 接続で落ちるため、ここで空も拒否する方が原因究明が早い。
+	//
+	// 形式: pgx 互換の `postgresql://...` または `postgres://...` を直接受け取る。
+	// (api 側の SQLAlchemy 形式 `postgresql+asyncpg://...` とは env scope を
+	// 分離している。.env は app ごとに独立、ADR 0039 / 本 worker は godotenv で自己 load)
 	DatabaseURL string `env:"DATABASE_URL,notEmpty"`
 
 	// WorkerID: jobs.locked_by に書く識別子。

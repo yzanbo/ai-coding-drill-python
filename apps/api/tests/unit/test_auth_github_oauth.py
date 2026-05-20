@@ -200,3 +200,65 @@ class TestExchangeCodeRequestPayload:
         assert token_route.called
         sent: httpx.Request = token_route.calls.last.request
         assert "user-agent" in {k.lower() for k in sent.headers}
+
+
+class TestEndpointUrlOverride:
+    """E2E テスト用に GitHub URL を mock サーバへ差し替えできることを保証する。
+
+    本番 / 開発では `github_authorize_url` / `github_token_url` / `github_user_api_url`
+    は既定値（github.com）のまま使う想定だが、E2E では mock サーバ URL に上書きする。
+    Settings 既定値を差し替えてもクライアントが正しく追従することを保証する。
+    """
+
+    def test_正常系_authorize_url_overrideが反映される(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """build_authorize_url が override 先 URL を base に組み立てる。"""
+        from app.core import config
+
+        config.get_settings.cache_clear()
+        monkeypatch.setenv(
+            "GITHUB_AUTHORIZE_URL", "http://localhost:18001/login/oauth/authorize"
+        )
+
+        url = GitHubOAuthClient().build_authorize_url(state="abc")
+
+        assert url.startswith("http://localhost:18001/login/oauth/authorize?")
+        assert "state=abc" in url
+
+        config.get_settings.cache_clear()
+
+    @respx.mock
+    async def test_正常系_token_url_と_user_api_url_overrideが反映される(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """exchange_code が override 先 URL に対して POST / GET する。"""
+        from app.core import config
+
+        config.get_settings.cache_clear()
+        monkeypatch.setenv(
+            "GITHUB_TOKEN_URL", "http://localhost:18001/login/oauth/access_token"
+        )
+        monkeypatch.setenv(
+            "GITHUB_USER_API_URL", "http://localhost:18001/user"
+        )
+
+        # respx に override 先の URL でマッチする stub を仕込む
+        token_route = respx.post(
+            "http://localhost:18001/login/oauth/access_token"
+        ).respond(
+            200,
+            json={"access_token": "gho_x", "token_type": "bearer", "scope": ""},
+        )
+        user_route = respx.get("http://localhost:18001/user").respond(
+            200,
+            json={"id": 1, "name": "Taro", "login": "taro", "email": None},
+        )
+
+        result = await GitHubOAuthClient().exchange_code(code="ok-code")
+
+        assert token_route.called
+        assert user_route.called
+        assert result.provider_id == "1"
+
+        config.get_settings.cache_clear()

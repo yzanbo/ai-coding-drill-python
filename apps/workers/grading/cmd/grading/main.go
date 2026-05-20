@@ -29,6 +29,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/config"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/llm"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/llm/google"
@@ -41,6 +42,12 @@ func main() {
 	defer stop()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// .env をプロセス開始直後に load する (cwd の .env を見る、存在しなければ silent skip)。
+	// production Docker 起動では .env が無く OS env / コンテナ env 経由で値が入る想定。
+	// 既に設定済みの環境変数は上書きしないため、開発時の .env と prod の env が
+	// 衝突しても prod が勝つ (godotenv.Load の仕様)。
+	_ = godotenv.Load()
 
 	// 設定読み込み: 失敗したら fail-fast で終了する。
 	// DATABASE_URL 欠落 / llm.yaml 不在 / yaml 文法エラーがここで弾かれる。
