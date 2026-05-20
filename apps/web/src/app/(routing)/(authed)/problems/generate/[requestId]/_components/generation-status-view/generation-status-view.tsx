@@ -14,7 +14,7 @@ import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button/button";
 
-import { useGetProblemGenerationStatus } from "../../_hooks/_fetch/use-get-problem-generation-status";
+import { useGetProblemGenerationStatus } from "../../_hooks/_fetch/use-get-problem-generation-status/use-get-problem-generation-status";
 
 type GenerationStatusViewProps = {
   requestId: string;

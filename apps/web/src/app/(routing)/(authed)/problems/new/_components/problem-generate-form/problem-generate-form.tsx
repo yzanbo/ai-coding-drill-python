@@ -19,7 +19,7 @@ import {
   problemGenerateFormSchema,
 } from "@/lib/validation/problem-generate-form-schema";
 
-import { usePostProblemGenerate } from "../../_hooks/_fetch/use-post-problem-generate";
+import { usePostProblemGenerate } from "../../_hooks/_fetch/use-post-problem-generate/use-post-problem-generate";
 
 // optionCardClassName: ラジオカード共通スタイル。
 //   - 未選択時: 通常の枠線
