@@ -290,6 +290,284 @@
         "title": "SubmissionCreateRequest",
         "type": "object"
       },
+      "SubmissionFailureKind": {
+        "enum": [
+          "test_failed",
+          "timeout",
+          "oom",
+          "syntax",
+          "runtime"
+        ],
+        "title": "SubmissionFailureKind",
+        "type": "string"
+      },
+      "SubmissionResultPayload": {
+        "description": "採点完了時の結果ペイロード。Worker が submissions.result に書き込む形と一致。",
+        "properties": {
+          "durationMs": {
+            "title": "Durationms",
+            "type": "integer"
+          },
+          "failureKind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubmissionFailureKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "testResults": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionTestResultItem"
+            },
+            "title": "Testresults",
+            "type": "array"
+          }
+        },
+        "required": [
+          "passed",
+          "durationMs"
+        ],
+        "title": "SubmissionResultPayload",
+        "type": "object"
+      },
+      "SubmissionStatus": {
+        "enum": [
+          "pending",
+          "graded",
+          "failed"
+        ],
+        "title": "SubmissionStatus",
+        "type": "string"
+      },
+      "SubmissionStatusResponse": {
+        "description": "解答 + 採点結果。クライアントは pending の間ポーリングする。",
+        "properties": {
+          "gradedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gradedat"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "problemId": {
+            "format": "uuid",
+            "title": "Problemid",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubmissionResultPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SubmissionStatus"
+          },
+          "totalCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Totalcount"
+          }
+        },
+        "required": [
+          "id",
+          "problemId",
+          "status"
+        ],
+        "title": "SubmissionStatusResponse",
+        "type": "object"
+      },
+      "SubmissionSummary": {
+        "description": "解答履歴の 1 行分。問題タイトルまで含めて一覧 UI に必要十分。",
+        "properties": {
+          "gradedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gradedat"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "problemId": {
+            "format": "uuid",
+            "title": "Problemid",
+            "type": "string"
+          },
+          "problemTitle": {
+            "title": "Problemtitle",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SubmissionStatus"
+          },
+          "totalCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Totalcount"
+          }
+        },
+        "required": [
+          "id",
+          "problemId",
+          "problemTitle",
+          "status"
+        ],
+        "title": "SubmissionSummary",
+        "type": "object"
+      },
+      "SubmissionTestResultItem": {
+        "description": "1 テストケース分の結果。passed=false の時に expected/actual/message が埋まる。",
+        "properties": {
+          "actual": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual"
+          },
+          "durationMs": {
+            "title": "Durationms",
+            "type": "integer"
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "passed",
+          "durationMs"
+        ],
+        "title": "SubmissionTestResultItem",
+        "type": "object"
+      },
+      "SubmissionsListResponse": {
+        "description": "解答履歴一覧 + ページネーション情報。",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "totalPages": {
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "SubmissionsListResponse",
+        "type": "object"
+      },
       "UserResponse": {
         "description": "現在ログイン中のユーザー情報。GET /auth/me が返す形。\n\nsnake_case のモデル属性を camelCase で JSON 出力するよう alias を効かせる\n（Frontend の Hey API 生成型もそのまま camelCase になる）。",
         "properties": {
@@ -587,8 +865,63 @@
       }
     },
     "/api/submissions": {
+      "get": {
+        "description": "自分の解答履歴をページングで返す。\n\n並び順は created_at DESC（新着順）。problem_title まで含めて返すため\n一覧 UI 側は追加の問題詳細取得が不要。",
+        "operationId": "list_my_submissions_api_submissions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionsListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List My Submissions",
+        "tags": [
+          "submissions"
+        ]
+      },
       "post": {
-        "description": "解答コードを受け付けて submissions 行を作成し、202 で submissionId を返す。\n\n挙動（R1-4）：\n  - 対象問題の存在確認（存在しない / soft delete 済みは 404）\n  - submissions に 1 行 INSERT（status='pending'）\n  - レート制限: 1 ユーザー 1 分 / 20 回まで\n\nR1-5 で追加する挙動：\n  - 同一トランザクション内で jobs に 1 行 INSERT + NOTIFY new_job\n  - GET /api/submissions/:id でポーリング、status が graded / failed へ遷移",
+        "description": "解答コードを受け付けて submissions 行を作成し、202 で submissionId を返す。\n\n挙動：\n  - 対象問題の存在確認（存在しない / soft delete 済みは 404）\n  - submissions に 1 行 INSERT（status='pending'）\n  - 同一トランザクション内で jobs に 1 行 INSERT + NOTIFY new_job\n  - レート制限: 1 ユーザー 1 分 / 20 回まで\n\nクライアントはレスポンスの submissionId を持って\nGET /api/submissions/:id をポーリングし、status が graded / failed に遷移するのを待つ。",
         "operationId": "submit_answer_api_submissions_post",
         "requestBody": {
           "content": {
@@ -623,6 +956,52 @@
           }
         },
         "summary": "Submit Answer",
+        "tags": [
+          "submissions"
+        ]
+      }
+    },
+    "/api/submissions/{submission_id}": {
+      "get": {
+        "description": "採点状態 + 結果を返す。\n\n- pending の間は score / totalCount / result / gradedAt が None\n- graded / failed に遷移してから埋まる（Worker が UPDATE）\n- 他人の id や存在しない id は 404",
+        "operationId": "get_submission_api_submissions__submission_id__get",
+        "parameters": [
+          {
+            "description": "解答 ID",
+            "in": "path",
+            "name": "submission_id",
+            "required": true,
+            "schema": {
+              "description": "解答 ID",
+              "format": "uuid",
+              "title": "Submission Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Submission",
         "tags": [
           "submissions"
         ]

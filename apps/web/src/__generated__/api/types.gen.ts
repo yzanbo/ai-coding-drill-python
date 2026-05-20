@@ -206,6 +206,156 @@ export type SubmissionCreateRequest = {
 };
 
 /**
+ * SubmissionFailureKind
+ */
+export type SubmissionFailureKind = 'test_failed' | 'timeout' | 'oom' | 'syntax' | 'runtime';
+
+/**
+ * SubmissionResultPayload
+ *
+ * 採点完了時の結果ペイロード。Worker が submissions.result に書き込む形と一致。
+ */
+export type SubmissionResultPayload = {
+    /**
+     * Durationms
+     */
+    durationMs: number;
+    failureKind?: SubmissionFailureKind | null;
+    /**
+     * Passed
+     */
+    passed: boolean;
+    /**
+     * Testresults
+     */
+    testResults?: Array<SubmissionTestResultItem>;
+};
+
+/**
+ * SubmissionStatus
+ */
+export type SubmissionStatus = 'pending' | 'graded' | 'failed';
+
+/**
+ * SubmissionStatusResponse
+ *
+ * 解答 + 採点結果。クライアントは pending の間ポーリングする。
+ */
+export type SubmissionStatusResponse = {
+    /**
+     * Gradedat
+     */
+    gradedAt?: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Problemid
+     */
+    problemId: string;
+    result?: SubmissionResultPayload | null;
+    /**
+     * Score
+     */
+    score?: number | null;
+    status: SubmissionStatus;
+    /**
+     * Totalcount
+     */
+    totalCount?: number | null;
+};
+
+/**
+ * SubmissionSummary
+ *
+ * 解答履歴の 1 行分。問題タイトルまで含めて一覧 UI に必要十分。
+ */
+export type SubmissionSummary = {
+    /**
+     * Gradedat
+     */
+    gradedAt?: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Problemid
+     */
+    problemId: string;
+    /**
+     * Problemtitle
+     */
+    problemTitle: string;
+    /**
+     * Score
+     */
+    score?: number | null;
+    status: SubmissionStatus;
+    /**
+     * Totalcount
+     */
+    totalCount?: number | null;
+};
+
+/**
+ * SubmissionTestResultItem
+ *
+ * 1 テストケース分の結果。passed=false の時に expected/actual/message が埋まる。
+ */
+export type SubmissionTestResultItem = {
+    /**
+     * Actual
+     */
+    actual?: string | null;
+    /**
+     * Durationms
+     */
+    durationMs: number;
+    /**
+     * Expected
+     */
+    expected?: string | null;
+    /**
+     * Message
+     */
+    message?: string | null;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Passed
+     */
+    passed: boolean;
+};
+
+/**
+ * SubmissionsListResponse
+ *
+ * 解答履歴一覧 + ページネーション情報。
+ */
+export type SubmissionsListResponse = {
+    /**
+     * Items
+     */
+    items: Array<SubmissionSummary>;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Pagesize
+     */
+    pageSize: number;
+    /**
+     * Totalpages
+     */
+    totalPages: number;
+};
+
+/**
  * UserResponse
  *
  * 現在ログイン中のユーザー情報。GET /auth/me が返す形。
@@ -389,6 +539,40 @@ export type GetProblemDetailApiProblemsProblemIdGetResponses = {
 
 export type GetProblemDetailApiProblemsProblemIdGetResponse = GetProblemDetailApiProblemsProblemIdGetResponses[keyof GetProblemDetailApiProblemsProblemIdGetResponses];
 
+export type ListMySubmissionsApiSubmissionsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Pagesize
+         */
+        pageSize?: number;
+    };
+    url: '/api/submissions';
+};
+
+export type ListMySubmissionsApiSubmissionsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListMySubmissionsApiSubmissionsGetError = ListMySubmissionsApiSubmissionsGetErrors[keyof ListMySubmissionsApiSubmissionsGetErrors];
+
+export type ListMySubmissionsApiSubmissionsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: SubmissionsListResponse;
+};
+
+export type ListMySubmissionsApiSubmissionsGetResponse = ListMySubmissionsApiSubmissionsGetResponses[keyof ListMySubmissionsApiSubmissionsGetResponses];
+
 export type SubmitAnswerApiSubmissionsPostData = {
     body: SubmissionCreateRequest;
     path?: never;
@@ -413,6 +597,38 @@ export type SubmitAnswerApiSubmissionsPostResponses = {
 };
 
 export type SubmitAnswerApiSubmissionsPostResponse = SubmitAnswerApiSubmissionsPostResponses[keyof SubmitAnswerApiSubmissionsPostResponses];
+
+export type GetSubmissionApiSubmissionsSubmissionIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Submission Id
+         *
+         * 解答 ID
+         */
+        submission_id: string;
+    };
+    query?: never;
+    url: '/api/submissions/{submission_id}';
+};
+
+export type GetSubmissionApiSubmissionsSubmissionIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSubmissionApiSubmissionsSubmissionIdGetError = GetSubmissionApiSubmissionsSubmissionIdGetErrors[keyof GetSubmissionApiSubmissionsSubmissionIdGetErrors];
+
+export type GetSubmissionApiSubmissionsSubmissionIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: SubmissionStatusResponse;
+};
+
+export type GetSubmissionApiSubmissionsSubmissionIdGetResponse = GetSubmissionApiSubmissionsSubmissionIdGetResponses[keyof GetSubmissionApiSubmissionsSubmissionIdGetResponses];
 
 export type StartGithubOauthAuthGithubGetData = {
     body?: never;
