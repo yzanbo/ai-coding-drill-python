@@ -110,6 +110,7 @@ import (
     "github.com/yzanbo/.../apps/workers/grading/internal/grading"
     "github.com/yzanbo/.../apps/workers/grading/internal/judge"
     "github.com/yzanbo/.../apps/workers/grading/internal/llm"
+    "github.com/yzanbo/.../apps/workers/grading/internal/llm/google"
     "github.com/yzanbo/.../apps/workers/grading/internal/observability"
     "github.com/yzanbo/.../apps/workers/grading/internal/sandbox"
 )
@@ -119,7 +120,13 @@ func main() {
     logger, shutdown, _ := observability.Init(ctx, cfg)
     defer shutdown(ctx)
     pool, _ := db.NewPool(ctx, cfg)
-    llmProvider, _ := llm.New(cfg)
+    // LLM プロバイダ抽象化レイヤは registration pattern で循環インポートを回避する
+    // (database/sql / image/png と同じ方式)。詳細は internal/llm/new.go。
+    llm.Register(google.Name, google.New)
+    // buildLLMConfig: cmd 層ローカルの helper (main.go に定義)。
+    // config.Config (中立 struct) を llm.Config に詰め直す。
+    // internal/config が llm を import 不可な Layer 0 制約のため cmd 層で変換する。
+    llmProvider, _ := llm.New(buildLLMConfig(cfg))
     grading.Run(ctx, grading.Deps{Pool: pool, Sandbox: sandbox.New(...), Judge: judge.New(llmProvider, ...)})
 }
 ```
@@ -339,7 +346,7 @@ slog.InfoContext(ctx, "job claimed",
   ├─ [generation.invoke]        # 生成 LLM 呼び出し（ADR 0040）
   ├─ [schema.validate]          # JSON Schema → quicktype 生成 Go struct でバリデーション
   ├─ [sandbox.run]              # 模範解答をサンドボックス検証
-  ├─ [judge.invoke]             # 別プロバイダ Judge 評価
+  ├─ [judge.invoke]             # 別プロバイダ Judge 評価（MVP は Gemini 単独で例外保留、R2 で切替 / ADR 0049）
   └─ [job.complete]             # problems INSERT + state='done'
 ```
 
@@ -433,11 +440,16 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 
 ## 環境変数（両 Worker 共通、`internal/config/` で集約）
 
+> ローカル開発では `apps/workers/grading/.env.example` をコピーして `apps/workers/grading/.env` を作る。`mise.toml` の `[env] _.file` 設定により `mise run worker:grading:*` 経由のタスク起動時に自動 load される（ADR 0039）。`.env` は gitignore 済み。
+
 - `DATABASE_URL` — Postgres 接続文字列
 - `REDIS_URL` — LLM キャッシュ参照時のみ
-- `WORKER_ID` — `locked_by` に書く識別子（既定はホスト名）
-- `WORKER_CONCURRENCY` — 並列 goroutine 数（既定 4）
+- `WORKER_ID` — `locked_by` に書く識別子（既定はホスト名、`os.Hostname()` 失敗時はプレースホルダ `unknown-host`）
+- `WORKER_CONCURRENCY` — 並列 goroutine 数（既定 4、**> 0 必須**）
 - `SANDBOX_IMAGE` — サンドボックスのイメージタグ（両 Worker で同じ image を起動、既定 `ai-coding-drill-sandbox:latest`）
-- `JOB_TIMEOUT_SECONDS` — タイムアウト秒（grading 既定 5、generation は LLM 呼び出しが長いため大きめが望ましい、`config/` 既定で個別調整）
-- `RECLAIM_AFTER_MINUTES` — スタックジョブとみなす経過時間（既定 5）
-- `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` — LLM 呼び出し設定（→ [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md)）
+- `JOB_TIMEOUT_SECONDS` — タイムアウト秒（grading 既定 5、generation は LLM 呼び出しが長いため大きめが望ましい、`config/` 既定で個別調整、**> 0 必須**）
+- `RECLAIM_AFTER_MINUTES` — スタックジョブとみなす経過時間（既定 5、**> 0 必須**）
+
+> 数値項目の **「> 0 必須」** は `internal/config/config.go` の `validateRanges` が SSoT。違反時は `ErrInvalidRange` を wrap して `Load()` が起動を fail-fast させる（後段の goroutine spawn 0 個 / context.WithTimeout(0) で undefined behavior になるのを防ぐ）。
+- `LLM_CONFIG_PATH` — LLM プロバイダ・モデル割り当て YAML のパス（既定 `llm.yaml`、apps/workers/grading/llm.yaml が SSoT。Worker 再ビルド不要で切替可能、→ [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md) / [ADR 0049](../../docs/adr/0049-initial-llm-model-selection.md)）
+- `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` — provider 別 API キー（YAML に書かず環境変数経由で渡す。Worker は使う provider 分だけ設定すれば足りる）

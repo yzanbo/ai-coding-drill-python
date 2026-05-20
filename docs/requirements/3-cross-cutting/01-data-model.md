@@ -24,6 +24,8 @@ erDiagram
     text email
     text display_name
     timestamptz created_at
+    timestamptz updated_at
+    timestamptz deleted_at
   }
 
   auth_providers {
@@ -45,6 +47,8 @@ erDiagram
     text reference_solution
     jsonb judge_scores
     timestamptz created_at
+    timestamptz updated_at
+    timestamptz deleted_at
   }
 
   submissions {
@@ -57,6 +61,7 @@ erDiagram
     int score
     timestamptz created_at
     timestamptz graded_at
+    timestamptz deleted_at
   }
 
   generation_requests {
@@ -67,6 +72,7 @@ erDiagram
     text status
     uuid produced_problem_id FK
     timestamptz created_at
+    timestamptz updated_at
   }
 
   jobs {
@@ -99,6 +105,7 @@ erDiagram
 | 主キー | `id`（UUID または BIGSERIAL） | — |
 | 外部キー | `<参照テーブル単数形>_id` | `user_id`, `problem_id` |
 | タイムスタンプ | `created_at` / `updated_at` / `<イベント名>_at` | `graded_at`, `locked_at` |
+| 削除マーカー | `deleted_at TIMESTAMPTZ NULL`（NULL = 生きている行、非 NULL = 削除済） | `users.deleted_at`, `problems.deleted_at`, `submissions.deleted_at` |
 | 状態カラム | `state`（マシン的）/ `status`（ユーザー視点）を使い分け | `jobs.state`, `submissions.status` |
 | JSON カラム | JSONB を使う、必ずスキーマを別途文書化 | `payload`, `result`, `examples` |
 
@@ -116,10 +123,15 @@ erDiagram
 - すべて `TIMESTAMPTZ` で **UTC** 保持
 - 表示時に JST 変換（dayjs 等）
 
-### ハードデリート方針
+### 削除方針（ソフトデリート採用）
 
-- ソフトデリートは原則使わない（`deleted_at` 列を追加しない）
-- 例外的に必要な場合は個別に検討し、ADR で記録する
+履歴・参照整合性が重要なテーブルは **ソフトデリート**を採用する（→ [ADR 0048](../../adr/0048-soft-delete-for-user-facing-tables.md)）。
+
+- **ソフトデリート対象**：`users` / `problems` / `submissions` に `deleted_at TIMESTAMPTZ NULL` を持たせる。NULL = 生きている行 / 非 NULL = 削除済
+- **ハードデリート対象**：`auth_providers`（連携解除 = 行削除で十分） / `generation_requests`（TTL バッチで物理削除） / `jobs`（TTL バッチで物理削除）には `deleted_at` を**付けない**
+- **クエリ規約**：`deleted_at IS NULL` を全クエリで**明示的に書く**。暗黙フィルタ（SQLAlchemy の global event listener 等）は使わない。Worker / 統計クエリは「削除済も含めて読む」用途があるため、フィルタの有無を呼び出し側が選択する
+- **PII 匿名化との併用**：`users` の退会フローでは `deleted_at` をセットすると同時に `email=NULL` / `display_name=NULL` 等の PII を NULL クリアする（行は残すが個人情報は残さない）
+- **TTL 物理削除との併用**：ソフトデリート行が貯まりすぎないよう、`deleted_at` が一定期間（例：90 日）経過した行はバッチで物理 DELETE する（バッチ仕様は実装着手時に確定）
 
 ### JSON カラム運用
 
@@ -140,12 +152,19 @@ erDiagram
 
 `users` と `auth_providers` を分離してプロバイダ ID をユーザーに直接持たせない設計。複数 OAuth プロバイダへの拡張余地を構造的に確保するため（→ [ADR 0011](../../adr/0011-github-oauth-with-extensible-design.md)）。
 
+### `updated_at` の付与基準
+
+- `updated_at TIMESTAMPTZ` は **行のカラム値が後から書き換わるテーブルにのみ付与**する（INSERT のみで変化しない行には付けない）
+- 付与対象：`users`（display_name 変更等）/ `problems`（問題修正・公開停止等）/ `generation_requests`（status 遷移）/ `jobs`（既存）
+- 非付与：`auth_providers`（基本不変） / `submissions`（status 遷移は `graded_at` が担う）
+
 ### インデックス設計の方針
 
 横断的な設計方針のみここに記載。テーブル個別のインデックス定義は **SQLAlchemy 2.0 model（`Mapped[T]` 方式）が SSoT**。
 
 - **読み込み頻度が高いクエリには必ずインデックスを張る**：特に `jobs(queue, state, run_at)` はワーカー取得クエリの中核（[ADR 0004](../../adr/0004-postgres-as-job-queue.md)）
 - **`created_at DESC` で並べる履歴系**：複合インデックスで対応（例：`submissions(user_id, created_at DESC)`）
+- **ソフトデリート対象テーブル**：履歴・一覧クエリは `WHERE deleted_at IS NULL` を伴うため、**部分インデックス**で対応（例：`submissions(user_id, created_at DESC) WHERE deleted_at IS NULL`）。インデックス自体が小さく保たれ、生きている行のスキャンが高速になる
 - **JSONB の中身検索**：必要が出てから GIN インデックスを追加（MVP では未使用）
 
 ---
