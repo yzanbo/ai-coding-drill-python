@@ -23,7 +23,11 @@ class GenerationRequest(Base):
 
     ## カラム
     - id                  : UUID（gen_random_uuid()）。クライアントへ requestId として返す
-    - user_id             : リクエスト発行ユーザー（CASCADE：ユーザー削除で履歴も消える）
+    - user_id             : リクエスト発行ユーザー。FK は ON DELETE CASCADE だが、
+                            users は ADR 0048 のソフトデリート対象でアプリ経由の
+                            物理 DELETE は通常起こらない。CASCADE は将来 GDPR 等で
+                            users を物理削除する運用に切り替えた時に履歴も消える
+                            保険として置いている
     - category            : 要望カテゴリ（バリデーションは schemas/problems.py で Literal 縛り）
     - difficulty          : 要望難易度（同上）
     - status              : "pending" / "completed" / "failed"

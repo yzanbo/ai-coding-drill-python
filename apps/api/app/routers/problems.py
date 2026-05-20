@@ -30,12 +30,15 @@ from app.services.problem_generation import (
 )
 
 # APIRouter: URL をグループ単位でまとめる箱。
-# dependencies=[Depends(get_current_user)]: 全ルート認証必須（02-api-conventions.md）。
+# 認証は各エンドポイントの `user: CurrentUser` 引数で必須化する。
+# router-level の dependencies=[Depends(get_current_user)] は付けない：
+#   - 関数引数で user.id を使うため必ず CurrentUser を受け取る作り
+#   - router-level と関数引数の両方に並ぶと「2 段ガード」と誤読される
+#   - 既存 auth router（routers/auth.py）も router-level dep を持たない統一感
 # tags: Swagger UI のグルーピング表示。
 router = APIRouter(
     prefix="/problems",
     tags=["problems"],
-    dependencies=[Depends(get_current_user)],
 )
 
 # DI エイリアス。Annotated + Depends を毎回書くと冗長なのでまとめる。
