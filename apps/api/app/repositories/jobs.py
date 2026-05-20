@@ -50,9 +50,11 @@ class JobRepository:
 
         # NOTIFY new_job, '<job_id>':
         #   Worker 側が LISTEN new_job しており、ペイロード文字列で job_id が通知される。
-        #   Postgres の NOTIFY は引数を 1 個しか取れず、かつ文字列リテラル指定が必要。
-        #   bindparams で文字列を渡す（id は BIGINT なので str() 化）。
-        await self.session.execute(
-            text("NOTIFY new_job, :id").bindparams(id=str(job.id))
-        )
+        #   Postgres の NOTIFY は payload を文字列「リテラル」でしか受け付けず、
+        #   prepared statement のパラメータバインド ($1) を許可しない仕様
+        #   （NOTIFY new_job, $1 は syntax error になる）。
+        #   そのため文字列補間でクエリを組み立てる。job.id は BIGSERIAL なので int 化
+        #   した上で str() に通せばインジェクション余地は無い（数字以外混入し得ない）。
+        job_id = int(job.id)
+        await self.session.execute(text(f"NOTIFY new_job, '{job_id}'"))
         return job

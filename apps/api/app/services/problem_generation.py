@@ -67,6 +67,14 @@ class ProblemGenerationService:
           3. jobs に 1 行 INSERT + NOTIFY new_job を同一トランザクション内で実行
           4. 202 用の Pydantic を返す
         """
+        # async with session.begin():
+        #   このブロック内で行われた DB 変更（generation_requests INSERT +
+        #   jobs INSERT + NOTIFY）を 1 つのトランザクションとして扱う
+        #   契約（ADR 0044 / 0004）。ブロックを抜けるときに自動 commit、
+        #   例外なら rollback で全て巻き戻る。
+        #   ここに到達した時点では deps/auth.py の get_current_user_optional が
+        #   認証 SELECT 用の短命 tx を既に commit で閉じているため、
+        #   ここで明示 begin しても tx 二重開始にはならない。
         async with self.db_session.begin():
             gr = await self.requests.create(
                 user_id=user_id,
