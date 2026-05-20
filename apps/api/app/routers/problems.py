@@ -13,11 +13,12 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
 from app.deps.auth import get_current_user
+from app.deps.rate_limit import limiter
 from app.models.users import User
 from app.schemas.problems import (
     ProblemGenerateAcceptedResponse,
@@ -51,7 +52,16 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
     response_model=ProblemGenerateAcceptedResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )
+# @limiter.limit: 1 ユーザー 1 分あたり 5 回まで（02-api-conventions.md §レート制限）。
+#   キーは deps/rate_limit.py の get_rate_limit_key が決定（認証時は user:<id>）。
+#   超過時は slowapi が RateLimitExceeded を投げ、main.py で 429 JSON に変換される。
+#   request: Request 引数は slowapi が key 関数の引数として読むため必須。
+#   response: Response 引数は slowapi が X-RateLimit-* / Retry-After ヘッダを
+#     書き込むために必要（Limiter の headers_enabled=True と対）。
+@limiter.limit("5/minute")
 async def request_problem_generation(
+    request: Request,
+    response: Response,
     body: ProblemGenerateRequest,
     db_session: DbDep,
     user: CurrentUser,
@@ -62,7 +72,10 @@ async def request_problem_generation(
       - generation_requests へ 1 行 INSERT（status='pending'）
       - jobs へ 1 行 INSERT + NOTIFY new_job を同一トランザクションで実行
       - 202 で requestId を返す。実際の生成は Worker が非同期で処理する
+      - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す
     """
+    # request / response 引数は slowapi がデコレータで使うだけ（本体ロジックでは不要）。
+    del request, response
     service = ProblemGenerationService(db_session)
     return await service.enqueue_generation(
         user_id=user.id,
