@@ -22,8 +22,10 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/db"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/job"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/jobtypes"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/judge"
@@ -71,6 +73,26 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 		"difficulty", difficulty,
 	)
 
+	// 0. 冪等性ガード: at-least-once 配送で同一 generation_request が 2 回
+	//    流れてきた場合 (e.g. MarkSucceeded 失敗 → reclaim → 再 claim) に、
+	//    LLM 呼び出し / sandbox / judge の高コスト処理を再実行しない。
+	//    1 回目で status='completed' まで進んでいれば、ここで nil を返して
+	//    orchestrator に MarkSucceeded を再試行させる (冪等)。
+	//    status='failed' に達している場合も同様に再処理しない。
+	status, producedProblemID, statusErr := selectGenerationRequestStatus(ctx, h.pool, requestID)
+	if statusErr != nil && !errors.Is(statusErr, pgx.ErrNoRows) {
+		return fmt.Errorf("grading: lookup generation_request before processing: %w", statusErr)
+	}
+	if statusErr == nil && status != "pending" {
+		slog.InfoContext(ctx, "problem.generate: short-circuit (already finalized)",
+			"job_id", j.ID,
+			"generation_request_id", requestID,
+			"status", status,
+			"produced_problem_id", producedProblemID,
+		)
+		return nil
+	}
+
 	// 1. LLM 生成
 	draft, err := h.generator.Generate(ctx, category, difficulty)
 	if err != nil {
@@ -109,16 +131,32 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 		Threshold:        judgeRes.Threshold,
 		CostUSD:          judgeRes.CostUSD,
 	}
-	created, err := insertProblem(ctx, h.pool, draft, category, difficulty, scores)
-	if err != nil {
-		return err
-	}
-	if err := markGenerationRequestCompleted(ctx, h.pool, requestID, created.ID); err != nil {
-		// problems は INSERT 済み。generation_requests 側の整合性のみ崩れる。
-		// このパスは「同じ generation_request_id で 2 度処理」(at-least-once、
-		// reclaim 後) でも起き得るため、orchestrator 上位で冪等にリカバリ
-		// できるよう error を返す。
-		return err
+	// problems INSERT と generation_requests UPDATE は 1 トランザクションに
+	// 閉じる。途中でクラッシュしても「problems 行は残ったが requests は pending」
+	// という二度書き経路を作らないため (ADR 0046 冪等性契約)。
+	// すでに finalized で markGenerationRequestCompleted が 0 行更新を返した
+	// 場合 (= 別 worker が先に完了) は ErrGenerationRequestAlreadyFinalized で
+	// rollback、INSERT した problems も巻き戻る。
+	var created *CreatedProblem
+	txErr := db.WithTx(ctx, h.pool, func(tx pgx.Tx) error {
+		c, err := insertProblem(ctx, tx, draft, category, difficulty, scores)
+		if err != nil {
+			return err
+		}
+		created = c
+		return markGenerationRequestCompleted(ctx, tx, requestID, c.ID)
+	})
+	if txErr != nil {
+		if errors.Is(txErr, ErrGenerationRequestAlreadyFinalized) {
+			// 別 worker が先に完了済 (at-least-once 重複)。本ジョブは成功扱いで
+			// orchestrator に MarkSucceeded を打たせる。
+			slog.InfoContext(ctx, "problem.generate: lost race to another worker, marking succeeded",
+				"job_id", j.ID,
+				"generation_request_id", requestID,
+			)
+			return nil
+		}
+		return txErr
 	}
 	slog.InfoContext(ctx, "problem.generate: completed",
 		"job_id", j.ID,

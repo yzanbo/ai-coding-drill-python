@@ -10,11 +10,28 @@ package grading
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
+
+// dbExecutor: *pgxpool.Pool と pgx.Tx の両方が満たす最小インターフェース。
+// Handler が「単発の Pool 直叩き」と「db.WithTx 内の Tx」のどちらでも同じ
+// repository 関数を呼べるようにするための DI 点 (insertProblem +
+// markGenerationRequestCompleted を 1 tx に閉じるため)。
+type dbExecutor interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// ErrGenerationRequestAlreadyFinalized: generation_requests がすでに
+// completed / failed に遷移済みで UPDATE 対象が 0 行だった時の sentinel。
+// at-least-once 配送で同一ジョブが 2 回処理された場合のうち、後発側は
+// この sentinel を errors.Is で判定してログのみで握り潰す。
+var ErrGenerationRequestAlreadyFinalized = errors.New("grading: generation_request already finalized")
 
 // JudgeScoresPayload: problems.judge_scores カラムに JSONB で保存する形。
 // 5 軸スコア + 合計 + 閾値 + 評価コストを 1 record で残す (運用ログ用)。
@@ -42,7 +59,7 @@ type CreatedProblem struct {
 //   - judgeScores  : judge_scores カラムに書く JSONB
 //
 // 戻り値: 生成された UUID (generation_requests.produced_problem_id に書き込む)。
-func insertProblem(ctx context.Context, pool *pgxpool.Pool, draft *ProblemDraft, category, difficulty string, judgeScores JudgeScoresPayload) (*CreatedProblem, error) {
+func insertProblem(ctx context.Context, exec dbExecutor, draft *ProblemDraft, category, difficulty string, judgeScores JudgeScoresPayload) (*CreatedProblem, error) {
 	examplesJSON, err := json.Marshal(draft.Examples)
 	if err != nil {
 		return nil, fmt.Errorf("grading: marshal examples: %w", err)
@@ -57,7 +74,7 @@ func insertProblem(ctx context.Context, pool *pgxpool.Pool, draft *ProblemDraft,
 	}
 
 	var id uuid.UUID
-	err = pool.QueryRow(ctx, `
+	err = exec.QueryRow(ctx, `
 INSERT INTO problems
   (title, description, category, difficulty, language,
    examples, test_cases, reference_solution, judge_scores)
@@ -84,19 +101,25 @@ RETURNING id;
 // markGenerationRequestCompleted: generation_requests を completed に遷移し
 // produced_problem_id を埋める。Backend の GET /problems/generate/:requestId が
 // この行を SELECT して返す。
-func markGenerationRequestCompleted(ctx context.Context, pool *pgxpool.Pool, requestID, problemID uuid.UUID) error {
-	tag, err := pool.Exec(ctx, `
+//
+// WHERE に status='pending' を入れることで、at-least-once 配送で 2 回目以降の
+// 処理が「完了済 / 失敗済」の状態を上書きするのを防ぐ。0 行更新時は
+// ErrGenerationRequestAlreadyFinalized を返し、呼び出し側で「行不在」と
+// 「すでに finalized」を区別できるようにする (前者は実害、後者は重複処理)。
+func markGenerationRequestCompleted(ctx context.Context, exec dbExecutor, requestID, problemID uuid.UUID) error {
+	tag, err := exec.Exec(ctx, `
 UPDATE generation_requests
    SET status = 'completed',
        produced_problem_id = $2,
        updated_at = NOW()
- WHERE id = $1;
+ WHERE id = $1
+   AND status = 'pending';
 `, requestID, problemID)
 	if err != nil {
 		return fmt.Errorf("grading: update generation_request to completed: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("grading: generation_request %s not found", requestID)
+		return finalizeMissOrAlreadyDone(ctx, exec, requestID)
 	}
 	return nil
 }
@@ -104,18 +127,52 @@ UPDATE generation_requests
 // markGenerationRequestFailed: 再生成を最大試行回数まで尽くしても作れなかった
 // 場合に status='failed' に遷移する。Frontend の「生成に失敗しました」表示の
 // トリガ。
-func markGenerationRequestFailed(ctx context.Context, pool *pgxpool.Pool, requestID uuid.UUID) error {
-	tag, err := pool.Exec(ctx, `
+//
+// WHERE に status='pending' を入れることで、すでに completed のリクエストを
+// failed で塗り潰す事故を防ぐ (handler 短絡で防ぐ前段防御 + DB 側多重防御)。
+func markGenerationRequestFailed(ctx context.Context, exec dbExecutor, requestID uuid.UUID) error {
+	tag, err := exec.Exec(ctx, `
 UPDATE generation_requests
    SET status = 'failed',
        updated_at = NOW()
- WHERE id = $1;
+ WHERE id = $1
+   AND status = 'pending';
 `, requestID)
 	if err != nil {
 		return fmt.Errorf("grading: update generation_request to failed: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("grading: generation_request %s not found", requestID)
+		return finalizeMissOrAlreadyDone(ctx, exec, requestID)
 	}
 	return nil
+}
+
+// finalizeMissOrAlreadyDone: status='pending' 制約付き UPDATE が 0 行を返した時の
+// 後処理。「行が存在しない」と「行はあるが既に completed/failed」を区別して
+// 別の error を返す。
+func finalizeMissOrAlreadyDone(ctx context.Context, exec dbExecutor, requestID uuid.UUID) error {
+	var status string
+	err := exec.QueryRow(ctx, `SELECT status FROM generation_requests WHERE id = $1`, requestID).Scan(&status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("grading: generation_request %s not found", requestID)
+		}
+		return fmt.Errorf("grading: lookup generation_request %s: %w", requestID, err)
+	}
+	return fmt.Errorf("%w: id=%s status=%s", ErrGenerationRequestAlreadyFinalized, requestID, status)
+}
+
+// selectGenerationRequestStatus: 現在の status と produced_problem_id を返す。
+// Handler 冒頭の冪等性チェックで「すでに completed の request を再処理しない」
+// ために使う。行が無ければ pgx.ErrNoRows を返す。
+func selectGenerationRequestStatus(ctx context.Context, exec dbExecutor, requestID uuid.UUID) (status string, producedProblemID *uuid.UUID, err error) {
+	err = exec.QueryRow(ctx, `
+SELECT status, produced_problem_id
+  FROM generation_requests
+ WHERE id = $1;
+`, requestID).Scan(&status, &producedProblemID)
+	if err != nil {
+		return "", nil, err
+	}
+	return status, producedProblemID, nil
 }
