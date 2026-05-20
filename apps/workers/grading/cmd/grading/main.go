@@ -99,12 +99,12 @@ func main() {
 	// 問題生成 prompt YAML を読み込む。Worker 起動時に fail-fast。
 	// パスは config.LLMConfigPath と同じディレクトリ規約 (cwd 基準 or 絶対パス)。
 	// 本 PR では prompts/ 配置を固定 (R7 の generation worker 切り出しでパス変える)。
-	genPrompt, err := grading.LoadGenerationPrompt(resolvePromptPath(cfg, "prompts/generation/problem-gen.v1.yaml"))
+	genPrompt, err := grading.LoadGenerationPrompt(resolvePromptPath("prompts/generation/problem-gen.v1.yaml"))
 	if err != nil {
 		logger.ErrorContext(ctx, "generation prompt load failed", "err", err.Error())
 		os.Exit(1)
 	}
-	judgePrompt, err := judge.LoadPrompt(resolvePromptPath(cfg, "prompts/judge/quality.v1.yaml"))
+	judgePrompt, err := judge.LoadPrompt(resolvePromptPath("prompts/judge/quality.v1.yaml"))
 	if err != nil {
 		logger.ErrorContext(ctx, "judge prompt load failed", "err", err.Error())
 		os.Exit(1)
@@ -163,7 +163,8 @@ func main() {
 	// goroutine 群: Concurrency 本の claim ループ + 1 本の reclaim ループ。
 	// 全 in-flight ジョブの完了を待ってから main を抜ける (グレースフルシャットダウン)。
 	var wg sync.WaitGroup
-	for i := 0; i < cfg.Concurrency; i++ {
+	// for range int (Go 1.22+): i 変数が不要なため `i := 0; i < N; i++` を簡略化。
+	for range cfg.Concurrency {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -184,8 +185,7 @@ func main() {
 
 // resolvePromptPath: prompt の相対パスを cwd 基準で解決する。
 // 既に絶対パスならそのまま返す。
-// 将来 PROMPT_DIR 環境変数を追加する余地を残しておくが、本 PR では cwd 固定。
-func resolvePromptPath(_ *config.Config, rel string) string {
+func resolvePromptPath(rel string) string {
 	if filepath.IsAbs(rel) {
 		return rel
 	}
