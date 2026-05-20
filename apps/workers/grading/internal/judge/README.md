@@ -22,7 +22,7 @@
 
 - 単一の LLM 応答はばらつくため、**3〜5 回呼び出して平均**する（R2 で実装、[ADR 0008](../../../../docs/adr/0008-custom-llm-judge.md)）
 - 異常値（極端な外れ値）は除外する
-- judge を grading worker と別プロバイダで動かしてバイアスを下げる戦略は [03-llm-pipeline.md](../../../../docs/requirements/2-foundation/03-llm-pipeline.md) を参照
+- judge を grading worker と別プロバイダで動かしてバイアスを下げる戦略は [03-llm-pipeline.md](../../../../docs/requirements/2-foundation/03-llm-pipeline.md) を参照（**MVP は Gemini 単独で例外保留**、R2 ベンチマーク開始時に切替、→ [ADR 0049](../../../../docs/adr/0049-initial-llm-model-selection.md)）
 
 ## やってはいけないこと
 

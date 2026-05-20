@@ -18,7 +18,7 @@
   ├─ [generation.invoke]        生成 LLM 呼び出し（ADR 0040）
   ├─ [schema.validate]          JSON Schema → quicktype 生成 Go struct でバリデーション
   ├─ [sandbox.run]              模範解答を sandbox で実行して動作確認
-  ├─ [judge.invoke]             別プロバイダ judge で問題品質を評価
+  ├─ [judge.invoke]             別プロバイダ judge で問題品質を評価（MVP は Gemini 単独で例外保留、R2 で切替 / ADR 0049）
   └─ [job.complete]             problems テーブル INSERT + state='done' 更新
 ```
 
