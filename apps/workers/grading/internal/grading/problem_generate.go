@@ -29,8 +29,49 @@ import (
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/job"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/jobtypes"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/judge"
+	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/llm"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/sandbox"
 )
+
+// classifyHandlerError: handler が外部 (LLM / sandbox / judge) 呼び出しで受け取った
+// エラーを、orchestrator の retryable / dead 分類に乗るよう整形する。
+//
+// 分類規則:
+//   - 既に ErrInvalidProblem を wrap している → そのまま (二重 wrap しない)
+//   - llm.ErrUnauthorized / llm.ErrCostExceeded → bare で返す
+//     (リトライしても直らない / 業務上の打ち切り。orchestrator が即 MarkDead)
+//   - それ以外 (llm.ErrRateLimit / llm.ErrTimeout / llm.ErrInvalidSchema /
+//     docker daemon の一過性ハング 等) → ErrInvalidProblem で wrap して retryable に
+//
+// 設計意図:
+//
+//	verifyInSandbox / generator / judge のコメントは「transient error も
+//	MaxAttempts に到達するまで retry で吸収する」と書かれているが、
+//	orchestrator.handleHandlerError は ErrInvalidProblem 以外を一律で
+//	即 MarkDead に流す。この関数で外部呼び出しの bare error を
+//	ErrInvalidProblem に詰め替えることでコメントの意図と一致させる。
+//	(PR description「ErrInvalidProblem (LLM 出力 / sandbox 失敗 / judge 不合格)
+//	 はリトライ可能、それ以外 (DB / unauthorized / 未知 type) は即 dead」と整合)
+func classifyHandlerError(err error) error {
+	if err == nil {
+		return nil
+	}
+	// 既に ErrInvalidProblem を背負っていればそのまま (generator 側で
+	// JSON schema 違反等を ErrInvalidProblem wrap 済みのケース)。
+	if errors.Is(err, ErrInvalidProblem) {
+		return err
+	}
+	// 永続エラー: API キー不正 / コスト上限超過は retry しても直らない。
+	if errors.Is(err, llm.ErrUnauthorized) || errors.Is(err, llm.ErrCostExceeded) {
+		return err
+	}
+	// transient とみなして retryable 側に倒す。
+	// (LLM 429 は provider 内で 3 回 retry 済みでも残ったケース、
+	//  ErrTimeout / ErrInvalidSchema / docker daemon hang 等)
+	// fmt.Errorf に %w を 2 個渡す書き方 (Go 1.20+) で、
+	// errors.Is(out, ErrInvalidProblem) と errors.Is(out, 原因) の両方を可能にする。
+	return fmt.Errorf("%w: transient external error: %w", ErrInvalidProblem, err)
+}
 
 // vitestCmd: sandbox 内で実行する vitest コマンド。
 // グローバルインストール済み (apps/workers/grading/sandbox/Dockerfile) なので
@@ -49,10 +90,16 @@ type problemGenerateHandler struct {
 //
 // 戻り値:
 //   - nil:                 成功 (problems INSERT + generation_requests completed 済み)
-//   - ErrInvalidProblem を wrap した error: 再生成可能な失敗 (sandbox 不合格 or
-//     judge 不合格 or LLM 出力 schema 違反)。orchestrator は MarkFailed で
-//     リトライ or MaxAttempts 到達で MarkDead に流す
-//   - その他 error: リトライしても直らない失敗 (LLM unauthorized, DB エラー等)
+//   - ErrInvalidProblem を wrap した error: 再生成可能な失敗
+//     (sandbox 不合格 / judge 不合格 / LLM 出力 schema 違反 /
+//     LLM transient エラー (429 / timeout) / Docker daemon の一過性ハング 等)。
+//     orchestrator は MarkFailed で run_at バックオフ。MaxAttempts 到達なら MarkDead。
+//   - その他 error: リトライしても直らない永続失敗
+//     (llm.ErrUnauthorized / llm.ErrCostExceeded / DB エラー / payload 形式不正 等)。
+//     orchestrator は即 MarkDead + generation_requests を failed に。
+//
+// 外部呼び出し (generator / sandbox / judge) からの bare error は
+// classifyHandlerError で transient か永続かを分類してから返す。
 func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 	var payload jobtypes.ProblemGenerationJobPayload
 	if err := json.Unmarshal(j.Payload, &payload); err != nil {
@@ -94,9 +141,12 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 	}
 
 	// 1. LLM 生成
+	// classifyHandlerError: provider 由来の transient error (429 / timeout /
+	// schema 違反 / NW エラー) を ErrInvalidProblem に詰め替えて retryable 化する。
+	// ErrUnauthorized / ErrCostExceeded は bare のままで即 dead 経路へ。
 	draft, err := h.generator.Generate(ctx, category, difficulty)
 	if err != nil {
-		return err
+		return classifyHandlerError(err)
 	}
 	slog.InfoContext(ctx, "problem.generate: llm done",
 		"job_id", j.ID,
@@ -107,14 +157,17 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 	)
 
 	// 2. サンドボックス検証
+	// verifyInSandbox は内部で大半を ErrInvalidProblem wrap 済みだが、
+	// Docker daemon 由来の bare error を ErrInvalidProblem に詰め替える。
 	if err := h.verifyInSandbox(ctx, draft); err != nil {
-		return err
+		return classifyHandlerError(err)
 	}
 
 	// 3. judge 評価
+	// classifyHandlerError: judge LLM の transient error を retryable に倒す。
 	judgeRes, err := h.evaluateQuality(ctx, draft, category, difficulty)
 	if err != nil {
-		return err
+		return classifyHandlerError(err)
 	}
 	if !judgeRes.Passed() {
 		return fmt.Errorf("%w: judge score %d below threshold %d", ErrInvalidProblem, judgeRes.Total, judgeRes.Threshold)
@@ -167,7 +220,11 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 }
 
 // verifyInSandbox: reference_solution + 自動生成 spec を Vitest 実行する。
-// 全テスト pass しなければ ErrInvalidProblem を wrap して返す (= 再生成へ)。
+//
+// テスト不合格・タイムアウトはここで ErrInvalidProblem を wrap して返す。
+// Docker daemon 由来の bare error はそのまま返し、呼び出し側 (Handle) の
+// classifyHandlerError で ErrInvalidProblem に詰め替えられて retryable になる
+// (transient な docker daemon hang を MaxAttempts まで retry させるため)。
 func (h *problemGenerateHandler) verifyInSandbox(ctx context.Context, draft *ProblemDraft) error {
 	specBody, err := buildSpecFile(draft)
 	if err != nil {
@@ -178,9 +235,8 @@ func (h *problemGenerateHandler) verifyInSandbox(ctx context.Context, draft *Pro
 		{Name: SpecFileName, Content: specBody},
 	}, vitestCmd)
 	if err != nil {
-		// Docker / 環境エラーは「リトライしても直らない可能性が高い」が、
-		// MaxAttempts に到達するまでは retry でリカバリさせる (transient な
-		// docker daemon hang もあるため)。Bare error は MarkFailed 経路に流す。
+		// Docker daemon の一過性ハング等は呼び出し側で transient と分類されて
+		// MaxAttempts まで retry される (classifyHandlerError で wrap)。
 		return fmt.Errorf("grading: sandbox run: %w", err)
 	}
 	if res.TimedOut {
