@@ -69,11 +69,10 @@ test.describe("(authed) ルートグループのガード", () => {
     // FE 側の早期リダイレクトの存在保証 (API の 401 が最終 SSoT、ここは UX 用)。
     await page.goto("/problems/new");
 
-    // /login への遷移を待つ。next クエリに元 path が encodeURIComponent 済みで載る。
-    await page.waitForURL(/\/login\?next=%2Fproblems%2Fnew$/);
-
-    // ログイン画面の主要要素が出ていることも確認 (チラ見せ防止で null 返却した後の描画)。
-    await expect(page.getByRole("link", { name: "GitHub でログイン" })).toBeVisible();
+    // next クエリに元 path が encodeURIComponent 済みで載る。
+    // 末尾 $ は意図的: ガードが付ける URL の形を契約として固定し、余計なクエリの混入に気付けるようにする。
+    // /login 画面そのものの描画確認は `/login 画面` describe が担うので、ここでは行わない (責務分離)。
+    await expect(page).toHaveURL(/\/login\?next=%2Fproblems%2Fnew$/);
 
     // セッションは未確立。
     const me = await page.request.get("/auth/me");
