@@ -34,9 +34,13 @@ import { createClient, createConfig } from "@/__generated__/api/client";
 // 本番安全装置：
 //   - NODE_ENV=production で env 未設定なら**起動時に throw**。
 //     localhost:8000 への silent fallback で本番リクエストが沈黙するのを防ぐ。
+//   - ただし `next build`（NEXT_PHASE=phase-production-build）の最中は throw しない。
+//     build はデプロイ前のローカル / CI で走り、API_PROXY_TARGET が無くても問題なく、
+//     誤検知で build を止めると CI が回らなくなる。
 //   - dev / test では未設定なら localhost:8000 にフォールバック。
 const rawApiProxyTarget = process.env.API_PROXY_TARGET;
-if (!rawApiProxyTarget && process.env.NODE_ENV === "production") {
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+if (!rawApiProxyTarget && process.env.NODE_ENV === "production" && !isBuildPhase) {
   throw new Error(
     "API_PROXY_TARGET is required in production (RSC fetch cannot fall back to localhost)",
   );
