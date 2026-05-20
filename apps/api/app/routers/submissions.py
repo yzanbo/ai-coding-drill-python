@@ -85,9 +85,11 @@ async def submit_answer(
 # GET /api/submissions : 自分の解答履歴一覧（ページング）
 # ----------------------------------------------------------------------------
 #
-# 注意: パス順序として `""`（履歴一覧）を `"/{submission_id}"`（個別）より先に
-#       宣言する。これは FastAPI 公式の "Path operations are evaluated in order"
-#       挙動と整合させるため（`/{id}` が先だと文字列リテラルパスを掴むケースがある）。
+# 補足: FastAPI は "Path operations are evaluated in order" で評価されるため、
+#       将来 /me 等の文字列リテラルパスを追加した時に `/{submission_id}` より
+#       先に宣言する必要がある（後だと UUID 型でパースされてしまう）。
+#       現状の `""` と `/{submission_id}` は shape が違うため順序非依存だが、
+#       「リテラル先 / パラメータ後」の宣言順を最初から守って書く方針。
 @router.get(
     "",
     response_model=SubmissionsListResponse,
