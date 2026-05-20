@@ -192,7 +192,7 @@
 - [x] バックエンド実装完了（me/stats / me/weakness ルーター、または submissions の拡張）
 - [x] バックエンドユニットテスト完了（pytest、集計ロジックの正確性、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [x] フロントエンド実装完了（履歴一覧 / 統計 / 弱点画面）
-- [ ] フロントエンドユニットテスト完了（Vitest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
+- [x] フロントエンドユニットテスト完了（Vitest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [ ] E2E テスト完了（解答送信 → 履歴反映 → 統計画面表示の主要フロー、Playwright、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [ ] **受け入れ条件すべて満たす**
 
