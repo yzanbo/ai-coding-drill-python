@@ -1,0 +1,75 @@
+{
+  "$defs": {
+    "ProblemCategory": {
+      "enum": [
+        "string",
+        "array",
+        "recursion",
+        "async",
+        "type-puzzle"
+      ],
+      "title": "ProblemCategory",
+      "type": "string"
+    },
+    "ProblemDifficulty": {
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "title": "ProblemDifficulty",
+      "type": "string"
+    },
+    "TraceContext": {
+      "description": "W3C Trace Context の最小表現（traceparent + tracestate）。\n\nBackend（Producer）が現在の OTel Span のコンテキストをジョブ payload に\n詰めることで、Worker（Consumer）側が同一トレースの子スパンを発行できる。\n詳細仕様は ADR 0010。\n\n- traceparent : \"00-<trace-id>-<span-id>-<flags>\" の固定書式（W3C 仕様）\n- tracestate  : ベンダー固有の追加情報。未使用なら空文字",
+      "properties": {
+        "traceparent": {
+          "title": "Traceparent",
+          "type": "string"
+        },
+        "tracestate": {
+          "default": "",
+          "title": "Tracestate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "traceparent"
+      ],
+      "title": "TraceContext",
+      "type": "object"
+    }
+  },
+  "description": "問題生成 Worker が受け取るジョブ payload。\n\nBackend が INSERT INTO jobs (payload, ...) で書き込み、Worker が JSON として\n読み出して生成プロンプトを組み立てる。Worker 側の Go struct は\napps/workers/<name>/internal/jobtypes/types.go に quicktype で自動生成される。\n\n- generation_request_id : generation_requests テーブルの主キー（Worker が完了時に\n                          status / produced_problem_id を更新する対象）\n- user_id              : 観測ログ / レート制限の集計に使う\n- category / difficulty : 生成プロンプトの変数として埋め込む\n- trace_context        : ADR 0010「全ジョブ payload に必須」",
+  "properties": {
+    "category": {
+      "$ref": "#/$defs/ProblemCategory"
+    },
+    "difficulty": {
+      "$ref": "#/$defs/ProblemDifficulty"
+    },
+    "generationRequestId": {
+      "format": "uuid",
+      "title": "Generationrequestid",
+      "type": "string"
+    },
+    "traceContext": {
+      "$ref": "#/$defs/TraceContext",
+      "description": "W3C Trace Context（ADR 0010）。Worker 側で子スパンの親として使う。"
+    },
+    "userId": {
+      "format": "uuid",
+      "title": "Userid",
+      "type": "string"
+    }
+  },
+  "required": [
+    "generationRequestId",
+    "userId",
+    "category",
+    "difficulty",
+    "traceContext"
+  ],
+  "title": "ProblemGenerationJobPayload",
+  "type": "object"
+}

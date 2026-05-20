@@ -1,6 +1,15 @@
 {
   "components": {
     "schemas": {
+      "GenerationStatus": {
+        "enum": [
+          "pending",
+          "completed",
+          "failed"
+        ],
+        "title": "GenerationStatus",
+        "type": "string"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -32,6 +41,95 @@
           "created_at"
         ],
         "title": "HealthCheckResponse",
+        "type": "object"
+      },
+      "ProblemCategory": {
+        "enum": [
+          "string",
+          "array",
+          "recursion",
+          "async",
+          "type-puzzle"
+        ],
+        "title": "ProblemCategory",
+        "type": "string"
+      },
+      "ProblemDifficulty": {
+        "enum": [
+          "easy",
+          "medium",
+          "hard"
+        ],
+        "title": "ProblemDifficulty",
+        "type": "string"
+      },
+      "ProblemGenerateAcceptedResponse": {
+        "description": "生成リクエスト受付完了。クライアントは requestId でポーリングを始める。",
+        "properties": {
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "status": {
+            "const": "pending",
+            "default": "pending",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId"
+        ],
+        "title": "ProblemGenerateAcceptedResponse",
+        "type": "object"
+      },
+      "ProblemGenerateRequest": {
+        "description": "問題生成リクエストの入力。\n\ncategory / difficulty とも Literal 縛りで MVP の許容値以外は 422 を返す\n（バリデーションは Pydantic が SSoT、problem-generation.md §バリデーション）。",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/ProblemCategory"
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/ProblemDifficulty"
+          }
+        },
+        "required": [
+          "category",
+          "difficulty"
+        ],
+        "title": "ProblemGenerateRequest",
+        "type": "object"
+      },
+      "ProblemGenerateStatusResponse": {
+        "description": "生成リクエストの現在ステータス。completed の時のみ problemId を含む。",
+        "properties": {
+          "problemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problemid"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GenerationStatus"
+          }
+        },
+        "required": [
+          "requestId",
+          "status"
+        ],
+        "title": "ProblemGenerateStatusResponse",
         "type": "object"
       },
       "UserResponse": {
@@ -347,6 +445,94 @@
         "summary": "Healthz",
         "tags": [
           "probes"
+        ]
+      }
+    },
+    "/problems/generate": {
+      "post": {
+        "description": "カテゴリ・難易度を受け取って生成ジョブを enqueue する。\n\n挙動：\n  - generation_requests へ 1 行 INSERT（status='pending'）\n  - jobs へ 1 行 INSERT + NOTIFY new_job を同一トランザクションで実行\n  - 202 で requestId を返す。実際の生成は Worker が非同期で処理する",
+        "operationId": "request_problem_generation_problems_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProblemGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemGenerateAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Problem Generation",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/problems/generate/{request_id}": {
+      "get": {
+        "description": "生成リクエストの現在ステータスを返す。\n\n- 自分のリクエストでない / 存在しないリクエスト ID には 404 を返す\n  （他人のリクエストか存在しないかの区別は付けない、情報漏洩防止）\n- status='completed' の時のみ problemId フィールドが付く",
+        "operationId": "get_problem_generation_status_problems_generate__request_id__get",
+        "parameters": [
+          {
+            "description": "生成リクエストの ID",
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "description": "生成リクエストの ID",
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemGenerateStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Problem Generation Status",
+        "tags": [
+          "problems"
         ]
       }
     }

@@ -29,7 +29,7 @@ from app.core.http_client import close_http_client, open_http_client
 
 # open_redis / close_redis: Redis 接続の生成と解放（中身は core/redis.py）。
 from app.core.redis import close_redis, open_redis
-from app.routers import auth, health, probes
+from app.routers import auth, health, probes, problems
 
 
 # lifespan: FastAPI の起動 / 終了フックを 1 関数にまとめる関数。
@@ -73,3 +73,4 @@ app.middleware("http")(verify_csrf)
 app.include_router(probes.router)
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(problems.router)

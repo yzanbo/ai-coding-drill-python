@@ -5,6 +5,11 @@ export type ClientOptions = {
 };
 
 /**
+ * GenerationStatus
+ */
+export type GenerationStatus = 'pending' | 'completed' | 'failed';
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -26,6 +31,62 @@ export type HealthCheckResponse = {
      * Id
      */
     id: string;
+};
+
+/**
+ * ProblemCategory
+ */
+export type ProblemCategory = 'string' | 'array' | 'recursion' | 'async' | 'type-puzzle';
+
+/**
+ * ProblemDifficulty
+ */
+export type ProblemDifficulty = 'easy' | 'medium' | 'hard';
+
+/**
+ * ProblemGenerateAcceptedResponse
+ *
+ * 生成リクエスト受付完了。クライアントは requestId でポーリングを始める。
+ */
+export type ProblemGenerateAcceptedResponse = {
+    /**
+     * Requestid
+     */
+    requestId: string;
+    /**
+     * Status
+     */
+    status?: 'pending';
+};
+
+/**
+ * ProblemGenerateRequest
+ *
+ * 問題生成リクエストの入力。
+ *
+ * category / difficulty とも Literal 縛りで MVP の許容値以外は 422 を返す
+ * （バリデーションは Pydantic が SSoT、problem-generation.md §バリデーション）。
+ */
+export type ProblemGenerateRequest = {
+    category: ProblemCategory;
+    difficulty: ProblemDifficulty;
+};
+
+/**
+ * ProblemGenerateStatusResponse
+ *
+ * 生成リクエストの現在ステータス。completed の時のみ problemId を含む。
+ */
+export type ProblemGenerateStatusResponse = {
+    /**
+     * Problemid
+     */
+    problemId?: string | null;
+    /**
+     * Requestid
+     */
+    requestId: string;
+    status: GenerationStatus;
 };
 
 /**
@@ -214,3 +275,60 @@ export type HealthzHealthzGetResponses = {
 };
 
 export type HealthzHealthzGetResponse = HealthzHealthzGetResponses[keyof HealthzHealthzGetResponses];
+
+export type RequestProblemGenerationProblemsGeneratePostData = {
+    body: ProblemGenerateRequest;
+    path?: never;
+    query?: never;
+    url: '/problems/generate';
+};
+
+export type RequestProblemGenerationProblemsGeneratePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RequestProblemGenerationProblemsGeneratePostError = RequestProblemGenerationProblemsGeneratePostErrors[keyof RequestProblemGenerationProblemsGeneratePostErrors];
+
+export type RequestProblemGenerationProblemsGeneratePostResponses = {
+    /**
+     * Successful Response
+     */
+    202: ProblemGenerateAcceptedResponse;
+};
+
+export type RequestProblemGenerationProblemsGeneratePostResponse = RequestProblemGenerationProblemsGeneratePostResponses[keyof RequestProblemGenerationProblemsGeneratePostResponses];
+
+export type GetProblemGenerationStatusProblemsGenerateRequestIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Request Id
+         *
+         * 生成リクエストの ID
+         */
+        request_id: string;
+    };
+    query?: never;
+    url: '/problems/generate/{request_id}';
+};
+
+export type GetProblemGenerationStatusProblemsGenerateRequestIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetProblemGenerationStatusProblemsGenerateRequestIdGetError = GetProblemGenerationStatusProblemsGenerateRequestIdGetErrors[keyof GetProblemGenerationStatusProblemsGenerateRequestIdGetErrors];
+
+export type GetProblemGenerationStatusProblemsGenerateRequestIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProblemGenerateStatusResponse;
+};
+
+export type GetProblemGenerationStatusProblemsGenerateRequestIdGetResponse = GetProblemGenerationStatusProblemsGenerateRequestIdGetResponses[keyof GetProblemGenerationStatusProblemsGenerateRequestIdGetResponses];

@@ -3,11 +3,74 @@
 import * as z from 'zod';
 
 /**
+ * GenerationStatus
+ */
+export const zGenerationStatus = z.enum([
+    'pending',
+    'completed',
+    'failed'
+]);
+
+/**
  * HealthCheckResponse
  */
 export const zHealthCheckResponse = z.object({
     created_at: z.iso.datetime(),
     id: z.uuid()
+});
+
+/**
+ * ProblemCategory
+ */
+export const zProblemCategory = z.enum([
+    'string',
+    'array',
+    'recursion',
+    'async',
+    'type-puzzle'
+]);
+
+/**
+ * ProblemDifficulty
+ */
+export const zProblemDifficulty = z.enum([
+    'easy',
+    'medium',
+    'hard'
+]);
+
+/**
+ * ProblemGenerateAcceptedResponse
+ *
+ * 生成リクエスト受付完了。クライアントは requestId でポーリングを始める。
+ */
+export const zProblemGenerateAcceptedResponse = z.object({
+    requestId: z.uuid(),
+    status: z.literal('pending').optional().default('pending')
+});
+
+/**
+ * ProblemGenerateRequest
+ *
+ * 問題生成リクエストの入力。
+ *
+ * category / difficulty とも Literal 縛りで MVP の許容値以外は 422 を返す
+ * （バリデーションは Pydantic が SSoT、problem-generation.md §バリデーション）。
+ */
+export const zProblemGenerateRequest = z.object({
+    category: zProblemCategory,
+    difficulty: zProblemDifficulty
+});
+
+/**
+ * ProblemGenerateStatusResponse
+ *
+ * 生成リクエストの現在ステータス。completed の時のみ problemId を含む。
+ */
+export const zProblemGenerateStatusResponse = z.object({
+    problemId: z.uuid().nullish(),
+    requestId: z.uuid(),
+    status: zGenerationStatus
 });
 
 /**
@@ -80,3 +143,19 @@ export const zCreateHealthCheckHealthPostResponse = zHealthCheckResponse;
  * Successful Response
  */
 export const zHealthzHealthzGetResponse = z.record(z.string(), z.string());
+
+export const zRequestProblemGenerationProblemsGeneratePostBody = zProblemGenerateRequest;
+
+/**
+ * Successful Response
+ */
+export const zRequestProblemGenerationProblemsGeneratePostResponse = zProblemGenerateAcceptedResponse;
+
+export const zGetProblemGenerationStatusProblemsGenerateRequestIdGetPath = z.object({
+    request_id: z.uuid()
+});
+
+/**
+ * Successful Response
+ */
+export const zGetProblemGenerationStatusProblemsGenerateRequestIdGetResponse = zProblemGenerateStatusResponse;
