@@ -181,6 +181,8 @@ func generateWithRetry(
 		}
 
 		// 最後の試行で 429 だった場合は wait せず即 return (上位で mapError される)。
+		// delay 更新は wait の後ろに置くことで「最後の attempt 直前で意味のない
+		// 倍化が走る」誤読を避ける (実害は無いが読み手の混乱を避ける整理)。
 		if attempt == retryMaxAttempts {
 			break
 		}
@@ -199,6 +201,8 @@ func generateWithRetry(
 			return nil, ctx.Err()
 		case <-timer.C:
 		}
+		// 次回の wait に向けて delay を倍化。最後の attempt は break で
+		// ここに到達しないため、ループ最後の余分な計算が発生しない。
 		delay *= 2
 	}
 	return nil, lastErr
