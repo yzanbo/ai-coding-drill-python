@@ -20,24 +20,24 @@ import respx
 from httpx import AsyncClient
 from sqlalchemy import delete, select
 
-from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.generation_requests import GenerationRequest
 from app.models.jobs import Job
 from app.models.problems import Problem
 
-_TOKEN_URL = "https://github.com/login/oauth/access_token"
-_USER_API_URL = "https://api.github.com/user"
+from ._helpers import current_user_id, login_via_github
 
 
 @pytest.fixture(autouse=True)
 async def reset_generation_tables() -> AsyncIterator[None]:
     """各テスト前に generation_requests / jobs / problems を空にする。
 
-    integration/conftest.py の reset_auth_tables（autouse）が users / auth_providers を
-    消す前に、これらが FK 参照しているテーブルを先に消しておく必要がある。
-    fixture の実行順は alphabetical + autouse 同士は名前順なので、別 fixture として
-    切ってこちらが先に動くよう reset_auth_tables より前に来る名前にしてある。
+    integration/conftest.py の reset_auth_tables も別途 users を消すが、
+    generation_requests / jobs / problems は users.id を `ON DELETE CASCADE` で
+    FK 参照しているため、conftest 側だけでもデータは連動削除される
+    （fixture 実行順への依存は無い）。それでも本 fixture を残すのは：
+      - users と切り離されたゴミ（FK を指していない jobs 行など）も併せて掃除する
+      - 「このテストモジュールはこのテーブル群を使う」という宣言を兼ねる
     """
     async with AsyncSessionLocal() as session:
         await session.execute(delete(GenerationRequest))
@@ -45,62 +45,6 @@ async def reset_generation_tables() -> AsyncIterator[None]:
         await session.execute(delete(Problem))
         await session.commit()
     yield
-
-
-def _stub_github_success(
-    *,
-    gh_id: int = 12345,
-    name: str | None = "Taro",
-    login: str = "taro",
-    email: str | None = "taro@example.com",
-) -> None:
-    """GitHub の OAuth フロー（token 交換 + user 取得）を成功レスポンスでモックする。"""
-    respx.post(_TOKEN_URL).respond(
-        200, json={"access_token": "gho_dummy", "token_type": "bearer"}
-    )
-    respx.get(_USER_API_URL).respond(
-        200, json={"id": gh_id, "name": name, "login": login, "email": email}
-    )
-
-
-async def _login(client: AsyncClient, *, gh_id: int = 1) -> str:
-    """GitHub OAuth スタブでログインして、CSRF ヘッダー値を返す。
-
-    副作用：
-      - client.cookies に session_id / csrf_token Cookie がセットされる
-      - DB に users + auth_providers が 1 件ずつ作られる
-      - Redis（fakeredis）にセッションハッシュが作られる
-    返り値の csrf_token は POST 系の X-CSRF-Token ヘッダーにそのまま使う。
-    """
-    _stub_github_success(gh_id=gh_id, name=f"u{gh_id}", login=f"u{gh_id}", email=None)
-
-    start = await client.get("/auth/github")
-    state_token = start.headers["location"].split("state=")[1].split("&")[0]
-    cb = await client.get(f"/auth/github/callback?code=ok&state={state_token}")
-
-    settings = get_settings()
-    signed = _extract_cookie_value(cb, settings.session_cookie_name)
-    csrf = _extract_cookie_value(cb, settings.csrf_cookie_name)
-    client.cookies.set(settings.session_cookie_name, signed)
-    client.cookies.set(settings.csrf_cookie_name, csrf)
-    return csrf
-
-
-def _extract_cookie_value(response: object, name: str) -> str:
-    """Set-Cookie 文字列を直接パースして value だけ取り出す（auth_api と同じ）。"""
-    set_cookie_headers = response.headers.get_list("set-cookie")  # type: ignore[attr-defined]
-    prefix = f"{name}="
-    for header in set_cookie_headers:
-        if header.startswith(prefix):
-            return header[len(prefix) :].split(";", 1)[0]
-    raise AssertionError(f"Set-Cookie '{name}' not found in {set_cookie_headers!r}")
-
-
-async def _current_user_id(client: AsyncClient) -> uuid.UUID:
-    """ログイン済みクライアントの user.id を /auth/me から取る（テストの観測用）。"""
-    res = await client.get("/auth/me")
-    assert res.status_code == 200
-    return uuid.UUID(res.json()["id"])
 
 
 # ----------------------------------------------------------------------------
@@ -129,7 +73,7 @@ class TestPostGenerateSuccess:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        csrf = await _login(client)
+        csrf = await login_via_github(client)
 
         res = await client.post(
             "/problems/generate",
@@ -151,8 +95,8 @@ class TestPostGenerateSuccess:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        csrf = await _login(client)
-        user_id = await _current_user_id(client)
+        csrf = await login_via_github(client)
+        user_id = await current_user_id(client)
 
         res = await client.post(
             "/problems/generate",
@@ -188,6 +132,55 @@ class TestPostGenerateSuccess:
         assert payload["traceContext"]["traceparent"] is None
 
 
+class TestPostGenerateTransactionRollback:
+    """generation_requests INSERT + jobs INSERT + NOTIFY を 1 つの tx で
+    包む契約（ADR 0044 / 0004）の動作 pin。
+
+    Service の `async with session.begin():` ブロック内で例外が起きたら、
+    先に走った generation_requests INSERT も巻き戻ること（部分書き込みが
+    残らないこと）を実 DB で観測する。
+    """
+
+    @respx.mock
+    async def test_異常系_jobs_enqueueが落ちたらgeneration_requestsも巻き戻る(
+        self,
+        client: AsyncClient,
+        fake_redis: fakeredis.aioredis.FakeRedis,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        del fake_redis
+        csrf = await login_via_github(client)
+
+        # JobRepository.enqueue を「INSERT を済ませる前に例外を投げる」関数に
+        # 差し替える。begin() ブロック内で raise されると SQLAlchemy 側の
+        # context manager が rollback を発火するはずで、その結果先に走った
+        # generation_requests.create も巻き戻る、という挙動を観測する。
+        from app.repositories.jobs import JobRepository
+
+        async def _boom(*_args: object, **_kwargs: object) -> None:
+            raise RuntimeError("simulated enqueue failure")
+
+        monkeypatch.setattr(JobRepository, "enqueue", _boom)
+
+        # ASGITransport は既定で「アプリ未捕捉の例外を呼び出し元へ再 raise」する
+        # ため、httpx 側で例外が観測される。本テストは「rollback が起きたか」を
+        # 観たいので、例外発生自体は想定内として受け止め、続けて DB 状態を assert。
+        with pytest.raises(RuntimeError, match="simulated enqueue failure"):
+            await client.post(
+                "/problems/generate",
+                json={"category": "array", "difficulty": "easy"},
+                headers={"X-CSRF-Token": csrf},
+            )
+
+        # 同一 tx 契約：jobs enqueue 失敗時は generation_requests も 0 件のまま
+        # （Service の `async with session.begin():` 経由で rollback が走る）。
+        async with AsyncSessionLocal() as s:
+            grs = (await s.execute(select(GenerationRequest))).scalars().all()
+            jobs = (await s.execute(select(Job))).scalars().all()
+        assert len(grs) == 0
+        assert len(jobs) == 0
+
+
 class TestPostGenerateValidation:
     @respx.mock
     async def test_異常系_未知のcategoryは422(
@@ -196,7 +189,7 @@ class TestPostGenerateValidation:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        csrf = await _login(client)
+        csrf = await login_via_github(client)
 
         res = await client.post(
             "/problems/generate",
@@ -212,7 +205,7 @@ class TestPostGenerateValidation:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        csrf = await _login(client)
+        csrf = await login_via_github(client)
 
         res = await client.post(
             "/problems/generate",
@@ -228,7 +221,7 @@ class TestPostGenerateValidation:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        csrf = await _login(client)
+        csrf = await login_via_github(client)
 
         # difficulty 欠落。
         res = await client.post(
@@ -246,7 +239,7 @@ class TestPostGenerateValidation:
     ) -> None:
         """ログイン済みでも X-CSRF-Token ヘッダーが無いと middleware が 403 を返す。"""
         del fake_redis
-        await _login(client)
+        await login_via_github(client)
 
         res = await client.post(
             "/problems/generate",
@@ -278,7 +271,7 @@ class TestGetStatusReturnsCorrectShape:
     ) -> None:
         """JSON 例: { "requestId": "<uuid>", "status": "pending" }（problemId キーは含めない）。"""
         del fake_redis
-        csrf = await _login(client)
+        csrf = await login_via_github(client)
 
         post_res = await client.post(
             "/problems/generate",
@@ -307,7 +300,7 @@ class TestGetStatusReturnsCorrectShape:
         status=completed + produced_problem_id 設定 → problemId が返る契約。
         """
         del fake_redis
-        csrf = await _login(client)
+        csrf = await login_via_github(client)
 
         post_res = await client.post(
             "/problems/generate",
@@ -341,7 +334,7 @@ class TestGetStatusReturnsCorrectShape:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        csrf = await _login(client)
+        csrf = await login_via_github(client)
 
         post_res = await client.post(
             "/problems/generate",
@@ -374,7 +367,7 @@ class TestGetStatusAuthorization:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        await _login(client)
+        await login_via_github(client)
 
         res = await client.get(f"/problems/generate/{uuid.uuid4()}")
         assert res.status_code == 404
@@ -391,7 +384,7 @@ class TestGetStatusAuthorization:
         del fake_redis
 
         # ユーザー A でログインしてリクエストを作る。
-        csrf_a = await _login(client, gh_id=100)
+        csrf_a = await login_via_github(client, gh_id=100)
         post_res = await client.post(
             "/problems/generate",
             json={"category": "string", "difficulty": "easy"},
@@ -403,7 +396,7 @@ class TestGetStatusAuthorization:
         # 既存テスト同様、respx を reset してから再ログインする。
         client.cookies.clear()
         respx.reset()
-        await _login(client, gh_id=200)
+        await login_via_github(client, gh_id=200)
 
         res = await client.get(f"/problems/generate/{owner_request_id}")
         assert res.status_code == 404
@@ -417,7 +410,7 @@ class TestGetStatusAuthorization:
     ) -> None:
         """Path(UUID) のパースで FastAPI が 422 を返す（認証通過後の Path 検証）。"""
         del fake_redis
-        await _login(client)
+        await login_via_github(client)
 
         res = await client.get("/problems/generate/not-a-uuid")
         assert res.status_code == 422
