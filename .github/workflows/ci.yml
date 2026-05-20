@@ -448,12 +448,13 @@ jobs:
   # `mise run worker:grading:<task>` を呼ぶ。Go 本体含むツールは全て mise.toml が SSoT。
   # ====================================================================
 
-  # lint / test / audit は Go コンパイルを伴う（golangci-lint / go test / govulncheck）
-  # ため、jobtypes/*.go が存在しないと「import "internal/jobtypes" の package が空」で
-  # コケる可能性がある。types.go は gitignored（ADR 0006、R0-11）なので各ジョブの先頭で
+  # lint / test / audit / deps-check のいずれも Go の import 解決を伴う。
+  # jobtypes/*.go が存在しないと、internal/grading/ などからの
+  # `import "internal/jobtypes"` を go ツールチェインが「ローカル package 空 →
+  # 外部 module を fetch」と誤判定してしまう（`go mod tidy -diff` も同様に失敗）。
+  # types.go は gitignored（ADR 0006、R0-11）なので、4 ジョブすべての先頭で
   # mise run worker:grading:types-gen を呼んで生成する。types-gen 自身が
   # api:job-schemas-export に depends しているので 1 行で schemas-export + Go 生成が完結。
-  # deps-check は go mod tidy -diff のみで types.go 不要のため pre-step を入れない。
   worker-grading-lint:
     name: worker-grading-lint
     needs: changes
@@ -495,6 +496,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:grading:types-gen
       - run: mise run worker:grading:deps-check
 
   # ====================================================================
@@ -546,6 +548,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:types-gen
       - run: mise run worker:generation:deps-check
 
   # ====================================================================
