@@ -387,7 +387,10 @@ jobs:
       # api / worker / mock サーバが共有する DB 接続文字列。
       # playwright.config.ts の webServer.env は workflow env を引き継がず明示注入する。
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill
-      REDIS_URL: redis://localhost:6379/0
+      # Redis の DB index は E2E 専用の /1 を使う (apps/web/e2e/_helpers/constants.ts と同じ)。
+      # CI の Redis コンテナは E2E 専用で他から触られないが、local 既定値と揃えて
+      # 設定の二重管理を避ける。
+      REDIS_URL: redis://localhost:6379/1
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
