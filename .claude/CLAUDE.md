@@ -108,8 +108,8 @@ mise run lint             # 全言語 lint
 mise run test             # 全言語 test
 mise run typecheck        # 全言語 typecheck（api + web）
 mise run types-gen        # 両境界の型を一括再生成（OpenAPI export + Job Schema export + Hey API + quicktype、ADR 0006、CI drift 検出にも使う）
-mise run dev:all          # web (Next.js) + api (FastAPI) を並行起動
-mise run dev:restart      # :3000 / :8000 を listen 中のプロセスを kill してから dev:all
+mise run dev:all          # web (Next.js) + api (FastAPI) + worker (grading) を並行起動
+mise run dev:restart      # :3000 / :8000 を listen 中のプロセスを kill してから dev:all（worker は kill 対象外）
 mise run git:clean        # マージ済みでリモートが消えたローカルブランチを掃除
 ```
 

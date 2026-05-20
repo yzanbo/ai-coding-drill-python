@@ -368,10 +368,19 @@ depends = [
 #     から起動する。lsof で「TCP LISTEN 状態の PID」だけに絞るため、たまたま同ポートに
 #     接続しているクライアント等は誤って kill しない
 [tasks."dev:all"]
-description = "web (Next.js) + api (FastAPI) を並行起動"
+description = "web (Next.js) + api (FastAPI) + worker (grading) を並行起動"
+# worker:grading:dev も含める理由:
+#   問題生成 / 採点ジョブは Worker が claim しないと永久に queued のままで、
+#   UI 側「生成中…」のまま動かない。Worker 起動忘れによる「動かない」を
+#   構造的に防ぐため、dev:all を本当の "全部入り" にする。
+# 前提:
+#   Docker daemon 稼働 + apps/workers/grading/.env (GOOGLE_API_KEY) +
+#   ai-coding-drill-sandbox:latest image。揃っていない時は worker のログに
+#   即時 fail-fast の error が出るので原因切り分けは容易。
 depends = [
   "api:dev",
   "web:dev",
+  "worker:grading:dev",
 ]
 
 # dev:restart の流儀：
