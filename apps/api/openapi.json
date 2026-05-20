@@ -450,7 +450,7 @@
     },
     "/problems/generate": {
       "post": {
-        "description": "カテゴリ・難易度を受け取って生成ジョブを enqueue する。\n\n挙動：\n  - generation_requests へ 1 行 INSERT（status='pending'）\n  - jobs へ 1 行 INSERT + NOTIFY new_job を同一トランザクションで実行\n  - 202 で requestId を返す。実際の生成は Worker が非同期で処理する",
+        "description": "カテゴリ・難易度を受け取って生成ジョブを enqueue する。\n\n挙動：\n  - generation_requests へ 1 行 INSERT（status='pending'）\n  - jobs へ 1 行 INSERT + NOTIFY new_job を同一トランザクションで実行\n  - 202 で requestId を返す。実際の生成は Worker が非同期で処理する\n  - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す",
         "operationId": "request_problem_generation_problems_generate_post",
         "requestBody": {
           "content": {

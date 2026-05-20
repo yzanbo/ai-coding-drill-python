@@ -91,6 +91,7 @@ export const healthzHealthzGet = <ThrowOnError extends boolean = false>(options?
  * - generation_requests へ 1 行 INSERT（status='pending'）
  * - jobs へ 1 行 INSERT + NOTIFY new_job を同一トランザクションで実行
  * - 202 で requestId を返す。実際の生成は Worker が非同期で処理する
+ * - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す
  */
 export const requestProblemGenerationProblemsGeneratePost = <ThrowOnError extends boolean = false>(options: Options<RequestProblemGenerationProblemsGeneratePostData, ThrowOnError>) => (options.client ?? client).post<RequestProblemGenerationProblemsGeneratePostResponses, RequestProblemGenerationProblemsGeneratePostErrors, ThrowOnError>({
     url: '/problems/generate',

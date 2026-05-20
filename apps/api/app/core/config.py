@@ -77,6 +77,14 @@ class Settings(BaseSettings):
         default="redis://localhost:6379/0",
         description="Redis 接続 URL（cache / session / rate limit 用）",
     )
+    # rate_limit_storage_uri: slowapi の Limiter が使う保存先。
+    #   None なら redis_url を使う（本番運用の既定）。
+    #   テスト時は環境変数 RATE_LIMIT_STORAGE_URI=memory:// で in-memory に倒して、
+    #   実 Redis 起動なしで rate limit の振る舞いを検証できるようにする。
+    rate_limit_storage_uri: str | None = Field(
+        default=None,
+        description="slowapi の保存先 URI（未指定なら redis_url を使う）",
+    )
 
     # ----- GitHub OAuth 用 -----
     # GitHub の OAuth アプリ（https://github.com/settings/developers で作成）から
