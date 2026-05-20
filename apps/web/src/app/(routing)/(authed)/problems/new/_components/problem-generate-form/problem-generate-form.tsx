@@ -33,9 +33,13 @@ export const ProblemGenerateForm = () => {
 
   // form: RHF 本体。zod スキーマを通して許可値外を弾く。
   //   mode: onTouched → 初回 blur で発火し、以降はリアルタイム検証（frontend.md §フォームバリデーション）。
+  //   defaultValues: 未選択を明示的に undefined で開始する（指定なしだと内部で
+  //     undefined 扱いだが、Controller の value が controlled / uncontrolled の境を
+  //     またぐ React 警告に将来引っかからないよう、初期値の意図を読みやすい形で残す）。
   const form = useForm<ProblemGenerateFormValues>({
     resolver: zodResolver(problemGenerateFormSchema),
     mode: "onTouched",
+    defaultValues: { category: undefined, difficulty: undefined },
   });
 
   const { requestGenerate, isPending } = usePostProblemGenerate({
