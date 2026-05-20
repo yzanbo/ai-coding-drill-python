@@ -350,6 +350,65 @@ pre-push:
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    # Worker (Go) 依存衛生（go mod tidy -diff）
+    # api-deptry と同じ位置づけ：依存ファイル / Pydantic スキーマ変更時のみ発火する pre-push。
+    # `go mod tidy -diff` で go.mod / go.sum と実 import の整合性を検証し、
+    # 「require 行が古い」「未使用 require が残っている」push を CI 前に弾く。
+    #
+    # trigger を go.mod / go.sum + apps/api/app/schemas/jobs/** に限定する理由：
+    #   - .go 1 行直しただけの push で audit を走らせるのは無駄（go.mod が動かないため）
+    #   - Pydantic ジョブスキーマ変更は内部生成型 (jobtypes) を経由して import 構造に
+    #     影響しうるので念のため検証対象に含める
+    #
+    # types-gen を前段に挟む理由（CI と同じ）：
+    #   jobtypes/*.go は gitignored のため、`go mod tidy` が `internal/jobtypes` の
+    #   import 解決のために生成済 types.go を必要とする。これが無いと「外部 module を
+    #   fetch しに行く → 失敗」で偽陽性 fail になる。
+    #
+    # 独立 Go module (ADR 0040) のため Worker ごとに hook を分ける。
+    worker-grading-deps-check:
+      glob: "apps/workers/grading/{go.mod,go.sum},apps/api/app/schemas/jobs/**"
+      run: |
+        set -e
+        mise exec -- mise run worker:grading:types-gen
+        mise exec -- mise run worker:grading:deps-check
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  grading の go.mod / go.sum が実コードと不整合（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        上の `go mod tidy -diff` の出力に従って tidy を実行し、再 commit してください:
+          cd apps/workers/grading
+          go mod tidy
+          git add go.mod go.sum
+          git commit -m "chore(deps): grading worker の go.mod / go.sum を tidy"
+
+        【types-gen が落ちた場合】
+          apps/api/app/schemas/jobs/ の Pydantic を見直す or Python 側依存を更新する。
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    worker-generation-deps-check:
+      glob: "apps/workers/generation/{go.mod,go.sum},apps/api/app/schemas/jobs/**"
+      run: |
+        set -e
+        mise exec -- mise run worker:generation:types-gen
+        mise exec -- mise run worker:generation:deps-check
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  generation の go.mod / go.sum が実コードと不整合（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        上の `go mod tidy -diff` の出力に従って tidy を実行し、再 commit してください:
+          cd apps/workers/generation
+          go mod tidy
+          git add go.mod go.sum
+          git commit -m "chore(deps): generation worker の go.mod / go.sum を tidy"
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 commit-msg:
   commands:
     # コミットメッセージ規約検証（commitlint）

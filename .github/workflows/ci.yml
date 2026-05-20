@@ -335,6 +335,106 @@ jobs:
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
       - run: mise run web:test
 
+  # apps/web の Playwright E2E（authentication.md 受け入れ条件のうちブラウザ間通信 /
+  # Frontend side effect / DB 永続化レベルの 7 シナリオ、apps/web/e2e/auth.spec.ts）。
+  #
+  # 起動条件：web / api / grading / shared のいずれか変更時。
+  #   - web/     : E2E テスト本体 / Playwright config の変更
+  #   - api/     : OAuth callback handler / Settings / DB schema の変更
+  #   - grading/ : worker 側の .env / DATABASE_URL 形式変更等で api 起動が壊れる経路が
+  #                実証されている (0de2795 fix(worker,config))。worker を起動条件に含めて
+  #                同類の regression を E2E で捕捉する
+  #   - shared / mise.toml: 横断設定変更
+  #
+  # web-test と分ける理由：
+  #   - Playwright は Postgres / Redis service + chromium ブラウザ install が必要で
+  #     Vitest と比べ重い（pnpm install + browser DL + 3 サーバ起動）。job を分離して
+  #     Vitest だけの PR が遅くならないようにする
+  #   - Playwright の失敗時 trace を artifact upload するため独立した job を保持
+  web-e2e:
+    name: web-e2e
+    needs: changes
+    if: >-
+      ${{ needs.changes.outputs.web == 'true' ||
+          needs.changes.outputs.api == 'true' ||
+          needs.changes.outputs.grading == 'true' ||
+          needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env:
+          POSTGRES_DB: ai_coding_drill
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ai_coding_drill"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8.6-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # api / worker / mock サーバが共有する DB 接続文字列。
+      # playwright.config.ts の webServer.env は workflow env を引き継がず明示注入する。
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      # DB schema を Alembic で作成（api / mock の /_test/reset が users テーブルを参照）。
+      - run: mise run api:db-migrate
+      # Playwright のブラウザバイナリをキャッシュする。
+      # cache key には Playwright 自身の version を含めて、version 上がった時に
+      # 自動的にキャッシュミスして新バイナリを取り直す。OS にも依存するため runner.os も付ける。
+      - name: Resolve Playwright version
+        id: playwright-version
+        # pnpm exec は stdout に "Lockfile is up to date..." 等の情報行を混ぜることが
+        # あるため、`Version X.Y.Z` 行を grep してから抽出する (混入した非バージョン行を
+        # cache key に巻き込まないため)。
+        run: |
+          ver=$(cd apps/web && pnpm exec playwright --version 2>&1 | awk '/^Version/{print $2; exit}')
+          if [ -z "$ver" ]; then
+            echo "::error::Failed to resolve Playwright version"
+            exit 1
+          fi
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      # キャッシュ HIT 時はバイナリは既にある → OS-level deps だけ apt-get で入れる（install-deps）。
+      # MISS 時はバイナリ + OS deps を一括取得（--with-deps）。
+      - name: Install Playwright (cache miss)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: cd apps/web && pnpm exec playwright install --with-deps chromium
+      - name: Install Playwright OS deps only (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: cd apps/web && pnpm exec playwright install-deps chromium
+      # CI=true で webServer.reuseExistingServer=false / reporter=github / workers=1 /
+      # retries=2 が有効になる（playwright.config.ts 参照）。
+      - run: cd apps/web && CI=true pnpm exec playwright test
+      # 失敗時のみ trace / screenshots を artifact に上げる（成功時はノイズなので不要）。
+      - if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-results
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          retention-days: 7
+
   # ====================================================================
   # apps/workers/grading（Go）品質ゲート — ADR 0019 / 0026 / 0028 / 0038 / 0040
   # ----------------------------------------------------------------------
@@ -348,12 +448,13 @@ jobs:
   # `mise run worker:grading:<task>` を呼ぶ。Go 本体含むツールは全て mise.toml が SSoT。
   # ====================================================================
 
-  # lint / test / audit は Go コンパイルを伴う（golangci-lint / go test / govulncheck）
-  # ため、jobtypes/*.go が存在しないと「import "internal/jobtypes" の package が空」で
-  # コケる可能性がある。types.go は gitignored（ADR 0006、R0-11）なので各ジョブの先頭で
+  # lint / test / audit / deps-check のいずれも Go の import 解決を伴う。
+  # jobtypes/*.go が存在しないと、internal/grading/ などからの
+  # `import "internal/jobtypes"` を go ツールチェインが「ローカル package 空 →
+  # 外部 module を fetch」と誤判定してしまう（`go mod tidy -diff` も同様に失敗）。
+  # types.go は gitignored（ADR 0006、R0-11）なので、4 ジョブすべての先頭で
   # mise run worker:grading:types-gen を呼んで生成する。types-gen 自身が
   # api:job-schemas-export に depends しているので 1 行で schemas-export + Go 生成が完結。
-  # deps-check は go mod tidy -diff のみで types.go 不要のため pre-step を入れない。
   worker-grading-lint:
     name: worker-grading-lint
     needs: changes
@@ -395,6 +496,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:grading:types-gen
       - run: mise run worker:grading:deps-check
 
   # ====================================================================
@@ -446,6 +548,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      - run: mise run worker:generation:types-gen
       - run: mise run worker:generation:deps-check
 
   # ====================================================================
@@ -542,6 +645,7 @@ jobs:
       - web-knip
       - web-syncpack
       - web-test
+      - web-e2e
       - worker-grading-lint
       - worker-grading-test
       - worker-grading-audit

@@ -23,24 +23,11 @@ from app.db.session import AsyncSessionLocal
 from app.models.auth_providers import AuthProvider
 from app.models.users import User
 
-_TOKEN_URL = "https://github.com/login/oauth/access_token"
-_USER_API_URL = "https://api.github.com/user"
-
-
-def _stub_github_success(
-    *,
-    gh_id: int = 12345,
-    name: str | None = "Taro",
-    login: str = "taro",
-    email: str | None = "taro@example.com",
-) -> None:
-    """GitHub の OAuth フロー（token 交換 + user 取得）を成功レスポンスでモックする。"""
-    respx.post(_TOKEN_URL).respond(
-        200, json={"access_token": "gho_dummy", "token_type": "bearer"}
-    )
-    respx.get(_USER_API_URL).respond(
-        200, json={"id": gh_id, "name": name, "login": login, "email": email}
-    )
+from ._helpers import (
+    _TOKEN_URL,
+    extract_cookie_value,
+    stub_github_success,
+)
 
 
 async def _smembers(redis: fakeredis.aioredis.FakeRedis, key: str) -> set[str]:
@@ -144,7 +131,7 @@ class TestAuthGithubCallbackSuccess:
     async def test_正常系_新規ユーザーでDBとRedisに反映_Cookie発行(
         self, client: AsyncClient, fake_redis: fakeredis.aioredis.FakeRedis
     ) -> None:
-        _stub_github_success(gh_id=999, name="New", login="newuser", email="new@x.com")
+        stub_github_success(gh_id=999, name="New", login="newuser", email="new@x.com")
 
         start = await client.get("/auth/github")
         state_token = start.headers["location"].split("state=")[1].split("&")[0]
@@ -182,7 +169,7 @@ class TestAuthGithubCallbackSuccess:
         self, client: AsyncClient
     ) -> None:
         """authentication.md §2.1：同一 provider_id なら既存 users を再利用。"""
-        _stub_github_success(gh_id=42, name="A", login="a", email="a@x.com")
+        stub_github_success(gh_id=42, name="A", login="a", email="a@x.com")
 
         # 1 回目ログイン。
         start = await client.get("/auth/github")
@@ -191,7 +178,7 @@ class TestAuthGithubCallbackSuccess:
 
         # 2 回目ログイン（同じ provider_id だが name/email を変えて再ログイン）。
         respx.reset()
-        _stub_github_success(gh_id=42, name="A renamed", login="a", email="newer@x.com")
+        stub_github_success(gh_id=42, name="A renamed", login="a", email="newer@x.com")
         start2 = await client.get("/auth/github")
         state_token2 = start2.headers["location"].split("state=")[1].split("&")[0]
         await client.get(f"/auth/github/callback?code=ok2&state={state_token2}")
@@ -215,7 +202,7 @@ class TestAuthGithubCallbackSuccess:
         Cookie 無し初回ログインは新規ユーザーテストでも暗黙に通っているが、
         旧セッション無効化の no-op 経路を契約として独立に固定する。
         """
-        _stub_github_success(gh_id=100, name="N", login="n", email=None)
+        stub_github_success(gh_id=100, name="N", login="n", email=None)
         start = await client.get("/auth/github")
         state_token = start.headers["location"].split("state=")[1].split("&")[0]
 
@@ -236,7 +223,7 @@ class TestAuthGithubCallbackSuccess:
         悪意のあるブラウザ拡張 / 古い手書き Cookie 等で署名不正な session_id が
         付いていても、新規 sid 発行に支障を出さない契約。
         """
-        _stub_github_success(gh_id=101, name="M", login="m", email=None)
+        stub_github_success(gh_id=101, name="M", login="m", email=None)
 
         # 署名形式に合わない値を持ったまま callback。
         client.cookies.set(get_settings().session_cookie_name, "garbage.value")
@@ -255,7 +242,7 @@ class TestAuthGithubCallbackSuccess:
         self, client: AsyncClient, fake_redis: fakeredis.aioredis.FakeRedis
     ) -> None:
         """authentication.md §1.3「ログイン時の旧セッション無効化」+ 受け入れ条件。"""
-        _stub_github_success(gh_id=1, name="x", login="x", email=None)
+        stub_github_success(gh_id=1, name="x", login="x", email=None)
 
         # 1 回目ログイン → Cookie をクライアントに記憶させる。
         start1 = await client.get("/auth/github")
@@ -268,7 +255,7 @@ class TestAuthGithubCallbackSuccess:
 
         # 2 回目ログイン（同じクライアントから state を取り直す → callback）。
         respx.reset()
-        _stub_github_success(gh_id=1, name="x", login="x", email=None)
+        stub_github_success(gh_id=1, name="x", login="x", email=None)
         start2 = await client.get("/auth/github")
         state2 = start2.headers["location"].split("state=")[1].split("&")[0]
         cb2 = await client.get(f"/auth/github/callback?code=c2&state={state2}")
@@ -291,7 +278,7 @@ class TestAuthMeAndLogout:
     async def test_正常系_ログイン後にGET_auth_meがユーザー情報を返す(
         self, client: AsyncClient
     ) -> None:
-        _stub_github_success(gh_id=7, name="Hanako", login="hanako", email="h@x.com")
+        stub_github_success(gh_id=7, name="Hanako", login="hanako", email="h@x.com")
 
         start = await client.get("/auth/github")
         state_token = start.headers["location"].split("state=")[1].split("&")[0]
@@ -311,7 +298,7 @@ class TestAuthMeAndLogout:
     async def test_正常系_logoutで204_RedisセッションとCookieが消える(
         self, client: AsyncClient, fake_redis: fakeredis.aioredis.FakeRedis
     ) -> None:
-        _stub_github_success(gh_id=8, name="L", login="l", email=None)
+        stub_github_success(gh_id=8, name="L", login="l", email=None)
 
         start = await client.get("/auth/github")
         state_token = start.headers["location"].split("state=")[1].split("&")[0]
@@ -350,7 +337,7 @@ class TestCookieAttributes:
         self, client: AsyncClient
     ) -> None:
         """session_id は JS から触れない（XSS 対策）。"""
-        _stub_github_success(gh_id=200, name="X", login="x", email=None)
+        stub_github_success(gh_id=200, name="X", login="x", email=None)
         start = await client.get("/auth/github")
         state_token = start.headers["location"].split("state=")[1].split("&")[0]
         cb = await client.get(f"/auth/github/callback?code=ok&state={state_token}")
@@ -364,7 +351,7 @@ class TestCookieAttributes:
         self, client: AsyncClient
     ) -> None:
         """csrf_token は Frontend が JS で読んで X-CSRF-Token に詰める契約。"""
-        _stub_github_success(gh_id=201, name="X", login="x", email=None)
+        stub_github_success(gh_id=201, name="X", login="x", email=None)
         start = await client.get("/auth/github")
         state_token = start.headers["location"].split("state=")[1].split("&")[0]
         cb = await client.get(f"/auth/github/callback?code=ok&state={state_token}")
@@ -377,7 +364,7 @@ class TestCookieAttributes:
         self, client: AsyncClient
     ) -> None:
         """SameSite=Lax で別オリジン POST に sid が乗らない / Path=/ でサイト全域。"""
-        _stub_github_success(gh_id=202, name="X", login="x", email=None)
+        stub_github_success(gh_id=202, name="X", login="x", email=None)
         start = await client.get("/auth/github")
         state_token = start.headers["location"].split("state=")[1].split("&")[0]
         cb = await client.get(f"/auth/github/callback?code=ok&state={state_token}")
@@ -400,7 +387,7 @@ class TestCookieAttributes:
         # 前提：fixture が動く環境では get_settings().cookie_domain is None
         assert get_settings().cookie_domain is None
 
-        _stub_github_success(gh_id=203, name="X", login="x", email=None)
+        stub_github_success(gh_id=203, name="X", login="x", email=None)
         start = await client.get("/auth/github")
         state_token = start.headers["location"].split("state=")[1].split("&")[0]
         cb = await client.get(f"/auth/github/callback?code=ok&state={state_token}")
@@ -423,7 +410,7 @@ class TestCookieAttributes:
         コメント）。set / delete 両方の Set-Cookie 行から属性集合を取って一致を確認する。
         """
         del fake_redis  # fixture 起動だけ
-        _stub_github_success(gh_id=204, name="X", login="x", email=None)
+        stub_github_success(gh_id=204, name="X", login="x", email=None)
 
         # 1. ログイン → set 時の Set-Cookie を採取。
         start = await client.get("/auth/github")
@@ -469,25 +456,15 @@ def _extract_session_cookie(response: object) -> str:
     """Set-Cookie ヘッダーから session_id Cookie の値だけを取り出す。
 
     httpx の response.cookies を使うと Domain 属性次第で取れないことがあるため、
-    Set-Cookie 文字列を直接パースする。
+    Set-Cookie 文字列を直接パースする（共通実装は _helpers.extract_cookie_value）。
     """
     settings = get_settings()
-    return _extract_cookie_value(response, settings.session_cookie_name)
+    return extract_cookie_value(response, settings.session_cookie_name)
 
 
 def _extract_csrf_cookie(response: object) -> str:
     settings = get_settings()
-    return _extract_cookie_value(response, settings.csrf_cookie_name)
-
-
-def _extract_cookie_value(response: object, name: str) -> str:
-    set_cookie_headers = response.headers.get_list("set-cookie")  # type: ignore[attr-defined]
-    prefix = f"{name}="
-    for header in set_cookie_headers:
-        if header.startswith(prefix):
-            # "name=value; Path=/; ..." → value だけ取る。
-            return header[len(prefix) :].split(";", 1)[0]
-    raise AssertionError(f"Set-Cookie '{name}' not found in {set_cookie_headers!r}")
+    return extract_cookie_value(response, settings.csrf_cookie_name)
 
 
 def _extract_set_cookie_header(response: object, name: str) -> str:

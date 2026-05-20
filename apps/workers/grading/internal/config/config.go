@@ -66,6 +66,10 @@ type Config struct {
 	// notEmpty を使う理由: caarlos0/env の `required` は環境変数の有無のみ
 	// 判定し、空文字 ("") は通してしまう。Worker は空 DSN で起動しても
 	// 直後の pgx 接続で落ちるため、ここで空も拒否する方が原因究明が早い。
+	//
+	// 形式: pgx 互換の `postgresql://...` または `postgres://...` を直接受け取る。
+	// (api 側の SQLAlchemy 形式 `postgresql+asyncpg://...` とは env scope を
+	// 分離している。.env は app ごとに独立、ADR 0039 / 本 worker は godotenv で自己 load)
 	DatabaseURL string `env:"DATABASE_URL,notEmpty"`
 
 	// WorkerID: jobs.locked_by に書く識別子。
@@ -78,6 +82,12 @@ type Config struct {
 
 	// SandboxImage: 採点コンテナの image タグ。両 Worker で同じ image を起動。
 	SandboxImage string `env:"SANDBOX_IMAGE" envDefault:"ai-coding-drill-sandbox:latest"`
+
+	// SandboxTmpDir: sandbox がコード書き出しに使うホスト tmp dir。
+	// 空文字 (既定) なら OS の $TMPDIR (macOS は /var/folders/... 等) を使う。
+	// Docker Desktop の File Sharing 許可外に $TMPDIR が落ちる環境では
+	// `SANDBOX_TMP_DIR=/tmp` 等を明示することで bind mount 失敗を回避できる。
+	SandboxTmpDir string `env:"SANDBOX_TMP_DIR"`
 
 	// JobTimeoutSeconds: 1 ジョブの最大処理時間。grading 既定 5 秒
 	// (sandbox 実行のみ)。LLM 呼び出しを含むジョブ (R1-2 以降の生成兼務) では

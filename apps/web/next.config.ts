@@ -8,10 +8,19 @@ const API_PROXY_TARGET = process.env.API_PROXY_TARGET ?? "http://localhost:8000"
 
 const nextConfig: NextConfig = {
   // rewrites: パスを別サーバへ「裏で」転送する仕組み（ブラウザの URL は変えない）。
-  //   /auth, /health, /healthz は FastAPI 側のエンドポイント。Frontend からは
+  //   /api/*, /auth/*, /health, /healthz は FastAPI 側のエンドポイント。Frontend からは
   //   相対パスで叩けるようにし、Set-Cookie や認証 Cookie を同一オリジンとして扱う。
+  //
+  //   /api prefix の役割：
+  //     Next.js のページパス（/problems/new, /problems/generate/:requestId）と
+  //     API パス（/api/problems/generate 等）を構造的に分離する。被せていないと
+  //     /problems/generate/:requestId のように page と API のパスが完全衝突して
+  //     ブラウザナビゲーションが API JSON に置き換わってしまう。
+  //   /auth, /health, /healthz は callback URL 登録（OAuth）やインフラ慣習の
+  //   都合で /api を被せず素のまま残している。
   async rewrites() {
     return [
+      { source: "/api/:path*", destination: `${API_PROXY_TARGET}/api/:path*` },
       { source: "/auth/:path*", destination: `${API_PROXY_TARGET}/auth/:path*` },
       { source: "/health", destination: `${API_PROXY_TARGET}/health` },
       { source: "/healthz", destination: `${API_PROXY_TARGET}/healthz` },

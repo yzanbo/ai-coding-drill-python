@@ -93,6 +93,7 @@ ADR 0036 拡張により root には orchestration 層のみ（`mise.toml` / `le
 | **commitlint** | 言語横断 | commit-msg | （glob なし、毎回） | `commitlint`（PR は base..head、push は before..after） | 過去履歴は遡及修正不可のため hook と CI の両方で常時起動 |
 | **syncpack** | TS（Frontend 限定） | pre-commit | `package.json` | `syncpack` | pre-commit は `lint` のみ。自動修正は `mise run web:syncpack` を手動実行（→ [ADR 0024](../../adr/0024-syncpack-package-json-consistency.md)） |
 | **Knip** | TS（Frontend 限定） | pre-commit | `*.{ts,tsx,js,jsx,mjs,cjs,json}` | `knip` | ファイル単位起動できないため glob トリガー時に全プロジェクト解析。自動修正は `mise run web:knip-fix` を手動実行 |
+| **Playwright（E2E）** | TS（Frontend）+ Backend / Mock 連携 | CI のみ（pre-push には入れない） | `apps/web/**` / `apps/api/**` / `shared` のいずれか変更時 | `playwright test`（`web-e2e` ジョブ） | Postgres + Redis services + chromium ブラウザ install + 3 サーバ（mock GitHub / api / web）並行起動が必要で重いため pre-push 非搭載。失敗時は `test-results/` を artifact 化（→ [ADR 0038](../../adr/0038-test-frameworks.md)） |
 
 ### 多層防御の構造
 

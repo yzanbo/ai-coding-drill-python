@@ -19,13 +19,17 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@radix-ui/react-radio-group": "^1.3.8",
     "@radix-ui/react-slot": "^1.2.4",
-    "@tanstack/react-query": "^5.100.10",
+    "@tanstack/react-query": "^5.100.11",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "lucide-react": "^1.16.0",
     "next": "16.2.6",
     "react": "19.2.6",
     "react-dom": "19.2.6",
+    "react-hook-form": "^7.76.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0"
   },
@@ -45,7 +49,7 @@
     "jsdom": "^29.1.1",
     "knip": "^6.14.1",
     "msw": "2.14.6",
-    "syncpack": "^15.2.0",
+    "syncpack": "^15.3.0",
     "tailwindcss": "^4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6",

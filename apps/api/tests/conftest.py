@@ -5,6 +5,16 @@
 #
 #   ファイル名自体は pytest の決まり、中身は自前で書く（プロジェクト固有のフィクスチャを並べる）。
 
+# os.environ.setdefault: app.main を import する前にレート制限の保存先を memory:// に倒す。
+#   理由: slowapi の Limiter は import 時 1 回だけ storage_uri を読んで保存先に接続するため、
+#         テスト中に切替えるには「import より前に」環境変数を仕込む必要がある。
+#         setdefault は既に値があれば上書きしないので、CI で外から URI を渡したい時にも壊れない。
+#   memory:// にすると同一プロセス内のメモリだけでカウンタを持ち、実 Redis 起動なしで
+#   429 までの挙動を検証できる。テスト間の独立性は limiter.reset() で担保（rate limit 系テスト側）。
+import os
+
+os.environ.setdefault("RATE_LIMIT_STORAGE_URI", "memory://")
+
 # AsyncIterator: 「非同期で 1 個ずつ値を渡せる関数」の戻り値型（Python 標準 / collections.abc）。
 #                yield を使う非同期ジェネレータ関数の型注釈に使う。
 from collections.abc import AsyncIterator

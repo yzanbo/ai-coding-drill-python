@@ -17,6 +17,18 @@ import { API_BASE, server } from "./src/test/msw-server";
 configureApiClient();
 client.setConfig({ baseUrl: API_BASE });
 
+// ResizeObserver: jsdom には未実装。Radix UI の RadioGroup / Popover などが
+//   内部でこの API を呼ぶため、最低限の空実装を global に注入する（テストで
+//   サイズ変化を観測する必要は無いので、すべて no-op で問題ない）。
+class NoopResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = NoopResizeObserver as unknown as typeof ResizeObserver;
+}
+
 // MSW（API モックサーバ）のライフサイクル管理。
 //   beforeAll: 全テスト前に 1 度だけ起動。未登録 URL に fetch すると例外で
 //     落としてテストの "サイレントなネットワーク到達" を防ぐ（onUnhandledRequest）。

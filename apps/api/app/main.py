@@ -18,10 +18,15 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from slowapi.errors import RateLimitExceeded
 
 # verify_csrf: 状態変更 API（POST/PUT/DELETE/PATCH）の double submit cookie 検証
 #              middleware（中身は core/csrf.py）。
 from app.core.csrf import verify_csrf
+
+# register_exception_handlers: ドメイン例外を HTTP レスポンスに変換する
+#   handler を一括登録する関数（中身は core/exceptions.py）。
+from app.core.exceptions import register_exception_handlers
 
 # open_http_client / close_http_client: 共有 httpx クライアントの開閉
 # （中身は core/http_client.py、GitHub OAuth 等の外部 API 呼び出しで使う）。
@@ -29,7 +34,11 @@ from app.core.http_client import close_http_client, open_http_client
 
 # open_redis / close_redis: Redis 接続の生成と解放（中身は core/redis.py）。
 from app.core.redis import close_redis, open_redis
-from app.routers import auth, health, probes
+
+# limiter: アプリ全体で 1 個の slowapi Limiter（中身は deps/rate_limit.py）。
+# rate_limit_exceeded_handler: 超過時に 429 JSON を返す関数。
+from app.deps.rate_limit import limiter, rate_limit_exceeded_handler
+from app.routers import auth, health, probes, problems
 
 
 # lifespan: FastAPI の起動 / 終了フックを 1 関数にまとめる関数。
@@ -68,8 +77,26 @@ app = FastAPI(title="AI Coding Drill API", lifespan=lifespan)
 # 認証ガード自体は各ルーター内で Depends(get_current_user) を使う（backend.md）。
 app.middleware("http")(verify_csrf)
 
+# ドメイン例外 → HTTP レスポンスの変換ハンドラを登録する。
+#   services/* が raise する業務例外（GenerationRequestNotFoundError 等)を
+#   core/exceptions.py の handler が 404 等の JSON に翻訳する設計。
+#   詳細は .claude/rules/backend.md §Service / app/core/README.md §2。
+register_exception_handlers(app)
+
+# レート制限：slowapi の Limiter を app.state.limiter に積む（slowapi の規約）。
+#   @limiter.limit(...) デコレータはここを参照しないが、slowapi の内部処理
+#   （超過時の例外 raise、ヘッダ付与）が app.state.limiter から設定を引くため必要。
+# RateLimitExceeded → 429 JSON への変換ハンドラもここで登録する。
+# 採用根拠は docs/requirements/3-cross-cutting/02-api-conventions.md §レート制限。
+app.state.limiter = limiter
+app.add_exception_handler(
+    RateLimitExceeded,
+    rate_limit_exceeded_handler,  # type: ignore[arg-type]
+)
+
 # ルーター登録：URL のグルーピング単位で main から読み込む。
 # 新しい機能を作ったらここに 1 行追加していく。
 app.include_router(probes.router)
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(problems.router)
