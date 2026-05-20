@@ -26,7 +26,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
+	"time"
 
 	"google.golang.org/genai"
 
@@ -108,7 +110,9 @@ func (p *Provider) Generate(ctx context.Context, messages []llm.Message, opts ll
 	}
 	contents := buildContents(messages)
 
-	resp, err := p.client.Models.GenerateContent(callCtx, roleCfg.Model, contents, config)
+	resp, err := generateWithRetry(callCtx, func(ctx context.Context) (*genai.GenerateContentResponse, error) {
+		return p.client.Models.GenerateContent(ctx, roleCfg.Model, contents, config)
+	}, roleCfg.Model)
 	if err != nil {
 		return llm.Response{}, mapError(err, callCtx)
 	}
@@ -126,6 +130,78 @@ func (p *Provider) Generate(ctx context.Context, messages []llm.Message, opts ll
 		CacheHit:     isCacheHit(resp),
 		FinishReason: extractFinishReason(resp),
 	}, nil
+}
+
+// retryMaxAttempts: 429 リトライの最大試行回数 (初回 + リトライ 2 回 = 3 回叩く)。
+// LLM 単発呼び出しタイムアウト 30 秒に収まる範囲で「短時間 burst だけ吸収する」
+// 設計 (long-term rate limit はジョブ全体 180 秒タイムアウトに任せる)。
+const retryMaxAttempts = 3
+
+// retryBaseDelay: 指数バックオフの初回待機。次回は ×2 と伸びる (1s → 2s)。
+// 30 秒 timeout 内に 3 回試行 + 待機が収まる。
+// var にしてあるのはテストで短縮できるようにするため (本番値の固定は
+// provider_test.go の retry テスト冒頭で defer 復帰する)。
+var retryBaseDelay = 1 * time.Second
+
+// generateFunc: 1 回の API 呼び出しを抽象化した関数型。
+// 本実装では p.client.Models.GenerateContent を closure で包んで渡す。
+// テストでは「N 回 429 を返してから成功する」mock を渡して
+// retry ループの挙動を検証する (provider_test.go の TestGenerateWithRetry_*)。
+type generateFunc func(ctx context.Context) (*genai.GenerateContentResponse, error)
+
+// generateWithRetry: HTTP 429 (= llm.ErrRateLimit) のみ指数バックオフ付きで
+// リトライする wrapper。他のエラー (timeout / unauthorized / schema 違反) は
+// 即返す (リトライしても改善しないため)。
+//
+// 設計判断:
+//   - 429 リトライは provider 層に閉じる (orchestrator 側に再試行ロジックを
+//     書くと「単発呼び出し失敗」と「業務上の再生成」が混じり責務が崩れる)
+//   - context.DeadlineExceeded はリトライしない (single call timeout を伸ばす
+//     意図がないため; 業務側のジョブ累積タイムアウトは ctx.Done で別途切る)
+//   - jitter は付けない (R1-3 MVP では Worker 並列数 4 程度で thundering herd
+//     リスクが小さい; 必要になったら time.Duration(rand.Int63n(...)) を足す)
+func generateWithRetry(
+	ctx context.Context,
+	call generateFunc,
+	model string,
+) (*genai.GenerateContentResponse, error) {
+	var lastErr error
+	delay := retryBaseDelay
+	for attempt := 1; attempt <= retryMaxAttempts; attempt++ {
+		resp, err := call(ctx)
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+
+		// 429 以外は即 return (リトライしない)。mapError で正規化して判定する。
+		normalized := mapError(err, ctx)
+		if !errors.Is(normalized, llm.ErrRateLimit) {
+			return nil, err
+		}
+
+		// 最後の試行で 429 だった場合は wait せず即 return (上位で mapError される)。
+		if attempt == retryMaxAttempts {
+			break
+		}
+
+		slog.WarnContext(ctx, "google: 429 received, backing off and retrying",
+			"attempt", attempt,
+			"next_delay_ms", delay.Milliseconds(),
+			"model", model,
+		)
+
+		// バックオフ中の ctx キャンセル / deadline を尊重する。
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+		delay *= 2
+	}
+	return nil, lastErr
 }
 
 // buildContents: llm.Message から genai *Content スライスを作る。
