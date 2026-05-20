@@ -16,6 +16,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import GenerationRequestNotFoundError
 from app.repositories.generation_requests import GenerationRequestRepository
 from app.repositories.jobs import JobRepository
 from app.schemas.jobs.common import TraceContext
@@ -37,14 +38,6 @@ logger = logging.getLogger(__name__)
 #   type    : 1 ジョブのスキーマを識別する文字列。Worker 側 switch の case と一致させる。
 _JOB_QUEUE = "generation"
 _JOB_TYPE = "problem.generate"
-
-
-class GenerationRequestNotFoundError(Exception):
-    """指定の requestId が自分のもの（user_id 一致）として存在しない時のドメイン例外。
-
-    Router 側で 404 に変換する。情報漏洩防止のため「他人のリクエスト」と
-    「存在しないリクエスト」を区別しないメッセージに揃える（problem-generation.md §画面）。
-    """
 
 
 class ProblemGenerationService:
@@ -140,7 +133,24 @@ class ProblemGenerationService:
         if gr is None:
             raise GenerationRequestNotFoundError
 
-        status = GenerationStatus(gr.status)
+        # GenerationStatus(...): DB の status 文字列を Enum に復元する。
+        #   Worker は pending / completed / failed しか書かない設計（CHECK 制約
+        #   を張らない代わりに Pydantic 側 Literal で縛る方針、models/
+        #   generation_requests.py docstring 参照）。万一 DB に異常値が入った
+        #   場合は ValueError になり 500 を返すが、ログにキーを残して
+        #   運用者が後追いできるようにしておく。
+        try:
+            status = GenerationStatus(gr.status)
+        except ValueError:
+            logger.error(
+                "Unknown generation_requests.status detected: "
+                "request_id=%s user_id=%s status=%r",
+                gr.id,
+                user_id,
+                gr.status,
+            )
+            raise
+
         return ProblemGenerateStatusResponse(
             request_id=gr.id,
             status=status,

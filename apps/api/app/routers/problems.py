@@ -13,7 +13,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
@@ -24,10 +24,7 @@ from app.schemas.problems import (
     ProblemGenerateRequest,
     ProblemGenerateStatusResponse,
 )
-from app.services.problem_generation import (
-    GenerationRequestNotFoundError,
-    ProblemGenerationService,
-)
+from app.services.problem_generation import ProblemGenerationService
 
 # APIRouter: URL をグループ単位でまとめる箱。
 # 認証は各エンドポイントの `user: CurrentUser` 引数で必須化する。
@@ -93,14 +90,10 @@ async def get_problem_generation_status(
       （他人のリクエストか存在しないかの区別は付けない、情報漏洩防止）
     - status='completed' の時のみ problemId フィールドが付く
     """
+    # GenerationRequestNotFoundError は core/exceptions.py の global handler が
+    # 404 + 統一メッセージに変換するため、ここでは try/except しない。
     service = ProblemGenerationService(db_session)
-    try:
-        return await service.get_status(
-            user_id=user.id,
-            request_id=request_id,
-        )
-    except GenerationRequestNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="指定された生成リクエストが見つかりません",
-        ) from exc
+    return await service.get_status(
+        user_id=user.id,
+        request_id=request_id,
+    )
