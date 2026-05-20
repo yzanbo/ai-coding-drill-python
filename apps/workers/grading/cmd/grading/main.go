@@ -1,38 +1,38 @@
-// 採点 Worker のエントリポイント (R0-8 で配置した skeleton + R1-2 で
-// LLM プロバイダ抽象化レイヤを結線した版)。
+// 採点 Worker のエントリポイント (R1-3 で問題生成 consume ループを結線した版)。
 //
 // 現状の実装:
 //   - internal/config で環境変数 + llm.yaml を読み込む
+//   - internal/db で pgxpool を初期化
 //   - internal/llm/google を Register して llm.New で Provider を取得
-//   - 30 秒ごとに heartbeat ログを出すだけの polling loop
+//   - internal/grading の Orchestrator を起動 (claim/dispatch/reclaim)
+//   - problem.generate ハンドラは LLM 生成 → sandbox 検証 → judge 評価 →
+//     problems INSERT
 //
-// 未実装 (R1-2 後半以降):
-//   - jobs テーブルからの SELECT FOR UPDATE SKIP LOCKED でのジョブ取得
-//   - LISTEN/NOTIFY 統合 / Docker サンドボックス起動 / 結果書き戻し
-//   - judge LLM 呼び出し (orchestrator が provider を使う)
+// R1〜R6 は本 Worker が問題生成も兼務する (ADR 0040)。R7 以降に
+// apps/workers/generation/ に切り出す予定。
 //
 // 配置・パッケージ規約は ../../../../.claude/rules/worker.md を参照。
 package main
 
 import (
-	// context: ループのキャンセル・タイムアウトを伝える仕組み。
-	// log/slog: 標準の構造化ログ (JSON 出力)。
-	// os: SIGINT / SIGTERM を受け取るためのプロセス制御。
-	// os/signal: シグナルを context に紐付ける signal.NotifyContext を使う。
-	// syscall: SIGINT / SIGTERM の定数を取り出すため。
-	// time: ポーリング間隔の指定に使う time.Ticker。
 	"context"
 	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/joho/godotenv"
+
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/config"
+	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/db"
+	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/grading"
+	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/judge"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/llm"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/llm/google"
+	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/sandbox"
 )
 
 func main() {
@@ -88,6 +88,65 @@ func main() {
 		os.Exit(1)
 	}
 
+	// DB プール: 業務 SQL (jobs / problems / generation_requests) で共有する。
+	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		logger.ErrorContext(ctx, "db pool init failed", "err", err.Error())
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	// 問題生成 prompt YAML を読み込む。Worker 起動時に fail-fast。
+	// パスは config.LLMConfigPath と同じディレクトリ規約 (cwd 基準 or 絶対パス)。
+	// 本 PR では prompts/ 配置を固定 (R7 の generation worker 切り出しでパス変える)。
+	genPrompt, err := grading.LoadGenerationPrompt(resolvePromptPath("prompts/generation/problem-gen.v1.yaml"))
+	if err != nil {
+		logger.ErrorContext(ctx, "generation prompt load failed", "err", err.Error())
+		os.Exit(1)
+	}
+	judgePrompt, err := judge.LoadPrompt(resolvePromptPath("prompts/judge/quality.v1.yaml"))
+	if err != nil {
+		logger.ErrorContext(ctx, "judge prompt load failed", "err", err.Error())
+		os.Exit(1)
+	}
+
+	// Sandbox runner: Docker daemon に接続できなければ fail-fast。
+	// JobTimeoutSeconds はサンドボックス単発実行のタイムアウトとして適用する
+	// (生成ジョブ全体 180 秒の内訳としては短い方の値)。
+	sb, err := sandbox.NewRunner(sandbox.Options{
+		Image:   cfg.SandboxImage,
+		Timeout: time.Duration(cfg.JobTimeoutSeconds) * time.Second,
+		TmpDir:  cfg.SandboxTmpDir,
+	})
+	if err != nil {
+		logger.ErrorContext(ctx, "sandbox runner init failed", "err", err.Error())
+		os.Exit(1)
+	}
+	defer func() {
+		if err := sb.Close(); err != nil {
+			logger.WarnContext(ctx, "sandbox close", "err", err.Error())
+		}
+	}()
+
+	// orchestrator: claim/dispatch/complete + reclaim を担う。
+	orch, err := grading.New(ctx, grading.Deps{
+		Pool:         pool,
+		Generator:    grading.NewProblemGenerator(genPrompt, provider),
+		Sandbox:      sb,
+		Judge:        judge.New(judgePrompt, provider),
+		WorkerID:     cfg.WorkerID,
+		ReclaimAfter: time.Duration(cfg.ReclaimAfterMinutes) * time.Minute,
+	})
+	if err != nil {
+		logger.ErrorContext(ctx, "orchestrator init failed", "err", err.Error())
+		os.Exit(1)
+	}
+	defer func() {
+		if err := orch.Close(); err != nil {
+			logger.WarnContext(ctx, "orchestrator close", "err", err.Error())
+		}
+	}()
+
 	logger.InfoContext(ctx, "grading worker started",
 		"worker_id", cfg.WorkerID,
 		"concurrency", cfg.Concurrency,
@@ -96,23 +155,46 @@ func main() {
 		"llm_provider", provider.Name(),
 		"llm_generation_model", cfg.LLM.Generation.Model,
 		"llm_judge_model", cfg.LLM.Judge.Model,
+		"generation_prompt", genPrompt.Path(),
+		"generation_prompt_hash", genPrompt.Hash(),
+		"judge_prompt", judgePrompt.Path(),
+		"judge_prompt_hash", judgePrompt.Hash(),
 	)
 
-	// 最小 polling ループ。実ジョブ取得は未実装で 30 秒ごとに heartbeat ログだけ出す。
-	// R1-2 後半 / R1-3 で claim -> process -> complete の本実装に差し替える。
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			logger.InfoContext(ctx, "grading worker shutting down")
-			return
-		case <-ticker.C:
-			// TODO(R1-2 後半): claimNextJob + processJob + completeJob
-			logger.InfoContext(ctx, "tick (no jobs yet)")
-		}
+	// goroutine 群: Concurrency 本の claim ループ + 1 本の reclaim ループ。
+	// 全 in-flight ジョブの完了を待ってから main を抜ける (グレースフルシャットダウン)。
+	var wg sync.WaitGroup
+	// for range int (Go 1.22+): i 変数が不要なため `i := 0; i < N; i++` を簡略化。
+	for range cfg.Concurrency {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			orch.Run(ctx)
+		}()
 	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		orch.RunReclaim(ctx)
+	}()
+
+	<-ctx.Done()
+	logger.InfoContext(ctx, "grading worker shutting down, waiting in-flight jobs")
+	wg.Wait()
+	logger.InfoContext(ctx, "grading worker stopped")
+}
+
+// resolvePromptPath: prompt の相対パスを cwd 基準で解決する。
+// 既に絶対パスならそのまま返す。
+func resolvePromptPath(rel string) string {
+	if filepath.IsAbs(rel) {
+		return rel
+	}
+	abs, err := filepath.Abs(rel)
+	if err != nil {
+		return rel
+	}
+	return abs
 }
 
 // buildLLMConfig: config.Config から llm.Config に詰め直す。
