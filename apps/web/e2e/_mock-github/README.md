@@ -27,19 +27,18 @@ Backend 側で `GITHUB_AUTHORIZE_URL` / `GITHUB_TOKEN_URL` / `GITHUB_USER_API_UR
 破壊的操作のため二重ガード：
 
 1. **環境変数 `E2E_RESET_ENABLED=true` 必須**：未設定なら 403
-2. **`DATABASE_URL` に `production` / `staging` を含む接続を拒否**：誤って本番に向けても弾く
+2. **`DATABASE_URL` のホストが `localhost` / `127.0.0.1` / `::1` のいずれかであることをホワイトリストで強制**：略称 (prd / stg 等) で blacklist を取りこぼす事故を防ぐため、許容ホストだけを通す
 
 Playwright 起動時の env で `E2E_RESET_ENABLED=true` を渡し、CI の本番認証情報経由では絶対に有効化しない運用に揃える。
 
 ## テスト分岐の注入方法
 
-mock はステートレス。テストごとに異なる挙動を出すため、クエリ・code 文字列で分岐する：
+mock はステートレス。テストごとに異なる挙動を出すため、クエリで分岐する：
 
 | 挙動 | 呼び出し方 |
 |---|---|
 | Cancel（GitHub 側で拒否） | `/login/oauth/authorize?...&_mode=cancel` → `error=access_denied` |
 | 既定 user で正常完走 | クエリ追加なし |
-| user 変種で正常完走 | `?...&_user_variant=user_name_a` 等（[server.py](./server.py) の `_USER_VARIANTS` を参照） |
 | token 交換失敗 | code が `invalid_*` で始まる |
 
 ## 起動
@@ -48,10 +47,12 @@ mock はステートレス。テストごとに異なる挙動を出すため、
 uv run python apps/web/e2e/_mock-github/server.py --port 18001
 ```
 
+bind host は `127.0.0.1` 固定（`--host` 引数は廃止、誤って公開バインドできないようにする）。
+
 Playwright の `webServer` configuration で自動起動される（[playwright.config.ts](../../playwright.config.ts) 参照）。
 
 ## やってはいけないこと
 
 - 本サーバを本番 / staging に向ける（E2E 専用、external bind 禁止）
 - 実 GitHub の挙動と異なる仕様を勝手に追加する（mock は薄い shim に保つ）
-- `_USER_VARIANTS` に PII 風の値を入れる（テスト用ダミー値のみ）
+- `_DEFAULT_USER` に PII 風の値を入れる（テスト用ダミー値のみ）

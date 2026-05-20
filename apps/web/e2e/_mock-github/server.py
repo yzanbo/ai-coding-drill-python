@@ -29,7 +29,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import asyncpg
 import redis.asyncio as redis
@@ -37,22 +37,37 @@ import uvicorn
 from fastapi import FastAPI, Form, Header, HTTPException, Query, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 
+# 許容する DB ホスト。/_test/reset の安全ガードで使う。
+# 略称 (prd / stg 等) を blacklist で取りこぼす事故を避けるため、許容ホストだけを通す。
+_LOCAL_DB_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _is_local_db_url(db_url: str) -> bool:
+    """DATABASE_URL のホスト部が localhost 系か判定する。
+
+    sqlalchemy 形式 (postgresql+asyncpg://...) もそのまま受け取れるよう、
+    "+driver" を取り除いてから urlparse する。
+    """
+    if not db_url:
+        return False
+    normalized = db_url
+    if normalized.startswith("postgresql+"):
+        idx = normalized.find("://")
+        if idx > 0:
+            normalized = "postgresql" + normalized[idx:]
+    try:
+        host = urlparse(normalized).hostname
+    except ValueError:
+        return False
+    return host in _LOCAL_DB_HOSTS
+
+
 # 既定の test user。OAuth 完走後に Backend が DB に保存する想定の値。
 _DEFAULT_USER = {
     "id": 999_000_001,
     "login": "e2e-testuser",
     "name": "E2E Test User",
     "email": "e2e-testuser@example.com",
-}
-
-# code → user profile mapping。テストごとに違う user を返したい時に使う。
-# code=cancel_* / code=invalid_* は /authorize 側で別経路に分岐する。
-_USER_VARIANTS: dict[str, dict[str, object]] = {
-    # name 変更テスト用: 同 id + 違う name の 2 つの変種
-    "user_name_a": {**_DEFAULT_USER, "name": "Original Name"},
-    "user_name_b": {**_DEFAULT_USER, "name": "Updated Name"},
-    # name 未設定 (None) → display_name が login にフォールバックする経路
-    "user_no_name": {**_DEFAULT_USER, "name": None},
 }
 
 
@@ -74,8 +89,6 @@ def _build_app() -> FastAPI:
         # 既定 (= "auto") なら正常系で即 302 リダイレクトする。
         # "cancel" を渡すと error=access_denied で redirect する。
         _mode: str = Query("auto"),
-        # 後段の /user で返す user 変種を選ぶ識別子。code に埋めて redirect する。
-        _user_variant: str = Query(""),
     ) -> Response:
         if _mode == "cancel":
             # GitHub 仕様: ユーザーが Cancel すると error+error_description+state を載せて
@@ -89,12 +102,10 @@ def _build_app() -> FastAPI:
                 url=f"{redirect_uri}?{urlencode(params)}", status_code=302
             )
 
-        # 正常系: code を生成して redirect。code は後続の /access_token / /user で
-        # 「どの user 変種を返すか」を Backend に伝える経路として使う (実 GitHub では
-        # 不透明 code だが mock では情報を埋め込む)。
-        code = _user_variant or "auto"
+        # 正常系: 固定 code "auto" を載せて redirect。実 GitHub では不透明 code だが
+        # mock では後段 /access_token / /user で参照しないため固定値で十分。
         return RedirectResponse(
-            url=f"{redirect_uri}?{urlencode({'code': code, 'state': state})}",
+            url=f"{redirect_uri}?{urlencode({'code': 'auto', 'state': state})}",
             status_code=302,
         )
 
@@ -135,16 +146,13 @@ def _build_app() -> FastAPI:
     async def user(
         authorization: str = Header(default=""),
     ) -> Response:
-        # Authorization ヘッダから token を抜き、token 末尾の code から user 変種を復元する。
-        # 例: "token mock_token::user_name_a" → "user_name_a"
+        # Authorization ヘッダの形式チェックだけ行い、既定 user を返す。
         if not authorization.lower().startswith("token "):
             return JSONResponse({"message": "Unauthorized"}, status_code=401)
         token = authorization.split(" ", 1)[1]
         if not token.startswith("mock_token::"):
             return JSONResponse({"message": "Bad token"}, status_code=401)
-        variant_key = token.split("::", 1)[1]
-        user_profile = _USER_VARIANTS.get(variant_key, _DEFAULT_USER)
-        return JSONResponse(user_profile, status_code=200)
+        return JSONResponse(_DEFAULT_USER, status_code=200)
 
     @app.get("/_health")
     async def health() -> dict[str, str]:
@@ -171,11 +179,14 @@ def _build_app() -> FastAPI:
                 detail="E2E_RESET_ENABLED=true が未設定 (誤起動防止)",
             )
 
+        # DATABASE_URL のホスト部がローカル接続 (localhost / 127.0.0.1) であることを
+        # ホワイトリストで強制する。"production" / "staging" / "prod" 等の部分文字列を
+        # blacklist で弾く方式は短縮形 (prd 等) を取りこぼすため、許容ホストだけを通す。
         db_url = os.environ.get("DATABASE_URL", "")
-        if "production" in db_url.lower() or "staging" in db_url.lower():
+        if not _is_local_db_url(db_url):
             raise HTTPException(
                 status_code=403,
-                detail="DATABASE_URL に production/staging が含まれる接続は拒否",
+                detail="DATABASE_URL のホストが localhost / 127.0.0.1 以外は拒否",
             )
 
         # Backend は SQLAlchemy URL (`postgresql+asyncpg://...`) を使うが、
@@ -183,8 +194,12 @@ def _build_app() -> FastAPI:
         pg_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
         conn = await asyncpg.connect(pg_url)
         try:
-            # auth_providers は users への FK で繋がるため CASCADE で両者まとめて消す。
-            await conn.execute("TRUNCATE TABLE users RESTART IDENTITY CASCADE")
+            # 対象テーブルを明示列挙する (CASCADE で users → auth_providers の FK を辿る)。
+            # 将来 submissions / problems 等が users FK を持った時に意図しない巻き込み
+            # を防ぐため、reset 対象を増やす時はこの行を編集する強制力を持たせる。
+            await conn.execute(
+                "TRUNCATE TABLE users, auth_providers RESTART IDENTITY CASCADE"
+            )
         finally:
             await conn.close()
 
@@ -204,11 +219,6 @@ def main() -> int:
     """CLI エントリポイント。uvicorn 経由でサーバを起動する。"""
     parser = argparse.ArgumentParser(description="Mock GitHub OAuth server (E2E only)")
     parser.add_argument(
-        "--host",
-        default="127.0.0.1",
-        help="bind host (既定 127.0.0.1、外部公開はしない)",
-    )
-    parser.add_argument(
         "--port",
         type=int,
         default=18001,
@@ -216,10 +226,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    # log_level は CI ノイズ削減のため warning に絞る。debug が必要なら --log-level info で起動。
+    # bind host は 127.0.0.1 固定。E2E 専用 + /_test/reset の破壊的操作を持つため
+    # 0.0.0.0 公開を意図しない値で起動できないようにする (--host 引数自体を廃止)。
+    # log_level は CI ノイズ削減のため warning に絞る。
     uvicorn.run(
         _build_app(),
-        host=args.host,
+        host="127.0.0.1",
         port=args.port,
         log_level="warning",
     )
