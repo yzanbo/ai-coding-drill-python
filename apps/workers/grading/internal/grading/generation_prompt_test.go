@@ -15,11 +15,12 @@ import (
 
 // fakeLLMProvider: llm.Provider のテスト用 fake。
 type fakeLLMProvider struct {
-	content string
-	err     error
-	called  int
-	lastMsg []llm.Message
-	lastOpt llm.Options
+	content  string
+	err      error
+	called   int
+	lastMsg  []llm.Message
+	lastOpt  llm.Options
+	cacheHit bool // 観測ログ cache_hit 検証用 (省略可、既定 false)。
 }
 
 func (f *fakeLLMProvider) Name() string { return "fake" }
@@ -36,6 +37,7 @@ func (f *fakeLLMProvider) Generate(_ context.Context, msgs []llm.Message, opts l
 		Provider: "fake",
 		Model:    "fake-model",
 		Usage:    llm.Usage{InputTokens: 100, OutputTokens: 200, CostUSD: 0.01},
+		CacheHit: f.cacheHit,
 	}, nil
 }
 
@@ -75,7 +77,7 @@ func TestGenerate_ParsesValidProblem(t *testing.T) {
 	p, err := LoadGenerationPrompt(writePromptYAML(t, minimalPromptYAML))
 	require.NoError(t, err)
 
-	fake := &fakeLLMProvider{content: `{
+	fake := &fakeLLMProvider{cacheHit: true, content: `{
 "title": "配列の合計",
 "description": "数値配列を受け取り合計を返す",
 "examples": [{"input": "[1,2,3]", "output": "6"}],
@@ -95,8 +97,12 @@ func TestGenerate_ParsesValidProblem(t *testing.T) {
 	assert.Equal(t, "generation.problem-gen.v1", fake.lastOpt.PromptVersion)
 	assert.True(t, fake.lastOpt.JSONMode)
 	assert.InDelta(t, 0.01, draft.GeneratedBy.CostUSD, 1e-9)
+	assert.Equal(t, "fake", draft.GeneratedBy.Provider)
 	assert.Equal(t, "fake-model", draft.GeneratedBy.Model)
 	assert.NotEmpty(t, draft.GeneratedBy.PromptHash)
+	// 観測ログ必須フィールド (04-observability.md): cache_hit / latency_ms を Response から拾えていること。
+	assert.True(t, draft.GeneratedBy.CacheHit)
+	assert.GreaterOrEqual(t, draft.GeneratedBy.LatencyMs, int64(0))
 	// user_template の変数置換が効いていること
 	require.Len(t, fake.lastMsg, 2)
 	assert.Contains(t, fake.lastMsg[1].Content, "category=array")

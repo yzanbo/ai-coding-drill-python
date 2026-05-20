@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -91,6 +92,10 @@ type ProblemDraft struct {
 	ReferenceSolution string     `json:"reference_solution"`
 
 	// 観測ログ / 後段で生成元を追跡するためのメタ。
+	// 観測ログの必須フィールド (provider / model / prompt_version /
+	// cache_hit / input_tokens / output_tokens / cost_usd / 所要時間) は
+	// 04-observability.md「LLM 呼び出し時の追加フィールド」が SSoT。
+	// 後追加すると過去ログを集計できないため R1 から全フィールドを揃える。
 	GeneratedBy struct {
 		Provider      string  `json:"-"`
 		Model         string  `json:"-"`
@@ -99,6 +104,12 @@ type ProblemDraft struct {
 		CostUSD       float64 `json:"-"`
 		InputTokens   int     `json:"-"`
 		OutputTokens  int     `json:"-"`
+		// CacheHit: プロバイダ側プロンプトキャッシュにヒットしたかどうか。
+		// Gemini Context Caching / Anthropic Prompt Caching の利用率を後で集計するため。
+		CacheHit bool `json:"-"`
+		// LatencyMs: provider.Generate の呼び出し開始〜応答受領までのミリ秒。
+		// LLM API のレイテンシ分布を追うため。サンドボックス・judge を含まない LLM 単発のみ。
+		LatencyMs int64 `json:"-"`
 	} `json:"-"`
 }
 
@@ -156,6 +167,9 @@ func (g *ProblemGenerator) Generate(ctx context.Context, category, difficulty st
 	opts.JSONMode = true
 	opts.PromptVersion = "generation.problem-gen." + g.prompt.Version
 
+	// startedAt: LLM 単発呼び出しのレイテンシ計測起点。
+	// provider 内のリトライ込みの「Generate 呼び出し全体」の所要時間を観測ログに記録する。
+	startedAt := time.Now()
 	resp, err := g.provider.Generate(ctx, []llm.Message{
 		{Role: "system", Content: g.prompt.SystemPrompt},
 		{Role: "user", Content: user},
@@ -163,6 +177,7 @@ func (g *ProblemGenerator) Generate(ctx context.Context, category, difficulty st
 	if err != nil {
 		return nil, fmt.Errorf("grading: generation provider: %w", err)
 	}
+	latencyMs := time.Since(startedAt).Milliseconds()
 
 	var draft ProblemDraft
 	if err := json.Unmarshal([]byte(resp.Content), &draft); err != nil {
@@ -178,6 +193,8 @@ func (g *ProblemGenerator) Generate(ctx context.Context, category, difficulty st
 	draft.GeneratedBy.CostUSD = resp.Usage.CostUSD
 	draft.GeneratedBy.InputTokens = resp.Usage.InputTokens
 	draft.GeneratedBy.OutputTokens = resp.Usage.OutputTokens
+	draft.GeneratedBy.CacheHit = resp.CacheHit
+	draft.GeneratedBy.LatencyMs = latencyMs
 	return &draft, nil
 }
 
