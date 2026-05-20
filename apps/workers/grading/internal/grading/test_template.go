@@ -25,6 +25,16 @@ const SpecFileName = "solution.spec.ts"
 
 // buildSpecFile: ProblemDraft の test_cases から solution.spec.ts 本文を組み立てる。
 //
+// 問題生成側 (verifyInSandbox) の呼び出し口。本体は buildSpecFromCases に委譲。
+func buildSpecFile(draft *ProblemDraft) (string, error) {
+	return buildSpecFromCases(draft.TestCases)
+}
+
+// buildSpecFromCases: TestCase 配列から直接 solution.spec.ts 本文を組み立てる。
+//
+// 採点側 (submission_grade.go) は ProblemDraft を持たず、problems テーブルから
+// test_cases JSONB を読んで []TestCase に Unmarshal してから呼ぶ。
+//
 // 注意点:
 //   - solve は可変長引数で呼ぶため、test_cases[i].input は配列を spread する
 //     (= input: [1, 2] なら solve(1, 2))
@@ -32,8 +42,8 @@ const SpecFileName = "solution.spec.ts"
 //
 // 失敗パターン: test_cases を JSON にできない (any のシリアライズ失敗)。
 // LLM 応答に NaN / 関数等の非 JSON 値が混ざった場合に該当する。
-func buildSpecFile(draft *ProblemDraft) (string, error) {
-	cases, err := json.Marshal(draft.TestCases)
+func buildSpecFromCases(testCases []TestCase) (string, error) {
+	cases, err := json.Marshal(testCases)
 	if err != nil {
 		return "", fmt.Errorf("grading: marshal test cases: %w", err)
 	}
