@@ -225,10 +225,12 @@ sequenceDiagram
 > **長期運用**：機能を再着手・大きく改修するたびに**チェックを外してリセットする**（過去の完了履歴は残さない、履歴は git log と PR で辿る）。常に「この機能の現在の状態」だけを映す鏡として使う。
 
 - [x] バックエンド実装完了（generation ルーター：enqueue + ステータス取得のみ、LLM 呼び出しは含めない、→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）
-- [ ] 生成 Worker 実装完了（R1〜R6 は `apps/workers/grading` が兼務、R7 以降に `apps/workers/generation` に切り出し）
+- [ ] バックエンドユニットテスト完了（pytest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [x] フロントエンド実装完了（生成画面 / ステータス画面）
-- [ ] ユニットテスト完了（pytest（API）+ Go testing + testify（Worker）、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
-- [ ] E2E テスト完了（生成 → 完了 → 問題遷移の主要フロー）
+- [x] フロントエンドユニットテスト完了（Vitest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
+- [x] ワーカー実装完了（生成 Worker。R1〜R6 は `apps/workers/grading` が兼務（`problem_generate.go` / `generation_prompt.go`）、R7 以降に `apps/workers/generation` に切り出し予定）
+- [x] ワーカーユニットテスト完了（Go testing + testify、`problem_generate_test.go` / `generation_prompt_test.go`、実 LLM を叩く smoke は `generation_smoke_integration_test.go`、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
+- [ ] E2E テスト完了（生成 → 完了 → 問題遷移の主要フロー、Playwright、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [ ] **受け入れ条件すべて満たす**
 
 ## 関連
