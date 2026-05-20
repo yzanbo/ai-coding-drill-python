@@ -28,11 +28,14 @@ CI では Playwright `webServer` configuration で本スクリプトを自動起
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from urllib.parse import urlencode
 
+import asyncpg
+import redis.asyncio as redis
 import uvicorn
-from fastapi import FastAPI, Form, Header, Query, Response
+from fastapi import FastAPI, Form, Header, HTTPException, Query, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 
 # 既定の test user。OAuth 完走後に Backend が DB に保存する想定の値。
@@ -148,6 +151,52 @@ def _build_app() -> FastAPI:
     async def health() -> dict[str, str]:
         """Playwright globalSetup から起動確認に使う最小エンドポイント。"""
         return {"status": "ok"}
+
+    @app.post("/_test/reset")
+    async def reset_state() -> dict[str, str]:
+        """E2E テスト間で DB / Redis を初期化する。
+
+        破壊的操作のため二重ガード:
+          1. 環境変数 E2E_RESET_ENABLED=true を必須にする (誤起動防止)
+          2. DATABASE_URL に "production" / "staging" が含まれていたら拒否
+
+        対象:
+          - Postgres: users / auth_providers を TRUNCATE CASCADE
+            (users が deleted_at を持つソフトデリート設計だが E2E では完全消去)
+          - Redis:    DB 0 (アプリのデフォルト DB) を FLUSHDB
+            (session / state / rate limit すべて wipe)
+        """
+        if os.environ.get("E2E_RESET_ENABLED", "").lower() != "true":
+            raise HTTPException(
+                status_code=403,
+                detail="E2E_RESET_ENABLED=true が未設定 (誤起動防止)",
+            )
+
+        db_url = os.environ.get("DATABASE_URL", "")
+        if "production" in db_url.lower() or "staging" in db_url.lower():
+            raise HTTPException(
+                status_code=403,
+                detail="DATABASE_URL に production/staging が含まれる接続は拒否",
+            )
+
+        # Backend は SQLAlchemy URL (`postgresql+asyncpg://...`) を使うが、
+        # asyncpg.connect は素の `postgresql://...` 形式を要求するため変換する。
+        pg_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+        conn = await asyncpg.connect(pg_url)
+        try:
+            # auth_providers は users への FK で繋がるため CASCADE で両者まとめて消す。
+            await conn.execute("TRUNCATE TABLE users RESTART IDENTITY CASCADE")
+        finally:
+            await conn.close()
+
+        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        r: redis.Redis = redis.from_url(redis_url)
+        try:
+            await r.flushdb()
+        finally:
+            await r.aclose()
+
+        return {"status": "reset"}
 
     return app
 

@@ -20,6 +20,16 @@ Backend 側で `GITHUB_AUTHORIZE_URL` / `GITHUB_TOKEN_URL` / `GITHUB_USER_API_UR
 | POST | `/login/oauth/access_token` | code → access_token 交換 |
 | GET | `/user` | access_token → user profile (id / login / name / email) |
 | GET | `/_health` | Playwright globalSetup から起動確認用 |
+| POST | `/_test/reset` | E2E テスト間の状態リセット（DB users/auth_providers TRUNCATE + Redis FLUSHDB）|
+
+### `/_test/reset` の安全ガード
+
+破壊的操作のため二重ガード：
+
+1. **環境変数 `E2E_RESET_ENABLED=true` 必須**：未設定なら 403
+2. **`DATABASE_URL` に `production` / `staging` を含む接続を拒否**：誤って本番に向けても弾く
+
+Playwright 起動時の env で `E2E_RESET_ENABLED=true` を渡し、CI の本番認証情報経由では絶対に有効化しない運用に揃える。
 
 ## テスト分岐の注入方法
 
