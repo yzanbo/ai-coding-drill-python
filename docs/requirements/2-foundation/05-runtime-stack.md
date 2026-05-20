@@ -146,7 +146,7 @@
 - 自前実装（apps/workers/grading 内、多軸スコアリング）
 - 既存フレームワーク（DeepEval の `G-Eval` 等）は参考にするが、問題生成ドメインに特化した自前評価器を採用
 - 理由：評価ロジック自体がポートフォリオの差別化軸、フレームワーク依存を避ける（[ADR 0008](../../adr/0008-custom-llm-judge.md)）
-- 生成モデルと Judge モデルは別プロバイダ・別モデルにする（自己評価バイアス回避）
+- 生成モデルと Judge モデルは別プロバイダ・別モデルにする（自己評価バイアス回避）。**MVP は Gemini 単独で例外保留**、R2 ベンチマーク開始時に切替（→ [ADR 0049](../../adr/0049-initial-llm-model-selection.md)）
 - プロンプトは `apps/workers/grading/prompts/judge/` 配下で管理
 
 ---

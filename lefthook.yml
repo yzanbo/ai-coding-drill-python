@@ -159,6 +159,37 @@ pre-push:
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    # 脆弱性スキャン（pip-audit）
+    # 依存パッケージの既知 CVE を PyPI Advisory DB / OSV と突き合わせて検出する。
+    # pre-commit ではなく pre-push に置く理由：pip-audit はネットワーク I/O を伴い
+    # （DB 取得）pre-commit ではコスト過大、かつ脆弱性検知は commit 単位より push 単位で
+    # 確認すれば CI 失敗を十分先回りできるため。
+    # glob を uv.lock / pyproject.toml に限定する理由：脆弱性は「コード変更」ではなく
+    # 「依存バージョン」で決まるため、.py を 1 行直しただけの push で audit を走らせるのは
+    # 無駄。依存追加・更新時のみ発火させ、開発者の手を止めるタイミングを最小化する。
+    # 新規 CVE 発見の自動追従は Dependabot（GitHub） + 週次 CI で別途担保する。
+    api-audit:
+      glob: "apps/api/{uv.lock,pyproject.toml}"
+      root: apps/api
+      run: mise exec -- uv run pip-audit
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  pip-audit が依存パッケージの脆弱性を検出しました（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        上の pip-audit ログから Name / ID / Fix Versions を確認し、以下で bump:
+          cd apps/api
+          uv lock --upgrade-package <package-name>
+          git add uv.lock
+          git commit -m "chore(deps): <package> を <old> から <new> へ bump (<CVE>)"
+
+        【ネットワーク疎通エラーの場合】
+          OSV / PyPI Advisory DB への接続に失敗している可能性。プロキシ環境では
+          オフライン bump 後に CI でゲートする運用に切り替える。
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     # 依存衛生（deptry）
     # pyproject.toml の dependencies と実コードの import を突き合わせ、
     # 「宣言したのに未使用」「import してるのに未宣言」「transitive 依存への参照」を検出する。
@@ -265,6 +296,57 @@ pre-push:
         ・go test が落ちた場合 : DB 依存テストなら testcontainers が docker daemon に
                                   接続できているか、Docker Desktop / OrbStack が
                                   起動しているかをまず疑う
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    # Worker (Go) 脆弱性スキャン（govulncheck）
+    # api-audit (pip-audit) と同じ位置づけ：依存ファイル変更時のみ発火する pre-push。
+    # govulncheck はシンボル単位の到達可能性解析を行うため、コードから実際に呼ばれる
+    # 脆弱な API があるパスだけ exit 1 で push をブロックする。transitive 依存に
+    # 脆弱性があってもコードが触れていない場合は exit 0 で通る (誤検知抑制)。
+    # glob を go.mod / go.sum に限定: 脆弱性は「コード変更」ではなく「依存バージョン」で
+    # 決まるため、.go を 1 行直しただけの push で audit を走らせるのは無駄。
+    # 新規 CVE 発見の自動追従は Dependabot + 週次 CI で別途担保する。
+    # 独立 Go module (ADR 0040) のため Worker ごとに hook を分ける。
+    worker-grading-audit:
+      glob: "apps/workers/grading/{go.mod,go.sum}"
+      root: apps/workers/grading
+      run: mise exec -- govulncheck ./...
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  govulncheck が grading worker の依存に到達可能な脆弱性を検出（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        上の govulncheck ログから Module / Fixed in を確認し、以下で bump:
+          cd apps/workers/grading
+          go get <module>@<fixed-version>
+          go mod tidy
+          git add go.mod go.sum
+          git commit -m "chore(deps): <module> を <old> から <new> へ bump (<CVE>)"
+
+        【脆弱性が transitive 依存の場合】
+          直接 require 行を追加せず、go.mod の require ブロックに version 指定だけ
+          書く方法もある (Go の MVS で最小選択が上書きされる)。
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    worker-generation-audit:
+      glob: "apps/workers/generation/{go.mod,go.sum}"
+      root: apps/workers/generation
+      run: mise exec -- govulncheck ./...
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  govulncheck が generation worker の依存に到達可能な脆弱性を検出（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        上の govulncheck ログから Module / Fixed in を確認し、以下で bump:
+          cd apps/workers/generation
+          go get <module>@<fixed-version>
+          go mod tidy
+          git add go.mod go.sum
+          git commit -m "chore(deps): <module> を <old> から <new> へ bump (<CVE>)"
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

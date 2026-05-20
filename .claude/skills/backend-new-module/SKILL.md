@@ -170,7 +170,7 @@ class <Args>(Base):
 - **Repository**：`AsyncSession` を `__init__` で受け取る（Service が DI で渡す）。SQLAlchemy 2.0 のクエリ（`select` / `insert` / `update` / `delete` + `await session.execute(...)`）の実装に責務を限定。戻り値は **ORM オブジェクト**（Pydantic への詰め替えは Service が行う）。ビジネスロジック・トランザクション制御・Pydantic 変換は持たない（→ [ADR 0044](../../../docs/adr/0044-backend-repository-pattern-adoption.md)）
 - **Service**：`AsyncSession` を `__init__` で受け取り、対応する `<Args>Repository` を `self.repo = ...` で保持。トランザクション境界は Service が握る（`async with session.begin():`）。SQLAlchemy を直接呼ばず、Repository メソッドを呼ぶ。ORM オブジェクト → Pydantic への詰め替えは Service 内で行う
 - **エラー**：`HTTPException` ではなくドメイン例外を投げ、`app/core/exceptions.py` の handler で HTTPException に変換。メッセージは日本語
-- **ハードデリート方針**（必要に応じて検討）
+- **削除方針はソフトデリート**：`users` / `problems` / `submissions` のクエリで `WHERE deleted_at IS NULL` を明示的に書く（暗黙フィルタ禁止、統計クエリは意図的に外す）。`auth_providers` / `generation_requests` / `jobs` はハードデリート（→ [ADR 0048](../../../docs/adr/0048-soft-delete-for-user-facing-tables.md)）
 
 4. `apps/api/app/main.py` で router を登録：
 
