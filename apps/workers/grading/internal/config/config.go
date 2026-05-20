@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/caarlos0/env/v11"
 	"gopkg.in/yaml.v3"
@@ -68,10 +67,9 @@ type Config struct {
 	// 判定し、空文字 ("") は通してしまう。Worker は空 DSN で起動しても
 	// 直後の pgx 接続で落ちるため、ここで空も拒否する方が原因究明が早い。
 	//
-	// 形式: api 側 (SQLAlchemy) と env を共有するため、入力は
-	// `postgresql+asyncpg://...` 形式を受け付ける。本フィールドは Load 時に
-	// `+asyncpg` (および任意の `+driver`) を strip して pgx 互換 URL
-	// (`postgresql://...`) に正規化される。
+	// 形式: pgx 互換の `postgresql://...` または `postgres://...` を直接受け取る。
+	// (api 側の SQLAlchemy 形式 `postgresql+asyncpg://...` とは env scope を
+	// 分離している。.env は app ごとに独立、ADR 0039 / 本 worker は godotenv で自己 load)
 	DatabaseURL string `env:"DATABASE_URL,notEmpty"`
 
 	// WorkerID: jobs.locked_by に書く識別子。
@@ -110,24 +108,6 @@ type Config struct {
 	LLM LLMProviders
 }
 
-// normalizeDatabaseURL: api と env を共有するため受け取る `postgresql+<driver>://...`
-// (SQLAlchemy 形式) から `+<driver>` を strip して pgx 互換の `postgresql://...` に変換する。
-// `postgresql://` / `postgres://` / その他形式はそのまま返す (notEmpty 等は別段で検証)。
-func normalizeDatabaseURL(raw string) string {
-	const sqlAlchemyPrefix = "postgresql+"
-	if !strings.HasPrefix(raw, sqlAlchemyPrefix) {
-		return raw
-	}
-	// "postgresql+asyncpg://..." の "+asyncpg" 部分の終端は "://" の "/" 直前。
-	rest := raw[len(sqlAlchemyPrefix):]
-	sep := strings.Index(rest, "://")
-	if sep < 0 {
-		// 想定外形式 (e.g., "postgresql+asyncpg" 単体): 触らず返す。
-		return raw
-	}
-	return "postgresql://" + rest[sep+len("://"):]
-}
-
 // Load: 環境変数と llm.yaml を読んで Config を返す。
 //
 // 失敗パターン (起動時 fail-fast):
@@ -140,9 +120,6 @@ func Load() (*Config, error) {
 	if err := env.Parse(cfg); err != nil {
 		return nil, fmt.Errorf("config: env parse failed: %w", err)
 	}
-	// DATABASE_URL は api 側と env 共有のため "postgresql+asyncpg://..." 形式で
-	// 渡される想定。pgx 互換の "postgresql://..." に変換する。
-	cfg.DatabaseURL = normalizeDatabaseURL(cfg.DatabaseURL)
 	if err := loadLLMYAML(cfg); err != nil {
 		return nil, err
 	}

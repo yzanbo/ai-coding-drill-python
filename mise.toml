@@ -67,18 +67,14 @@ experimental = true
 # ============================================================================
 # env — ディレクトリ移動時に自動ロードされる環境変数
 # ============================================================================
-# 例：DATABASE_URL / REDIS_URL 等を実装着手時に追加。
-# 機密値は .env（gitignore 済）に置き、本ファイルは公開可能な値のみ扱う。
-[env]
-# _.file: mise run / mise exec 経由のタスク起動時に load する .env ファイル。
-# 存在しない場合は silent に skip される（mise 仕様）。
-# 各 app ごとに .env.example を置き、開発者が cp して .env を作る運用。
-# apps/api/.env は pydantic-settings 側でも独自に load されるが、mise からの
-# 二重 load による衝突は無い（同値ならそのまま、差分があれば mise 側が後勝ち）。
-_.file = [
-  "apps/api/.env",
-  "apps/workers/grading/.env",
-]
+# 各 app の .env は app 自身が読む方針 (env scope 分離):
+#   - apps/api/.env: pydantic-settings が SettingsConfigDict(env_file=".env") で
+#     cwd 起点に load する (api タスクは dir=apps/api で動くため自然に読める)
+#   - apps/workers/grading/.env: cmd/grading/main.go が godotenv.Load() で読む
+#
+# 過去 mise.toml で `_.file = [api/.env, worker/.env]` を global load していたが、
+# 両者で同じ環境変数名 (DATABASE_URL 等) を持つと「後勝ち」で衝突する事故が
+# 起きたため、global load を廃止し各 app が自前で .env を読む形に揃えた。
 
 # ============================================================================
 # Backend tasks（Python / FastAPI、ADR 0034 / 0035 / 0037 / 0038）

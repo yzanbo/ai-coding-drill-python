@@ -112,59 +112,6 @@ func TestLoad_NegativeJobTimeoutIsRejected(t *testing.T) {
 	assert.Contains(t, err.Error(), "JOB_TIMEOUT_SECONDS")
 }
 
-func TestLoad_NormalizesAsyncpgDatabaseURL(t *testing.T) {
-	yamlPath := writeYAML(t, sampleYAML)
-	// api 側と同一の SQLAlchemy 形式で渡す (postgresql+asyncpg://...)。
-	// pgx 互換に正規化されて "+asyncpg" が消えるはず。
-	t.Setenv(
-		"DATABASE_URL",
-		"postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill",
-	)
-	t.Setenv("LLM_CONFIG_PATH", yamlPath)
-
-	cfg, err := Load()
-	require.NoError(t, err)
-	assert.Equal(
-		t,
-		"postgresql://postgres:postgres@localhost:5432/ai_coding_drill",
-		cfg.DatabaseURL,
-		"postgresql+asyncpg は postgresql に正規化されるべき",
-	)
-}
-
-func TestLoad_KeepsPlainPostgresqlURL(t *testing.T) {
-	// 既に pgx 形式 (postgresql://) で来た DATABASE_URL は変更されず通る。
-	yamlPath := writeYAML(t, sampleYAML)
-	t.Setenv(
-		"DATABASE_URL",
-		"postgresql://postgres:postgres@localhost:5432/ai_coding_drill",
-	)
-	t.Setenv("LLM_CONFIG_PATH", yamlPath)
-
-	cfg, err := Load()
-	require.NoError(t, err)
-	assert.Equal(
-		t,
-		"postgresql://postgres:postgres@localhost:5432/ai_coding_drill",
-		cfg.DatabaseURL,
-	)
-}
-
-func TestLoad_KeepsLegacyPostgresURL(t *testing.T) {
-	// "postgres://" 形式 (legacy URL scheme、pgx も受け付ける) も変更されず通る。
-	yamlPath := writeYAML(t, sampleYAML)
-	t.Setenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/ai_coding_drill")
-	t.Setenv("LLM_CONFIG_PATH", yamlPath)
-
-	cfg, err := Load()
-	require.NoError(t, err)
-	assert.Equal(
-		t,
-		"postgres://postgres:postgres@localhost:5432/ai_coding_drill",
-		cfg.DatabaseURL,
-	)
-}
-
 func TestLoad_NegativeReclaimMinutesIsRejected(t *testing.T) {
 	yamlPath := writeYAML(t, sampleYAML)
 	t.Setenv("DATABASE_URL", "postgres://test/test")
