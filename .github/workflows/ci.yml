@@ -338,9 +338,12 @@ jobs:
   # apps/web の Playwright E2E（authentication.md 受け入れ条件のうちブラウザ間通信 /
   # Frontend side effect / DB 永続化レベルの 7 シナリオ、apps/web/e2e/auth.spec.ts）。
   #
-  # 起動条件：web / api / shared のいずれか変更時。
-  #   - web/ : E2E テスト本体 / Playwright config の変更
-  #   - api/ : OAuth callback handler / Settings / DB schema の変更
+  # 起動条件：web / api / grading / shared のいずれか変更時。
+  #   - web/     : E2E テスト本体 / Playwright config の変更
+  #   - api/     : OAuth callback handler / Settings / DB schema の変更
+  #   - grading/ : worker 側の .env / DATABASE_URL 形式変更等で api 起動が壊れる経路が
+  #                実証されている (0de2795 fix(worker,config))。worker を起動条件に含めて
+  #                同類の regression を E2E で捕捉する
   #   - shared / mise.toml: 横断設定変更
   #
   # web-test と分ける理由：
@@ -354,6 +357,7 @@ jobs:
     if: >-
       ${{ needs.changes.outputs.web == 'true' ||
           needs.changes.outputs.api == 'true' ||
+          needs.changes.outputs.grading == 'true' ||
           needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     services:
