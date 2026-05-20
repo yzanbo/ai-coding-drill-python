@@ -221,7 +221,9 @@ def _build_app() -> FastAPI:
         finally:
             await conn.close()
 
-        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        # E2E 既定の Redis DB index は /1（dev:all の /0 と分離して FLUSHDB 巻き添えを防ぐ。
+        # apps/web/e2e/_helpers/constants.ts の REDIS_URL と同じ既定値）。
+        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/1")
         r: redis.Redis = redis.from_url(redis_url)
         try:
             await r.flushdb()
