@@ -20,8 +20,11 @@ package grading
 //   - それ未満なら fail。LLM の出力ばらつきが許容範囲を超えたサイン
 //
 // 不変条件チェック (validate 通過後):
-//   - 全 test_cases[i].input が配列であること (TestCase.Input []any で構造的に保証されるが
-//     念のため再確認、長さ 0 の input も認める)
+//   - 全 test_cases[i].input が non-nil であること
+//     (スカラー "input": 5 は TestCase.Input []any の json.Unmarshal が型不一致で
+//      弾くため、その時点で Generate が ErrInvalidProblem を返し r.ok=false となる。
+//      ここで観測できるのは「LLM が "input": null や input フィールド欠落を返した」ケース。
+//      長さ 0 の input [] は v2 では禁止しておらず non-nil として認める)
 //   - reference_solution に `export function solve` を含むこと
 
 import (
@@ -84,10 +87,10 @@ func TestGenerate_Integration_Smoke5(t *testing.T) {
 		ok         bool
 		failReason string
 		// 観測用の主要フィールド (成功時のみ埋まる)
-		title       string
-		numCases    int
-		hasSolveExp bool
-		allArrInput bool
+		title          string
+		numCases       int
+		hasSolveExp    bool
+		allInputNonNil bool
 	}
 
 	results := make([]result, 0, len(cases))
@@ -110,10 +113,13 @@ func TestGenerate_Integration_Smoke5(t *testing.T) {
 		}
 
 		// 不変条件チェック: v2 で厳密化したルールが守られているか。
-		allArr := true
+		// 注意: スカラー入力 ("input": 5) は TestCase.Input []any の Unmarshal が弾くので
+		// ここまで来ない (Generate が ErrInvalidProblem を返し上の continue に流れる)。
+		// この nil チェックで観測できるのは "input": null / input フィールド欠落だけ。
+		allInputNonNil := true
 		for _, tc := range draft.TestCases {
 			if tc.Input == nil {
-				allArr = false
+				allInputNonNil = false
 				break
 			}
 		}
@@ -123,12 +129,12 @@ func TestGenerate_Integration_Smoke5(t *testing.T) {
 		r.title = draft.Title
 		r.numCases = len(draft.TestCases)
 		r.hasSolveExp = hasSolve
-		r.allArrInput = allArr
+		r.allInputNonNil = allInputNonNil
 		results = append(results, r)
 		successes++
 
-		t.Logf("OK: title=%q test_cases=%d input配列=%v export-function-solve=%v cost=$%.6f tokens=in:%d/out:%d",
-			draft.Title, len(draft.TestCases), allArr, hasSolve,
+		t.Logf("OK: title=%q test_cases=%d input-non-nil=%v export-function-solve=%v cost=$%.6f tokens=in:%d/out:%d",
+			draft.Title, len(draft.TestCases), allInputNonNil, hasSolve,
 			draft.GeneratedBy.CostUSD, draft.GeneratedBy.InputTokens, draft.GeneratedBy.OutputTokens)
 
 		if !hasSolve {
@@ -162,8 +168,8 @@ func TestGenerate_Integration_Smoke5(t *testing.T) {
 		if !r.ok {
 			continue
 		}
-		if !r.allArrInput {
-			t.Logf("  ⚠ [%d] test_cases[i].input が配列でない要素あり", r.idx)
+		if !r.allInputNonNil {
+			t.Logf("  ⚠ [%d] test_cases[i].input に null / 欠落あり", r.idx)
 			violations++
 		}
 		if !r.hasSolveExp {
