@@ -69,7 +69,7 @@ git show <sha2> --stat --format=fuller
 - **セキュリティ**：秘密情報のログ漏洩 / 本番デフォルトの安全装置 / 改ざん検証 / インジェクション余地（SQL / コマンド / XSS / SSRF / オープンリダイレクト）
 - **規約整合**：プロジェクトルール（`.claude/rules/`）/ ADR / 要件 .md との一致
 - **設計**：レイヤ境界違反 / DRY 違反 / マジックナンバー / 名前の妥当性 / YAGNI 違反
-- **共通化候補**：似たロジック / 似た構造が複数ファイルに散らばっていないか。**事後検出の DRY 違反** だけでなく、**「2 箇所目で共通モジュールへ切り出すか」の proactive 判断** も含む（具体パターンはレイヤ別観点を参照）
+- **共通化候補**：事後の DRY 違反 + 「2 箇所目で共通化するか」の proactive 判断（具体パターンはレイヤ別観点を参照）
 - **パフォーマンス**：レイヤ別観点を参照
 - **テスト容易性**：mockable か / 副作用が境界に閉じているか / 純粋関数に切り出せるか
 - **保守性**：将来の拡張で破綻しないか / hardcode list の増殖 / コメントの陳腐化リスク
@@ -91,7 +91,7 @@ git show <sha2> --stat --format=fuller
 - クエリ / I/O 効率：
   - DB：UPDATE→SELECT を `returning(Model)` で 1 クエリ化 / N+1 / 同一リクエスト内の重複 SELECT / `in_([])` 空ガード
   - Redis：複数コマンドの pipeline / atomicity 要否で `transaction=True/False` / 同一リクエスト内の重複 GET
-  - HTTP クライアント：`AsyncClient` は lifespan で 1 個共有（毎回新規生成は TLS handshake 毎回）/ timeout 粒度（connect/read/pool）
+  - HTTP クライアント：`AsyncClient` を lifespan で 1 個共有 / timeout 粒度（connect/read/pool）
 
 **Frontend（Next.js / TS）** — 変更ファイルが `apps/web/` 配下にある場合
 - Server Component / Client Component の境界（`"use client"` の位置）
@@ -175,62 +175,62 @@ git show <sha2> --stat --format=fuller
 
 #### A. 認証・セッション
 
-- [ ] 秘密情報（password / API key / session ID / OAuth token / CSRF token / JWT）が **ログに平文で出ていない** か（`logger.info(..., sid=...)` 等）
+- [ ] 秘密情報（password / API key / session ID / OAuth token / CSRF token / JWT）が**ログに平文で出ていない**か（`logger.info(..., sid=...)` 等）
 - [ ] セッション ID / Cookie 値が CSPRNG（`secrets.token_urlsafe` / `crypto.randomBytes`）で発行されているか
-- [ ] セッション固定攻撃（fixation）対策：ログイン成功時に **既存セッション ID を必ず再発行** しているか
-- [ ] ログアウトでサーバ側セッションが確実に破棄されるか（Cookie クリアだけだと不十分）
-- [ ] OAuth `state` パラメータが TTL + 1 回使い切りで CSRF 対策できているか
-- [ ] OAuth `redirect_uri` がホワイトリスト固定か（動的構築は禁止）
-- [ ] 認証失敗時のエラーメッセージが「ユーザー存在の有無」を漏らしていないか（user enumeration）
+- [ ] セッション固定攻撃対策：ログイン成功時に**既存セッション ID を必ず再発行**しているか
+- [ ] ログアウトでサーバ側セッションが確実に破棄されるか（Cookie クリアだけでは不十分）
+- [ ] OAuth `state` が TTL + 1 回使い切りで CSRF 対策できているか
+- [ ] OAuth `redirect_uri` がホワイトリスト固定か
+- [ ] 認証失敗時のエラーで user enumeration が起きていないか
 - [ ] レート制限がログイン / OTP / パスワード変更 / OAuth エンドポイントに掛かっているか
 
 #### B. 認可（IDOR / 権限昇格）
 
-- [ ] 「自分のリソースか」チェックが **全ての protected endpoint** に入っているか（where 条件 / Service 層ガード）
+- [ ] 「自分のリソースか」チェックが**全ての protected endpoint** に入っているか（where 条件 / Service 層ガード）
 - [ ] 管理者専用エンドポイントが `Depends(get_current_admin)` 等で保護されているか
-- [ ] パスパラメータ / クエリパラメータの ID を信用していないか（`/users/<id>/posts` の `<id>` 検証）
-- [ ] バルク操作（`ids[]`）で他人の ID が混入しても弾けるか
-- [ ] テナント分離（マルチテナント想定なら tenant_id where 条件）
+- [ ] パスパラメータ / クエリパラメータの ID を検証しているか（`/users/<id>/posts` の `<id>`）
+- [ ] バルク操作（`ids[]`）で他人の ID 混入を弾けるか
+- [ ] マルチテナント想定なら tenant_id where 条件
 
 #### C. 入力検証・インジェクション
 
-- [ ] SQL：ORM パラメータ化 / `text(":id").bindparams(id=...)` を使っているか。`f"... {var} ..."` 等の文字列結合はゼロか
-- [ ] コマンド：`subprocess.run(..., shell=False)` か。`shell=True` + 動的引数は禁止
-- [ ] ファイルパス：path traversal（`../../etc/passwd`）対策。`Path(...).resolve().is_relative_to(base)` で正規化検証
-- [ ] テンプレート：Jinja2 / EJS の autoescape が ON か。`| safe` / `dangerouslySetInnerHTML` の使用箇所を全件確認
-- [ ] 正規表現：ReDoS 余地のあるパターン（ネスト量化子 / バックトラック爆発）がないか
+- [ ] SQL：ORM パラメータ化 / `text(":id").bindparams(id=...)`、`f"... {var} ..."` 文字列結合ゼロ
+- [ ] コマンド：`subprocess.run(..., shell=False)`、`shell=True` + 動的引数禁止
+- [ ] ファイルパス：path traversal 対策（`Path(...).resolve().is_relative_to(base)`）
+- [ ] テンプレート：autoescape ON / `| safe` / `dangerouslySetInnerHTML` の使用箇所全件確認
+- [ ] 正規表現：ReDoS 余地（ネスト量化子 / バックトラック爆発）
 - [ ] LDAP / XPath / NoSQL / GraphQL のクエリ組み立て
 
 #### D. XSS / CSRF / クリックジャッキング
 
 - [ ] React / Next.js：`dangerouslySetInnerHTML` の使用箇所と入力源
 - [ ] URL を href に入れる箇所で `javascript:` スキームを弾いているか
-- [ ] CSRF：状態変更系（POST/PUT/DELETE/PATCH）に CSRF 防御（double submit cookie / SameSite + Origin 検証）
+- [ ] CSRF：状態変更系（POST/PUT/DELETE/PATCH）に防御（double submit cookie / SameSite + Origin 検証）
 - [ ] CSP / X-Frame-Options / Referrer-Policy / Permissions-Policy ヘッダー
 - [ ] Cookie 属性：`HttpOnly` / `Secure` / `SameSite` / `Path` / `Domain` / `Max-Age` の一貫性
-- [ ] `set_cookie` と `delete_cookie` の属性が一致しているか
+- [ ] `set_cookie` と `delete_cookie` の属性一致
 
 #### E. SSRF / オープンリダイレクト
 
-- [ ] 外部 URL を fetch する箇所でホワイトリスト / 内部 IP（127.0.0.1 / 169.254.169.254 / RFC1918）拒否
-- [ ] リダイレクト先（`?next=` / `?return_to=` / `Location` ヘッダー）が同一オリジン相対パス縛り
+- [ ] 外部 URL fetch でホワイトリスト / 内部 IP（127.0.0.1 / 169.254.169.254 / RFC1918）拒否
+- [ ] リダイレクト先（`?next=` / `?return_to=` / `Location`）が同一オリジン相対パス縛り
 - [ ] 画像 / アバター URL を proxy する経路で内部リソース取得が起きないか
 
 #### F. シークレット管理
 
 - [ ] `.env` / `.env.example` / `*.tfvars` がコミットされていないか
-- [ ] ハードコードされた API key / password / private key（PEM）の検出
-- [ ] 本番デフォルト値の安全装置：`dev-only-change-me` のようなプレースホルダで起動可能になっていないか（`ENV=production` + default 値拒否の validator）
+- [ ] ハードコード API key / password / private key（PEM）の検出
+- [ ] 本番デフォルト値の安全装置：`dev-only-change-me` 等のプレースホルダで `ENV=production` 起動できない validator
 - [ ] `COOKIE_SECURE=false` / `DEBUG=True` が本番で有効化されない仕組み
 - [ ] tfstate / Docker image / ログ / エラー画面に secrets が漏れていないか
 
 #### G. 暗号 / 署名
 
-- [ ] 自前暗号実装がないか（標準ライブラリ / itsdangerous / cryptography に委譲）
-- [ ] HMAC 比較で `hmac.compare_digest` / `crypto.timingSafeEqual` を使っているか（タイミング攻撃対策）
-- [ ] パスワード保存：`bcrypt` / `argon2` / `scrypt`。`md5` / `sha1` / `sha256` 直書きは禁止
+- [ ] 自前暗号実装なし（標準ライブラリ / itsdangerous / cryptography に委譲）
+- [ ] HMAC 比較で `hmac.compare_digest` / `crypto.timingSafeEqual`（タイミング攻撃対策）
+- [ ] パスワード保存：`bcrypt` / `argon2` / `scrypt`、`md5` / `sha1` / `sha256` 直書き禁止
 - [ ] JWT：`alg: none` 不許可 / 鍵ローテーション戦略
-- [ ] TLS：自己署名証明書を本番で受容していないか（`verify=False` の検出）
+- [ ] TLS：`verify=False` の検出
 
 #### H. レート制限・DoS
 
@@ -241,35 +241,35 @@ git show <sha2> --stat --format=fuller
 
 #### I. ファイルアップロード / ダウンロード
 
-- [ ] ファイル種別検証（拡張子だけでなく magic byte / Content-Type）
+- [ ] ファイル種別検証（拡張子 + magic byte / Content-Type）
 - [ ] 保存パスのサニタイズ / UUID 付与
-- [ ] ダウンロード時の `Content-Disposition` の `filename` エスケープ
+- [ ] `Content-Disposition` の `filename` エスケープ
 - [ ] アンチウイルススキャン / サンドボックス実行
 
 #### J. CORS / Origin
 
-- [ ] `Access-Control-Allow-Origin: *` + `Allow-Credentials: true` の併用禁止
-- [ ] 許可 origin がホワイトリスト固定で reflect 化していないか
-- [ ] preflight でメソッド / ヘッダーが過剰許可されていないか
+- [ ] `Access-Control-Allow-Origin: *` + `Allow-Credentials: true` 併用禁止
+- [ ] 許可 origin がホワイトリスト固定（reflect 化していない）
+- [ ] preflight でメソッド / ヘッダー過剰許可なし
 
 #### K. 依存関係 / サプライチェーン
 
-- [ ] `pip-audit` / `npm audit` / `govulncheck` の警告が残っていないか
-- [ ] 新規依存追加時にダウンロード数 / メンテナンス頻度 / ライセンスを確認したか
-- [ ] lockfile（`uv.lock` / `pnpm-lock.yaml` / `go.sum`）がコミットされているか
-- [ ] GitHub Actions の third-party action が SHA pin されているか（`@v3` ではなく `@<sha>`）
+- [ ] `pip-audit` / `npm audit` / `govulncheck` の警告残りなし
+- [ ] 新規依存追加時にダウンロード数 / メンテナンス頻度 / ライセンス確認済み
+- [ ] lockfile（`uv.lock` / `pnpm-lock.yaml` / `go.sum`）コミット済み
+- [ ] GitHub Actions の third-party action が SHA pin（`@v3` でなく `@<sha>`）
 
 #### L. ログ / 観測性のセキュリティ
 
 - [ ] 構造化ログに PII（メール / 氏名 / 電話 / IP）/ 秘密情報が出ていないか
-- [ ] エラーログにスタックトレースを返してクライアントに見せていないか（本番）
-- [ ] OpenTelemetry のスパン属性に秘密情報が乗っていないか
+- [ ] 本番でクライアントにスタックトレースを返していないか
+- [ ] OpenTelemetry スパン属性に秘密情報が乗っていないか
 
 #### M. インフラ・コンテナ
 
-- [ ] Docker image：root ユーザーで起動していないか（`USER nonroot`）
+- [ ] Docker image：`USER nonroot` で起動
 - [ ] サンドボックスコンテナ：network 遮断 / read-only filesystem / リソース制限
-- [ ] Terraform：IAM `*:*` 拒否 / S3 bucket public access block / セキュリティグループの 0.0.0.0/0 開放
+- [ ] Terraform：IAM `*:*` 拒否 / S3 public access block / SG の 0.0.0.0/0 開放
 - [ ] secrets を環境変数で渡す経路の暗号化（AWS Secrets Manager / SSM Parameter Store）
 
 #### 出力位置
@@ -385,11 +385,7 @@ git show <sha2> --stat --format=fuller
    - 既存 head と分岐していないか（`alembic merge heads` が必要な状態）
    - autogenerate の限界（拡張 / index rename / data migration）を手動補完できているか
 
-6. **セキュリティの最終一読**
-   - 秘密情報のログ漏洩（sid / token / password / API key を `logger.info` に流していないか）
-   - SQL injection / コマンド injection / オープンリダイレクト / SSRF / XXE の余地
-   - 認証 / 認可ガードの抜け（特に「自分のリソースか」チェック）
-   - Cookie 属性（HttpOnly / Secure / SameSite / Path / Domain）の一貫性
+6. **セキュリティの最終一読**：§5 セキュリティチェック A〜M を PR 全体に対して再走査（コミット単位では拾えない横断パターンを優先的に検出）
 
 7. **observability / 運用**
    - 構造化ログ（OpenTelemetry trace_id）に新規経路が乗っているか
