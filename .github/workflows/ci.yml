@@ -398,8 +398,15 @@ jobs:
       # 自動的にキャッシュミスして新バイナリを取り直す。OS にも依存するため runner.os も付ける。
       - name: Resolve Playwright version
         id: playwright-version
+        # pnpm exec は stdout に "Lockfile is up to date..." 等の情報行を混ぜることが
+        # あるため、`Version X.Y.Z` 行を grep してから抽出する (混入した非バージョン行を
+        # cache key に巻き込まないため)。
         run: |
-          ver=$(cd apps/web && pnpm exec playwright --version | awk '{print $2}')
+          ver=$(cd apps/web && pnpm exec playwright --version 2>&1 | awk '/^Version/{print $2; exit}')
+          if [ -z "$ver" ]; then
+            echo "::error::Failed to resolve Playwright version"
+            exit 1
+          fi
           echo "version=$ver" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         id: playwright-cache
