@@ -191,9 +191,10 @@ const FailedCases = ({ items }: { items: SubmissionTestResultItem[] }) => {
       </summary>
       <ul className="mt-2 space-y-3">
         {failedOnly.map((it) => (
-          // key: name 重複の可能性は低いが、Worker 側で同名 it() を作る生成プロンプト
-          //   になる可能性があるため index も足して衝突回避。
-          <li key={`${it.name}`} className="rounded-md bg-muted p-2 text-xs">
+          // key: vitest の test 名 (it.name) は同 spec 内で一意。
+          //   Worker 側 (submission_grade.go) も summary.Failures[].Name を
+          //   そのまま渡すため、ここで index 等を足さなくても衝突しない。
+          <li key={it.name} className="rounded-md bg-muted p-2 text-xs">
             <p className="font-semibold">{it.name}</p>
             {it.expected != null && (
               <p>
