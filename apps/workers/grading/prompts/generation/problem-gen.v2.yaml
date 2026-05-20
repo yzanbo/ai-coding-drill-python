@@ -112,7 +112,11 @@ parameters:
   # 多様性確保のため温度高め (03-llm-pipeline.md「構造化出力」)
   # v1 と同値。few-shot 追加で安定性が出れば v3 で 0.5〜0.6 に下げる余地あり
   temperature: 0.7
-  max_tokens: 4096
+  # v1 (4096) から増量。Gemini 2.5 Flash 等の thinking モデルは推論トークンを
+  # 内部で消費してから JSON を吐くため、4096 だと複雑な問題 (medium / 入れ子
+  # オブジェクト等) で thinking 中に枠を使い切り、応答 JSON が途中で切れる
+  # ("unexpected end of JSON input") ことがある。8192 まで広げて余裕を持たせる。
+  max_tokens: 8192
 
 # ─────────────────────────────────────────────
 # メタ情報
