@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors } from './types.gen';
+import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetProblemGenerationStatusProblemsGenerateRequestIdGetData, GetProblemGenerationStatusProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusProblemsGenerateRequestIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationProblemsGeneratePostData, RequestProblemGenerationProblemsGeneratePostErrors, RequestProblemGenerationProblemsGeneratePostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -81,3 +81,33 @@ export const createHealthCheckHealthPost = <ThrowOnError extends boolean = false
  * liveness probe（DB 接続なし）。プロセスが生きていることだけを返す。
  */
 export const healthzHealthzGet = <ThrowOnError extends boolean = false>(options?: Options<HealthzHealthzGetData, ThrowOnError>) => (options?.client ?? client).get<HealthzHealthzGetResponses, unknown, ThrowOnError>({ url: '/healthz', ...options });
+
+/**
+ * Request Problem Generation
+ *
+ * カテゴリ・難易度を受け取って生成ジョブを enqueue する。
+ *
+ * 挙動：
+ * - generation_requests へ 1 行 INSERT（status='pending'）
+ * - jobs へ 1 行 INSERT + NOTIFY new_job を同一トランザクションで実行
+ * - 202 で requestId を返す。実際の生成は Worker が非同期で処理する
+ */
+export const requestProblemGenerationProblemsGeneratePost = <ThrowOnError extends boolean = false>(options: Options<RequestProblemGenerationProblemsGeneratePostData, ThrowOnError>) => (options.client ?? client).post<RequestProblemGenerationProblemsGeneratePostResponses, RequestProblemGenerationProblemsGeneratePostErrors, ThrowOnError>({
+    url: '/problems/generate',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Problem Generation Status
+ *
+ * 生成リクエストの現在ステータスを返す。
+ *
+ * - 自分のリクエストでない / 存在しないリクエスト ID には 404 を返す
+ * （他人のリクエストか存在しないかの区別は付けない、情報漏洩防止）
+ * - status='completed' の時のみ problemId フィールドが付く
+ */
+export const getProblemGenerationStatusProblemsGenerateRequestIdGet = <ThrowOnError extends boolean = false>(options: Options<GetProblemGenerationStatusProblemsGenerateRequestIdGetData, ThrowOnError>) => (options.client ?? client).get<GetProblemGenerationStatusProblemsGenerateRequestIdGetResponses, GetProblemGenerationStatusProblemsGenerateRequestIdGetErrors, ThrowOnError>({ url: '/problems/generate/{request_id}', ...options });

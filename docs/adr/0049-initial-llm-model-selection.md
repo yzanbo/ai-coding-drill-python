@@ -56,7 +56,7 @@ providers:
 
 ### 実装の優先順位
 
-1. R1-2 後半（**部分完了**）：`apps/workers/grading/internal/llm/google/` sub-package で Provider interface を Gemini API に対して実装
+1. R1-2（**完了**）：`apps/workers/grading/internal/llm/google/` sub-package で Provider interface を Gemini API に対して実装
    - ✅ Provider interface 実装（[provider.go](../../apps/workers/grading/internal/llm/google/provider.go)）
    - ✅ JSON mode 強制（`ResponseMIMEType=application/json`）
    - ✅ cost 計算（[pricing.go](../../apps/workers/grading/internal/llm/google/pricing.go)、本 ADR の価格表が SSoT）
