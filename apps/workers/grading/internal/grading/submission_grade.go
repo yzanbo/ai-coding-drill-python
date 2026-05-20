@@ -238,10 +238,13 @@ func classifySandboxOutcome(res *sandbox.Result) *SubmissionResultPayload {
 		}
 	}
 
-	// oom: Docker が OOMKiller でプロセスを殺すと exit 137 (SIGKILL 由来)。
-	// vitest の単純なテスト失敗は exit 1 / その他は exit 任意なので 137 を sentinel に。
+	// oom: Docker daemon の State.OOMKilled (公式 signal) を最優先で見る。
+	// ContainerInspect 失敗時は false で fallback されるが、その場合でも
+	// SIGKILL 由来の exit 137 が残るため副次 sentinel として併用する
+	// (ユーザコードからの kill -9 を OOM と誤分類するリスクは Inspect が
+	// 成功している限り発生しない)。
 	const exitOOMKilled = 137
-	if res.ExitCode == exitOOMKilled {
+	if res.OOMKilled || res.ExitCode == exitOOMKilled {
 		return &SubmissionResultPayload{
 			Passed:      false,
 			DurationMs:  durationMs,

@@ -92,12 +92,28 @@ func TestClassifySandboxOutcome_Timeout(t *testing.T) {
 }
 
 // TestClassifySandboxOutcome_OOM:
-// ExitCode=137 (OOMKilled) なら failure_kind=oom。
+// ExitCode=137 (SIGKILL 由来) なら failure_kind=oom (Inspect 失敗時の fallback)。
 func TestClassifySandboxOutcome_OOM(t *testing.T) {
 	t.Parallel()
 	res := &sandbox.Result{
 		ExitCode: 137,
 		Duration: 800 * time.Millisecond,
+	}
+	got := classifySandboxOutcome(res)
+	assert.False(t, got.Passed)
+	assert.Equal(t, failureKindOOM, got.FailureKind)
+	assert.Equal(t, 0, got.Score)
+}
+
+// TestClassifySandboxOutcome_OOMKilledFlag:
+// Docker daemon の OOMKilled signal が true なら ExitCode に関係なく failure_kind=oom。
+// (cgroup によっては exit code が 137 にならないケースもあるため、公式 signal を優先する。)
+func TestClassifySandboxOutcome_OOMKilledFlag(t *testing.T) {
+	t.Parallel()
+	res := &sandbox.Result{
+		ExitCode:  1,
+		OOMKilled: true,
+		Duration:  500 * time.Millisecond,
 	}
 	got := classifySandboxOutcome(res)
 	assert.False(t, got.Passed)
