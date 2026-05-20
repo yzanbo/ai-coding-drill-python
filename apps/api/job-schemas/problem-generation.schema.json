@@ -21,11 +21,19 @@
       "type": "string"
     },
     "TraceContext": {
-      "description": "W3C Trace Context の最小表現（traceparent + tracestate）。\n\nBackend（Producer）が現在の OTel Span のコンテキストをジョブ payload に\n詰めることで、Worker（Consumer）側が同一トレースの子スパンを発行できる。\n詳細仕様は ADR 0010。\n\n- traceparent : \"00-<trace-id>-<span-id>-<flags>\" の固定書式（W3C 仕様）\n- tracestate  : ベンダー固有の追加情報。未使用なら空文字",
+      "description": "W3C Trace Context の最小表現（traceparent + tracestate）。\n\nBackend（Producer）が現在の OTel Span のコンテキストをジョブ payload に\n詰めることで、Worker（Consumer）側が同一トレースの子スパンを発行できる。\n詳細仕様は ADR 0010。\n\n- traceparent : \"00-<trace-id>-<span-id>-<flags>\" の固定書式（W3C 仕様）。\n                OTel SDK 未導入の R1〜R3 期間は None（= 親なし）として送り、\n                Worker は None を受けたら新規 root span を発行する。\n                R4「観測性」で OTel が入った後は常に有効値が入る前提に変える。\n                空文字を sentinel に使わないのは W3C 仕様で無効書式となり、\n                将来 traceparent パーサを差し込んだ時に「空文字 = 無効値」と\n                「未指定」を区別できなくなるため。\n- tracestate  : ベンダー固有の追加情報。未使用なら空文字",
       "properties": {
         "traceparent": {
-          "title": "Traceparent",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Traceparent"
         },
         "tracestate": {
           "default": "",
@@ -33,9 +41,6 @@
           "type": "string"
         }
       },
-      "required": [
-        "traceparent"
-      ],
       "title": "TraceContext",
       "type": "object"
     }

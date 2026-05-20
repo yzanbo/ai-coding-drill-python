@@ -83,10 +83,12 @@ class ProblemGenerationService:
 
             # W3C Trace Context（ADR 0010）を payload に埋める箱。
             #   現状は OTel SDK 未導入（R4「観測性」で組み込み予定）のため、
-            #   2 フィールドとも空文字で置き、Worker 側は空 traceparent を受けたら
-            #   親なし新規 span を発行する設計にしておく。
+            #   traceparent は None（= 親なし）で送り、Worker は None を受けたら
+            #   新規 root span を発行する設計にしておく。
             #   R4 で opentelemetry.propagate.inject を呼んで実値を詰める形に差し替える。
-            trace_context = TraceContext(traceparent="", tracestate="")
+            #   空文字を sentinel に使わないのは W3C 仕様で無効書式となり、
+            #   「無効値」と「未指定」を将来パーサで区別できなくなるため。
+            trace_context = TraceContext(traceparent=None, tracestate="")
 
             payload = ProblemGenerationJobPayload(
                 generation_request_id=gr.id,
@@ -99,17 +101,20 @@ class ProblemGenerationService:
             # mode="json": UUID / Enum を JSON 互換の str に直して JSONB へ詰める。
             # by_alias=True: snake_case 属性 → camelCase キーで書き出す
             #                （Worker 側 Go struct の JSON タグと整合）。
-            await self.jobs.enqueue(
+            job = await self.jobs.enqueue(
                 queue=_JOB_QUEUE,
                 type_=_JOB_TYPE,
                 payload=payload.model_dump(mode="json", by_alias=True),
             )
 
-        # ログには user_id + request_id だけ残す（payload は冗長なので残さない）。
+        # ログには user_id / request_id / job_id を残す（Worker 側ログとの突合キーになる）。
+        # payload は冗長なので残さない。
         logger.info(
-            "Problem generation enqueued: user_id=%s request_id=%s category=%s difficulty=%s",
+            "Problem generation enqueued: user_id=%s request_id=%s job_id=%s "
+            "category=%s difficulty=%s",
             user_id,
             gr.id,
+            job.id,
             category.value,
             difficulty.value,
         )
