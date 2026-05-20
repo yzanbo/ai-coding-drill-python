@@ -118,6 +118,8 @@ git show <sha2> --stat --format=fuller
 - サンドボックス（Docker）リソース制限 / ネットワーク遮断
 - `gofmt` / `golangci-lint` / `govulncheck` の警告残り
 - 共通化候補：似た handler / 似たパイプラインステップ / 似た struct / 似た util が複数パッケージに散らばっていないか（`internal/<topic>/` パッケージへの切り出し検討）
+- Prompts（`apps/workers/*/prompts/<role>/`）：`.claude/rules/prompts.md` 準拠 / version フィールドの更新 / few-shot 例の代表性とバリエーション / トークン上限 / 採点（judge）と生成（generation）でプロンプト責務を分離（ADR 0040）
+- Sandbox Dockerfile（`apps/workers/grading/sandbox/`）：USER nonroot / multi-stage build / base image の SHA pin（`@v3` でなく `@<sha>`） / `.dockerignore` で build context 最小化 / read-only filesystem 前提 / 不要パッケージ削除
 
 **Infra（Terraform）** — 変更ファイルが `infra/` 配下にある場合
 - `terraform plan` 出力の破壊的変更（destroy / replace）
@@ -127,11 +129,23 @@ git show <sha2> --stat --format=fuller
 - 障害ドメイン（マルチ AZ / バックアップ）
 - ドリフト検知（手動変更を import せず apply で上書きしていないか）
 
+**Generated artifact** — Backend / Frontend / Worker 横断
+- 対象ファイル：`apps/api/openapi.json` / `apps/api/job-schemas/*.json` / `apps/web/src/__generated__/` / `apps/workers/*/internal/jobtypes/`
+- 手動編集が混入していないか（自動生成物に直接手を入れていないか）
+- 生成コマンド（`mise run types-gen` / `mise run api:openapi-export` / `mise run api:job-schemas-export` / `mise run web:types-gen` / `mise run worker:<name>:types-gen`）を回した結果と diff が一致するか（drift していないか）
+- SSoT（`apps/api/app/schemas/` の Pydantic）からの再生成漏れがないか
+- CI の drift 検出（`mise run types-gen` 後の git diff が空であること）と整合しているか
+
 **Docs** — 変更ファイルが `docs/` 配下にある場合
 - 5 バケット構造（`.claude/rules/docs-rules.md`）の守備範囲違反
 - 重複記述（SSoT 原則）/ 死リンク
 - Mermaid アンチパターン（`<br/>` / dotted-arrow dot / 暗黙修飾子）
 - ADR の Status 整合（Superseded / Accepted の本文書き換え運用）
+- HTML コメント保持ルール：`4-features/<name>.md` 等の `<!-- -->` ブロックは CLAUDE が将来の更新時に読む裏ルール。本文整理でまとめて削除していないか
+- ファイル冒頭規約（`.claude/rules/docs-rules.md` §7）：参照系は「守備範囲」quote ブロック / フェーズ系（`5-roadmap/r0-setup/<phase>.md` 等）は `## このフェーズで何ができるようになるか` H2 セクションで始まっているか
+- 5 バケット間の重複ペア（docs-rules.md §5）：02-architecture（責務）vs 05-runtime-stack（技術名）/ 05-runtime-stack vs 06-dev-workflow（開発フロー）/ 3-cross-cutting（横断方針）vs 4-features（機能個別詳細）の境界が混ざっていないか
+- 内部 ID 形式の使い分け（CLAUDE.md 絶対ルール）：`#数字` は GitHub PR/Issue 専用で、要件・タスク・機能の内部 ID には `R0-2` / `R1-1` / 機能 path（例：`authentication`）を使う。混同で誤自動リンクが起きていないか
+- ADR 双方向リンク（docs-rules.md §2）：運用ルール型 ADR は本文 ↔ 要件 .md / 機械強制設定（`commitlint.config.mjs` / `apps/web/.syncpackrc.ts` 等）への双方向リンクが張られているか
 
 #### 指摘の書き方
 
