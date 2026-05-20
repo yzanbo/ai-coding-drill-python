@@ -1,18 +1,22 @@
-// R1-4 問題表示・解答入力フローの E2E テスト（Playwright）。
+// R1-4 / R1-5 問題表示・解答入力フローの E2E テスト（Playwright）。
 //
-// テスト方針（problem-display-and-answer.md）：
+// テスト方針（problem-display-and-answer.md / grading.md）：
 //   - ゲスト：問題一覧 / 問題詳細を 401 なく閲覧できることを保証
 //   - ゲスト：「実行」ボタン → /login?next=/problems/:id へのリダイレクト
 //   - 認証ユーザー：「実行」ボタン → POST /api/submissions が受け付けられ、
-//     submissionId のフィードバックが表示される（採点結果ポーリングは R1-5）
+//     GradingResult が mount されて「採点中」表示まで遷移する
 //   - フィルタ：URL クエリと <select> の双方向同期
 //
-//   細かい入力検証 / フックの分岐は Vitest 側（problems-filter-form / answer-workspace）で
-//   網羅済み。ここはブラウザを跨いだ「触れる」「叩ける」「進む」の存在保証に絞る。
+//   細かい入力検証 / フックの分岐は Vitest 側（problems-filter-form / answer-workspace /
+//   grading-result / use-get-submission）で網羅済み。ここはブラウザを跨いだ「触れる」
+//   「叩ける」「進む」の存在保証に絞る。
 //
 // Worker をどう扱うか：
-//   POST /api/submissions 自身は R1-4 で実装済（status='pending' で 202 を返すだけ）。
-//   採点フロー（pending → graded）は R1-5 のスコープなので、本 spec では検証しない。
+//   POST /api/submissions は同 tx で jobs に grading ジョブを積む（R1-5）。
+//   採点完了（pending → graded）まで観測するには Worker + Docker sandbox を
+//   playwright.config.ts に追加で起動する必要がある（Docker daemon 依存・ビルド時間で
+//   E2E ランタイムが膨らむ）。本 spec は「採点中」(pending) 表示まで確認し、
+//   graded 遷移は Worker 側 Go test (orchestrator_integration_test.go) で別途担保する。
 
 import { MOCK_GITHUB_ORIGIN } from "./_helpers/constants";
 import { expect, loginViaMockGithub, test } from "./_helpers/test-fixtures";
@@ -92,7 +96,7 @@ test.describe("ゲスト閲覧", () => {
 });
 
 test.describe("認証ユーザー：解答送信", () => {
-  test("ログイン後に「実行」を押すと submissionId が表示される（採点結果は R1-5）", async ({
+  test("ログイン後に「実行」を押すと submit が受け付けられ採点中表示になる (R1-5)", async ({
     page,
   }) => {
     const problemId = await seedProblem(page.request);
@@ -108,10 +112,10 @@ test.describe("認証ユーザー：解答送信", () => {
 
     await runButton.click();
 
-    // 受付メッセージ（submissionId は UUID なので部分一致で検出）。
-    await expect(page.getByText(/submissionId:/)).toBeVisible();
-    // R1-5 で実装予定であることを明示するメッセージも一緒に出る。
-    await expect(page.getByText(/R1-5 で実装予定/)).toBeVisible();
+    // submit 成功 → GradingResult が mount → 1.5s ポーリングで status='pending' を
+    //   観測。本 E2E では Worker を起動しないため pending のまま「採点中」表示が
+    //   維持される。Worker による graded 遷移は Go test 側で担保。
+    await expect(page.getByText(/採点中/)).toBeVisible();
   });
 });
 
