@@ -22,10 +22,9 @@ from app.core.config import get_settings
 from app.core.http_client import get_http_client
 from app.schemas.auth import UserSyncInput
 
-# GitHub の OAuth エンドポイント（公式ドキュメント記載の固定値）。
-_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
-_TOKEN_URL = "https://github.com/login/oauth/access_token"
-_USER_API_URL = "https://api.github.com/user"
+# GitHub の OAuth エンドポイント URL は Settings で差し替え可能。
+# 本番 / 開発ではデフォルト (github.com) を使い、E2E テスト時のみ mock サーバの
+# URL に上書きする (apps/api/app/core/config.py の github_authorize_url 等)。
 
 # User-Agent: GitHub REST API は User-Agent ヘッダーを必須化している
 #   （無いと 403 で弾かれる）。アプリ識別できる固定値を渡しておく。
@@ -51,6 +50,11 @@ class GitHubOAuthClient:
         self._client_id = settings.github_client_id
         self._client_secret = settings.github_client_secret
         self._redirect_uri = settings.github_redirect_uri
+        # OAuth エンドポイント URL は Settings から取る (本番 = github.com 既定値、
+        # E2E テスト時のみ mock サーバ URL に上書き)。
+        self._authorize_url = settings.github_authorize_url
+        self._token_url = settings.github_token_url
+        self._user_api_url = settings.github_user_api_url
 
     def build_authorize_url(self, *, state: str) -> str:
         """GitHub の認可画面に飛ばす URL を組み立てる。
@@ -66,7 +70,7 @@ class GitHubOAuthClient:
             # allow_signup=true（既定）で初回ユーザーも GitHub 側で新規登録できる。
             # 明示しない（GitHub 側既定が望ましい挙動）。
         }
-        return f"{_AUTHORIZE_URL}?{urlencode(params)}"
+        return f"{self._authorize_url}?{urlencode(params)}"
 
     async def exchange_code(self, *, code: str) -> UserSyncInput:
         """GitHub から戻ってきた認可コードを使い、ユーザー情報まで一気に取得する。
@@ -87,7 +91,7 @@ class GitHubOAuthClient:
         # GitHub は Accept: application/json を付けると JSON で返してくれる。
         # 付けないと form-encoded で返るため、明示的に JSON を要求する。
         token_resp = await http.post(
-            _TOKEN_URL,
+            self._token_url,
             data={
                 "client_id": self._client_id,
                 "client_secret": self._client_secret,
@@ -126,7 +130,7 @@ class GitHubOAuthClient:
         # X-GitHub-Api-Version は固定（OAuth User API はバージョン未指定でも動くが
         # 互換性事故回避のため固定）。Authorization は token <value> 形式（OAuth Apps 慣習）。
         user_resp = await http.get(
-            _USER_API_URL,
+            self._user_api_url,
             headers={
                 "Authorization": f"token {access_token}",
                 "Accept": "application/vnd.github+json",
