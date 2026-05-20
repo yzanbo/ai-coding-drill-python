@@ -48,11 +48,13 @@ class JobRepository:
         #        NOTIFY ペイロードに id を載せたいので flush 必須。
         await self.session.flush()
 
-        # NOTIFY new_job, '<job_id>':
+        # pg_notify('new_job', '<job_id>'):
         #   Worker 側が LISTEN new_job しており、ペイロード文字列で job_id が通知される。
-        #   Postgres の NOTIFY は引数を 1 個しか取れず、かつ文字列リテラル指定が必要。
-        #   bindparams で文字列を渡す（id は BIGINT なので str() 化）。
+        #   Postgres の NOTIFY 文はパラメータバインドが効かない（asyncpg が $1 に
+        #   変換するが、NOTIFY は構文上リテラルを要求して構文エラーになる）。
+        #   関数版 pg_notify() なら通常の関数呼び出しなのでバインドパラメータが効く。
+        #   id は BIGINT なので str() 化してペイロード文字列にする。
         await self.session.execute(
-            text("NOTIFY new_job, :id").bindparams(id=str(job.id))
+            text("SELECT pg_notify('new_job', :id)").bindparams(id=str(job.id))
         )
         return job

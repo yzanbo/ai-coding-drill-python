@@ -1,8 +1,8 @@
 # generation_requests テーブル：問題生成リクエストの受付台帳。
 #   1 リクエスト = 1 行。Worker がジョブを処理する過程で status / produced_problem_id
 #   を書き換える（pending → completed / failed）。
-#   Backend は INSERT（POST /problems/generate）と SELECT（GET /problems/generate/:requestId）
-#   を担当する。
+#   Backend は INSERT（POST /api/problems/generate）と
+#   SELECT（GET /api/problems/generate/:requestId）を担当する。
 #
 # 関わる要件：
 #   - docs/requirements/4-features/problem-generation.md

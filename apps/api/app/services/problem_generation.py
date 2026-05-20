@@ -67,38 +67,48 @@ class ProblemGenerationService:
           3. jobs に 1 行 INSERT + NOTIFY new_job を同一トランザクション内で実行
           4. 202 用の Pydantic を返す
         """
-        async with self.db_session.begin():
-            gr = await self.requests.create(
-                user_id=user_id,
-                category=category.value,
-                difficulty=difficulty.value,
-            )
+        # トランザクション制御は SQLAlchemy 2.0 の autobegin に任せ、
+        #   最後に commit() を明示する。
+        #   FastAPI 依存性で先に get_current_user が同じ session に SELECT を
+        #   走らせて autobegin が立つため、ここで session.begin() を呼ぶと
+        #   「A transaction is already begun」で 500 になる（二重 begin）。
+        #   generation_requests.create → jobs.enqueue（INSERT + NOTIFY）は
+        #   どちらも現在の暗黙トランザクションに乗り、最後の commit() で
+        #   1 アトミックに確定する。失敗時は get_async_session の async with
+        #   終了時に rollback される。
+        gr = await self.requests.create(
+            user_id=user_id,
+            category=category.value,
+            difficulty=difficulty.value,
+        )
 
-            # W3C Trace Context（ADR 0010）を payload に埋める箱。
-            #   現状は OTel SDK 未導入（R4「観測性」で組み込み予定）のため、
-            #   traceparent は None（= 親なし）で送り、Worker は None を受けたら
-            #   新規 root span を発行する設計にしておく。
-            #   R4 で opentelemetry.propagate.inject を呼んで実値を詰める形に差し替える。
-            #   空文字を sentinel に使わないのは W3C 仕様で無効書式となり、
-            #   「無効値」と「未指定」を将来パーサで区別できなくなるため。
-            trace_context = TraceContext(traceparent=None, tracestate="")
+        # W3C Trace Context（ADR 0010）を payload に埋める箱。
+        #   現状は OTel SDK 未導入（R4「観測性」で組み込み予定）のため、
+        #   traceparent は None（= 親なし）で送り、Worker は None を受けたら
+        #   新規 root span を発行する設計にしておく。
+        #   R4 で opentelemetry.propagate.inject を呼んで実値を詰める形に差し替える。
+        #   空文字を sentinel に使わないのは W3C 仕様で無効書式となり、
+        #   「無効値」と「未指定」を将来パーサで区別できなくなるため。
+        trace_context = TraceContext(traceparent=None, tracestate="")
 
-            payload = ProblemGenerationJobPayload(
-                generation_request_id=gr.id,
-                user_id=user_id,
-                category=category,
-                difficulty=difficulty,
-                trace_context=trace_context,
-            )
+        payload = ProblemGenerationJobPayload(
+            generation_request_id=gr.id,
+            user_id=user_id,
+            category=category,
+            difficulty=difficulty,
+            trace_context=trace_context,
+        )
 
-            # mode="json": UUID / Enum を JSON 互換の str に直して JSONB へ詰める。
-            # by_alias=True: snake_case 属性 → camelCase キーで書き出す
-            #                （Worker 側 Go struct の JSON タグと整合）。
-            job = await self.jobs.enqueue(
-                queue=_JOB_QUEUE,
-                type_=_JOB_TYPE,
-                payload=payload.model_dump(mode="json", by_alias=True),
-            )
+        # mode="json": UUID / Enum を JSON 互換の str に直して JSONB へ詰める。
+        # by_alias=True: snake_case 属性 → camelCase キーで書き出す
+        #                （Worker 側 Go struct の JSON タグと整合）。
+        job = await self.jobs.enqueue(
+            queue=_JOB_QUEUE,
+            type_=_JOB_TYPE,
+            payload=payload.model_dump(mode="json", by_alias=True),
+        )
+
+        await self.db_session.commit()
 
         # ログには user_id / request_id / job_id を残す（Worker 側ログとの突合キーになる）。
         # payload は冗長なので残さない。

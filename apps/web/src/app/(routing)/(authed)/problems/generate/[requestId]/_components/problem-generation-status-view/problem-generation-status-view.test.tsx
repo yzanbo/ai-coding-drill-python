@@ -31,7 +31,7 @@ beforeEach(() => {
 describe("ProblemGenerationStatusView", () => {
   it("pending: 「生成中…」を表示する", async () => {
     server.use(
-      http.get(`${API_BASE}/problems/generate/req-pending`, () =>
+      http.get(`${API_BASE}/api/problems/generate/req-pending`, () =>
         HttpResponse.json({ requestId: "req-pending", status: "pending" }),
       ),
     );
@@ -46,7 +46,7 @@ describe("ProblemGenerationStatusView", () => {
 
   it("completed: /problems/:problemId に router.replace で遷移する", async () => {
     server.use(
-      http.get(`${API_BASE}/problems/generate/req-ok`, () =>
+      http.get(`${API_BASE}/api/problems/generate/req-ok`, () =>
         HttpResponse.json({
           requestId: "req-ok",
           status: "completed",
@@ -62,7 +62,7 @@ describe("ProblemGenerationStatusView", () => {
 
   it("failed: 失敗メッセージと再試行ボタンを表示する", async () => {
     server.use(
-      http.get(`${API_BASE}/problems/generate/req-ng`, () =>
+      http.get(`${API_BASE}/api/problems/generate/req-ng`, () =>
         HttpResponse.json({ requestId: "req-ng", status: "failed" }),
       ),
     );
@@ -80,7 +80,7 @@ describe("ProblemGenerationStatusView", () => {
     //   「再読み込み」を押下したらサーバへの GET 件数が増えることで refetch が発火したと確認する。
     let getCount = 0;
     server.use(
-      http.get(`${API_BASE}/problems/generate/req-err`, () => {
+      http.get(`${API_BASE}/api/problems/generate/req-err`, () => {
         getCount += 1;
         if (getCount === 1) return new HttpResponse(null, { status: 500 });
         return HttpResponse.json({ requestId: "req-err", status: "pending" });
@@ -105,7 +105,7 @@ describe("ProblemGenerationStatusView", () => {
     //   waitFor で 1 回目の replace 到達を見届けた後、マイクロタスクと 1 タイマー tick を
     //   flush してから、replace が増えていないことを確認する。
     server.use(
-      http.get(`${API_BASE}/problems/generate/req-once`, () =>
+      http.get(`${API_BASE}/api/problems/generate/req-once`, () =>
         HttpResponse.json({
           requestId: "req-once",
           status: "completed",

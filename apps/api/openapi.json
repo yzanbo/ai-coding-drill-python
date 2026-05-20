@@ -211,6 +211,94 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/problems/generate": {
+      "post": {
+        "description": "カテゴリ・難易度を受け取って生成ジョブを enqueue する。\n\n挙動：\n  - generation_requests へ 1 行 INSERT（status='pending'）\n  - jobs へ 1 行 INSERT + NOTIFY new_job を同一トランザクションで実行\n  - 202 で requestId を返す。実際の生成は Worker が非同期で処理する",
+        "operationId": "request_problem_generation_api_problems_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProblemGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemGenerateAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Problem Generation",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
+    "/api/problems/generate/{request_id}": {
+      "get": {
+        "description": "生成リクエストの現在ステータスを返す。\n\n- 自分のリクエストでない / 存在しないリクエスト ID には 404 を返す\n  （他人のリクエストか存在しないかの区別は付けない、情報漏洩防止）\n- status='completed' の時のみ problemId フィールドが付く",
+        "operationId": "get_problem_generation_status_api_problems_generate__request_id__get",
+        "parameters": [
+          {
+            "description": "生成リクエストの ID",
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "description": "生成リクエストの ID",
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemGenerateStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Problem Generation Status",
+        "tags": [
+          "problems"
+        ]
+      }
+    },
     "/auth/github": {
       "get": {
         "description": "OAuth フロー開始。state を発行し GitHub の認可画面へ 302 リダイレクトする。\n\nクエリ:\n  - next: ログイン後の戻り先（同一オリジン相対パスのみ）。state レコードに\n          同梱して Redis に保存し、callback 側で 1 回使い切りで取り出す。\n          旧実装は別 Cookie（auth_next）で運んでいたが「state と next が\n          別場所に分かれて弱く結合」する設計弱点があったため state レコード\n          側に集約した。",
@@ -445,94 +533,6 @@
         "summary": "Healthz",
         "tags": [
           "probes"
-        ]
-      }
-    },
-    "/problems/generate": {
-      "post": {
-        "description": "カテゴリ・難易度を受け取って生成ジョブを enqueue する。\n\n挙動：\n  - generation_requests へ 1 行 INSERT（status='pending'）\n  - jobs へ 1 行 INSERT + NOTIFY new_job を同一トランザクションで実行\n  - 202 で requestId を返す。実際の生成は Worker が非同期で処理する",
-        "operationId": "request_problem_generation_problems_generate_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProblemGenerateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemGenerateAcceptedResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Request Problem Generation",
-        "tags": [
-          "problems"
-        ]
-      }
-    },
-    "/problems/generate/{request_id}": {
-      "get": {
-        "description": "生成リクエストの現在ステータスを返す。\n\n- 自分のリクエストでない / 存在しないリクエスト ID には 404 を返す\n  （他人のリクエストか存在しないかの区別は付けない、情報漏洩防止）\n- status='completed' の時のみ problemId フィールドが付く",
-        "operationId": "get_problem_generation_status_problems_generate__request_id__get",
-        "parameters": [
-          {
-            "description": "生成リクエストの ID",
-            "in": "path",
-            "name": "request_id",
-            "required": true,
-            "schema": {
-              "description": "生成リクエストの ID",
-              "format": "uuid",
-              "title": "Request Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemGenerateStatusResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Problem Generation Status",
-        "tags": [
-          "problems"
         ]
       }
     }

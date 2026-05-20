@@ -1,5 +1,5 @@
 // usePostProblemGenerate のフックテスト。
-//   要件: problem-generation.md §POST /problems/generate
+//   要件: problem-generation.md §POST /api/problems/generate
 //   - 202 + requestId が返ったら onSuccess に渡される
 //   - 5xx 等はエラーになり error が確定する
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -14,7 +14,7 @@ import { usePostProblemGenerate } from "./use-post-problem-generate";
 describe("usePostProblemGenerate", () => {
   it("正常系: 202 が返ると onSuccess に requestId が渡る", async () => {
     server.use(
-      http.post(`${API_BASE}/problems/generate`, () =>
+      http.post(`${API_BASE}/api/problems/generate`, () =>
         HttpResponse.json({ requestId: "req-001", status: "pending" }, { status: 202 }),
       ),
     );
@@ -35,7 +35,7 @@ describe("usePostProblemGenerate", () => {
 
   it("異常系: 500 が返ると error が立ち onSuccess は呼ばれない", async () => {
     server.use(
-      http.post(`${API_BASE}/problems/generate`, () => new HttpResponse(null, { status: 500 })),
+      http.post(`${API_BASE}/api/problems/generate`, () => new HttpResponse(null, { status: 500 })),
     );
 
     const onSuccess = vi.fn();

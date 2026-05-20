@@ -140,6 +140,63 @@ export type ValidationError = {
     type: string;
 };
 
+export type RequestProblemGenerationApiProblemsGeneratePostData = {
+    body: ProblemGenerateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/problems/generate';
+};
+
+export type RequestProblemGenerationApiProblemsGeneratePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RequestProblemGenerationApiProblemsGeneratePostError = RequestProblemGenerationApiProblemsGeneratePostErrors[keyof RequestProblemGenerationApiProblemsGeneratePostErrors];
+
+export type RequestProblemGenerationApiProblemsGeneratePostResponses = {
+    /**
+     * Successful Response
+     */
+    202: ProblemGenerateAcceptedResponse;
+};
+
+export type RequestProblemGenerationApiProblemsGeneratePostResponse = RequestProblemGenerationApiProblemsGeneratePostResponses[keyof RequestProblemGenerationApiProblemsGeneratePostResponses];
+
+export type GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Request Id
+         *
+         * 生成リクエストの ID
+         */
+        request_id: string;
+    };
+    query?: never;
+    url: '/api/problems/generate/{request_id}';
+};
+
+export type GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetProblemGenerationStatusApiProblemsGenerateRequestIdGetError = GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors[keyof GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors];
+
+export type GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProblemGenerateStatusResponse;
+};
+
+export type GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse = GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses[keyof GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses];
+
 export type StartGithubOauthAuthGithubGetData = {
     body?: never;
     path?: never;
@@ -275,60 +332,3 @@ export type HealthzHealthzGetResponses = {
 };
 
 export type HealthzHealthzGetResponse = HealthzHealthzGetResponses[keyof HealthzHealthzGetResponses];
-
-export type RequestProblemGenerationProblemsGeneratePostData = {
-    body: ProblemGenerateRequest;
-    path?: never;
-    query?: never;
-    url: '/problems/generate';
-};
-
-export type RequestProblemGenerationProblemsGeneratePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type RequestProblemGenerationProblemsGeneratePostError = RequestProblemGenerationProblemsGeneratePostErrors[keyof RequestProblemGenerationProblemsGeneratePostErrors];
-
-export type RequestProblemGenerationProblemsGeneratePostResponses = {
-    /**
-     * Successful Response
-     */
-    202: ProblemGenerateAcceptedResponse;
-};
-
-export type RequestProblemGenerationProblemsGeneratePostResponse = RequestProblemGenerationProblemsGeneratePostResponses[keyof RequestProblemGenerationProblemsGeneratePostResponses];
-
-export type GetProblemGenerationStatusProblemsGenerateRequestIdGetData = {
-    body?: never;
-    path: {
-        /**
-         * Request Id
-         *
-         * 生成リクエストの ID
-         */
-        request_id: string;
-    };
-    query?: never;
-    url: '/problems/generate/{request_id}';
-};
-
-export type GetProblemGenerationStatusProblemsGenerateRequestIdGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetProblemGenerationStatusProblemsGenerateRequestIdGetError = GetProblemGenerationStatusProblemsGenerateRequestIdGetErrors[keyof GetProblemGenerationStatusProblemsGenerateRequestIdGetErrors];
-
-export type GetProblemGenerationStatusProblemsGenerateRequestIdGetResponses = {
-    /**
-     * Successful Response
-     */
-    200: ProblemGenerateStatusResponse;
-};
-
-export type GetProblemGenerationStatusProblemsGenerateRequestIdGetResponse = GetProblemGenerationStatusProblemsGenerateRequestIdGetResponses[keyof GetProblemGenerationStatusProblemsGenerateRequestIdGetResponses];
