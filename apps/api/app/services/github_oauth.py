@@ -22,10 +22,6 @@ from app.core.config import get_settings
 from app.core.http_client import get_http_client
 from app.schemas.auth import UserSyncInput
 
-# GitHub の OAuth エンドポイント URL は Settings で差し替え可能。
-# 本番 / 開発ではデフォルト (github.com) を使い、E2E テスト時のみ mock サーバの
-# URL に上書きする (apps/api/app/core/config.py の github_authorize_url 等)。
-
 # User-Agent: GitHub REST API は User-Agent ヘッダーを必須化している
 #   （無いと 403 で弾かれる）。アプリ識別できる固定値を渡しておく。
 #   公式ドキュメント：https://docs.github.com/en/rest/overview/resources-in-the-rest-api#user-agent-required

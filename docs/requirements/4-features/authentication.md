@@ -305,8 +305,8 @@ sequenceDiagram
 - [x] バックエンドユニットテスト完了（auth サービス / GitHub クライアントのモックテスト、pytest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [x] フロントエンド実装完了（ログイン画面 / ヘッダーメニュー）
 - [x] フロントエンドユニットテスト完了（pure 関数 / lib/api / Hook / コンポーネント、MSW + Vitest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
-- [x] E2E テスト完了（Playwright + Mock GitHub OAuth サーバ経由で主要フロー 7 件 = `/login` ボタン表示 / 正常系ログイン / ログアウト / 認証済み時の `/login` 再訪 / `next=` 外部 URL 拒否 / Cancel フロー / 同一 GitHub アカウント再ログインの user 一意性。受け入れ条件 18 件のうち「ブラウザ ↔ Backend ↔ Mock の 3 者通信」「Frontend side effect の実ブラウザ検証」「DB 永続化レベルの一意性」に絞った。残りは BE 119 件 / FE 64 件のユニット / 結合テストで網羅、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
-- [x] **受け入れ条件すべて満たす**（実装 + BE 117 件 / FE 64 件のユニットテストで全項目カバー、最終的な実画面検証は PR のテスト方法チェックリストで実施）
+- [x] E2E テスト完了（Playwright + Mock GitHub OAuth サーバ経由で主要フロー = `/login` ボタン表示 / 正常系ログイン / ログアウト / 認証済み時の `/login` 再訪 / `next=` 外部 URL 拒否 / Cancel フロー / 同一 GitHub アカウント再ログインの user 一意性。「ブラウザ ↔ Backend ↔ Mock の 3 者通信」「Frontend side effect の実ブラウザ検証」「DB 永続化レベルの一意性」に絞り、残りの受け入れ条件は BE / FE のユニット + 結合テストで網羅、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
+- [x] **受け入れ条件すべて満たす**（実装 + BE / FE のユニット + 結合テストで全項目カバー、最終的な実画面検証は PR のテスト方法チェックリストで実施）
 
 ## 関連
 

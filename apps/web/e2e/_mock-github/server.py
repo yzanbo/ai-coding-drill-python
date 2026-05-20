@@ -13,11 +13,10 @@
     GET  /user                     : access_token → GitHub user profile
 
 挙動の切替（テスト側からの注入）：
-    本サーバはステートレスだが、後続テストで「name 変更」「Cancel」等の異常系を
-    扱うため、特殊な code 値で挙動を分岐させる方式を採用：
-    - code=cancel_*  → /authorize で error=access_denied を返す（Cancel ボタン押下相当）
-    - code=user_name_a / code=user_name_b → /user で異なる name を返す
-    - 上記以外 → 既定の test user を返す
+    本サーバはステートレスだが、Cancel 等の異常系を扱うため /authorize の
+    クエリパラメータで挙動を分岐させる：
+    - /authorize?_mode=cancel → error=access_denied を返す（Cancel ボタン押下相当）
+    - 上記以外（既定）         → 即 302 で redirect_uri に code+state を載せて返す
 
 起動方法（Playwright globalSetup or webServer から）：
     uv run python apps/web/e2e/_mock-github/server.py --port 18001

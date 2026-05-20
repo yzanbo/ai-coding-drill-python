@@ -110,22 +110,9 @@ type Config struct {
 	LLM LLMProviders
 }
 
-// normalizeDatabaseURL: SQLAlchemy 形式の `postgresql+asyncpg://...` から
-// pgx 互換の `postgresql://...` への正規化。
-//
-// なぜ要るか:
-//
-//	api (FastAPI / SQLAlchemy 2.0) と worker (Go / pgx) は同じ Postgres を共有するが、
-//	SQLAlchemy は `postgresql+asyncpg://` 形式 (ドライバ指定子付き) で接続文字列を
-//	要求する。一方 pgx は `postgresql://` / `postgres://` のみ受け付け、`+asyncpg`
-//	付きは scheme として認識できない。
-//	ローカル開発で mise の _.file 経由で両方の .env を load する構成のため、
-//	DATABASE_URL 1 つを SQLAlchemy 形式で揃え、本関数で worker 側のみ strip する。
-//
-// 仕様:
-//   - "postgresql+<driver>://..." → "postgresql://..." (+<driver> を削除)
-//   - "postgresql://..." / "postgres://..." → 変更なし
-//   - 他の形式 (空文字含む) → 変更なし (env tag notEmpty 側で別途検証)
+// normalizeDatabaseURL: api と env を共有するため受け取る `postgresql+<driver>://...`
+// (SQLAlchemy 形式) から `+<driver>` を strip して pgx 互換の `postgresql://...` に変換する。
+// `postgresql://` / `postgres://` / その他形式はそのまま返す (notEmpty 等は別段で検証)。
 func normalizeDatabaseURL(raw string) string {
 	const sqlAlchemyPrefix = "postgresql+"
 	if !strings.HasPrefix(raw, sqlAlchemyPrefix) {
