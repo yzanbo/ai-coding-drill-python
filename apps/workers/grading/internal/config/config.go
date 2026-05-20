@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/caarlos0/env/v11"
 	"gopkg.in/yaml.v3"
@@ -66,6 +67,11 @@ type Config struct {
 	// notEmpty を使う理由: caarlos0/env の `required` は環境変数の有無のみ
 	// 判定し、空文字 ("") は通してしまう。Worker は空 DSN で起動しても
 	// 直後の pgx 接続で落ちるため、ここで空も拒否する方が原因究明が早い。
+	//
+	// 形式: api 側 (SQLAlchemy) と env を共有するため、入力は
+	// `postgresql+asyncpg://...` 形式を受け付ける。本フィールドは Load 時に
+	// `+asyncpg` (および任意の `+driver`) を strip して pgx 互換 URL
+	// (`postgresql://...`) に正規化される。
 	DatabaseURL string `env:"DATABASE_URL,notEmpty"`
 
 	// WorkerID: jobs.locked_by に書く識別子。
@@ -104,6 +110,37 @@ type Config struct {
 	LLM LLMProviders
 }
 
+// normalizeDatabaseURL: SQLAlchemy 形式の `postgresql+asyncpg://...` から
+// pgx 互換の `postgresql://...` への正規化。
+//
+// なぜ要るか:
+//
+//	api (FastAPI / SQLAlchemy 2.0) と worker (Go / pgx) は同じ Postgres を共有するが、
+//	SQLAlchemy は `postgresql+asyncpg://` 形式 (ドライバ指定子付き) で接続文字列を
+//	要求する。一方 pgx は `postgresql://` / `postgres://` のみ受け付け、`+asyncpg`
+//	付きは scheme として認識できない。
+//	ローカル開発で mise の _.file 経由で両方の .env を load する構成のため、
+//	DATABASE_URL 1 つを SQLAlchemy 形式で揃え、本関数で worker 側のみ strip する。
+//
+// 仕様:
+//   - "postgresql+<driver>://..." → "postgresql://..." (+<driver> を削除)
+//   - "postgresql://..." / "postgres://..." → 変更なし
+//   - 他の形式 (空文字含む) → 変更なし (env tag notEmpty 側で別途検証)
+func normalizeDatabaseURL(raw string) string {
+	const sqlAlchemyPrefix = "postgresql+"
+	if !strings.HasPrefix(raw, sqlAlchemyPrefix) {
+		return raw
+	}
+	// "postgresql+asyncpg://..." の "+asyncpg" 部分の終端は "://" の "/" 直前。
+	rest := raw[len(sqlAlchemyPrefix):]
+	sep := strings.Index(rest, "://")
+	if sep < 0 {
+		// 想定外形式 (e.g., "postgresql+asyncpg" 単体): 触らず返す。
+		return raw
+	}
+	return "postgresql://" + rest[sep+len("://"):]
+}
+
 // Load: 環境変数と llm.yaml を読んで Config を返す。
 //
 // 失敗パターン (起動時 fail-fast):
@@ -116,6 +153,9 @@ func Load() (*Config, error) {
 	if err := env.Parse(cfg); err != nil {
 		return nil, fmt.Errorf("config: env parse failed: %w", err)
 	}
+	// DATABASE_URL は api 側と env 共有のため "postgresql+asyncpg://..." 形式で
+	// 渡される想定。pgx 互換の "postgresql://..." に変換する。
+	cfg.DatabaseURL = normalizeDatabaseURL(cfg.DatabaseURL)
 	if err := loadLLMYAML(cfg); err != nil {
 		return nil, err
 	}
