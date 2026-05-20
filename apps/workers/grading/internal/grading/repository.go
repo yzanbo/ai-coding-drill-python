@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -101,8 +102,14 @@ UPDATE submissions
 
 // UpdateSubmissionFailed: インフラ障害確定時に status='failed' に遷移させる。
 // 採点ハンドラの OnDead から呼ぶ。graded_at は「終端確定時刻」として埋める。
+//
+// 0 行更新 (submission が既に graded/failed / soft delete 済 / 存在しない) は
+// error にしない (OnDead は best-effort で error を呼び出し元に返しても
+// 後続復旧経路がない)。代わりに WarnContext で観測ログを残し、運用追跡できる
+// ようにする。通常は 0 行更新は起きない (OnDead 到達時点で submission は
+// pending のはず) ため、頻発する場合は何か壊れている signal になる。
 func (s *pgGradingStore) UpdateSubmissionFailed(ctx context.Context, submissionID uuid.UUID) error {
-	_, err := s.pool.Exec(ctx, `
+	tag, err := s.pool.Exec(ctx, `
 UPDATE submissions
    SET status = 'failed',
        graded_at = NOW()
@@ -112,6 +119,10 @@ UPDATE submissions
 `, submissionID)
 	if err != nil {
 		return fmt.Errorf("grading: update submission %s failed: %w", submissionID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		slog.WarnContext(ctx, "grading: UpdateSubmissionFailed updated 0 rows (already finalized / deleted / missing)",
+			"submission_id", submissionID.String())
 	}
 	return nil
 }
