@@ -28,10 +28,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
+	// moby/moby に移行: github.com/docker/docker/* は GO-2026-4887 / 4883
+	// (AuthZ plugin 関連、全バージョン未修正) を踏むため、fix 反映済みの
+	// github.com/moby/moby/* (client v0.x / api v1.x) を使う。
+	// API 互換 (NewClientWithOpts / ContainerCreate 等は同 signature)。
+	"github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/client"
 )
 
 // FileSource: コンテナにマウントする 1 ファイル。
@@ -78,7 +82,9 @@ func NewRunner(opts Options) (*Runner, error) {
 	if opts.Timeout <= 0 {
 		return nil, fmt.Errorf("sandbox: timeout must be > 0 (got %s)", opts.Timeout)
 	}
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	// moby/client v0.4: NewClientWithOpts は deprecated、New に置換 (go:fix inline 指示)。
+	// WithAPIVersionNegotiation は v0.4 で既定 ON の no-op deprecated になったため不要。
+	cli, err := client.New(client.FromEnv)
 	if err != nil {
 		return nil, fmt.Errorf("sandbox: docker client: %w", err)
 	}
@@ -127,39 +133,42 @@ func (r *Runner) Run(ctx context.Context, files []FileSource, cmd []string) (*Re
 	runCtx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
-	createResp, err := r.cli.ContainerCreate(runCtx, &container.Config{
-		Image:        r.image,
-		Cmd:          cmd,
-		Tty:          false,
-		AttachStdout: true,
-		AttachStderr: true,
-		WorkingDir:   "/sandbox",
-		// Entrypoint を空 slice で上書きする: Dockerfile の ENTRYPOINT ["tsx"] を
-		// 無効化して cmd の先頭が直接 exec される (vitest 等を実行するため)。
-		Entrypoint: []string{},
-		// uid 1000 (node ユーザ) で起動。ホスト側 hostDir はそのまま 1000 でも
-		// 読み取れる権限で書く (os.WriteFile 0644)。
-		User: "1000:1000",
-	}, &container.HostConfig{
-		NetworkMode: "none",
-		Resources: container.Resources{
-			Memory:   256 * 1024 * 1024, //nolint:mnd // 256 MiB (worker.md SSoT)
-			NanoCPUs: 500_000_000,       //nolint:mnd // 0.5 CPU (worker.md SSoT)
+	createResp, err := r.cli.ContainerCreate(runCtx, client.ContainerCreateOptions{
+		Config: &container.Config{
+			Image:        r.image,
+			Cmd:          cmd,
+			Tty:          false,
+			AttachStdout: true,
+			AttachStderr: true,
+			WorkingDir:   "/sandbox",
+			// Entrypoint を空 slice で上書きする: Dockerfile の ENTRYPOINT ["tsx"] を
+			// 無効化して cmd の先頭が直接 exec される (vitest 等を実行するため)。
+			Entrypoint: []string{},
+			// uid 1000 (node ユーザ) で起動。ホスト側 hostDir はそのまま 1000 でも
+			// 読み取れる権限で書く (os.WriteFile 0644)。
+			User: "1000:1000",
 		},
-		ReadonlyRootfs: true,
-		Tmpfs: map[string]string{
-			"/tmp": "rw,size=64m",
-		},
-		AutoRemove: false, // 後で Logs を回収するため Remove は手動
-		Mounts: []mount.Mount{
-			{
-				Type:     mount.TypeBind,
-				Source:   hostDir,
-				Target:   "/sandbox",
-				ReadOnly: true,
+		HostConfig: &container.HostConfig{
+			NetworkMode: "none",
+			Resources: container.Resources{
+				Memory:   256 * 1024 * 1024, //nolint:mnd // 256 MiB (worker.md SSoT)
+				NanoCPUs: 500_000_000,       //nolint:mnd // 0.5 CPU (worker.md SSoT)
+			},
+			ReadonlyRootfs: true,
+			Tmpfs: map[string]string{
+				"/tmp": "rw,size=64m",
+			},
+			AutoRemove: false, // 後で Logs を回収するため Remove は手動
+			Mounts: []mount.Mount{
+				{
+					Type:     mount.TypeBind,
+					Source:   hostDir,
+					Target:   "/sandbox",
+					ReadOnly: true,
+				},
 			},
 		},
-	}, nil, nil, "")
+	})
 	if err != nil {
 		return nil, fmt.Errorf("sandbox: container create: %w", err)
 	}
@@ -168,15 +177,15 @@ func (r *Runner) Run(ctx context.Context, files []FileSource, cmd []string) (*Re
 		// AutoRemove=false なので明示的に Remove。残骸を残さない。
 		removeCtx, removeCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer removeCancel()
-		_ = r.cli.ContainerRemove(removeCtx, containerID, container.RemoveOptions{Force: true})
+		_, _ = r.cli.ContainerRemove(removeCtx, containerID, client.ContainerRemoveOptions{Force: true})
 	}()
 
 	start := time.Now()
-	if err := r.cli.ContainerStart(runCtx, containerID, container.StartOptions{}); err != nil {
+	if _, err := r.cli.ContainerStart(runCtx, containerID, client.ContainerStartOptions{}); err != nil {
 		return nil, fmt.Errorf("sandbox: container start: %w", err)
 	}
 
-	statusCh, errCh := r.cli.ContainerWait(runCtx, containerID, container.WaitConditionNotRunning)
+	waitRes := r.cli.ContainerWait(runCtx, containerID, client.ContainerWaitOptions{Condition: container.WaitConditionNotRunning})
 	var (
 		exitCode int64
 		timedOut bool
@@ -186,14 +195,14 @@ func (r *Runner) Run(ctx context.Context, files []FileSource, cmd []string) (*Re
 		// timeout / cancel: 強制停止して logs だけ回収する。
 		timedOut = errors.Is(runCtx.Err(), context.DeadlineExceeded)
 		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = r.cli.ContainerStop(stopCtx, containerID, container.StopOptions{})
+		_, _ = r.cli.ContainerStop(stopCtx, containerID, client.ContainerStopOptions{})
 		stopCancel()
 		exitCode = -1
-	case err := <-errCh:
+	case err := <-waitRes.Error:
 		if err != nil {
 			return nil, fmt.Errorf("sandbox: container wait: %w", err)
 		}
-	case status := <-statusCh:
+	case status := <-waitRes.Result:
 		exitCode = status.StatusCode
 	}
 	duration := time.Since(start)
@@ -243,7 +252,7 @@ func (r *Runner) writeFiles(files []FileSource) (string, error) {
 func (r *Runner) collectLogs(ctx context.Context, containerID string) (string, string, error) {
 	logsCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	reader, err := r.cli.ContainerLogs(logsCtx, containerID, container.LogsOptions{
+	reader, err := r.cli.ContainerLogs(logsCtx, containerID, client.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 	})

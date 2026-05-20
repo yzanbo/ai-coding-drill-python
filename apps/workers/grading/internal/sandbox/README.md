@@ -37,14 +37,16 @@
 - DinD（Docker in Docker）を使う：パフォーマンス・セキュリティ両面で劣るため不採用（[ADR 0045](../../../../docs/adr/0045-sandbox-container-runtime-dood.md)）
 - `apps/workers/generation/sandbox/Dockerfile` を作る：grading の image を共有起動する（[worker-layers.md §E §9](../../../../docs/requirements/5-roadmap/r0-setup/worker-layers.md)）
 
-## 既知の脆弱性 (govulncheck)
+## SDK 選定（moby/moby/client）
 
-`github.com/docker/docker@v28.5.2`（2026-05 時点の最新）に以下 2 件が報告されているが、いずれも本 Worker の使い方では到達しない（AuthZ plugin パスを叩かない、`--network none` + plugin 不使用）。両者とも **Fixed in: N/A** で fix 版が未リリースのため、当面そのまま運用する：
+Docker daemon を叩く Go SDK は **`github.com/moby/moby/client`**（v0.4 系）を使う。`github.com/docker/docker/client` は同一コードの旧 module path だが、2026-05 時点で以下 2 件の脆弱性が **全バージョン未修正**（fix は `moby/moby/v2 >= v2.0.0-beta.8` 側へ反映済み、`docker/docker` 側への伝播待ち）のため不採用：
 
 - **GO-2026-4887**：Moby has AuthZ plugin bypass when provided oversized request bodies
 - **GO-2026-4883**：Moby has an Off-by-one error in its plugin privilege validation
 
-`mise run worker:grading:audit` の Symbol traces はライブラリ init からの間接的なシンボル到達であり、攻撃面（AuthZ plugin）には到達しない。fix 版がリリースされた時点で go.mod を更新する。
+`moby/moby/client` は別 module で advisory の影響範囲外。API も `NewClientWithOpts` → `New`（deprecated を引き継ぎ）、`ContainerCreate(opts)` の options-struct 化など差分はあるが、本 Worker のユースケース（create / start / wait / logs / stop / remove）ではほぼ等価に書ける。
+
+`docker/docker` への切り戻しは、fix が `docker/docker` 側にも伝播し `mise run worker:grading:audit` で no vulnerabilities が出るバージョンが released されてから検討する。
 
 ## 関連
 
