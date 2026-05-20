@@ -249,6 +249,8 @@ def _build_app() -> FastAPI:
 
         # problems の NOT NULL 列を全部埋める。中身は E2E ダミーで OK。
         # JSONB 列 (examples / test_cases / judge_scores) は json 文字列を渡す。
+        # 注意：カラム構成を変えたらここも同期する必要がある（drift 検出経路の
+        # 外で書いているため、自動では気付けない）。SSoT は ../../api/app/models/problems.py。
         conn = await _connect_local_db()
         try:
             problem_id_row = await conn.fetchrow(

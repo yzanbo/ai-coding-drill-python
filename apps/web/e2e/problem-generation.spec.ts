@@ -16,14 +16,17 @@
 //     そのまま動かしつつ、Worker 不在を回避できる
 
 import { MOCK_GITHUB_ORIGIN } from "./_helpers/constants";
-import { expect, loginViaMockGithub, test } from "./_helpers/test-fixtures";
+import { expect, loginAndGoto, test } from "./_helpers/test-fixtures";
 
-// fullyParallel（playwright.config.ts）と本 spec の resetState は相性が悪い：
-// 並列で走る別テストの beforeEach が同じ DB / Redis を TRUNCATE / FLUSHDB するため、
-// 自分のログイン直後にセッションが他テストから消され「未認証→/login にリダイレクト」
-// される race が起きる。本 spec 内のテストは serial（順次）に倒して回避する。
-// auth.spec.ts と並列で走る race は workers の挙動上 1 ファイル単位で別 worker に
-// 分散されるため発生しない（同一 DB 共有でも spec が直列なら衝突しない）。
+// 本 spec 内のテストを serial（順次）に倒す。並列で走らせると beforeEach の
+// resetState が他テストの DB / Redis を消してログイン直後にセッションが
+// 飛ぶ race が起きるため。
+//
+// 注意：playwright.config.ts は fullyParallel: true で、ローカルは
+// workers が CPU 数分立つため、本 spec と別ファイル（auth.spec.ts 等）が
+// 同時並走すると同じ DB を共有してやはり race が起きる可能性がある。
+// CI は workers: 1 で逐次実行なので安全。ローカル並走時の flaky は
+// 別ファイル間の DB 共有という構造的な課題で、本 spec 単独では解消できない。
 test.describe.configure({ mode: "serial" });
 
 // /problems/generate/<requestId> の URL からリクエスト ID を取り出す。
@@ -40,14 +43,8 @@ test.describe("問題生成フロー (正常系)", () => {
   test("ログイン → カテゴリ・難易度送信 → 生成ステータス画面 → 完了で問題ページへ遷移", async ({
     page,
   }) => {
-    // 1. ログインしてから /problems/new に入る。
-    await loginViaMockGithub(page);
-    // ログイン後の終端着地 / を待ってから次の遷移を始める。
-    // page.goto は最終リダイレクトの完了を待たないことがあり、Cookie が
-    // セットされる前に /problems/new へ goto → (authed) layout が未認証扱いで
-    // /login にリダイレクト、という race を踏むため。
-    await expect(page).toHaveURL("/");
-    await page.goto("/problems/new");
+    // 1. ログインしてから /problems/new に入る（helper が / 着地待ちまで面倒見る）。
+    await loginAndGoto(page, "/problems/new");
     await expect(page.getByRole("heading", { name: "新しい問題を生成する" })).toBeVisible();
 
     // 2. カテゴリ「配列」と難易度「やさしい」を選んで送信する。
@@ -62,8 +59,8 @@ test.describe("問題生成フロー (正常系)", () => {
 
     // 4. URL から requestId を取り出して、Mock 側の test API で completed に押し込む。
     //    押し込み API が返した problem_id が、リダイレクト先 URL と一致するはず。
-    // ?.[1] でも match が null なら undefined になるが、直前で toBeNull() を
-    // 否定 assert しており非 null が保証されているので分岐は出ない。
+    //    waitForURL を直前に通しているため match は必ず成立する想定だが、
+    //    型上は null 可能なので ?.[1] で取り出し toBeDefined() で明示 assert する。
     const requestId = page.url().match(REQUEST_ID_PATTERN)?.[1];
     expect(requestId).toBeDefined();
 
@@ -85,13 +82,7 @@ test.describe("問題生成フォームのバリデーション", () => {
   test("カテゴリ・難易度を未選択のまま送信するとエラーメッセージが出て遷移しない", async ({
     page,
   }) => {
-    await loginViaMockGithub(page);
-    // ログイン後の終端着地 / を待ってから次の遷移を始める。
-    // page.goto は最終リダイレクトの完了を待たないことがあり、Cookie が
-    // セットされる前に /problems/new へ goto → (authed) layout が未認証扱いで
-    // /login にリダイレクト、という race を踏むため。
-    await expect(page).toHaveURL("/");
-    await page.goto("/problems/new");
+    await loginAndGoto(page, "/problems/new");
 
     // 何も選ばずにいきなり送信する。
     await page.getByRole("button", { name: "問題を生成する" }).click();
@@ -109,13 +100,7 @@ test.describe("問題生成 failed 時の再試行", () => {
   test("生成が失敗するとエラー表示 + 「もう一度生成する」で /problems/new に戻る", async ({
     page,
   }) => {
-    await loginViaMockGithub(page);
-    // ログイン後の終端着地 / を待ってから次の遷移を始める。
-    // page.goto は最終リダイレクトの完了を待たないことがあり、Cookie が
-    // セットされる前に /problems/new へ goto → (authed) layout が未認証扱いで
-    // /login にリダイレクト、という race を踏むため。
-    await expect(page).toHaveURL("/");
-    await page.goto("/problems/new");
+    await loginAndGoto(page, "/problems/new");
 
     // フォーム送信までは正常系と同じ。
     await page.getByText("再帰", { exact: true }).click();
@@ -123,8 +108,8 @@ test.describe("問題生成 failed 時の再試行", () => {
     await page.getByRole("button", { name: "問題を生成する" }).click();
 
     await page.waitForURL(REQUEST_ID_PATTERN);
-    // ?.[1] でも match が null なら undefined になるが、直前で toBeNull() を
-    // 否定 assert しており非 null が保証されているので分岐は出ない。
+    // waitForURL を直前に通しているため match は必ず成立する想定だが、
+    // 型上は null 可能なので ?.[1] で取り出し toBeDefined() で明示 assert する。
     const requestId = page.url().match(REQUEST_ID_PATTERN)?.[1];
     expect(requestId).toBeDefined();
 
