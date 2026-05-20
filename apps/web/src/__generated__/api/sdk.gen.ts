@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors } from './types.gen';
+import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostErrors, RequestProblemGenerationApiProblemsGeneratePostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,37 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: Record<string, unknown>;
 };
+
+/**
+ * Request Problem Generation
+ *
+ * カテゴリ・難易度を受け取って生成ジョブを enqueue する。
+ *
+ * 挙動：
+ * - generation_requests へ 1 行 INSERT（status='pending'）
+ * - jobs へ 1 行 INSERT + NOTIFY new_job を同一トランザクションで実行
+ * - 202 で requestId を返す。実際の生成は Worker が非同期で処理する
+ * - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す
+ */
+export const requestProblemGenerationApiProblemsGeneratePost = <ThrowOnError extends boolean = false>(options: Options<RequestProblemGenerationApiProblemsGeneratePostData, ThrowOnError>) => (options.client ?? client).post<RequestProblemGenerationApiProblemsGeneratePostResponses, RequestProblemGenerationApiProblemsGeneratePostErrors, ThrowOnError>({
+    url: '/api/problems/generate',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Problem Generation Status
+ *
+ * 生成リクエストの現在ステータスを返す。
+ *
+ * - 自分のリクエストでない / 存在しないリクエスト ID には 404 を返す
+ * （他人のリクエストか存在しないかの区別は付けない、情報漏洩防止）
+ * - status='completed' の時のみ problemId フィールドが付く
+ */
+export const getProblemGenerationStatusApiProblemsGenerateRequestIdGet = <ThrowOnError extends boolean = false>(options: Options<GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, ThrowOnError>) => (options.client ?? client).get<GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, ThrowOnError>({ url: '/api/problems/generate/{request_id}', ...options });
 
 /**
  * Start Github Oauth

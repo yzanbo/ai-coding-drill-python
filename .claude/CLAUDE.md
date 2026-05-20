@@ -164,6 +164,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 - main で直接作業しない（必ず別ブランチを切る）
 - 明示指示なしに **`git add` / `git commit` / `git push` / PR 作成** を行わない（4 操作いずれもユーザの明示指示が必須）
 - 「コミットして」と明示指示された場合でも、対象は**既にステージされているファイルのみ**。未ステージ変更の自動 `git add` は行わない
+- **worktree にロックを付けない**：`git worktree add` で `--lock` を使わない。ロックが残ると `mise run git:clean` のマージ済 worktree 自動回収（孤児 worktree のお掃除）が効かなくなる。一過性 worktree は終了時に勝手に消えてよいもの
 
 ### ブランチ運用
 
@@ -246,6 +247,7 @@ GitHub OAuth のみ。ローカルでは GitHub OAuth App を別途作成し、`
 | `/onboarding` | 新規参画者向けプロジェクト案内 |
 
 **重要**：機能追加は必ず `docs/requirements/` の要件 .md から始める。
+**重要**：要件定義書と実装の整合性を常に取る（実装変更時は要件 .md も合わせて更新、ズレを残さない）。
 
 ## ルールファイルの管理
 

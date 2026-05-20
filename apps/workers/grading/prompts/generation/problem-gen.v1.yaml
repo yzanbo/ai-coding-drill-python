@@ -1,0 +1,85 @@
+# 問題生成プロンプト (TypeScript 学習用、v1)
+# 生成 LLM (generation ロール) が受け取り、問題本文 + テスト + 模範解答を JSON で返す。
+#
+# 関連:
+#   - 規約 SSoT: ../../../../.claude/rules/prompts.md (YAML スキーマ)
+#   - 配置根拠 : ADR 0040 (Worker 内 LLM 集約)
+#   - 出力境界 : apps/api/app/models/problems.py の Problem スキーマと整合
+#                (title / description / examples / test_cases / reference_solution)
+#   - 出題範囲 : docs/requirements/4-features/problem-generation.md
+#
+# バージョン管理:
+#   - 一度配布した vN は書き換えない (履歴保持、prompts.md §不変性)
+#   - 軸追加・スキーマ変更時は vN+1 を新規作成
+
+version: v1
+language: typescript
+model_role: generator
+
+# ─────────────────────────────────────────────
+# システムプロンプト (出題者の役割定義)
+# ─────────────────────────────────────────────
+system_prompt: |
+  あなたは TypeScript の中級学習者向けに練習問題を作る出題者です。
+
+  以下のルールを必ず守ってください:
+    1. 出力は厳密に JSON 形式のみ。前後に説明文を付けない
+    2. 問題本文は Markdown で書く。何を実装すべきかが一意に決まる文言にする
+    3. テストケースは Vitest で `it.each(testCases)` で回せる形式にする
+       (input は呼び出し引数の配列、expected は期待戻り値)
+    4. reference_solution は単一ファイルの TypeScript として完結させる
+       (Node 24 + tsx + Vitest で `tsx solution.ts` 実行可能)
+    5. examples の input / output は人間に見せる用途。テストは test_cases を使う
+    6. category と difficulty は指定された値に厳密に従う
+
+# ─────────────────────────────────────────────
+# ユーザープロンプトテンプレート
+# ─────────────────────────────────────────────
+user_template: |
+  カテゴリ: {{category}}
+  難易度: {{difficulty}}
+
+  上記の条件で TypeScript の練習問題を 1 問作ってください。
+
+  ===== 出力形式 (厳密にこの JSON 構造) =====
+  {
+    "title": "<60 文字以内のタイトル>",
+    "description": "<問題本文 (Markdown)。入力・出力の説明を含める>",
+    "examples": [
+      { "input": "<人間可読の例 (引数表現)>", "output": "<期待戻り値の例>", "explanation": "<任意>" }
+    ],
+    "test_cases": [
+      { "input": [<引数 1>, <引数 2>, ...], "expected": <期待戻り値> }
+    ],
+    "reference_solution": "<単一 TS ファイルとして実行可能な模範解答コード>"
+  }
+
+  test_cases は最低 3 件、エッジケース (空入力 / 境界値 / 異常系) を含めること。
+  reference_solution は default export ではなく `export function solve(...)` の形にする。
+
+# ─────────────────────────────────────────────
+# 出力スキーマへの参照
+# ─────────────────────────────────────────────
+# 本 PR では JSON Schema validate は実装せず、Go 側で json.Unmarshal +
+# 必須フィールドチェックで弾く。将来 problems.schema.json を ADR 0006 経路で
+# 自動生成したら output_schema_ref に切替える。
+output_schema_ref: null
+
+# ─────────────────────────────────────────────
+# パラメータ
+# ─────────────────────────────────────────────
+parameters:
+  # 多様性確保のため温度高め (03-llm-pipeline.md「構造化出力」)
+  temperature: 0.7
+  max_tokens: 4096
+
+# ─────────────────────────────────────────────
+# メタ情報
+# ─────────────────────────────────────────────
+metadata:
+  created_at: "2026-05-20"
+  notes: |
+    R1-3 初版。実装着手後に以下を見て v2 を起こす想定:
+    - test_cases が Vitest 構文と合っているか (引数配列で受けて正しく実行できるか)
+    - サンドボックス実行成功率
+    - judge スコア分布

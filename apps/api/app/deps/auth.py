@@ -58,7 +58,26 @@ async def get_current_user_optional(
     # AuthService を経由するのは ADR 0044 の Repository パターン徹底のため
     # （Repository を直接呼ばず Service の get_current_user を通す）。
     service = AuthService(db_session, redis)
-    return await service.get_current_user(session.user_id)
+    # 認証ルックアップの SELECT を「明示的な短命トランザクション」で包む：
+    #   SQLAlchemy 2.0 の AsyncSession は SELECT を投げた瞬間に autobegin で
+    #   暗黙の tx を開始する。get_async_session が払い出した同じ session を
+    #   route handler 配下の Service が後段で使う作りのため、ここで暗黙 tx を
+    #   閉じておかないと、後続の Service が ADR 0044 規約どおり
+    #   `async with session.begin():` を呼んだ瞬間に
+    #   「A transaction is already begun on this Session」で 500 になる。
+    #   ここで明示的に begin / commit して短命 tx を完結させると、後段の
+    #   Service 側は常にクリーンな session を前提に書ける
+    #   （pre-auth / post-auth で挙動を分けなくて済む）。
+    #   SELECT のみなので tx を開く副作用は無い。AsyncSession は
+    #   expire_on_commit=False（db/session.py）なので commit 後も
+    #   返した User ORM の属性アクセスは継続して可能。
+    async with db_session.begin():
+        user = await service.get_current_user(session.user_id)
+    # request.state.user に積んでおく：rate limit 用の key 関数 (deps/rate_limit.py の
+    #   get_rate_limit_key) が request.state.user.id を読んでユーザー単位の counter を引く。
+    #   None の時もここでセットしておくと、key 関数側で hasattr/getattr の場合分けが減る。
+    request.state.user = user
+    return user
 
 
 # get_current_user: 必須版。未認証なら 401。

@@ -295,6 +295,7 @@ resp, err := cli.ContainerCreate(ctx, &container.Config{
 - `--network none`：ネットワーク完全遮断
 - `--memory 256m`：メモリ上限
 - `--cpus 0.5`：CPU 上限
+- `--pids-limit 128`：プロセス数上限。LLM 生成コードに fork 爆弾耐性を持たせる（実装値の SSoT は `apps/workers/grading/internal/sandbox/runner.go` の `sandboxPidsLimit`）
 - `--read-only`：ルート FS 読み取り専用
 - `--tmpfs /tmp:rw,size=64m`：書き込みは /tmp のみ
 - `--user 1000:1000`：非 root 実行
@@ -440,13 +441,14 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 
 ## 環境変数（両 Worker 共通、`internal/config/` で集約）
 
-> ローカル開発では `apps/workers/grading/.env.example` をコピーして `apps/workers/grading/.env` を作る。`mise.toml` の `[env] _.file` 設定により `mise run worker:grading:*` 経由のタスク起動時に自動 load される（ADR 0039）。`.env` は gitignore 済み。
+> ローカル開発では `apps/workers/grading/.env.example` をコピーして `apps/workers/grading/.env` を作る。`cmd/grading/main.go` が起動時に `godotenv.Load()` で自己 load する（cwd 起点、production Docker 環境では `.env` 不在で silent skip）。api 側 `.env` とは env scope を分離する方針で、mise.toml の global `_.file` load による「後勝ち衝突」を避けている（ADR 0039）。`.env` は gitignore 済み。
 
 - `DATABASE_URL` — Postgres 接続文字列
 - `REDIS_URL` — LLM キャッシュ参照時のみ
 - `WORKER_ID` — `locked_by` に書く識別子（既定はホスト名、`os.Hostname()` 失敗時はプレースホルダ `unknown-host`）
 - `WORKER_CONCURRENCY` — 並列 goroutine 数（既定 4、**> 0 必須**）
 - `SANDBOX_IMAGE` — サンドボックスのイメージタグ（両 Worker で同じ image を起動、既定 `ai-coding-drill-sandbox:latest`）
+- `SANDBOX_TMP_DIR` — sandbox runner がホスト tmp dir を作る親ディレクトリ（任意、空なら OS 既定 `$TMPDIR`）。macOS Docker Desktop の File Sharing で `$TMPDIR` 配下が許可外の環境では `/tmp` 等を明示
 - `JOB_TIMEOUT_SECONDS` — タイムアウト秒（grading 既定 5、generation は LLM 呼び出しが長いため大きめが望ましい、`config/` 既定で個別調整、**> 0 必須**）
 - `RECLAIM_AFTER_MINUTES` — スタックジョブとみなす経過時間（既定 5、**> 0 必須**）
 

@@ -73,3 +73,6 @@ coverage/
 # Misc
 .cache/
 tmp/
+
+# Claude Code agent worktrees（agent サブプロセス用の一過性 git worktree、リポジトリには含めない）
+.claude/worktrees/

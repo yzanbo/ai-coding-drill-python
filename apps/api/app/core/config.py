@@ -77,6 +77,14 @@ class Settings(BaseSettings):
         default="redis://localhost:6379/0",
         description="Redis 接続 URL（cache / session / rate limit 用）",
     )
+    # rate_limit_storage_uri: slowapi の Limiter が使う保存先。
+    #   None なら redis_url を使う（本番運用の既定）。
+    #   テスト時は環境変数 RATE_LIMIT_STORAGE_URI=memory:// で in-memory に倒して、
+    #   実 Redis 起動なしで rate limit の振る舞いを検証できるようにする。
+    rate_limit_storage_uri: str | None = Field(
+        default=None,
+        description="slowapi の保存先 URI（未指定なら redis_url を使う）",
+    )
 
     # ----- GitHub OAuth 用 -----
     # GitHub の OAuth アプリ（https://github.com/settings/developers で作成）から
@@ -95,6 +103,22 @@ class Settings(BaseSettings):
     github_redirect_uri: str = Field(
         default="http://localhost:8000/auth/github/callback",
         description="GitHub OAuth コールバック URL（GitHub App 設定と一致させる）",
+    )
+    # github_authorize_url / github_token_url / github_user_api_url: GitHub の OAuth
+    #   エンドポイント URL。デフォルトは本番 github.com の URL。
+    #   テスト時のみ mock サーバ URL に上書きする想定 (E2E テストで実 GitHub を
+    #   叩かないため)。本番 / 開発では既定値のまま使う。
+    github_authorize_url: str = Field(
+        default="https://github.com/login/oauth/authorize",
+        description="GitHub OAuth 認可エンドポイント URL（テスト時のみ mock 用に上書き）",
+    )
+    github_token_url: str = Field(
+        default="https://github.com/login/oauth/access_token",
+        description="GitHub OAuth トークン交換エンドポイント URL（テスト時のみ mock 用に上書き）",
+    )
+    github_user_api_url: str = Field(
+        default="https://api.github.com/user",
+        description="GitHub ユーザー情報取得エンドポイント URL（テスト時のみ mock 用に上書き）",
     )
 
     # ----- セッション / Cookie -----

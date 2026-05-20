@@ -21,6 +21,13 @@ Next.js 16+（App Router）+ React + TypeScript のフロントエンド。
 
 詳細な選定理由は [05-runtime-stack.md](../../docs/requirements/2-foundation/05-runtime-stack.md#フロントエンド) と [ADR 0015](../../docs/adr/0015-codemirror-over-monaco.md)。
 
+## UI コンポーネントの選定方針
+
+- **UI プリミティブ（button / card / radio-group / select / dialog 等）は shadcn/ui を優先**で採用する。自前実装や別ライブラリを足す前に、まず shadcn に該当コンポーネントが無いかを確認する
+- 採用したら `apps/web/src/components/ui/<name>/<name>.tsx` にフォルダ形式で配置（単一ファイル配置禁止、→ [frontend-component.md §1](./frontend-component.md)）
+- 理由：a11y / キーボード操作 / `data-state` ベースのスタイル拡張が揃っており、shadcn を使う限り UI 層の品質が一定に揃う。独自実装で同等品質を作ろうとすると工数の割に標準化されない
+- 例外：shadcn に無いもの・shadcn 採用で不要な依存が大量に増えるもの・ドメインロジックを含むブロック（後者は `components/parts/` に独自実装）
+
 ## ディレクトリ構成（実装契約）
 
 機能別フラット構成。ファイル配置・import 方向は本セクションが SSoT で、R1 以降の機能実装は

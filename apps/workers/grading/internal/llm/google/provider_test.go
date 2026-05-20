@@ -216,6 +216,98 @@ func TestExtractFinishReason_NilResponse(t *testing.T) {
 	assert.Equal(t, "unknown", extractFinishReason(&genai.GenerateContentResponse{}))
 }
 
+// TestGenerateWithRetry_RetriesOn429ThenSucceeds:
+// 429 を 2 回返した後に成功するモックを渡し、retry ループが 3 回目で成功を
+// 返すこと、call 回数が 3 回であることを検証する。
+func TestGenerateWithRetry_RetriesOn429ThenSucceeds(t *testing.T) {
+	// バックオフ待機を縮めて test 時間を短縮する。
+	orig := retryBaseDelay
+	retryBaseDelay = 1 * time.Millisecond
+	defer func() { retryBaseDelay = orig }()
+
+	callCount := 0
+	expected := &genai.GenerateContentResponse{}
+	call := func(ctx context.Context) (*genai.GenerateContentResponse, error) {
+		callCount++
+		if callCount < 3 {
+			return nil, genai.APIError{Code: 429, Message: "rate limited"}
+		}
+		return expected, nil
+	}
+
+	resp, err := generateWithRetry(context.Background(), call, "gemini-3.5-flash")
+	require.NoError(t, err)
+	assert.Same(t, expected, resp)
+	assert.Equal(t, 3, callCount, "429 を 2 回返した後 3 回目で成功するべき")
+}
+
+// TestGenerateWithRetry_429ExhaustsAttempts:
+// 全試行で 429 を返した場合、最終的に最後の 429 エラーが返り、
+// 上位の mapError で ErrRateLimit に正規化されることを検証する。
+func TestGenerateWithRetry_429ExhaustsAttempts(t *testing.T) {
+	orig := retryBaseDelay
+	retryBaseDelay = 1 * time.Millisecond
+	defer func() { retryBaseDelay = orig }()
+
+	callCount := 0
+	call := func(ctx context.Context) (*genai.GenerateContentResponse, error) {
+		callCount++
+		return nil, genai.APIError{Code: 429, Message: "rate limited"}
+	}
+
+	resp, err := generateWithRetry(context.Background(), call, "gemini-3.5-flash")
+	assert.Nil(t, resp)
+	require.Error(t, err)
+	assert.Equal(t, retryMaxAttempts, callCount, "retryMaxAttempts 回試行するべき")
+	mapped := mapError(err, context.Background())
+	assert.True(t, errors.Is(mapped, llm.ErrRateLimit),
+		"最終エラーは ErrRateLimit に正規化可能であるべき: got %v", mapped)
+}
+
+// TestGenerateWithRetry_NonRateLimitErrorReturnsImmediately:
+// 429 以外 (例: 500) ではリトライせず 1 回で即返すことを検証する。
+func TestGenerateWithRetry_NonRateLimitErrorReturnsImmediately(t *testing.T) {
+	orig := retryBaseDelay
+	retryBaseDelay = 1 * time.Millisecond
+	defer func() { retryBaseDelay = orig }()
+
+	callCount := 0
+	call := func(ctx context.Context) (*genai.GenerateContentResponse, error) {
+		callCount++
+		return nil, genai.APIError{Code: 500, Message: "internal"}
+	}
+
+	resp, err := generateWithRetry(context.Background(), call, "gemini-3.5-flash")
+	assert.Nil(t, resp)
+	require.Error(t, err)
+	assert.Equal(t, 1, callCount, "429 以外はリトライしないべき")
+}
+
+// TestGenerateWithRetry_RespectsContextCancel:
+// バックオフ待機中に ctx をキャンセルすると ctx.Err を返して即終了する。
+func TestGenerateWithRetry_RespectsContextCancel(t *testing.T) {
+	orig := retryBaseDelay
+	retryBaseDelay = 50 * time.Millisecond
+	defer func() { retryBaseDelay = orig }()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	callCount := 0
+	call := func(ctx context.Context) (*genai.GenerateContentResponse, error) {
+		callCount++
+		// 初回呼び出しの直後に cancel して待機中の select を抜けさせる。
+		go func() {
+			time.Sleep(5 * time.Millisecond)
+			cancel()
+		}()
+		return nil, genai.APIError{Code: 429, Message: "rate limited"}
+	}
+
+	resp, err := generateWithRetry(ctx, call, "gemini-3.5-flash")
+	assert.Nil(t, resp)
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, 1, callCount, "cancel 後はリトライしないべき")
+}
+
 func TestExtractUsage_NilResponse(t *testing.T) {
 	t.Parallel()
 
