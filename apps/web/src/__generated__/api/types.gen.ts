@@ -34,6 +34,90 @@ export type HealthCheckResponse = {
 };
 
 /**
+ * MeCategoryStat
+ *
+ * カテゴリ別の解答数・正解数・正答率。
+ */
+export type MeCategoryStat = {
+    /**
+     * Accuracy
+     */
+    accuracy: number;
+    /**
+     * Attempts
+     */
+    attempts: number;
+    /**
+     * Category
+     */
+    category: string;
+    /**
+     * Correct
+     */
+    correct: number;
+};
+
+/**
+ * MeStatsResponse
+ *
+ * 全期間の正答率 + カテゴリ別習熟度。
+ */
+export type MeStatsResponse = {
+    /**
+     * Accuracy
+     */
+    accuracy: number;
+    /**
+     * Bycategory
+     */
+    byCategory?: Array<MeCategoryStat>;
+    /**
+     * Correct
+     */
+    correct: number;
+    /**
+     * Total
+     */
+    total: number;
+};
+
+/**
+ * MeWeakCategoryItem
+ *
+ * 弱点に該当するカテゴリ 1 件。
+ */
+export type MeWeakCategoryItem = {
+    /**
+     * Accuracy
+     */
+    accuracy: number;
+    /**
+     * Attempts
+     */
+    attempts: number;
+    /**
+     * Category
+     */
+    category: string;
+    /**
+     * Correct
+     */
+    correct: number;
+};
+
+/**
+ * MeWeaknessResponse
+ *
+ * 弱点カテゴリ Top N。
+ */
+export type MeWeaknessResponse = {
+    /**
+     * Weakcategories
+     */
+    weakCategories?: Array<MeWeakCategoryItem>;
+};
+
+/**
  * ProblemCategory
  */
 export type ProblemCategory = 'string' | 'array' | 'recursion' | 'async' | 'type-puzzle';
@@ -405,6 +489,38 @@ export type ValidationError = {
      */
     type: string;
 };
+
+export type GetMyStatsApiMeStatsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/stats';
+};
+
+export type GetMyStatsApiMeStatsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: MeStatsResponse;
+};
+
+export type GetMyStatsApiMeStatsGetResponse = GetMyStatsApiMeStatsGetResponses[keyof GetMyStatsApiMeStatsGetResponses];
+
+export type GetMyWeaknessApiMeWeaknessGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/weakness';
+};
+
+export type GetMyWeaknessApiMeWeaknessGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: MeWeaknessResponse;
+};
+
+export type GetMyWeaknessApiMeWeaknessGetResponse = GetMyWeaknessApiMeWeaknessGetResponses[keyof GetMyWeaknessApiMeWeaknessGetResponses];
 
 export type ListProblemsApiProblemsGetData = {
     body?: never;

@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createHealthCheckHealthPost, getMeAuthMeGet, getProblemDetailApiProblemsProblemIdGet, getProblemGenerationStatusApiProblemsGenerateRequestIdGet, getSubmissionApiSubmissionsSubmissionIdGet, githubCallbackAuthGithubCallbackGet, healthzHealthzGet, listHealthChecksHealthGet, listMySubmissionsApiSubmissionsGet, listProblemsApiProblemsGet, logoutAuthLogoutPost, type Options, requestProblemGenerationApiProblemsGeneratePost, startGithubOauthAuthGithubGet, submitAnswerApiSubmissionsPost } from '../sdk.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponse, GetMeAuthMeGetData, GetMeAuthMeGetResponse, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetError, GetProblemDetailApiProblemsProblemIdGetResponse, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetError, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetError, GetSubmissionApiSubmissionsSubmissionIdGetResponse, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetError, HealthzHealthzGetData, HealthzHealthzGetResponse, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponse, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetError, ListMySubmissionsApiSubmissionsGetResponse, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponse, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostError, RequestProblemGenerationApiProblemsGeneratePostResponse, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetError, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostError, SubmitAnswerApiSubmissionsPostResponse } from '../types.gen';
+import { createHealthCheckHealthPost, getMeAuthMeGet, getMyStatsApiMeStatsGet, getMyWeaknessApiMeWeaknessGet, getProblemDetailApiProblemsProblemIdGet, getProblemGenerationStatusApiProblemsGenerateRequestIdGet, getSubmissionApiSubmissionsSubmissionIdGet, githubCallbackAuthGithubCallbackGet, healthzHealthzGet, listHealthChecksHealthGet, listMySubmissionsApiSubmissionsGet, listProblemsApiProblemsGet, logoutAuthLogoutPost, type Options, requestProblemGenerationApiProblemsGeneratePost, startGithubOauthAuthGithubGet, submitAnswerApiSubmissionsPost } from '../sdk.gen';
+import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponse, GetMeAuthMeGetData, GetMeAuthMeGetResponse, GetMyStatsApiMeStatsGetData, GetMyStatsApiMeStatsGetResponse, GetMyWeaknessApiMeWeaknessGetData, GetMyWeaknessApiMeWeaknessGetResponse, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetError, GetProblemDetailApiProblemsProblemIdGetResponse, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetError, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetError, GetSubmissionApiSubmissionsSubmissionIdGetResponse, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetError, HealthzHealthzGetData, HealthzHealthzGetResponse, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponse, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetError, ListMySubmissionsApiSubmissionsGetResponse, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponse, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostError, RequestProblemGenerationApiProblemsGeneratePostResponse, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetError, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostError, SubmitAnswerApiSubmissionsPostResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -38,6 +38,55 @@ const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions
     }
     return [params];
 };
+
+export const getMyStatsApiMeStatsGetQueryKey = (options?: Options<GetMyStatsApiMeStatsGetData>) => createQueryKey('getMyStatsApiMeStatsGet', options);
+
+/**
+ * Get My Stats
+ *
+ * 全期間・全カテゴリの正答率を返す（取得時点でリアルタイム集計）。
+ *
+ * - 採点完了行（status='graded'）のみカウント
+ * - 履歴ゼロのユーザーには total=0 / accuracy=0.0 / byCategory=[] を返す
+ * - ソフトデリートは無視（履歴永続保存、learning.md §ビジネスルール）
+ */
+export const getMyStatsApiMeStatsGetOptions = (options?: Options<GetMyStatsApiMeStatsGetData>) => queryOptions<GetMyStatsApiMeStatsGetResponse, DefaultError, GetMyStatsApiMeStatsGetResponse, ReturnType<typeof getMyStatsApiMeStatsGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMyStatsApiMeStatsGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMyStatsApiMeStatsGetQueryKey(options)
+});
+
+export const getMyWeaknessApiMeWeaknessGetQueryKey = (options?: Options<GetMyWeaknessApiMeWeaknessGetData>) => createQueryKey('getMyWeaknessApiMeWeaknessGet', options);
+
+/**
+ * Get My Weakness
+ *
+ * 正答率の低いカテゴリ Top N を返す。
+ *
+ * 抽出ルール（learning.md §ビジネスルール）：
+ * - 3 問以上解答かつ正答率 50% 未満のカテゴリのみ対象
+ * - accuracy 昇順、tie-break で attempts 降順
+ * - Top 5 まで返す
+ */
+export const getMyWeaknessApiMeWeaknessGetOptions = (options?: Options<GetMyWeaknessApiMeWeaknessGetData>) => queryOptions<GetMyWeaknessApiMeWeaknessGetResponse, DefaultError, GetMyWeaknessApiMeWeaknessGetResponse, ReturnType<typeof getMyWeaknessApiMeWeaknessGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMyWeaknessApiMeWeaknessGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMyWeaknessApiMeWeaknessGetQueryKey(options)
+});
 
 export const listProblemsApiProblemsGetQueryKey = (options?: Options<ListProblemsApiProblemsGetData>) => createQueryKey('listProblemsApiProblemsGet', options);
 

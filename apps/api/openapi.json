@@ -43,6 +43,121 @@
         "title": "HealthCheckResponse",
         "type": "object"
       },
+      "MeCategoryStat": {
+        "description": "カテゴリ別の解答数・正解数・正答率。",
+        "properties": {
+          "accuracy": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Accuracy",
+            "type": "number"
+          },
+          "attempts": {
+            "minimum": 0.0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "correct": {
+            "minimum": 0.0,
+            "title": "Correct",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "attempts",
+          "correct",
+          "accuracy"
+        ],
+        "title": "MeCategoryStat",
+        "type": "object"
+      },
+      "MeStatsResponse": {
+        "description": "全期間の正答率 + カテゴリ別習熟度。",
+        "properties": {
+          "accuracy": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Accuracy",
+            "type": "number"
+          },
+          "byCategory": {
+            "items": {
+              "$ref": "#/components/schemas/MeCategoryStat"
+            },
+            "title": "Bycategory",
+            "type": "array"
+          },
+          "correct": {
+            "minimum": 0.0,
+            "title": "Correct",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "correct",
+          "accuracy"
+        ],
+        "title": "MeStatsResponse",
+        "type": "object"
+      },
+      "MeWeakCategoryItem": {
+        "description": "弱点に該当するカテゴリ 1 件。",
+        "properties": {
+          "accuracy": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Accuracy",
+            "type": "number"
+          },
+          "attempts": {
+            "minimum": 0.0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "correct": {
+            "minimum": 0.0,
+            "title": "Correct",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "attempts",
+          "correct",
+          "accuracy"
+        ],
+        "title": "MeWeakCategoryItem",
+        "type": "object"
+      },
+      "MeWeaknessResponse": {
+        "description": "弱点カテゴリ Top N。",
+        "properties": {
+          "weakCategories": {
+            "items": {
+              "$ref": "#/components/schemas/MeWeakCategoryItem"
+            },
+            "title": "Weakcategories",
+            "type": "array"
+          }
+        },
+        "title": "MeWeaknessResponse",
+        "type": "object"
+      },
       "ProblemCategory": {
         "enum": [
           "string",
@@ -647,6 +762,50 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/me/stats": {
+      "get": {
+        "description": "全期間・全カテゴリの正答率を返す（取得時点でリアルタイム集計）。\n\n- 採点完了行（status='graded'）のみカウント\n- 履歴ゼロのユーザーには total=0 / accuracy=0.0 / byCategory=[] を返す\n- ソフトデリートは無視（履歴永続保存、learning.md §ビジネスルール）",
+        "operationId": "get_my_stats_api_me_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get My Stats",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/weakness": {
+      "get": {
+        "description": "正答率の低いカテゴリ Top N を返す。\n\n抽出ルール（learning.md §ビジネスルール）：\n  - 3 問以上解答かつ正答率 50% 未満のカテゴリのみ対象\n  - accuracy 昇順、tie-break で attempts 降順\n  - Top 5 まで返す",
+        "operationId": "get_my_weakness_api_me_weakness_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeWeaknessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get My Weakness",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/api/problems": {
       "get": {
         "description": "カテゴリ・難易度フィルタ付きで問題一覧を返す。\n\n- 認証不要（ゲスト閲覧可、problem-display-and-answer.md §ビジネスルール）\n- 並び順は created_at DESC（新着優先）\n- 0 件でも 200 + items=[] / totalPages=0 で返す",

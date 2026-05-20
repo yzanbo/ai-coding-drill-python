@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetErrors, GetProblemDetailApiProblemsProblemIdGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetErrors, GetSubmissionApiSubmissionsSubmissionIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetErrors, ListMySubmissionsApiSubmissionsGetResponses, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetErrors, ListProblemsApiProblemsGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostErrors, RequestProblemGenerationApiProblemsGeneratePostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostErrors, SubmitAnswerApiSubmissionsPostResponses } from './types.gen';
+import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetMyStatsApiMeStatsGetData, GetMyStatsApiMeStatsGetResponses, GetMyWeaknessApiMeWeaknessGetData, GetMyWeaknessApiMeWeaknessGetResponses, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetErrors, GetProblemDetailApiProblemsProblemIdGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetErrors, GetSubmissionApiSubmissionsSubmissionIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetErrors, ListMySubmissionsApiSubmissionsGetResponses, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetErrors, ListProblemsApiProblemsGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostErrors, RequestProblemGenerationApiProblemsGeneratePostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostErrors, SubmitAnswerApiSubmissionsPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,29 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: Record<string, unknown>;
 };
+
+/**
+ * Get My Stats
+ *
+ * 全期間・全カテゴリの正答率を返す（取得時点でリアルタイム集計）。
+ *
+ * - 採点完了行（status='graded'）のみカウント
+ * - 履歴ゼロのユーザーには total=0 / accuracy=0.0 / byCategory=[] を返す
+ * - ソフトデリートは無視（履歴永続保存、learning.md §ビジネスルール）
+ */
+export const getMyStatsApiMeStatsGet = <ThrowOnError extends boolean = false>(options?: Options<GetMyStatsApiMeStatsGetData, ThrowOnError>) => (options?.client ?? client).get<GetMyStatsApiMeStatsGetResponses, unknown, ThrowOnError>({ url: '/api/me/stats', ...options });
+
+/**
+ * Get My Weakness
+ *
+ * 正答率の低いカテゴリ Top N を返す。
+ *
+ * 抽出ルール（learning.md §ビジネスルール）：
+ * - 3 問以上解答かつ正答率 50% 未満のカテゴリのみ対象
+ * - accuracy 昇順、tie-break で attempts 降順
+ * - Top 5 まで返す
+ */
+export const getMyWeaknessApiMeWeaknessGet = <ThrowOnError extends boolean = false>(options?: Options<GetMyWeaknessApiMeWeaknessGetData, ThrowOnError>) => (options?.client ?? client).get<GetMyWeaknessApiMeWeaknessGetResponses, unknown, ThrowOnError>({ url: '/api/me/weakness', ...options });
 
 /**
  * List Problems

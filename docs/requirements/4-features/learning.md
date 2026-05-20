@@ -41,6 +41,8 @@
   - クエリ呼び出し側がフィルタの有無を選択する規約（暗黙フィルタを置かない）
 - **所有権チェックの強制**：サーバ側で必ず `Submission.user_id == current_user.id` を WHERE に含める（実装制約、→ [.claude/rules/backend.md](../../../.claude/rules/backend.md): where 条件の必須ルール）
 - **集計はリアルタイム計算**：事前集計テーブル不要（実装方針、MVP 規模では集計クエリで十分）
+- **集計対象は採点完了行のみ**：`submissions.status = 'graded'` の行だけを `attempts` / `correct` の母数とする。`pending`（採点中）・`failed`（インフラ起因の失敗）は正答判定ができないためカウントしない
+- **弱点抽出のしきい値**：`attempts >= 3` かつ `accuracy < 0.5` のカテゴリを対象とし、`accuracy` 昇順（同率は `attempts` 降順で tie-break）で **Top 5** までを返す
 
 ## スコープ外（このスプリントでは扱わない）
 
@@ -179,6 +181,7 @@
 - [ ] 同一問題に複数回解答した場合、すべての履歴が一覧に残る（上書きされていない）
 - [ ] 他ユーザーの `submissions` / `me/stats` / `me/weakness` には 403 / 404 が返って閲覧不可
 - [ ] 統計はリアルタイム計算で取得時点の値が返る（事前集計のキャッシュ古さ問題が発生しない）
+- [ ] 履歴ゼロのユーザーが `/me/stats` / `/me/weakness` を叩いても 200 が返り、`total=0` / `byCategory=[]` / `weakCategories=[]` の空集計として表示される
 
 ## ステータス
 
@@ -186,7 +189,7 @@
 >
 > **長期運用**：機能を再着手・大きく改修するたびに**チェックを外してリセットする**（過去の完了履歴は残さない、履歴は git log と PR で辿る）。常に「この機能の現在の状態」だけを映す鏡として使う。
 
-- [ ] バックエンド実装完了（me/stats / me/weakness ルーター、または submissions の拡張）
+- [x] バックエンド実装完了（me/stats / me/weakness ルーター、または submissions の拡張）
 - [ ] バックエンドユニットテスト完了（pytest、集計ロジックの正確性、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [ ] フロントエンド実装完了（履歴一覧 / 統計 / 弱点画面）
 - [ ] フロントエンドユニットテスト完了（Vitest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）

@@ -20,6 +20,51 @@ export const zHealthCheckResponse = z.object({
 });
 
 /**
+ * MeCategoryStat
+ *
+ * カテゴリ別の解答数・正解数・正答率。
+ */
+export const zMeCategoryStat = z.object({
+    accuracy: z.number().gte(0).lte(1),
+    attempts: z.int().gte(0),
+    category: z.string(),
+    correct: z.int().gte(0)
+});
+
+/**
+ * MeStatsResponse
+ *
+ * 全期間の正答率 + カテゴリ別習熟度。
+ */
+export const zMeStatsResponse = z.object({
+    accuracy: z.number().gte(0).lte(1),
+    byCategory: z.array(zMeCategoryStat).optional(),
+    correct: z.int().gte(0),
+    total: z.int().gte(0)
+});
+
+/**
+ * MeWeakCategoryItem
+ *
+ * 弱点に該当するカテゴリ 1 件。
+ */
+export const zMeWeakCategoryItem = z.object({
+    accuracy: z.number().gte(0).lte(1),
+    attempts: z.int().gte(0),
+    category: z.string(),
+    correct: z.int().gte(0)
+});
+
+/**
+ * MeWeaknessResponse
+ *
+ * 弱点カテゴリ Top N。
+ */
+export const zMeWeaknessResponse = z.object({
+    weakCategories: z.array(zMeWeakCategoryItem).optional()
+});
+
+/**
  * ProblemCategory
  */
 export const zProblemCategory = z.enum([
@@ -263,6 +308,16 @@ export const zValidationError = z.object({
 export const zHttpValidationError = z.object({
     detail: z.array(zValidationError).optional()
 });
+
+/**
+ * Successful Response
+ */
+export const zGetMyStatsApiMeStatsGetResponse = zMeStatsResponse;
+
+/**
+ * Successful Response
+ */
+export const zGetMyWeaknessApiMeWeaknessGetResponse = zMeWeaknessResponse;
 
 export const zListProblemsApiProblemsGetQuery = z.object({
     category: zProblemCategory.nullish(),
