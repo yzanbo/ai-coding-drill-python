@@ -23,15 +23,43 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/db"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/job"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/jobtypes"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/judge"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/llm"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/sandbox"
 )
+
+// generatorIface / sandboxIface / judgeIface / generationStore:
+// handler が依存する外部呼び出しを最小 interface に切り出す。
+// 本番では具象 (ProblemGenerator / sandbox.Runner / judge.Judge / pgGenerationStore)
+// をそのまま渡し、Go の暗黙 interface 実装で適合する。
+// テスト (problem_generate_test.go) では in-memory fake を渡して
+// 「Handle 内で classifyHandlerError が各 step に効いているか」を検証する。
+type generatorIface interface {
+	Generate(ctx context.Context, category, difficulty string) (*ProblemDraft, error)
+}
+
+type sandboxIface interface {
+	Run(ctx context.Context, files []sandbox.FileSource, cmd []string) (*sandbox.Result, error)
+}
+
+type judgeIface interface {
+	Evaluate(ctx context.Context, problemJSON string) (*judge.Result, error)
+}
+
+// generationStore: Handle が generation_requests / problems テーブルに対して
+// 行う読み書きを集約する。本番は pgGenerationStore (pool 直叩き)、
+// テストは in-memory fake に差し替え。
+type generationStore interface {
+	// SelectStatus: 行が無い場合 pgx.ErrNoRows を返す (handler 側で短絡しない)。
+	SelectStatus(ctx context.Context, requestID uuid.UUID) (status string, producedProblemID *uuid.UUID, err error)
+	// InsertProblemAndCompleteRequest: problems INSERT + generation_requests を
+	// 1 tx で completed に遷移。先に finalized 済みなら
+	// ErrGenerationRequestAlreadyFinalized を返す (handler 側で nil 扱いに変換)。
+	InsertProblemAndCompleteRequest(ctx context.Context, draft *ProblemDraft, category, difficulty string, scores JudgeScoresPayload, requestID uuid.UUID) (*CreatedProblem, error)
+}
 
 // classifyHandlerError: handler が外部 (LLM / sandbox / judge) 呼び出しで受け取った
 // エラーを、orchestrator の retryable / dead 分類に乗るよう整形する。
@@ -79,11 +107,12 @@ func classifyHandlerError(err error) error {
 var vitestCmd = []string{"vitest", "run", "--reporter=json"}
 
 // problemGenerateHandler: orchestrator が dispatch するハンドラ実装。
+// 依存は全て interface で受け取り、テストで fake に差し替え可能にする。
 type problemGenerateHandler struct {
-	pool      *pgxpool.Pool
-	generator *ProblemGenerator
-	sandbox   *sandbox.Runner
-	judge     *judge.Judge
+	store     generationStore
+	generator generatorIface
+	sandbox   sandboxIface
+	judge     judgeIface
 }
 
 // Handle: 1 件のジョブを処理する。
@@ -126,7 +155,7 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 	//    1 回目で status='completed' まで進んでいれば、ここで nil を返して
 	//    orchestrator に MarkSucceeded を再試行させる (冪等)。
 	//    status='failed' に達している場合も同様に再処理しない。
-	status, producedProblemID, statusErr := selectGenerationRequestStatus(ctx, h.pool, requestID)
+	status, producedProblemID, statusErr := h.store.SelectStatus(ctx, requestID)
 	if statusErr != nil && !errors.Is(statusErr, pgx.ErrNoRows) {
 		return fmt.Errorf("grading: lookup generation_request before processing: %w", statusErr)
 	}
@@ -184,21 +213,12 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 		Threshold:        judgeRes.Threshold,
 		CostUSD:          judgeRes.CostUSD,
 	}
-	// problems INSERT と generation_requests UPDATE は 1 トランザクションに
-	// 閉じる。途中でクラッシュしても「problems 行は残ったが requests は pending」
-	// という二度書き経路を作らないため (ADR 0046 冪等性契約)。
-	// すでに finalized で markGenerationRequestCompleted が 0 行更新を返した
-	// 場合 (= 別 worker が先に完了) は ErrGenerationRequestAlreadyFinalized で
-	// rollback、INSERT した problems も巻き戻る。
-	var created *CreatedProblem
-	txErr := db.WithTx(ctx, h.pool, func(tx pgx.Tx) error {
-		c, err := insertProblem(ctx, tx, draft, category, difficulty, scores)
-		if err != nil {
-			return err
-		}
-		created = c
-		return markGenerationRequestCompleted(ctx, tx, requestID, c.ID)
-	})
+	// store.InsertProblemAndCompleteRequest: problems INSERT と
+	// generation_requests UPDATE を 1 トランザクションで閉じる
+	// (ADR 0046 冪等性契約: problems だけ残って requests が pending な
+	// 中間状態を作らない)。本番実装は pgGenerationStore (db.WithTx ベース)、
+	// テストは in-memory fake で同等の挙動をエミュレートする。
+	created, txErr := h.store.InsertProblemAndCompleteRequest(ctx, draft, category, difficulty, scores, requestID)
 	if txErr != nil {
 		if errors.Is(txErr, ErrGenerationRequestAlreadyFinalized) {
 			// 別 worker が先に完了済 (at-least-once 重複)。本ジョブは成功扱いで

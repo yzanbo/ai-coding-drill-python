@@ -44,16 +44,37 @@ type Deps struct {
 	ReclaimAfter time.Duration
 }
 
+// jobHandler: Orchestrator が dispatch する 1 ジョブ種別あたりのハンドラ interface。
+// 本番では *problemGenerateHandler が暗黙適合する。
+// テスト (orchestrator_integration_test.go) では fake handler を差し込んで
+// retry / dead の経路を実 DB 上で検証する。
+type jobHandler interface {
+	Handle(ctx context.Context, j *job.Job) error
+}
+
 // Orchestrator: ジョブ消費ループの本体。
 type Orchestrator struct {
 	deps     Deps
-	handler  *problemGenerateHandler
+	handler  jobHandler
 	listener *job.Listener
 }
 
 // New: Deps から Orchestrator を組み立てる。
 // listener は内部で確立する (Deps.Pool が必要)。
 func New(ctx context.Context, deps Deps) (*Orchestrator, error) {
+	handler := &problemGenerateHandler{
+		store:     newPgGenerationStore(deps.Pool),
+		generator: deps.Generator,
+		sandbox:   deps.Sandbox,
+		judge:     deps.Judge,
+	}
+	return newWithHandler(ctx, deps, handler)
+}
+
+// newWithHandler: 任意の jobHandler を差し込める内部 ctor。
+// 本番経路は New (上)、テストでは fake handler を渡して
+// orchestrator の retry/dead 経路を検証する。
+func newWithHandler(ctx context.Context, deps Deps, handler jobHandler) (*Orchestrator, error) {
 	if deps.PollInterval <= 0 {
 		deps.PollInterval = 30 * time.Second
 	}
@@ -71,13 +92,8 @@ func New(ctx context.Context, deps Deps) (*Orchestrator, error) {
 		return nil, err
 	}
 	return &Orchestrator{
-		deps: deps,
-		handler: &problemGenerateHandler{
-			pool:      deps.Pool,
-			generator: deps.Generator,
-			sandbox:   deps.Sandbox,
-			judge:     deps.Judge,
-		},
+		deps:     deps,
+		handler:  handler,
 		listener: listener,
 	}, nil
 }

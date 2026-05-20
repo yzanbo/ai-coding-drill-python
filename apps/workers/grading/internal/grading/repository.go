@@ -16,7 +16,54 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/db"
 )
+
+// pgGenerationStore: generationStore (problem_generate.go 定義) を
+// *pgxpool.Pool に対して実装する具象型。
+// orchestrator.New が組み立てて handler に渡す。
+type pgGenerationStore struct {
+	pool *pgxpool.Pool
+}
+
+// newPgGenerationStore: pool を受け取って store を作る。
+func newPgGenerationStore(pool *pgxpool.Pool) *pgGenerationStore {
+	return &pgGenerationStore{pool: pool}
+}
+
+// SelectStatus: generationStore interface 実装。
+// 既存のパッケージレベル関数 selectGenerationRequestStatus に委譲する。
+func (s *pgGenerationStore) SelectStatus(ctx context.Context, requestID uuid.UUID) (string, *uuid.UUID, error) {
+	return selectGenerationRequestStatus(ctx, s.pool, requestID)
+}
+
+// InsertProblemAndCompleteRequest: generationStore interface 実装。
+// problems INSERT と generation_requests UPDATE を 1 tx に閉じる
+// (ADR 0046 冪等性契約)。失敗時は WithTx が自動 rollback するため、
+// 部分書き込みは残らない。
+func (s *pgGenerationStore) InsertProblemAndCompleteRequest(
+	ctx context.Context,
+	draft *ProblemDraft,
+	category, difficulty string,
+	scores JudgeScoresPayload,
+	requestID uuid.UUID,
+) (*CreatedProblem, error) {
+	var created *CreatedProblem
+	err := db.WithTx(ctx, s.pool, func(tx pgx.Tx) error {
+		c, err := insertProblem(ctx, tx, draft, category, difficulty, scores)
+		if err != nil {
+			return err
+		}
+		created = c
+		return markGenerationRequestCompleted(ctx, tx, requestID, c.ID)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return created, nil
+}
 
 // dbExecutor: *pgxpool.Pool と pgx.Tx の両方が満たす最小インターフェース。
 // Handler が「単発の Pool 直叩き」と「db.WithTx 内の Tx」のどちらでも同じ
