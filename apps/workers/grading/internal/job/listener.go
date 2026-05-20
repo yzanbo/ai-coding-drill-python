@@ -14,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -110,6 +111,12 @@ func (l *Listener) run(ctx context.Context) {
 			// にしていないため)。本 PR では return して listener 停止扱い。
 			// 上位ループは 30 秒ポーリングで claim を試行し続けるので、
 			// listener が止まっても feature は壊れない (= レイテンシ劣化のみ)。
+			// 早期 silent exit を運用で検出できるよう warn ログを残す
+			// (本番で「通知が来なくなった」原因究明の起点になる)。
+			slog.WarnContext(ctx, "job: listener stopped on connection error, polling will continue",
+				"channel", NotifyChannel,
+				"err", err.Error(),
+			)
 			return
 		}
 		// 通知 1 件を ch に流す。受信側が忙しくて buffer 満杯なら drop する
