@@ -75,11 +75,20 @@ describe("AnswerWorkspace", () => {
     );
   });
 
-  it("認証ユーザー：実行ボタン押下で POST /api/submissions が走り submissionId がフィードバックされる", async () => {
+  it("認証ユーザー：実行ボタン押下で submit → GradingResult がマウントされ採点中表示になる", async () => {
     respondAuthAs("authed");
     server.use(
       http.post(`${API_BASE}/api/submissions`, () =>
         HttpResponse.json({ submissionId: "sub-xyz", status: "pending" }, { status: 202 }),
+      ),
+      // submit 後に GradingResult が GET /api/submissions/:id をポーリングする。
+      // 初回は pending を返してスピナー表示まで観測。
+      http.get(`${API_BASE}/api/submissions/sub-xyz`, () =>
+        HttpResponse.json({
+          id: "sub-xyz",
+          problemId: PROBLEM_ID,
+          status: "pending",
+        }),
       ),
     );
     const user = userEvent.setup();
@@ -90,8 +99,9 @@ describe("AnswerWorkspace", () => {
 
     await user.click(button);
 
-    // 送信中表示 → 完了フィードバック の遷移。
-    expect(await screen.findByText(/sub-xyz/)).toBeInTheDocument();
+    // submit 成功 → GradingResult が submissionId='sub-xyz' でマウントされて
+    // 採点中表示 (pending) になることを観測する。
+    expect(await screen.findByText(/採点中/)).toBeInTheDocument();
     expect(mockPush).not.toHaveBeenCalled();
   });
 
