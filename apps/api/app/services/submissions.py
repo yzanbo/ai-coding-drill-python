@@ -191,7 +191,7 @@ class SubmissionService:
         並び順は created_at DESC（Repository 側で固定）。
         problem_title は problems JOIN で取得。
         """
-        rows, total = await self.submissions.list_for_user(
+        submissions, total = await self.submissions.list_for_user(
             user_id=user_id,
             page=page,
             page_size=page_size,
@@ -202,7 +202,10 @@ class SubmissionService:
         total_pages = max(1, math.ceil(total / page_size)) if page_size > 0 else 1
 
         items: list[SubmissionSummary] = []
-        for submission, problem_title in rows:
+        for submission in submissions:
+            # problem_title: Repository が contains_eager で事前読み込みした
+            #   submission.problem から取り出す（追加 SQL は走らない）。
+            problem_title = submission.problem.title
             # result.testResults の件数を total_count として詰める（GET /:id と同じ規約）。
             total_count: int | None = None
             if submission.result is not None:

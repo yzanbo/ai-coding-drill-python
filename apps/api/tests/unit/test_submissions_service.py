@@ -300,9 +300,15 @@ class TestListSubmissions:
         sub2.status = "pending"
         sub2.result = None
 
-        # Repository は (Submission, problem_title) のタプル配列を返す契約。
+        # Repository は Submission ORM の配列を返す契約（ADR 0044）。
+        # 各 ORM は problem 関連が contains_eager で事前ロードされている前提で、
+        # Mock では Problem を作って .problem 属性にベタ詰めする。
+        sub1.problem = _make_problem()
+        sub1.problem.title = "二倍にして返す"
+        sub2.problem = _make_problem()
+        sub2.problem.title = "合計を返す"
         mock_submissions_repo.list_for_user.return_value = (
-            [(sub1, "二倍にして返す"), (sub2, "合計を返す")],
+            [sub1, sub2],
             42,  # 全件数：page_size=20 なら 3 ページ
         )
 

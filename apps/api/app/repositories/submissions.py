@@ -11,6 +11,7 @@ from uuid import UUID
 
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import contains_eager
 
 from app.models.problems import Problem
 from app.models.submissions import Submission
@@ -70,11 +71,12 @@ class SubmissionRepository:
         user_id: UUID,
         page: int,
         page_size: int,
-    ) -> tuple[list[tuple[Submission, str]], int]:
+    ) -> tuple[list[Submission], int]:
         """自分の解答履歴をページングして items と総件数を返す。
 
-        items は (Submission, problem_title) のペア配列。problem_title は
-        problems テーブルを JOIN で引く（一覧 UI で問題タイトルを併記する要件
+        items は Submission ORM の配列。各要素は problem 関連（Problem）が
+        contains_eager で事前読み込みされており、`submission.problem.title` で
+        問題タイトルを取得できる（一覧 UI で問題名を併記する要件
         grading.md §JSON 例 #get-submissions）。
 
         並び順は created_at DESC（新着順）。tie-break は id DESC で deterministic に。
@@ -99,15 +101,17 @@ class SubmissionRepository:
         total = (await self.session.execute(count_stmt)).scalar_one()
 
         # items 本体クエリ。
-        #   Submission と Problem.title を同時に取り、Service 側で詰め替える。
+        #   JOIN で Problem を引きつつ、contains_eager で「この JOIN の結果を
+        #   submission.problem 関連にそのまま詰めて良い」と SQLAlchemy に教える。
+        #   結果、追加クエリなしで submission.problem.title が読める。
         items_stmt = (
-            select(Submission, Problem.title)
+            select(Submission)
             .join(Problem, Problem.id == Submission.problem_id)
+            .options(contains_eager(Submission.problem))
             .where(*conditions)
             .order_by(Submission.created_at.desc(), Submission.id.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
-        rows = (await self.session.execute(items_stmt)).all()
-        items: list[tuple[Submission, str]] = [(row[0], row[1]) for row in rows]
-        return items, total
+        items = (await self.session.execute(items_stmt)).scalars().all()
+        return list(items), total

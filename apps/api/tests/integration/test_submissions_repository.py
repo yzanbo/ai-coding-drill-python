@@ -175,10 +175,11 @@ class TestListForUser:
 
         assert total == 1
         assert len(items) == 1
-        # タプルの 1 要素目が ORM、2 要素目が problem_title。
-        sub, title = items[0]
+        # contains_eager で problem 関連が事前ロードされており、追加 SQL なしで
+        # submission.problem.title が読める契約。
+        sub = items[0]
         assert sub.user_id == owner_id
-        assert title == "配列の合計"
+        assert sub.problem.title == "配列の合計"
 
     async def test_正常系_並び順はcreated_at_DESC(
         self, session: AsyncSession
@@ -196,7 +197,7 @@ class TestListForUser:
         items, _ = await repo.list_for_user(user_id=owner_id, page=1, page_size=20)
 
         # 新着が先頭に来る契約（grading.md §JSON 例 #get-submissions）。
-        assert [s.id for s, _ in items] == [new_id, old_id]
+        assert [s.id for s in items] == [new_id, old_id]
 
     async def test_正常系_pageとpage_sizeでスライスされる(
         self, session: AsyncSession
@@ -271,8 +272,7 @@ class TestListForUser:
 
         assert total == 1
         assert len(items) == 1
-        _, title = items[0]
-        assert title == "生きてる問題"
+        assert items[0].problem.title == "生きてる問題"
 
     async def test_正常系_0件なら空配列とtotal0(self, session: AsyncSession) -> None:
         owner_id = await _create_user(session)
