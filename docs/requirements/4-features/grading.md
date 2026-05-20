@@ -250,11 +250,12 @@ sequenceDiagram
 > **長期運用**：機能を再着手・大きく改修するたびに**チェックを外してリセットする**（過去の完了履歴は残さない、履歴は git log と PR で辿る）。常に「この機能の現在の状態」だけを映す鏡として使う。
 
 - [ ] バックエンド実装完了（submissions ルーター：enqueue + 結果取得のみ。サンドボックス処理は含めない）
-- [ ] 採点 Worker 実装完了（`apps/workers/grading`：ジョブ取得・サンドボックス起動・結果書き戻し）
-- [ ] サンドボックス実装完了（Docker + 制限フラグ、R3 で gVisor 切替）
+- [ ] バックエンドユニットテスト完了（pytest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [ ] フロントエンド実装完了（採点結果表示コンポーネント）
-- [ ] ユニットテスト完了（pytest（API）+ Go testing + testify（Worker、SandboxRunner のモックテスト）、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
-- [ ] E2E テスト完了（解答送信 → 採点完了 → 結果表示の主要フロー、Playwright）
+- [ ] フロントエンドユニットテスト完了（Vitest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
+- [ ] ワーカー実装完了（採点 Worker `apps/workers/grading`：ジョブ取得・サンドボックス（Docker + 制限フラグ、R3 で gVisor 切替）起動・結果書き戻し）
+- [ ] ワーカーユニットテスト完了（Go testing + testify、SandboxRunner のモックテスト含む、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
+- [ ] E2E テスト完了（解答送信 → 採点完了 → 結果表示の主要フロー、Playwright、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [ ] **受け入れ条件すべて満たす**
 
 ## 関連
