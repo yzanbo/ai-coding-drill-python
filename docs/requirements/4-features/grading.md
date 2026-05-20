@@ -240,7 +240,7 @@ sequenceDiagram
 - [ ] OOM / メモリ超過 → 「メモリ使用量超過」と表示
 - [ ] 型パズル系カテゴリは型エラーの有無が採点結果に反映される
 - [ ] 他ユーザーの `submissions/:id` には 403 / 404 が返って閲覧不可
-- [ ] レート制限：同一ユーザーで `1 分 / 30 回` を超えると `429` を返す（→ [3-cross-cutting/02-api-conventions.md](../3-cross-cutting/02-api-conventions.md#レート制限)）
+- [ ] レート制限：同一ユーザーで `1 分 / 20 回` を超えると `429` を返す（→ [3-cross-cutting/02-api-conventions.md](../3-cross-cutting/02-api-conventions.md#レート制限)）
 - [ ] 採点結果は再取得しても同じ内容が返る（永続保存）
 
 ## ステータス

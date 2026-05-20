@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostErrors, RequestProblemGenerationApiProblemsGeneratePostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors } from './types.gen';
+import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetErrors, GetProblemDetailApiProblemsProblemIdGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetErrors, ListProblemsApiProblemsGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostErrors, RequestProblemGenerationApiProblemsGeneratePostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostErrors, SubmitAnswerApiSubmissionsPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,17 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: Record<string, unknown>;
 };
+
+/**
+ * List Problems
+ *
+ * カテゴリ・難易度フィルタ付きで問題一覧を返す。
+ *
+ * - 認証不要（ゲスト閲覧可、problem-display-and-answer.md §ビジネスルール）
+ * - 並び順は created_at DESC（新着優先）
+ * - 0 件でも 200 + items=[] / totalPages=0 で返す
+ */
+export const listProblemsApiProblemsGet = <ThrowOnError extends boolean = false>(options?: Options<ListProblemsApiProblemsGetData, ThrowOnError>) => (options?.client ?? client).get<ListProblemsApiProblemsGetResponses, ListProblemsApiProblemsGetErrors, ThrowOnError>({ url: '/api/problems', ...options });
 
 /**
  * Request Problem Generation
@@ -48,6 +59,41 @@ export const requestProblemGenerationApiProblemsGeneratePost = <ThrowOnError ext
  * - status='completed' の時のみ problemId フィールドが付く
  */
 export const getProblemGenerationStatusApiProblemsGenerateRequestIdGet = <ThrowOnError extends boolean = false>(options: Options<GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, ThrowOnError>) => (options.client ?? client).get<GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, ThrowOnError>({ url: '/api/problems/generate/{request_id}', ...options });
+
+/**
+ * Get Problem Detail
+ *
+ * 問題詳細を返す。テストケース全体は返さず examples（公開用 1〜数件）のみ含む。
+ *
+ * - 認証不要（problem-display-and-answer.md §ビジネスルール）
+ * - 存在しない / ソフトデリート済みは 404
+ * - レスポンスから test_cases / reference_solution / judge_scores を完全に
+ * 落とすマスキングは ProblemDetailResponse のスキーマ定義で実施される
+ */
+export const getProblemDetailApiProblemsProblemIdGet = <ThrowOnError extends boolean = false>(options: Options<GetProblemDetailApiProblemsProblemIdGetData, ThrowOnError>) => (options.client ?? client).get<GetProblemDetailApiProblemsProblemIdGetResponses, GetProblemDetailApiProblemsProblemIdGetErrors, ThrowOnError>({ url: '/api/problems/{problem_id}', ...options });
+
+/**
+ * Submit Answer
+ *
+ * 解答コードを受け付けて submissions 行を作成し、202 で submissionId を返す。
+ *
+ * 挙動（R1-4）：
+ * - 対象問題の存在確認（存在しない / soft delete 済みは 404）
+ * - submissions に 1 行 INSERT（status='pending'）
+ * - レート制限: 1 ユーザー 1 分 / 20 回まで
+ *
+ * R1-5 で追加する挙動：
+ * - 同一トランザクション内で jobs に 1 行 INSERT + NOTIFY new_job
+ * - GET /api/submissions/:id でポーリング、status が graded / failed へ遷移
+ */
+export const submitAnswerApiSubmissionsPost = <ThrowOnError extends boolean = false>(options: Options<SubmitAnswerApiSubmissionsPostData, ThrowOnError>) => (options.client ?? client).post<SubmitAnswerApiSubmissionsPostResponses, SubmitAnswerApiSubmissionsPostErrors, ThrowOnError>({
+    url: '/api/submissions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Start Github Oauth

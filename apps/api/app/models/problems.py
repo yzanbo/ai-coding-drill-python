@@ -11,7 +11,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, text
+from sqlalchemy import Index, String, text
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,9 +40,9 @@ class Problem(Base):
                            （ADR 0048、users / problems / submissions が対象）
 
     ## 設計メモ
-    - 本 PR ではモデル定義のみ。INSERT は Worker（次 PR）の責務
-    - インデックスは MVP では張らない（一覧クエリは R1-4 で初めて発生、
-      着手時に `(category, difficulty, created_at DESC) WHERE deleted_at IS NULL` 等を追加）
+    - INSERT は Worker（apps/workers/grading が R1-6 まで兼務、R7 以降は generation）の責務
+    - R1-4 で問題一覧クエリが発生したため、新着順 + フィルタ用の部分インデックスを
+      張る（下記 __table_args__、Alembic 側でも対応する migration を発行する）
     """
 
     __tablename__ = "problems"
@@ -76,4 +76,19 @@ class Problem(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
+    )
+
+    # __table_args__: 一覧クエリ用の部分インデックス（R1-4 で追加）。
+    #   list_paginated は WHERE deleted_at IS NULL + 任意 category / difficulty
+    #   フィルタ + ORDER BY created_at DESC で引くため、未削除行のみを
+    #   (category, difficulty, created_at DESC) で索引化する。
+    #   postgresql_where: PostgreSQL 固有の部分インデックス WHERE。
+    __table_args__ = (
+        Index(
+            "ix_problems_category_difficulty_created_at_active",
+            "category",
+            "difficulty",
+            text("created_at DESC"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
     )
