@@ -7,32 +7,44 @@
 # テスト方針:
 #   - tests/conftest.py の先頭で RATE_LIMIT_STORAGE_URI=memory:// を仕込んであるため、
 #     Limiter は実 Redis 不要のメモリ保存で動く。
-#   - 既存の OAuth フローは通さず、session_store.create で直接セッションを発行し、
-#     署名済み Cookie を AsyncClient に積んで認証状態を組み立てる
-#     （目的は rate limit の挙動検証で、認証経路はテスト対象でないため）。
-#   - 本テストは「rate limit デコレータ + 429 ハンドラ」が HTTP 層で正しく動くか
-#     だけを確認すれば十分なので、ProblemGenerationService.enqueue_generation を
-#     monkeypatch で stub に差し替える（DB / NOTIFY / ジョブキュー側は別 PR で個別に検証）。
+#   - ログインは _helpers.login_via_github（@respx.mock で GitHub OAuth をスタブ）を使い、
+#     既存の test_problem_generation_api.py と同じ認証経路を踏む。
+#   - 本テストは実 enqueue を通す（DB / NOTIFY 含む）。Service / Repository / NOTIFY の
+#     振る舞いは test_problem_generation_api.py 側で別途網羅されている前提で、
+#     ここでは「rate limit デコレータ + 429 ハンドラ」の HTTP 層挙動だけに集中する。
 #   - 各テストの前後で limiter.reset() を呼んでカウンタを 0 に戻す（テスト独立性）。
 
 from collections.abc import AsyncIterator
-from uuid import uuid4
 
 import fakeredis.aioredis
 import pytest
+import respx
 from httpx import AsyncClient
+from sqlalchemy import delete
 
-from app.core import session as session_store
 from app.core.config import get_settings
-from app.core.cookies import sign_sid
 from app.db.session import AsyncSessionLocal
 from app.deps.rate_limit import limiter
-from app.models.users import User
-from app.schemas.problems import (
-    GenerationStatus,
-    ProblemGenerateAcceptedResponse,
-)
-from app.services.problem_generation import ProblemGenerationService
+from app.models.generation_requests import GenerationRequest
+from app.models.jobs import Job
+from app.models.problems import Problem
+
+from ._helpers import login_via_github
+
+
+@pytest.fixture(autouse=True)
+async def reset_generation_tables() -> AsyncIterator[None]:
+    """各テスト前に generation_requests / jobs / problems を空にする。
+
+    本テストは実 enqueue を通すため両テーブルに行が積まれる。テスト独立性のため
+    毎回掃除する（test_problem_generation_api.py と同じパターン）。
+    """
+    async with AsyncSessionLocal() as session:
+        await session.execute(delete(GenerationRequest))
+        await session.execute(delete(Job))
+        await session.execute(delete(Problem))
+        await session.commit()
+    yield
 
 
 @pytest.fixture(autouse=True)
@@ -43,64 +55,15 @@ async def reset_rate_limiter() -> AsyncIterator[None]:
     limiter.reset()
 
 
-@pytest.fixture(autouse=True)
-def stub_enqueue_generation(monkeypatch: pytest.MonkeyPatch) -> None:
-    """ProblemGenerationService.enqueue_generation を stub に置き換える。
-
-    本物の実装は jobs テーブルへの NOTIFY 発行を伴うが、これは rate limit の
-    検証範囲外。stub は呼ばれるたびに新しい requestId を返すだけ。
-    """
-
-    async def _fake_enqueue(self: ProblemGenerationService, **_kwargs: object) -> (
-        ProblemGenerateAcceptedResponse
-    ):
-        del self
-        return ProblemGenerateAcceptedResponse(
-            request_id=uuid4(),
-            status=GenerationStatus.PENDING,
-        )
-
-    monkeypatch.setattr(ProblemGenerationService, "enqueue_generation", _fake_enqueue)
-
-
-async def _signed_in_client(
-    client: AsyncClient,
-    fake_redis: fakeredis.aioredis.FakeRedis,
-    *,
-    display_name: str = "Taro",
-) -> User:
-    """User 行を作って Redis にセッションを書き、Cookie を client に積む。
-
-    OAuth フローを通すと respx での GitHub モックが必要になり、本テストの
-    関心（rate limit）から離れるため、認証状態だけを最短経路で作る。
-    """
-    settings = get_settings()
-    async with AsyncSessionLocal() as session:
-        user = User(display_name=display_name, email=None)
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-
-    sess = await session_store.create(fake_redis, user.id)
-    # session_id Cookie には itsdangerous で署名した値を積む
-    #   （Backend 側 unsign_sid と対称）。
-    signed = sign_sid(sess.sid)
-    client.cookies.set(settings.session_cookie_name, signed)
-    # csrf_token Cookie は Frontend が JS で読んで X-CSRF-Token に詰める契約。
-    #   結合テストでは double submit の両側を自前で組み立てる。
-    client.cookies.set(settings.csrf_cookie_name, sess.csrf_token)
-    return user
-
-
 class TestProblemsGenerateRateLimit:
+    @respx.mock
     async def test_正常系_1分以内に5回までは202を返す(
         self,
         client: AsyncClient,
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
-        await _signed_in_client(client, fake_redis)
-        csrf = client.cookies.get(get_settings().csrf_cookie_name)
-        assert csrf is not None
+        del fake_redis
+        csrf = await login_via_github(client, gh_id=1001)
 
         for i in range(5):
             res = await client.post(
@@ -110,14 +73,14 @@ class TestProblemsGenerateRateLimit:
             )
             assert res.status_code == 202, f"{i + 1} 回目で {res.status_code}: {res.text}"
 
+    @respx.mock
     async def test_異常系_6回目は429を返す(
         self,
         client: AsyncClient,
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
-        await _signed_in_client(client, fake_redis)
-        csrf = client.cookies.get(get_settings().csrf_cookie_name)
-        assert csrf is not None
+        del fake_redis
+        csrf = await login_via_github(client, gh_id=1002)
 
         # 5 回までは流して、6 回目で 429 を観測する。
         for _ in range(5):
@@ -142,29 +105,33 @@ class TestProblemsGenerateRateLimit:
             == "リクエストが多すぎます。しばらく時間を置いてから再度お試しください。"
         )
 
+    @respx.mock
     async def test_正常系_ユーザーが違えばカウンタは独立で5回ずつ通る(
         self,
         client: AsyncClient,
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         """key 関数が user:<id> 単位で分離されていることを担保する。"""
+        del fake_redis
+        settings = get_settings()
+
         # ユーザー A で 5 回流す。
-        await _signed_in_client(client, fake_redis, display_name="A")
-        csrf = client.cookies.get(get_settings().csrf_cookie_name)
-        assert csrf is not None
+        csrf_a = await login_via_github(client, gh_id=2001)
         for _ in range(5):
             res = await client.post(
                 "/problems/generate",
                 json={"category": "array", "difficulty": "easy"},
-                headers={"X-CSRF-Token": csrf},
+                headers={"X-CSRF-Token": csrf_a},
             )
             assert res.status_code == 202
 
-        # ユーザー B でログイン直し（Cookie 上書き）→ 同じく 5 回成功できる。
-        client.cookies.clear()
-        await _signed_in_client(client, fake_redis, display_name="B")
-        csrf_b = client.cookies.get(get_settings().csrf_cookie_name)
-        assert csrf_b is not None
+        # ユーザー B で別ログイン（Cookie を上書き）→ 同じく 5 回成功できる。
+        # session_id / csrf_token Cookie はログイン時に書き換わるが、
+        # login_via_github を呼ぶ前に明示的に消しておく方が
+        # 前ユーザーの認証状態を引きずらない（=テストの意図が明示的になる）。
+        client.cookies.delete(settings.session_cookie_name)
+        client.cookies.delete(settings.csrf_cookie_name)
+        csrf_b = await login_via_github(client, gh_id=2002)
         for _ in range(5):
             res = await client.post(
                 "/problems/generate",
