@@ -335,6 +335,76 @@ jobs:
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
       - run: mise run web:test
 
+  # apps/web の Playwright E2E（authentication.md 受け入れ条件のうちブラウザ間通信 /
+  # Frontend side effect / DB 永続化レベルの 7 シナリオ、apps/web/e2e/auth.spec.ts）。
+  #
+  # 起動条件：web / api / shared のいずれか変更時。
+  #   - web/ : E2E テスト本体 / Playwright config の変更
+  #   - api/ : OAuth callback handler / Settings / DB schema の変更
+  #   - shared / mise.toml: 横断設定変更
+  #
+  # web-test と分ける理由：
+  #   - Playwright は Postgres / Redis service + chromium ブラウザ install が必要で
+  #     Vitest と比べ重い（pnpm install + browser DL + 3 サーバ起動）。job を分離して
+  #     Vitest だけの PR が遅くならないようにする
+  #   - Playwright の失敗時 trace を artifact upload するため独立した job を保持
+  web-e2e:
+    name: web-e2e
+    needs: changes
+    if: >-
+      ${{ needs.changes.outputs.web == 'true' ||
+          needs.changes.outputs.api == 'true' ||
+          needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env:
+          POSTGRES_DB: ai_coding_drill
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ai_coding_drill"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8.6-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # api / worker / mock サーバが共有する DB 接続文字列。
+      # playwright.config.ts の webServer.env は workflow env を引き継がず明示注入する。
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      # DB schema を Alembic で作成（api / mock の /_test/reset が users テーブルを参照）。
+      - run: mise run api:db-migrate
+      # Playwright のブラウザバイナリ（chromium）を取得。--with-deps は Linux 用の
+      # OS-level 依存（libnss / libatk 等）も併せて apt インストールする。
+      - run: cd apps/web && pnpm exec playwright install --with-deps chromium
+      # CI=true で webServer.reuseExistingServer=false / reporter=github / workers=1 /
+      # retries=2 が有効になる（playwright.config.ts 参照）。
+      - run: cd apps/web && CI=true pnpm exec playwright test
+      # 失敗時のみ trace / screenshots を artifact に上げる（成功時はノイズなので不要）。
+      - if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-results
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          retention-days: 7
+
   # ====================================================================
   # apps/workers/grading（Go）品質ゲート — ADR 0019 / 0026 / 0028 / 0038 / 0040
   # ----------------------------------------------------------------------
@@ -542,6 +612,7 @@ jobs:
       - web-knip
       - web-syncpack
       - web-test
+      - web-e2e
       - worker-grading-lint
       - worker-grading-test
       - worker-grading-audit
