@@ -14,9 +14,8 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
-from starlette import status
 
 # ----------------------------------------------------------------------------
 # ドメイン例外
@@ -46,7 +45,8 @@ class GenerationRequestNotFoundError(DomainError):
 
 
 # JSONResponse: FastAPI が標準で使う JSON 形式のレスポンス。
-# starlette.status: HTTP ステータスコードの定数群。
+# status: HTTP ステータスコードの定数群（fastapi が starlette の同名モジュールを
+#         そのまま re-export している）。
 async def _generation_request_not_found_handler(
     _request: Request,
     _exc: GenerationRequestNotFoundError,
