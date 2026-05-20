@@ -27,6 +27,7 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  * - generation_requests へ 1 行 INSERT（status='pending'）
  * - jobs へ 1 行 INSERT + NOTIFY new_job を同一トランザクションで実行
  * - 202 で requestId を返す。実際の生成は Worker が非同期で処理する
+ * - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す
  */
 export const requestProblemGenerationApiProblemsGeneratePost = <ThrowOnError extends boolean = false>(options: Options<RequestProblemGenerationApiProblemsGeneratePostData, ThrowOnError>) => (options.client ?? client).post<RequestProblemGenerationApiProblemsGeneratePostResponses, RequestProblemGenerationApiProblemsGeneratePostErrors, ThrowOnError>({
     url: '/api/problems/generate',

@@ -216,7 +216,7 @@ sequenceDiagram
 - [ ] LLM 単発呼び出し 30 秒 / ジョブ全体 180 秒のタイムアウト超過時に `status='failed'` が返る
 - [ ] 1 生成あたりの累積コストが USD 0.20 を超えた時点で再生成を打ち切り `status='failed'` が返る
 - [ ] 観測ログに `provider` / `model` / `prompt_version` / `input_tokens` / `output_tokens` / `cost_usd` / `cache_hit` / 所要時間が記録される（→ [04-observability.md](../2-foundation/04-observability.md)）
-- [ ] レート制限：同一ユーザーで `1 分 / 5 回` を超えると `429` を返す（→ [02-api-conventions.md](../3-cross-cutting/02-api-conventions.md#レート制限)）
+- [x] レート制限：同一ユーザーで `1 分 / 5 回` を超えると `429` を返す（→ [02-api-conventions.md](../3-cross-cutting/02-api-conventions.md#レート制限)）
 
 ## ステータス
 
@@ -225,7 +225,7 @@ sequenceDiagram
 > **長期運用**：機能を再着手・大きく改修するたびに**チェックを外してリセットする**（過去の完了履歴は残さない、履歴は git log と PR で辿る）。常に「この機能の現在の状態」だけを映す鏡として使う。
 
 - [x] バックエンド実装完了（generation ルーター：enqueue + ステータス取得のみ、LLM 呼び出しは含めない、→ [ADR 0040](../../adr/0040-worker-grouping-and-llm-in-worker.md)）
-- [ ] バックエンドユニットテスト完了（pytest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
+- [x] バックエンドユニットテスト完了（pytest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [x] フロントエンド実装完了（生成画面 / ステータス画面）
 - [x] フロントエンドユニットテスト完了（Vitest、→ [ADR 0038](../../adr/0038-test-frameworks.md)）
 - [x] ワーカー実装完了（生成 Worker。R1〜R6 は `apps/workers/grading` が兼務（`problem_generate.go` / `generation_prompt.go`）、R7 以降に `apps/workers/generation` に切り出し予定）
