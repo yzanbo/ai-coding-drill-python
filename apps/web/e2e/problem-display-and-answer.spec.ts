@@ -115,6 +115,41 @@ test.describe("認証ユーザー：解答送信", () => {
   });
 });
 
+test.describe("localStorage 復元", () => {
+  test("エディタに書いた内容はリロード後も復元される", async ({ page }) => {
+    const problemId = await seedProblem(page.request);
+
+    await page.goto(`/problems/${problemId}`);
+
+    // CodeMirror 6 の入力面は contenteditable な .cm-content（aria-label の
+    //   ラッパ section ではなく内部要素）。focus → 全選択 → 入力で初期テンプレを
+    //   置き換える。Playwright の type は contenteditable に対しても動く。
+    const editor = page.locator(".cm-content");
+    await expect(editor).toBeVisible();
+    await editor.click();
+    // 全選択 → 上書き入力。CodeMirror は CodeMirror 標準のキーバインドで Ctrl/Cmd+A を解釈する。
+    //   plat 差を避けるため、JS で doc を直接 select する代わりにキー入力を 2 段で送る。
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.type("const restored = 42;");
+
+    // localStorage に書かれるのは useEffect の deps に code を入れた直後。
+    //   ボタンの押下を介さず、入力が反映されているかを localStorage で直接観測する。
+    await expect
+      .poll(async () =>
+        page.evaluate(
+          (id) => window.localStorage.getItem(`ai-coding-drill:answer:${id}`),
+          problemId,
+        ),
+      )
+      .toContain("const restored = 42;");
+
+    // リロードして、エディタ内容が復元されることを確認する。
+    //   CodeMirror の表示テキストは .cm-content の textContent。
+    await page.reload();
+    await expect(page.locator(".cm-content")).toContainText("const restored = 42;");
+  });
+});
+
 test.describe("一覧フィルタ", () => {
   test("?category=array で絞ると array の問題だけが表示される", async ({ page }) => {
     await seedProblem(page.request, { title: "配列の問題A", category: "array" });
