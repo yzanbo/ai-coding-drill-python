@@ -1,14 +1,14 @@
 "use client";
 
-// AnswerWorkspace: コード入力 + 「実行」ボタンをまとめた解答エリア（R1-4）。
+// AnswerWorkspace: コード入力 + 「実行」ボタンをまとめた解答エリア。
 //   - 子の CodeEditor（CodeMirror 6）でユーザーが TS コードを書く
 //   - 入力内容は localStorage に保存して、誤遷移時に復元する
 //     （要件 problem-display-and-answer.md §ビジネスルール 任意機能）
 //   - 「実行」ボタン挙動：
 //     - ゲスト：/login?next=/problems/:id にリダイレクト
 //     - 認証ユーザー：POST /api/submissions、202 + submissionId を取得
-//   - 採点結果のポーリング表示は R1-5 のスコープ。R1-4 では「送信を受け付けました」
-//     のフィードバックまでに留める。
+//   - submit 成功後は GradingResult を mount してポーリング表示（R1-5）。
+//     インフラ起因失敗時は再試行ボタンで submissionId をクリアして再 submit 可能に。
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -18,6 +18,7 @@ import { useGetAuthMe } from "@/hooks/use-get-auth-me/use-get-auth-me";
 
 import { usePostSubmission } from "../../_hooks/_fetch/use-post-submission/use-post-submission";
 import { CodeEditor } from "./_components/code-editor/code-editor";
+import { GradingResult } from "./_components/grading-result/grading-result";
 
 type AnswerWorkspaceProps = {
   problemId: string;
@@ -61,7 +62,17 @@ export const AnswerWorkspace = ({ problemId }: AnswerWorkspaceProps) => {
     window.localStorage.setItem(localStorageKey(problemId), code);
   }, [code, problemId, restored]);
 
-  const submission = usePostSubmission();
+  // submissionId: 採点ジョブのキー。submit 成功 → ポーリング → 結果取得 → クリア
+  //   というライフサイクルで持つ。null の間は GradingResult をマウントしない。
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+
+  const submission = usePostSubmission({
+    onSuccess: (data) => {
+      // submit 成功時に submissionId を確定 → GradingResult のマウントで
+      // ポーリング開始（useGetSubmission の enabled が true に切り替わる）。
+      setSubmissionId(data.submissionId);
+    },
+  });
 
   // submissionErrorMessage: status から日本語メッセージに変換。
   //   生の status コードは UI に出さず、ユーザーが取れる次の行動を文章にする。
@@ -95,7 +106,16 @@ export const AnswerWorkspace = ({ problemId }: AnswerWorkspaceProps) => {
       router.push(`/login?next=${encodeURIComponent(next)}`);
       return;
     }
+    // 連打防止のため進行中の submissionId は事前にクリア（再 submit 時の旧結果表示を防ぐ）。
+    setSubmissionId(null);
     submission.submitAnswer({ problemId, code });
+  };
+
+  // handleRetry: GradingResult が status='failed'（インフラ起因）時に呼ぶ。
+  //   submissionId をクリアして GradingResult をアンマウント → ユーザーは
+  //   通常の「実行」ボタンで同じコードを再送信できる。
+  const handleRetry = () => {
+    setSubmissionId(null);
   };
 
   return (
@@ -109,19 +129,18 @@ export const AnswerWorkspace = ({ problemId }: AnswerWorkspaceProps) => {
           {submission.isPending ? "送信中..." : "実行"}
         </Button>
 
-        {submission.data ? (
-          <p className="text-xs text-muted-foreground" role="status">
-            解答を受け付けました（submissionId: {submission.data.submissionId}）。採点結果の表示は
-            R1-5 で実装予定です。
-          </p>
-        ) : null}
-
         {submissionErrorMessage ? (
           <p className="text-xs text-destructive" role="alert">
             {submissionErrorMessage}
           </p>
         ) : null}
       </div>
+
+      {/* GradingResult: submit 成功後にだけマウント。pending 中は内部でスピナー、
+          graded / failed で結果表示。failed 時は onRetry で submissionId クリア。 */}
+      {submissionId !== null ? (
+        <GradingResult submissionId={submissionId} onRetry={handleRetry} />
+      ) : null}
     </section>
   );
 };

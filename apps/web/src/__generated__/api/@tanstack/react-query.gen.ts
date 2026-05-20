@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createHealthCheckHealthPost, getMeAuthMeGet, getProblemDetailApiProblemsProblemIdGet, getProblemGenerationStatusApiProblemsGenerateRequestIdGet, githubCallbackAuthGithubCallbackGet, healthzHealthzGet, listHealthChecksHealthGet, listProblemsApiProblemsGet, logoutAuthLogoutPost, type Options, requestProblemGenerationApiProblemsGeneratePost, startGithubOauthAuthGithubGet, submitAnswerApiSubmissionsPost } from '../sdk.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponse, GetMeAuthMeGetData, GetMeAuthMeGetResponse, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetError, GetProblemDetailApiProblemsProblemIdGetResponse, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetError, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetError, HealthzHealthzGetData, HealthzHealthzGetResponse, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponse, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponse, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostError, RequestProblemGenerationApiProblemsGeneratePostResponse, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetError, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostError, SubmitAnswerApiSubmissionsPostResponse } from '../types.gen';
+import { createHealthCheckHealthPost, getMeAuthMeGet, getProblemDetailApiProblemsProblemIdGet, getProblemGenerationStatusApiProblemsGenerateRequestIdGet, getSubmissionApiSubmissionsSubmissionIdGet, githubCallbackAuthGithubCallbackGet, healthzHealthzGet, listHealthChecksHealthGet, listMySubmissionsApiSubmissionsGet, listProblemsApiProblemsGet, logoutAuthLogoutPost, type Options, requestProblemGenerationApiProblemsGeneratePost, startGithubOauthAuthGithubGet, submitAnswerApiSubmissionsPost } from '../sdk.gen';
+import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponse, GetMeAuthMeGetData, GetMeAuthMeGetResponse, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetError, GetProblemDetailApiProblemsProblemIdGetResponse, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetError, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetError, GetSubmissionApiSubmissionsSubmissionIdGetResponse, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetError, HealthzHealthzGetData, HealthzHealthzGetResponse, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponse, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetError, ListMySubmissionsApiSubmissionsGetResponse, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponse, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostError, RequestProblemGenerationApiProblemsGeneratePostResponse, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetError, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostError, SubmitAnswerApiSubmissionsPostResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -199,19 +199,74 @@ export const getProblemDetailApiProblemsProblemIdGetOptions = (options: Options<
     queryKey: getProblemDetailApiProblemsProblemIdGetQueryKey(options)
 });
 
+export const listMySubmissionsApiSubmissionsGetQueryKey = (options?: Options<ListMySubmissionsApiSubmissionsGetData>) => createQueryKey('listMySubmissionsApiSubmissionsGet', options);
+
+/**
+ * List My Submissions
+ *
+ * 自分の解答履歴をページングで返す。
+ *
+ * 並び順は created_at DESC（新着順）。problem_title まで含めて返すため
+ * 一覧 UI 側は追加の問題詳細取得が不要。
+ */
+export const listMySubmissionsApiSubmissionsGetOptions = (options?: Options<ListMySubmissionsApiSubmissionsGetData>) => queryOptions<ListMySubmissionsApiSubmissionsGetResponse, ListMySubmissionsApiSubmissionsGetError, ListMySubmissionsApiSubmissionsGetResponse, ReturnType<typeof listMySubmissionsApiSubmissionsGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listMySubmissionsApiSubmissionsGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMySubmissionsApiSubmissionsGetQueryKey(options)
+});
+
+export const listMySubmissionsApiSubmissionsGetInfiniteQueryKey = (options?: Options<ListMySubmissionsApiSubmissionsGetData>): QueryKey<Options<ListMySubmissionsApiSubmissionsGetData>> => createQueryKey('listMySubmissionsApiSubmissionsGet', options, true);
+
+/**
+ * List My Submissions
+ *
+ * 自分の解答履歴をページングで返す。
+ *
+ * 並び順は created_at DESC（新着順）。problem_title まで含めて返すため
+ * 一覧 UI 側は追加の問題詳細取得が不要。
+ */
+export const listMySubmissionsApiSubmissionsGetInfiniteOptions = (options?: Options<ListMySubmissionsApiSubmissionsGetData>) => infiniteQueryOptions<ListMySubmissionsApiSubmissionsGetResponse, ListMySubmissionsApiSubmissionsGetError, InfiniteData<ListMySubmissionsApiSubmissionsGetResponse>, QueryKey<Options<ListMySubmissionsApiSubmissionsGetData>>, number | Pick<QueryKey<Options<ListMySubmissionsApiSubmissionsGetData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+// @ts-ignore
+{
+    queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<QueryKey<Options<ListMySubmissionsApiSubmissionsGetData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+            query: {
+                page: pageParam
+            }
+        };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await listMySubmissionsApiSubmissionsGet({
+            ...options,
+            ...params,
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMySubmissionsApiSubmissionsGetInfiniteQueryKey(options)
+});
+
 /**
  * Submit Answer
  *
  * 解答コードを受け付けて submissions 行を作成し、202 で submissionId を返す。
  *
- * 挙動（R1-4）：
+ * 挙動：
  * - 対象問題の存在確認（存在しない / soft delete 済みは 404）
  * - submissions に 1 行 INSERT（status='pending'）
+ * - 同一トランザクション内で jobs に 1 行 INSERT + NOTIFY new_job
  * - レート制限: 1 ユーザー 1 分 / 20 回まで
  *
- * R1-5 で追加する挙動：
- * - 同一トランザクション内で jobs に 1 行 INSERT + NOTIFY new_job
- * - GET /api/submissions/:id でポーリング、status が graded / failed へ遷移
+ * クライアントはレスポンスの submissionId を持って
+ * GET /api/submissions/:id をポーリングし、status が graded / failed に遷移するのを待つ。
  */
 export const submitAnswerApiSubmissionsPostMutation = (options?: Partial<Options<SubmitAnswerApiSubmissionsPostData>>): UseMutationOptions<SubmitAnswerApiSubmissionsPostResponse, SubmitAnswerApiSubmissionsPostError, Options<SubmitAnswerApiSubmissionsPostData>> => {
     const mutationOptions: UseMutationOptions<SubmitAnswerApiSubmissionsPostResponse, SubmitAnswerApiSubmissionsPostError, Options<SubmitAnswerApiSubmissionsPostData>> = {
@@ -226,6 +281,30 @@ export const submitAnswerApiSubmissionsPostMutation = (options?: Partial<Options
     };
     return mutationOptions;
 };
+
+export const getSubmissionApiSubmissionsSubmissionIdGetQueryKey = (options: Options<GetSubmissionApiSubmissionsSubmissionIdGetData>) => createQueryKey('getSubmissionApiSubmissionsSubmissionIdGet', options);
+
+/**
+ * Get Submission
+ *
+ * 採点状態 + 結果を返す。
+ *
+ * - pending の間は score / totalCount / result / gradedAt が None
+ * - graded / failed に遷移してから埋まる（Worker が UPDATE）
+ * - 他人の id や存在しない id は 404
+ */
+export const getSubmissionApiSubmissionsSubmissionIdGetOptions = (options: Options<GetSubmissionApiSubmissionsSubmissionIdGetData>) => queryOptions<GetSubmissionApiSubmissionsSubmissionIdGetResponse, GetSubmissionApiSubmissionsSubmissionIdGetError, GetSubmissionApiSubmissionsSubmissionIdGetResponse, ReturnType<typeof getSubmissionApiSubmissionsSubmissionIdGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSubmissionApiSubmissionsSubmissionIdGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSubmissionApiSubmissionsSubmissionIdGetQueryKey(options)
+});
 
 export const startGithubOauthAuthGithubGetQueryKey = (options?: Options<StartGithubOauthAuthGithubGetData>) => createQueryKey('startGithubOauthAuthGithubGet', options);
 

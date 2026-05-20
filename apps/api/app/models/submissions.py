@@ -13,9 +13,10 @@ from datetime import datetime
 
 from sqlalchemy import ForeignKey, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.problems import Problem
 
 
 class Submission(Base):
@@ -87,6 +88,14 @@ class Submission(Base):
         TIMESTAMP(timezone=True),
         nullable=True,
     )
+
+    # problem: 解答が紐づく問題への関連。
+    #   一覧 API（GET /api/submissions）で problem_title を併記するため、
+    #   Repository 側で JOIN + contains_eager で事前読み込みする契約。
+    # lazy="raise_on_sql": 関連を後追いで自動 SELECT させない安全弁。
+    #   async セッションでの暗黙ロードは MissingGreenlet を引き起こすため、
+    #   呼び出し側に「明示的に eager load せよ」を強制する。
+    problem: Mapped[Problem] = relationship(lazy="raise_on_sql")
 
     # __table_args__: 自分の解答履歴一覧を新着順で引くための部分インデックス。
     #   ソフトデリート行は履歴一覧に出さないため、deleted_at IS NULL を WHERE に含める。

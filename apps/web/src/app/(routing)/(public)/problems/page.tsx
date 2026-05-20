@@ -112,12 +112,21 @@ export default async function ProblemsListPage({ searchParams }: ProblemsPagePro
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">問題一覧</h1>
-        <p className="text-sm text-muted-foreground">
-          解いてみたい問題をカテゴリ・難易度で絞り込めます。ゲストでも閲覧できますが、
-          解答送信にはログインが必要です。
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-2xl font-semibold">問題一覧</h1>
+          <p className="text-sm text-muted-foreground">
+            解いてみたい問題をカテゴリ・難易度で絞り込めます。ゲストでも閲覧できますが、
+            解答送信にはログインが必要です。
+          </p>
+        </div>
+        {/* 新規問題を生成: /problems/new への主動線。
+            (authed) 配下のページのため、ゲストが押すと layout が
+            /login?next=/problems/new に自動リダイレクトする
+            (要件 problem-generation.md §到達経路)。 */}
+        <Button asChild size="sm" className="sm:self-start">
+          <Link href="/problems/new">新規問題を生成</Link>
+        </Button>
       </header>
 
       <ProblemsFilterForm category={category} difficulty={difficulty} />

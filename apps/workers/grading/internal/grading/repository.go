@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -32,6 +33,109 @@ type pgGenerationStore struct {
 func newPgGenerationStore(pool *pgxpool.Pool) *pgGenerationStore {
 	return &pgGenerationStore{pool: pool}
 }
+
+// pgGradingStore: gradingStore (submission_grade.go 定義) を
+// *pgxpool.Pool に対して実装する具象型。
+// orchestrator.NewForGrading が組み立てて採点ハンドラに渡す。
+type pgGradingStore struct {
+	pool *pgxpool.Pool
+}
+
+// newPgGradingStore: pool を受け取って採点側 store を作る。
+func newPgGradingStore(pool *pgxpool.Pool) *pgGradingStore {
+	return &pgGradingStore{pool: pool}
+}
+
+// GetProblemForGrading: 採点に必要な test_cases JSONB と reference_solution を取る。
+// soft delete 済 (deleted_at IS NOT NULL) の問題は ErrProblemNotFound を返す。
+// row 自体が無い場合も同じく ErrProblemNotFound (リトライしても直らないため
+// orchestrator が dead に流す)。
+func (s *pgGradingStore) GetProblemForGrading(ctx context.Context, problemID uuid.UUID) ([]TestCase, error) {
+	var testCasesJSON []byte
+	err := s.pool.QueryRow(ctx, `
+SELECT test_cases
+  FROM problems
+ WHERE id = $1
+   AND deleted_at IS NULL;
+`, problemID).Scan(&testCasesJSON)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("%w: id=%s", ErrProblemNotFound, problemID)
+		}
+		return nil, fmt.Errorf("grading: lookup problem %s: %w", problemID, err)
+	}
+	var cases []TestCase
+	if err := json.Unmarshal(testCasesJSON, &cases); err != nil {
+		return nil, fmt.Errorf("grading: parse test_cases for %s: %w", problemID, err)
+	}
+	return cases, nil
+}
+
+// UpdateSubmissionGraded: 採点完了 (status='graded') を submissions に書き戻す。
+// at-least-once 配送で同一 submission が 2 回処理された時に備えて、
+// status='pending' の行のみを対象にする。0 行更新は
+// ErrSubmissionAlreadyFinalized で返す (orchestrator 側で nil 扱い)。
+func (s *pgGradingStore) UpdateSubmissionGraded(
+	ctx context.Context,
+	submissionID uuid.UUID,
+	score int,
+	result []byte,
+) error {
+	tag, err := s.pool.Exec(ctx, `
+UPDATE submissions
+   SET status = 'graded',
+       score = $2,
+       result = $3,
+       graded_at = NOW()
+ WHERE id = $1
+   AND status = 'pending'
+   AND deleted_at IS NULL;
+`, submissionID, score, result)
+	if err != nil {
+		return fmt.Errorf("grading: update submission %s graded: %w", submissionID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: id=%s", ErrSubmissionAlreadyFinalized, submissionID)
+	}
+	return nil
+}
+
+// UpdateSubmissionFailed: インフラ障害確定時に status='failed' に遷移させる。
+// 採点ハンドラの OnDead から呼ぶ。graded_at は「終端確定時刻」として埋める。
+//
+// 0 行更新 (submission が既に graded/failed / soft delete 済 / 存在しない) は
+// error にしない (OnDead は best-effort で error を呼び出し元に返しても
+// 後続復旧経路がない)。代わりに WarnContext で観測ログを残し、運用追跡できる
+// ようにする。通常は 0 行更新は起きない (OnDead 到達時点で submission は
+// pending のはず) ため、頻発する場合は何か壊れている signal になる。
+func (s *pgGradingStore) UpdateSubmissionFailed(ctx context.Context, submissionID uuid.UUID) error {
+	tag, err := s.pool.Exec(ctx, `
+UPDATE submissions
+   SET status = 'failed',
+       graded_at = NOW()
+ WHERE id = $1
+   AND status = 'pending'
+   AND deleted_at IS NULL;
+`, submissionID)
+	if err != nil {
+		return fmt.Errorf("grading: update submission %s failed: %w", submissionID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		slog.WarnContext(ctx, "grading: UpdateSubmissionFailed updated 0 rows (already finalized / deleted / missing)",
+			"submission_id", submissionID.String())
+	}
+	return nil
+}
+
+// ErrProblemNotFound: 採点対象の問題が見つからない (削除済 / 存在しない)。
+// リトライしても直らないため orchestrator は即 dead 経路に流す。
+var ErrProblemNotFound = errors.New("grading: problem not found")
+
+// ErrSubmissionAlreadyFinalized: 採点書き戻し時、対象 submission が
+// 既に終端状態 (graded / failed) に達していて UPDATE 対象 0 行だった。
+// at-least-once 配送で同一 submission が 2 回処理された時に発生する。
+// orchestrator 側で nil 扱いに変換 (MarkSucceeded を打って終わる)。
+var ErrSubmissionAlreadyFinalized = errors.New("grading: submission already finalized")
 
 // SelectStatus: generationStore interface 実装。
 // 既存のパッケージレベル関数 selectGenerationRequestStatus に委譲する。

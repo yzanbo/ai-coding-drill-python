@@ -145,6 +145,94 @@ export const zSubmissionCreateRequest = z.object({
 });
 
 /**
+ * SubmissionFailureKind
+ */
+export const zSubmissionFailureKind = z.enum([
+    'test_failed',
+    'timeout',
+    'oom',
+    'syntax',
+    'runtime'
+]);
+
+/**
+ * SubmissionStatus
+ */
+export const zSubmissionStatus = z.enum([
+    'pending',
+    'graded',
+    'failed'
+]);
+
+/**
+ * SubmissionSummary
+ *
+ * 解答履歴の 1 行分。問題タイトルまで含めて一覧 UI に必要十分。
+ */
+export const zSubmissionSummary = z.object({
+    gradedAt: z.iso.datetime().nullish(),
+    id: z.uuid(),
+    problemId: z.uuid(),
+    problemTitle: z.string(),
+    score: z.int().nullish(),
+    status: zSubmissionStatus,
+    totalCount: z.int().nullish()
+});
+
+/**
+ * SubmissionTestResultItem
+ *
+ * 1 テストケース分の結果。passed=false の時に expected/actual/message が埋まる。
+ */
+export const zSubmissionTestResultItem = z.object({
+    actual: z.string().nullish(),
+    durationMs: z.int(),
+    expected: z.string().nullish(),
+    message: z.string().nullish(),
+    name: z.string(),
+    passed: z.boolean()
+});
+
+/**
+ * SubmissionResultPayload
+ *
+ * 採点完了時の結果ペイロード。Worker が submissions.result に書き込む形と一致。
+ */
+export const zSubmissionResultPayload = z.object({
+    durationMs: z.int(),
+    failureKind: zSubmissionFailureKind.nullish(),
+    passed: z.boolean(),
+    testResults: z.array(zSubmissionTestResultItem).optional()
+});
+
+/**
+ * SubmissionStatusResponse
+ *
+ * 解答 + 採点結果。クライアントは pending の間ポーリングする。
+ */
+export const zSubmissionStatusResponse = z.object({
+    gradedAt: z.iso.datetime().nullish(),
+    id: z.uuid(),
+    problemId: z.uuid(),
+    result: zSubmissionResultPayload.nullish(),
+    score: z.int().nullish(),
+    status: zSubmissionStatus,
+    totalCount: z.int().nullish()
+});
+
+/**
+ * SubmissionsListResponse
+ *
+ * 解答履歴一覧 + ページネーション情報。
+ */
+export const zSubmissionsListResponse = z.object({
+    items: z.array(zSubmissionSummary),
+    page: z.int(),
+    pageSize: z.int(),
+    totalPages: z.int()
+});
+
+/**
  * UserResponse
  *
  * 現在ログイン中のユーザー情報。GET /auth/me が返す形。
@@ -212,12 +300,31 @@ export const zGetProblemDetailApiProblemsProblemIdGetPath = z.object({
  */
 export const zGetProblemDetailApiProblemsProblemIdGetResponse = zProblemDetailResponse;
 
+export const zListMySubmissionsApiSubmissionsGetQuery = z.object({
+    page: z.int().gte(1).optional().default(1),
+    pageSize: z.int().gte(1).lte(100).optional().default(20)
+});
+
+/**
+ * Successful Response
+ */
+export const zListMySubmissionsApiSubmissionsGetResponse = zSubmissionsListResponse;
+
 export const zSubmitAnswerApiSubmissionsPostBody = zSubmissionCreateRequest;
 
 /**
  * Successful Response
  */
 export const zSubmitAnswerApiSubmissionsPostResponse = zSubmissionAcceptedResponse;
+
+export const zGetSubmissionApiSubmissionsSubmissionIdGetPath = z.object({
+    submission_id: z.uuid()
+});
+
+/**
+ * Successful Response
+ */
+export const zGetSubmissionApiSubmissionsSubmissionIdGetResponse = zSubmissionStatusResponse;
 
 export const zStartGithubOauthAuthGithubGetQuery = z.object({
     next: z.string().nullish()
