@@ -91,9 +91,19 @@ class TestGetCurrentUserOptional:
         service_factory = MagicMock(return_value=service_stub)
         monkeypatch.setattr(deps_auth, "AuthService", service_factory)
 
+        # 認証ルックアップは `async with db_session.begin():` で包まれるため、
+        # session.begin() の戻り値が async context manager の interface を
+        # 満たす MagicMock を渡す（test_auth_service.py / test_problem_generation_service.py
+        # と同じパターン）。
+        db_session_mock = MagicMock()
+        cm = MagicMock()
+        cm.__aenter__ = AsyncMock(return_value=None)
+        cm.__aexit__ = AsyncMock(return_value=None)
+        db_session_mock.begin.return_value = cm
+
         request = _mock_request_with_cookies({cookie_name: sign_sid(created.sid)})
         result = await get_current_user_optional(
-            request, db_session=AsyncMock(), redis=redis
+            request, db_session=db_session_mock, redis=redis
         )
 
         # 戻り値が AuthService.get_current_user の返した User。

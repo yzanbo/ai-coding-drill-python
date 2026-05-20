@@ -26,12 +26,18 @@ from app.services.problem_generation import ProblemGenerationService
 
 
 # mock_session: DB セッションのモック。
-#   ProblemGenerationService は autobegin に乗って末尾で session.commit() を
-#   呼ぶ作りなので、commit を AsyncMock にしておく。
+#   ProblemGenerationService は ADR 0044 規約どおり
+#   `async with session.begin():` でトランザクション境界を握る。
+#   session.begin() は同期で context manager を返す API のため MagicMock 側に置き、
+#   返ってきた context manager の __aenter__ / __aexit__ は awaitable で
+#   あってほしいので AsyncMock を入れる（test_auth_service.py と同じ）。
 @pytest.fixture
 def mock_session() -> MagicMock:
     session = MagicMock()
-    session.commit = AsyncMock(return_value=None)
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=None)
+    cm.__aexit__ = AsyncMock(return_value=None)
+    session.begin.return_value = cm
     return session
 
 
@@ -159,18 +165,20 @@ class TestEnqueueGeneration:
         assert payload["category"] == "type-puzzle"
         assert payload["difficulty"] == "hard"
 
-    async def test_正常系_トランザクションは末尾commitで確定する(
+    async def test_正常系_INSERTとNOTIFYは1つのbeginブロックに収まる(
         self,
         service: ProblemGenerationService,
         mock_session: MagicMock,
         mock_requests_repo: AsyncMock,
         mock_jobs_repo: AsyncMock,
     ) -> None:
-        """ADR 0044：Service がトランザクション境界を握る。
+        """ADR 0044 / 0004：Service が明示 begin で tx 境界を握る契約。
 
-        get_current_user 依存が同 session で先に SELECT を走らせ autobegin が
-        起きるため、明示的な session.begin() は使わず autobegin に乗って末尾で
-        commit する設計。INSERT + INSERT + NOTIFY を 1 つの tx に収める契約。
+        deps/auth.py の get_current_user_optional が認証 SELECT 用の短命 tx を
+        commit で閉じておくので、Service は ADR 0044 規約どおり
+        `async with session.begin():` を呼べる前提（pre-auth / post-auth で
+        挙動を分けなくて済む設計）。generation_requests INSERT + jobs INSERT +
+        NOTIFY を 1 つの tx に収める契約は ADR 0004。
         """
         mock_requests_repo.create.return_value = _make_generation_request()
         mock_jobs_repo.enqueue.return_value = _make_job()
@@ -181,8 +189,9 @@ class TestEnqueueGeneration:
             difficulty=ProblemDifficulty.MEDIUM,
         )
 
-        # 末尾で 1 回 commit が呼ばれている（autobegin した暗黙トランザクションを確定）。
-        mock_session.commit.assert_awaited_once()
+        # session.begin() が 1 回だけ呼ばれている（INSERT × 2 + NOTIFY が
+        # 1 つの context manager 配下に集約されている契約）。
+        mock_session.begin.assert_called_once_with()
 
 
 class TestGetStatus:

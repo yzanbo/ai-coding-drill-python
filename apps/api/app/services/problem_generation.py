@@ -67,48 +67,46 @@ class ProblemGenerationService:
           3. jobs に 1 行 INSERT + NOTIFY new_job を同一トランザクション内で実行
           4. 202 用の Pydantic を返す
         """
-        # トランザクション境界は Service が握る契約（ADR 0044）。
-        # ここに到達するまでに get_current_user 依存が同じ session で SELECT を
-        # 走らせて autobegin が起きているため、明示的な session.begin() を呼ぶと
-        # 「A transaction is already begun on this Session」になる。
-        # autobegin で開始済みの暗黙トランザクションをそのまま使い、末尾で
-        # commit する形にする（INSERT + INSERT + NOTIFY が 1 つの tx に収まる
-        # 契約は維持される、ADR 0004）。例外時は AsyncSessionLocal 終了時に
-        # 未 commit 変更が rollback される。
-        gr = await self.requests.create(
-            user_id=user_id,
-            category=category.value,
-            difficulty=difficulty.value,
-        )
+        # async with session.begin():
+        #   このブロック内で行われた DB 変更（generation_requests INSERT +
+        #   jobs INSERT + NOTIFY）を 1 つのトランザクションとして扱う
+        #   契約（ADR 0044 / 0004）。ブロックを抜けるときに自動 commit、
+        #   例外なら rollback で全て巻き戻る。
+        #   ここに到達した時点では deps/auth.py の get_current_user_optional が
+        #   認証 SELECT 用の短命 tx を既に commit で閉じているため、
+        #   ここで明示 begin しても tx 二重開始にはならない。
+        async with self.db_session.begin():
+            gr = await self.requests.create(
+                user_id=user_id,
+                category=category.value,
+                difficulty=difficulty.value,
+            )
 
-        # W3C Trace Context（ADR 0010）を payload に埋める箱。
-        #   現状は OTel SDK 未導入（R4「観測性」で組み込み予定）のため、
-        #   traceparent は None（= 親なし）で送り、Worker は None を受けたら
-        #   新規 root span を発行する設計にしておく。
-        #   R4 で opentelemetry.propagate.inject を呼んで実値を詰める形に差し替える。
-        #   空文字を sentinel に使わないのは W3C 仕様で無効書式となり、
-        #   「無効値」と「未指定」を将来パーサで区別できなくなるため。
-        trace_context = TraceContext(traceparent=None, tracestate="")
+            # W3C Trace Context（ADR 0010）を payload に埋める箱。
+            #   現状は OTel SDK 未導入（R4「観測性」で組み込み予定）のため、
+            #   traceparent は None（= 親なし）で送り、Worker は None を受けたら
+            #   新規 root span を発行する設計にしておく。
+            #   R4 で opentelemetry.propagate.inject を呼んで実値を詰める形に差し替える。
+            #   空文字を sentinel に使わないのは W3C 仕様で無効書式となり、
+            #   「無効値」と「未指定」を将来パーサで区別できなくなるため。
+            trace_context = TraceContext(traceparent=None, tracestate="")
 
-        payload = ProblemGenerationJobPayload(
-            generation_request_id=gr.id,
-            user_id=user_id,
-            category=category,
-            difficulty=difficulty,
-            trace_context=trace_context,
-        )
+            payload = ProblemGenerationJobPayload(
+                generation_request_id=gr.id,
+                user_id=user_id,
+                category=category,
+                difficulty=difficulty,
+                trace_context=trace_context,
+            )
 
-        # mode="json": UUID / Enum を JSON 互換の str に直して JSONB へ詰める。
-        # by_alias=True: snake_case 属性 → camelCase キーで書き出す
-        #                （Worker 側 Go struct の JSON タグと整合）。
-        job = await self.jobs.enqueue(
-            queue=_JOB_QUEUE,
-            type_=_JOB_TYPE,
-            payload=payload.model_dump(mode="json", by_alias=True),
-        )
-
-        # commit：generation_requests INSERT + jobs INSERT + NOTIFY を確定する。
-        await self.db_session.commit()
+            # mode="json": UUID / Enum を JSON 互換の str に直して JSONB へ詰める。
+            # by_alias=True: snake_case 属性 → camelCase キーで書き出す
+            #                （Worker 側 Go struct の JSON タグと整合）。
+            job = await self.jobs.enqueue(
+                queue=_JOB_QUEUE,
+                type_=_JOB_TYPE,
+                payload=payload.model_dump(mode="json", by_alias=True),
+            )
 
         # ログには user_id / request_id / job_id を残す（Worker 側ログとの突合キーになる）。
         # payload は冗長なので残さない。
