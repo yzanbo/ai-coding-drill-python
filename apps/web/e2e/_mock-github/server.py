@@ -27,14 +27,16 @@ CI では Playwright `webServer` configuration で本スクリプトを自動起
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from urllib.parse import urlencode, urlparse
+from uuid import UUID
 
 import asyncpg
 import redis.asyncio as redis
 import uvicorn
-from fastapi import FastAPI, Form, Header, HTTPException, Query, Response
+from fastapi import FastAPI, Form, Header, HTTPException, Path, Query, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 
 # 許容する DB ホスト。/_test/reset の安全ガードで使う。
@@ -60,6 +62,36 @@ def _is_local_db_url(db_url: str) -> bool:
     except ValueError:
         return False
     return host in _LOCAL_DB_HOSTS
+
+
+async def _connect_local_db() -> asyncpg.Connection:
+    """E2E 用テストエンドポイントから Postgres に繋ぐためのヘルパー。
+
+    - DATABASE_URL が localhost / 127.0.0.1 以外なら 403 を投げて誤接続を防ぐ
+    - SQLAlchemy 形式（postgresql+asyncpg://...）を asyncpg 用の素の形式に直す
+    """
+    db_url = os.environ.get("DATABASE_URL", "")
+    if not _is_local_db_url(db_url):
+        raise HTTPException(
+            status_code=403,
+            detail="DATABASE_URL のホストが localhost / 127.0.0.1 以外は拒否",
+        )
+    pg_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+    return await asyncpg.connect(pg_url)
+
+
+def _ensure_test_reset_enabled() -> None:
+    """破壊的テストエンドポイント共通のガード。
+
+    E2E_RESET_ENABLED=true がセットされた環境（playwright.config.ts の
+    _MOCK_GITHUB_ENV）でのみ呼び出しを許可する。production / staging 等で
+    間違って起動した時に DB を壊さないための保険。
+    """
+    if os.environ.get("E2E_RESET_ENABLED", "").lower() != "true":
+        raise HTTPException(
+            status_code=403,
+            detail="E2E_RESET_ENABLED=true が未設定 (誤起動防止)",
+        )
 
 
 # 既定の test user。OAuth 完走後に Backend が DB に保存する想定の値。
@@ -173,32 +205,18 @@ def _build_app() -> FastAPI:
           - Redis:    DB 0 (アプリのデフォルト DB) を FLUSHDB
             (session / state / rate limit すべて wipe)
         """
-        if os.environ.get("E2E_RESET_ENABLED", "").lower() != "true":
-            raise HTTPException(
-                status_code=403,
-                detail="E2E_RESET_ENABLED=true が未設定 (誤起動防止)",
-            )
+        _ensure_test_reset_enabled()
 
-        # DATABASE_URL のホスト部がローカル接続 (localhost / 127.0.0.1) であることを
-        # ホワイトリストで強制する。"production" / "staging" / "prod" 等の部分文字列を
-        # blacklist で弾く方式は短縮形 (prd 等) を取りこぼすため、許容ホストだけを通す。
-        db_url = os.environ.get("DATABASE_URL", "")
-        if not _is_local_db_url(db_url):
-            raise HTTPException(
-                status_code=403,
-                detail="DATABASE_URL のホストが localhost / 127.0.0.1 以外は拒否",
-            )
-
-        # Backend は SQLAlchemy URL (`postgresql+asyncpg://...`) を使うが、
-        # asyncpg.connect は素の `postgresql://...` 形式を要求するため変換する。
-        pg_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
-        conn = await asyncpg.connect(pg_url)
+        conn = await _connect_local_db()
         try:
-            # 対象テーブルを明示列挙する (CASCADE で users → auth_providers の FK を辿る)。
-            # 将来 submissions / problems 等が users FK を持った時に意図しない巻き込み
-            # を防ぐため、reset 対象を増やす時はこの行を編集する強制力を持たせる。
+            # 対象テーブルを明示列挙する (CASCADE で users → auth_providers / generation_requests
+            # / problems の FK を辿る)。将来 submissions 等が users FK を持った時に
+            # 意図しない巻き込みを防ぐため、reset 対象を増やす時はこの行を編集する強制力を持たせる。
+            # problems は user_id を持たないが、E2E で問題行が累積しないよう同時に消す。
             await conn.execute(
-                "TRUNCATE TABLE users, auth_providers RESTART IDENTITY CASCADE"
+                "TRUNCATE TABLE users, auth_providers, "
+                "generation_requests, problems, jobs "
+                "RESTART IDENTITY CASCADE"
             )
         finally:
             await conn.close()
@@ -211,6 +229,106 @@ def _build_app() -> FastAPI:
             await r.aclose()
 
         return {"status": "reset"}
+
+    @app.post("/_test/complete-generation-request/{request_id}")
+    async def complete_generation_request(
+        request_id: UUID = Path(..., description="生成リクエストの ID"),
+    ) -> dict[str, str]:
+        """生成リクエストを「完了」状態に押し込む E2E 専用エンドポイント。
+
+        本来は Worker (apps/workers/generation) が処理して
+        generation_requests.status を completed にし、produced_problem_id に
+        新しい problems.id を書き込む。R1-3 時点では Worker は skeleton のみで
+        実際の生成は動かないため、E2E では DB を直接書き換えてフローを進める。
+
+        手順:
+          1. problems に最小限の 1 行を INSERT して problem_id を確定
+          2. generation_requests を completed + produced_problem_id で UPDATE
+        """
+        _ensure_test_reset_enabled()
+
+        # problems の NOT NULL 列を全部埋める。中身は E2E ダミーで OK。
+        # JSONB 列 (examples / test_cases / judge_scores) は json 文字列を渡す。
+        conn = await _connect_local_db()
+        try:
+            problem_id_row = await conn.fetchrow(
+                """
+                INSERT INTO problems
+                  (title, description, category, difficulty, language,
+                   examples, test_cases, reference_solution, judge_scores)
+                VALUES
+                  ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9::jsonb)
+                RETURNING id
+                """,
+                "E2E ダミー問題",
+                "E2E テストが状態遷移を確認するためのダミー問題本文。",
+                "array",
+                "easy",
+                "typescript",
+                json.dumps([]),
+                json.dumps([]),
+                "export const solve = () => null;",
+                json.dumps({}),
+            )
+            if problem_id_row is None:
+                raise HTTPException(status_code=500, detail="problems INSERT failed")
+            problem_id = problem_id_row["id"]
+
+            updated = await conn.execute(
+                """
+                UPDATE generation_requests
+                SET status = 'completed',
+                    produced_problem_id = $1,
+                    updated_at = NOW()
+                WHERE id = $2
+                """,
+                problem_id,
+                request_id,
+            )
+        finally:
+            await conn.close()
+
+        # asyncpg の execute は "UPDATE n" を返す。n=0 は対象行なしを示す。
+        if updated.endswith(" 0"):
+            raise HTTPException(
+                status_code=404,
+                detail=f"generation_requests.id={request_id} が見つからない",
+            )
+
+        return {"status": "completed", "problem_id": str(problem_id)}
+
+    @app.post("/_test/fail-generation-request/{request_id}")
+    async def fail_generation_request(
+        request_id: UUID = Path(..., description="生成リクエストの ID"),
+    ) -> dict[str, str]:
+        """生成リクエストを「失敗」状態に押し込む E2E 専用エンドポイント。
+
+        complete 側と同様、Worker 未実装期間の代替として DB を直接書き換える。
+        produced_problem_id は NULL のまま残す（失敗時は問題が生まれない）。
+        """
+        _ensure_test_reset_enabled()
+
+        conn = await _connect_local_db()
+        try:
+            updated = await conn.execute(
+                """
+                UPDATE generation_requests
+                SET status = 'failed',
+                    updated_at = NOW()
+                WHERE id = $1
+                """,
+                request_id,
+            )
+        finally:
+            await conn.close()
+
+        if updated.endswith(" 0"):
+            raise HTTPException(
+                status_code=404,
+                detail=f"generation_requests.id={request_id} が見つからない",
+            )
+
+        return {"status": "failed"}
 
     return app
 
