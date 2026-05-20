@@ -17,6 +17,7 @@
 //   優先度：static > dynamic）。
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { listProblemsApiProblemsGet } from "@/__generated__/api/sdk.gen";
 import type { ProblemCategory, ProblemDifficulty } from "@/__generated__/api/types.gen";
 import { Button } from "@/components/ui/button/button";
@@ -98,6 +99,13 @@ export default async function ProblemsListPage({ searchParams }: ProblemsPagePro
       query: { category, difficulty, page },
     }),
   );
+
+  // ページ範囲外：?page=999 を直接踏んだ時に最終ページへ寄せる。
+  //   items=[] と「条件に合う問題がありません」の表示が重複して出るのを防ぎ、
+  //   URL とユーザーの認識を一致させる（totalPages=0 のときは寄せ先がないので無視）。
+  if (data.totalPages > 0 && page > data.totalPages) {
+    redirect(buildHref(category, difficulty, data.totalPages));
+  }
 
   const hasPrev = page > 1;
   const hasNext = page < data.totalPages;

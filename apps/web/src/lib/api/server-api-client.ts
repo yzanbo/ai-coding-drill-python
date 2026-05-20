@@ -30,8 +30,18 @@ import { createClient, createConfig } from "@/__generated__/api/client";
 // API_PROXY_TARGET: Next.js dev サーバ → FastAPI への転送先と同じ env。
 //   next.config.ts の rewrites と SSoT を揃え、ブラウザ経路と RSC 経路で
 //   API 接続先がずれないようにする。
-//   本番デプロイ時に同じ env で API URL を上書きする想定。
-const API_PROXY_TARGET = process.env.API_PROXY_TARGET ?? "http://localhost:8000";
+//
+// 本番安全装置：
+//   - NODE_ENV=production で env 未設定なら**起動時に throw**。
+//     localhost:8000 への silent fallback で本番リクエストが沈黙するのを防ぐ。
+//   - dev / test では未設定なら localhost:8000 にフォールバック。
+const rawApiProxyTarget = process.env.API_PROXY_TARGET;
+if (!rawApiProxyTarget && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "API_PROXY_TARGET is required in production (RSC fetch cannot fall back to localhost)",
+  );
+}
+const API_PROXY_TARGET = rawApiProxyTarget ?? "http://localhost:8000";
 
 // serverApiClient: RSC 用の Hey API クライアント。
 //   - baseUrl: 絶対 URL を明示（Node.js fetch 用）

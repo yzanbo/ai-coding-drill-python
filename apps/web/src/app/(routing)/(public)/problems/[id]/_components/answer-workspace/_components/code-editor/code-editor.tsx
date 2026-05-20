@@ -23,14 +23,19 @@ type CodeEditorProps = {
 
 // 共通の Extension 定義。
 //   javascript({ typescript: true, jsx: false }): .ts として扱う（jsx 構文不要）
-//   EditorView.theme: 親コンテナの高さに追従するよう height を設定
+//   EditorView.theme:
+//     - 高さは指定せず、CodeMirror のデフォルト挙動（doc 行数に追従）に任せる。
+//       行が増えれば自然に伸び、左の行番号 gutter も実際の行数分だけ表示される。
+//     - fontSize / font-family のみ、サイト全体のデザイントークンに揃える。
 //   EditorView.updateListener: テキスト変更を React state にブリッジ
 const buildExtensions = (onChange: (next: string) => void): Extension[] => [
   basicSetup,
   javascript({ typescript: true, jsx: false }),
   EditorView.theme({
-    "&": { height: "320px", fontSize: "0.875rem" },
-    ".cm-scroller": { fontFamily: "var(--font-mono, ui-monospace, monospace)" },
+    "&": { fontSize: "0.875rem" },
+    ".cm-scroller": {
+      fontFamily: "var(--font-mono, ui-monospace, monospace)",
+    },
   }),
   EditorView.updateListener.of((update) => {
     if (update.docChanged) {
@@ -91,6 +96,8 @@ export const CodeEditor = ({ value, onChange }: CodeEditorProps) => {
       // aria-label: CodeMirror 内部の contenteditable が実際の入力面で、本要素は
       //   それを包む landmark。section + aria-label でスクリーンリーダーから
       //   「解答コードエディタ」エリアとして読まれる。
+      // 高さは指定しない：CodeMirror の自然な高さ（doc 行数分）に任せる。
+      //   行が増えれば section ごと縦に伸び、行番号 gutter は実際の行数分が見える。
       aria-label="解答コードエディタ"
       className="rounded-lg border border-border bg-card overflow-hidden focus-within:ring-2 focus-within:ring-ring"
     />

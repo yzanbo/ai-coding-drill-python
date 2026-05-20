@@ -63,6 +63,29 @@ export const AnswerWorkspace = ({ problemId }: AnswerWorkspaceProps) => {
 
   const submission = usePostSubmission();
 
+  // submissionErrorMessage: status から日本語メッセージに変換。
+  //   生の status コードは UI に出さず、ユーザーが取れる次の行動を文章にする。
+  //   - 401: セッション切れ。再ログイン誘導。
+  //   - 404: 問題が消えた / soft delete された。一覧に戻す案内。
+  //   - 422: バリデーション失敗（コード長 / UUID 形式）。書き直し案内。
+  //   - 429: レート制限。少し待つ案内。
+  //   - その他 (5xx 等): 一時的な障害として再試行案内。
+  const submissionErrorMessage = ((): string | null => {
+    if (!submission.error) return null;
+    switch (submission.error.status) {
+      case 401:
+        return "ログインの有効期限が切れました。再度ログインしてください。";
+      case 404:
+        return "この問題は見つかりませんでした。一覧から再度選び直してください。";
+      case 422:
+        return "解答コードの形式に問題があります。内容を見直して再送信してください。";
+      case 429:
+        return "送信回数が多すぎます。少し時間を置いてから再試行してください。";
+      default:
+        return "送信に失敗しました。時間を置いて再試行してください。";
+    }
+  })();
+
   const handleRun = () => {
     // 認証判定中は何もしない（ボタン disabled 側で抑制しているが二重防御）。
     if (isAuthLoading) return;
@@ -93,10 +116,9 @@ export const AnswerWorkspace = ({ problemId }: AnswerWorkspaceProps) => {
           </p>
         ) : null}
 
-        {submission.error ? (
+        {submissionErrorMessage ? (
           <p className="text-xs text-destructive" role="alert">
-            送信に失敗しました（status: {submission.error.status}
-            ）。時間を置いて再試行してください。
+            {submissionErrorMessage}
           </p>
         ) : null}
       </div>
