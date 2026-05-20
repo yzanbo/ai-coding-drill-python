@@ -389,6 +389,99 @@ def _build_app() -> FastAPI:
 
         return {"problem_id": str(problem_id)}
 
+    @app.post("/_test/seed-submission")
+    async def seed_submission(
+        problem_id: str = Query(..., description="対象問題の id（seed-problem の戻り値）"),
+        user_email: str = Query(
+            _DEFAULT_USER["email"],
+            description="解答主のメール。既定は OAuth mock の e2e-testuser",
+        ),
+        status: str = Query("graded", description="submissions.status: pending / graded / failed"),
+        passed: bool = Query(True, description="result.passed: 全テスト通過したか"),
+        score: int = Query(2, description="採点スコア（passed テスト数）"),
+        total: int = Query(2, description="テスト総数（result.testResults の件数）"),
+    ) -> dict[str, str]:
+        """submissions に 1 行 INSERT して submission_id を返す E2E 専用エンドポイント。
+
+        R1-6 の /me/history / /me/stats / /me/weakness を E2E で叩くために、
+        Worker 未起動でも graded まで遷移した行を即座に用意できるショートカット。
+        jobs は介在させない（最短ルートで submissions を生やすだけ）。
+
+        SSoT は apps/api/app/models/submissions.py。NOT NULL 列・result JSONB の
+        スキーマが変わったら本関数も更新する。
+        """
+        _ensure_test_reset_enabled()
+
+        # status の許可値ガード。SubmissionStatus enum と合わせる
+        # （apps/api/app/schemas/submissions.py の SubmissionStatus）。
+        if status not in {"pending", "graded", "failed"}:
+            raise HTTPException(status_code=422, detail=f"invalid status: {status}")
+
+        # result JSONB を組み立て。graded 時のみ埋め、それ以外は NULL のまま挿す。
+        result_json: str | None = None
+        result_score: int | None = None
+        if status == "graded":
+            test_results = [
+                {
+                    "name": f"case{i + 1}",
+                    "passed": passed if i < score else False,
+                    "durationMs": 50,
+                }
+                for i in range(total)
+            ]
+            result_payload = {
+                "passed": passed,
+                "durationMs": 100,
+                "testResults": test_results,
+            }
+            if not passed:
+                result_payload["failureKind"] = "test_failed"
+            result_json = json.dumps(result_payload)
+            result_score = score
+
+        conn = await _connect_local_db()
+        try:
+            # user_id 解決：mock OAuth で作られた users 行を最新 created_at で引く。
+            #   beforeEach の resetState で毎テスト 1 ユーザーに揃うため
+            #   ORDER BY created_at DESC LIMIT 1 で OAuth で作った直近の行が取れる。
+            #   email カラムは GitHub 側で非公開設定の場合 NULL になるため、
+            #   email 一致引きより堅牢な経路を選ぶ。
+            del user_email  # 互換のため引数だけ残し、内部では使わない
+            user_row = await conn.fetchrow(
+                "SELECT id FROM users ORDER BY created_at DESC LIMIT 1",
+            )
+            if user_row is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="user not found（先に loginViaMockGithub を呼ぶ必要があります）",
+                )
+            user_id: UUID = user_row["id"]
+
+            row = await conn.fetchrow(
+                """
+                INSERT INTO submissions
+                  (user_id, problem_id, code, status, result, score,
+                   graded_at)
+                VALUES
+                  ($1, $2, $3, $4::varchar, $5::jsonb, $6,
+                   CASE WHEN $4::varchar IN ('graded', 'failed') THEN NOW() ELSE NULL END)
+                RETURNING id
+                """,
+                user_id,
+                UUID(problem_id),
+                "export const solve = (a: number[]) => a.reduce((s, n) => s + n, 0);",
+                status,
+                result_json,
+                result_score,
+            )
+            if row is None:
+                raise HTTPException(status_code=500, detail="submissions INSERT failed")
+            submission_id = row["id"]
+        finally:
+            await conn.close()
+
+        return {"submission_id": str(submission_id)}
+
     return app
 
 
