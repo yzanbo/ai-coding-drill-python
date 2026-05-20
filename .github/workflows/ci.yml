@@ -393,9 +393,28 @@ jobs:
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
       # DB schema を Alembic で作成（api / mock の /_test/reset が users テーブルを参照）。
       - run: mise run api:db-migrate
-      # Playwright のブラウザバイナリ（chromium）を取得。--with-deps は Linux 用の
-      # OS-level 依存（libnss / libatk 等）も併せて apt インストールする。
-      - run: cd apps/web && pnpm exec playwright install --with-deps chromium
+      # Playwright のブラウザバイナリをキャッシュする。
+      # cache key には Playwright 自身の version を含めて、version 上がった時に
+      # 自動的にキャッシュミスして新バイナリを取り直す。OS にも依存するため runner.os も付ける。
+      - name: Resolve Playwright version
+        id: playwright-version
+        run: |
+          ver=$(cd apps/web && pnpm exec playwright --version | awk '{print $2}')
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      # キャッシュ HIT 時はバイナリは既にある → OS-level deps だけ apt-get で入れる（install-deps）。
+      # MISS 時はバイナリ + OS deps を一括取得（--with-deps）。
+      - name: Install Playwright (cache miss)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: cd apps/web && pnpm exec playwright install --with-deps chromium
+      - name: Install Playwright OS deps only (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: cd apps/web && pnpm exec playwright install-deps chromium
       # CI=true で webServer.reuseExistingServer=false / reporter=github / workers=1 /
       # retries=2 が有効になる（playwright.config.ts 参照）。
       - run: cd apps/web && CI=true pnpm exec playwright test
