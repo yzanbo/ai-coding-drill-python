@@ -114,6 +114,11 @@ test.describe("localStorage 復元", () => {
   test("エディタに書いた内容はリロード後も復元される", async ({ page }) => {
     const problemId = await seedProblem(page.request);
 
+    // /problems/:id は認証必須化（R1-6）。未ログインだと LoginRequiredMessage
+    //   が出てエディタが描画されないため、ログイン後に詳細ページへ進む。
+    //   "/" は /problems にサーバ side redirect されるため、終端着地は /problems。
+    await loginViaMockGithub(page);
+    await page.waitForURL("/problems");
     await page.goto(`/problems/${problemId}`);
 
     // CodeMirror 6 の入力面は contenteditable な .cm-content（aria-label の
