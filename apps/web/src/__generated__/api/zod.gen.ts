@@ -3,6 +3,92 @@
 import * as z from 'zod';
 
 /**
+ * AttemptError
+ *
+ * 1 回分の試行エラー（jobs.attempt_errors の 1 要素）。
+ */
+export const zAttemptError = z.object({
+    attempt: z.int().gte(0),
+    failedAt: z.iso.datetime(),
+    failureReason: z.enum([
+        'llm_unauthorized',
+        'llm_cost_exceeded',
+        'judge_below_threshold',
+        'sandbox_failed',
+        'sandbox_infrastructure',
+        'llm_invalid_output',
+        'llm_rate_limit',
+        'llm_timeout',
+        'llm_schema_invalid',
+        'max_attempts_exceeded'
+    ]),
+    message: z.string()
+});
+
+/**
+ * GenerationRequestCancelResponse
+ *
+ * キャンセル後の最終状態。
+ */
+export const zGenerationRequestCancelResponse = z.object({
+    id: z.uuid(),
+    status: z.literal('canceled')
+});
+
+/**
+ * GenerationRequestRetryResponse
+ *
+ * 再試行で作られた新規 generation_request の最小情報。
+ */
+export const zGenerationRequestRetryResponse = z.object({
+    id: z.uuid(),
+    retryOf: z.uuid(),
+    status: z.literal('pending')
+});
+
+/**
+ * GenerationRequestSummary
+ *
+ * 生成リクエスト履歴の 1 行分。
+ */
+export const zGenerationRequestSummary = z.object({
+    attemptErrors: z.array(zAttemptError).optional(),
+    category: z.string(),
+    completedAt: z.iso.datetime().nullish(),
+    createdAt: z.iso.datetime(),
+    difficulty: z.string(),
+    failureReason: z.enum([
+        'llm_unauthorized',
+        'llm_cost_exceeded',
+        'judge_below_threshold',
+        'sandbox_failed',
+        'sandbox_infrastructure',
+        'llm_invalid_output',
+        'llm_rate_limit',
+        'llm_timeout',
+        'llm_schema_invalid',
+        'max_attempts_exceeded'
+    ]).nullish(),
+    id: z.uuid(),
+    producedProblemId: z.uuid().nullish(),
+    progressStep: z.enum([
+        'llm_generating',
+        'sandbox_verifying',
+        'judging',
+        'persisting'
+    ]).nullish(),
+    promptVersion: z.string().nullish(),
+    retryCount: z.int().gte(0),
+    retryOf: z.uuid().nullish(),
+    status: z.enum([
+        'pending',
+        'completed',
+        'failed',
+        'canceled'
+    ])
+});
+
+/**
  * GenerationStatus
  */
 export const zGenerationStatus = z.enum([
@@ -29,6 +115,18 @@ export const zMeCategoryStat = z.object({
     attempts: z.int().gte(0),
     category: z.string(),
     correct: z.int().gte(0)
+});
+
+/**
+ * MeGenerationsListResponse
+ *
+ * 生成履歴一覧 + ページネーション情報。
+ */
+export const zMeGenerationsListResponse = z.object({
+    items: z.array(zGenerationRequestSummary),
+    page: z.int().gte(1),
+    pageSize: z.int().gte(1),
+    totalPages: z.int().gte(0)
 });
 
 /**
@@ -137,7 +235,28 @@ export const zProblemGenerateRequest = z.object({
  * 生成リクエストの現在ステータス。completed の時のみ problemId を含む。
  */
 export const zProblemGenerateStatusResponse = z.object({
+    attemptErrors: z.array(zAttemptError).optional().default([]),
+    completedAt: z.iso.datetime().nullish(),
+    createdAt: z.iso.datetime().nullish(),
+    failureReason: z.enum([
+        'llm_unauthorized',
+        'llm_cost_exceeded',
+        'judge_below_threshold',
+        'sandbox_failed',
+        'sandbox_infrastructure',
+        'llm_invalid_output',
+        'llm_rate_limit',
+        'llm_timeout',
+        'llm_schema_invalid',
+        'max_attempts_exceeded'
+    ]).nullish(),
     problemId: z.uuid().nullish(),
+    progressStep: z.enum([
+        'llm_generating',
+        'sandbox_verifying',
+        'judging',
+        'persisting'
+    ]).nullish(),
     requestId: z.uuid(),
     status: zGenerationStatus
 });
@@ -308,6 +427,33 @@ export const zValidationError = z.object({
 export const zHttpValidationError = z.object({
     detail: z.array(zValidationError).optional()
 });
+
+export const zListMyGenerationsApiMeGenerationsGetQuery = z.object({
+    page: z.int().gte(1).optional().default(1)
+});
+
+/**
+ * Successful Response
+ */
+export const zListMyGenerationsApiMeGenerationsGetResponse = zMeGenerationsListResponse;
+
+export const zCancelMyGenerationApiMeGenerationsRequestIdCancelPostPath = z.object({
+    request_id: z.uuid()
+});
+
+/**
+ * Successful Response
+ */
+export const zCancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse = zGenerationRequestCancelResponse;
+
+export const zRetryMyGenerationApiMeGenerationsRequestIdRetryPostPath = z.object({
+    request_id: z.uuid()
+});
+
+/**
+ * Successful Response
+ */
+export const zRetryMyGenerationApiMeGenerationsRequestIdRetryPostResponse = zGenerationRequestRetryResponse;
 
 /**
  * Successful Response

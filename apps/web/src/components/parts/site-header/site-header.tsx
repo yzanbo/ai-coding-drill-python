@@ -25,6 +25,7 @@ const GLOBAL_NAV_LINKS: { href: string; label: string }[] = [
   { href: "/me/history", label: "解答履歴" },
   { href: "/me/stats", label: "学習統計" },
   { href: "/me/weakness", label: "弱点" },
+  { href: "/me/generations", label: "生成履歴" },
 ];
 
 export const SiteHeader = () => {

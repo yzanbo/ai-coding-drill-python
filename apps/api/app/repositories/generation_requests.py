@@ -25,14 +25,20 @@ class GenerationRequestRepository:
         user_id: UUID,
         category: str,
         difficulty: str,
+        retry_of: UUID | None = None,
     ) -> GenerationRequest:
         """新規 1 行を挿入し、サーバ既定値（id / created_at / status='pending'）が
         埋まった ORM を返す。commit はしない（Service 側がトランザクション境界を握る）。
+
+        retry_of: 再試行で作成する時に元 generation_request の id を渡す。
+                  履歴画面で「N 回目の再試行」をトレースするための自己 FK
+                  （R1-7 で追加、problem-generation.md §履歴・状態管理）。
         """
         gr = GenerationRequest(
             user_id=user_id,
             category=category,
             difficulty=difficulty,
+            retry_of=retry_of,
         )
         self.session.add(gr)
         # flush: ここで INSERT を送って id / created_at / status を確定させる。

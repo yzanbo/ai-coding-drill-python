@@ -5,6 +5,126 @@ export type ClientOptions = {
 };
 
 /**
+ * AttemptError
+ *
+ * 1 回分の試行エラー（jobs.attempt_errors の 1 要素）。
+ */
+export type AttemptError = {
+    /**
+     * Attempt
+     */
+    attempt: number;
+    /**
+     * Failedat
+     */
+    failedAt: string;
+    /**
+     * Failurereason
+     */
+    failureReason: 'llm_unauthorized' | 'llm_cost_exceeded' | 'judge_below_threshold' | 'sandbox_failed' | 'sandbox_infrastructure' | 'llm_invalid_output' | 'llm_rate_limit' | 'llm_timeout' | 'llm_schema_invalid' | 'max_attempts_exceeded';
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
+ * GenerationRequestCancelResponse
+ *
+ * キャンセル後の最終状態。
+ */
+export type GenerationRequestCancelResponse = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Status
+     */
+    status: 'canceled';
+};
+
+/**
+ * GenerationRequestRetryResponse
+ *
+ * 再試行で作られた新規 generation_request の最小情報。
+ */
+export type GenerationRequestRetryResponse = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Retryof
+     */
+    retryOf: string;
+    /**
+     * Status
+     */
+    status: 'pending';
+};
+
+/**
+ * GenerationRequestSummary
+ *
+ * 生成リクエスト履歴の 1 行分。
+ */
+export type GenerationRequestSummary = {
+    /**
+     * Attempterrors
+     */
+    attemptErrors?: Array<AttemptError>;
+    /**
+     * Category
+     */
+    category: string;
+    /**
+     * Completedat
+     */
+    completedAt?: string | null;
+    /**
+     * Createdat
+     */
+    createdAt: string;
+    /**
+     * Difficulty
+     */
+    difficulty: string;
+    /**
+     * Failurereason
+     */
+    failureReason?: 'llm_unauthorized' | 'llm_cost_exceeded' | 'judge_below_threshold' | 'sandbox_failed' | 'sandbox_infrastructure' | 'llm_invalid_output' | 'llm_rate_limit' | 'llm_timeout' | 'llm_schema_invalid' | 'max_attempts_exceeded' | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Producedproblemid
+     */
+    producedProblemId?: string | null;
+    /**
+     * Progressstep
+     */
+    progressStep?: 'llm_generating' | 'sandbox_verifying' | 'judging' | 'persisting' | null;
+    /**
+     * Promptversion
+     */
+    promptVersion?: string | null;
+    /**
+     * Retrycount
+     */
+    retryCount: number;
+    /**
+     * Retryof
+     */
+    retryOf?: string | null;
+    /**
+     * Status
+     */
+    status: 'pending' | 'completed' | 'failed' | 'canceled';
+};
+
+/**
  * GenerationStatus
  */
 export type GenerationStatus = 'pending' | 'completed' | 'failed';
@@ -55,6 +175,30 @@ export type MeCategoryStat = {
      * Correct
      */
     correct: number;
+};
+
+/**
+ * MeGenerationsListResponse
+ *
+ * 生成履歴一覧 + ページネーション情報。
+ */
+export type MeGenerationsListResponse = {
+    /**
+     * Items
+     */
+    items: Array<GenerationRequestSummary>;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Pagesize
+     */
+    pageSize: number;
+    /**
+     * Totalpages
+     */
+    totalPages: number;
 };
 
 /**
@@ -205,9 +349,29 @@ export type ProblemGenerateRequest = {
  */
 export type ProblemGenerateStatusResponse = {
     /**
+     * Attempterrors
+     */
+    attemptErrors?: Array<AttemptError>;
+    /**
+     * Completedat
+     */
+    completedAt?: string | null;
+    /**
+     * Createdat
+     */
+    createdAt?: string | null;
+    /**
+     * Failurereason
+     */
+    failureReason?: 'llm_unauthorized' | 'llm_cost_exceeded' | 'judge_below_threshold' | 'sandbox_failed' | 'sandbox_infrastructure' | 'llm_invalid_output' | 'llm_rate_limit' | 'llm_timeout' | 'llm_schema_invalid' | 'max_attempts_exceeded' | null;
+    /**
      * Problemid
      */
     problemId?: string | null;
+    /**
+     * Progressstep
+     */
+    progressStep?: 'llm_generating' | 'sandbox_verifying' | 'judging' | 'persisting' | null;
     /**
      * Requestid
      */
@@ -489,6 +653,96 @@ export type ValidationError = {
      */
     type: string;
 };
+
+export type ListMyGenerationsApiMeGenerationsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Page
+         */
+        page?: number;
+    };
+    url: '/api/me/generations';
+};
+
+export type ListMyGenerationsApiMeGenerationsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListMyGenerationsApiMeGenerationsGetError = ListMyGenerationsApiMeGenerationsGetErrors[keyof ListMyGenerationsApiMeGenerationsGetErrors];
+
+export type ListMyGenerationsApiMeGenerationsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: MeGenerationsListResponse;
+};
+
+export type ListMyGenerationsApiMeGenerationsGetResponse = ListMyGenerationsApiMeGenerationsGetResponses[keyof ListMyGenerationsApiMeGenerationsGetResponses];
+
+export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostData = {
+    body?: never;
+    path: {
+        /**
+         * Request Id
+         */
+        request_id: string;
+    };
+    query?: never;
+    url: '/api/me/generations/{request_id}/cancel';
+};
+
+export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostError = CancelMyGenerationApiMeGenerationsRequestIdCancelPostErrors[keyof CancelMyGenerationApiMeGenerationsRequestIdCancelPostErrors];
+
+export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: GenerationRequestCancelResponse;
+};
+
+export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse = CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponses[keyof CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponses];
+
+export type RetryMyGenerationApiMeGenerationsRequestIdRetryPostData = {
+    body?: never;
+    path: {
+        /**
+         * Request Id
+         */
+        request_id: string;
+    };
+    query?: never;
+    url: '/api/me/generations/{request_id}/retry';
+};
+
+export type RetryMyGenerationApiMeGenerationsRequestIdRetryPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RetryMyGenerationApiMeGenerationsRequestIdRetryPostError = RetryMyGenerationApiMeGenerationsRequestIdRetryPostErrors[keyof RetryMyGenerationApiMeGenerationsRequestIdRetryPostErrors];
+
+export type RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: GenerationRequestRetryResponse;
+};
+
+export type RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponse = RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponses[keyof RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponses];
 
 export type GetMyStatsApiMeStatsGetData = {
     body?: never;

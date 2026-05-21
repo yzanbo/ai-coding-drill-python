@@ -55,6 +55,7 @@
 | 解答履歴 | `/me/history` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
 | 学習統計 | `/me/stats` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
 | 弱点カテゴリ | `/me/weakness` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
+| 生成履歴 | `/me/generations` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
 | —（存在しないパス） | `404` | 非公開<br>→ `/problems` | 非公開<br>→ `/` | `app/not-found.tsx` + server-side `redirect()` |
 
 ### 補足：`/auth/*`（OAuth 経路）
@@ -139,6 +140,7 @@ FastAPI に転送される）。本表の対象外。詳細は
 | 解答履歴 | `/me/history` |
 | 学習統計 | `/me/stats` |
 | 弱点 | `/me/weakness` |
+| 生成履歴 | `/me/generations` |
 
 > 表示順 / ラベル / 遷移先の SSoT は `SiteHeader` 内の `GLOBAL_NAV_LINKS` 定数。
 > 増減があったらまずそこを更新し、本表もあわせて更新する。

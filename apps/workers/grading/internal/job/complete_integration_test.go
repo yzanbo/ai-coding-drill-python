@@ -51,7 +51,7 @@ func TestMarkFailed_RetryUnderMaxAttempts(t *testing.T) {
 	jobID := insertJob(t, ctx, pool, job.GenerationQueue, job.TypeProblemGenerate, "running", -1*time.Second)
 
 	// attempts=1 失敗 → backoff 10s 後に state='queued' で復帰。
-	err := job.MarkFailed(ctx, pool, jobID, 1, "boom")
+	err := job.MarkFailed(ctx, pool, jobID, 1, "boom", "test_reason")
 	require.NoError(t, err)
 
 	var state string
@@ -73,7 +73,7 @@ func TestMarkFailed_MaxAttemptsBecomesDead(t *testing.T) {
 	jobID := insertJob(t, ctx, pool, job.GenerationQueue, job.TypeProblemGenerate, "running", -1*time.Second)
 
 	// attempts=MaxAttempts(3) で失敗 → dead に落ちる。
-	err := job.MarkFailed(ctx, pool, jobID, job.MaxAttempts, "exhausted")
+	err := job.MarkFailed(ctx, pool, jobID, job.MaxAttempts, "exhausted", "test_reason")
 	require.NoError(t, err)
 
 	var state, lastError string
@@ -90,7 +90,7 @@ func TestMarkDead_GoesDirectlyToDead(t *testing.T) {
 
 	jobID := insertJob(t, ctx, pool, job.GenerationQueue, job.TypeProblemGenerate, "running", -1*time.Second)
 
-	err := job.MarkDead(ctx, pool, jobID, "unauthorized")
+	err := job.MarkDead(ctx, pool, jobID, "unauthorized", "test_reason")
 	require.NoError(t, err)
 
 	var state string

@@ -482,6 +482,66 @@ def _build_app() -> FastAPI:
 
         return {"submission_id": str(submission_id)}
 
+    @app.post("/_test/seed-generation")
+    async def seed_generation(
+        status: str = Query("pending", description="generation_requests.status: pending / completed / failed / canceled"),
+        category: str = Query("array", description="カテゴリ（ProblemCategory）"),
+        difficulty: str = Query("easy", description="難易度（ProblemDifficulty）"),
+        failure_reason: str | None = Query(None, description="failed 時に書く失敗理由"),
+        produced_problem_id: str | None = Query(None, description="completed 時に紐づく problem.id"),
+    ) -> dict[str, str]:
+        """generation_requests に 1 行 INSERT して id を返す E2E 専用エンドポイント。
+
+        R1-7 の /me/generations を E2E で叩くために、Worker 未起動でも各状態の行を
+        直接用意できるショートカット。jobs は介在させない（履歴一覧の表示と
+        cancel / retry を確認するだけなら jobs は要らない）。
+
+        user_id 解決は seed-submission と同じく直近 users 行を採用する。
+        SSoT は apps/api/app/models/generation_requests.py。
+        """
+        _ensure_test_reset_enabled()
+
+        if status not in {"pending", "completed", "failed", "canceled"}:
+            raise HTTPException(status_code=422, detail=f"invalid status: {status}")
+
+        conn = await _connect_local_db()
+        try:
+            user_row = await conn.fetchrow(
+                "SELECT id FROM users ORDER BY created_at DESC LIMIT 1",
+            )
+            if user_row is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="user not found（先に loginViaMockGithub を呼ぶ必要があります）",
+                )
+            user_id: UUID = user_row["id"]
+
+            row = await conn.fetchrow(
+                """
+                INSERT INTO generation_requests
+                  (user_id, category, difficulty, status,
+                   produced_problem_id, failure_reason, completed_at)
+                VALUES
+                  ($1, $2, $3, $4::varchar,
+                   $5, $6,
+                   CASE WHEN $4::varchar IN ('completed', 'failed', 'canceled') THEN NOW() ELSE NULL END)
+                RETURNING id
+                """,
+                user_id,
+                category,
+                difficulty,
+                status,
+                UUID(produced_problem_id) if produced_problem_id else None,
+                failure_reason,
+            )
+            if row is None:
+                raise HTTPException(status_code=500, detail="generation_requests INSERT failed")
+            request_id = row["id"]
+        finally:
+            await conn.close()
+
+        return {"request_id": str(request_id)}
+
     return app
 
 

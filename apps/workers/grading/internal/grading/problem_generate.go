@@ -60,6 +60,9 @@ type generationStore interface {
 	// 1 tx で completed に遷移。先に finalized 済みなら
 	// ErrGenerationRequestAlreadyFinalized を返す (handler 側で nil 扱いに変換)。
 	InsertProblemAndCompleteRequest(ctx context.Context, draft *ProblemDraft, category, difficulty string, scores JudgeScoresPayload, requestID uuid.UUID) (*CreatedProblem, error)
+	// UpdateProgressStep: pending 行の現在ステップを書く (R1-7-2)。
+	// 失敗は handler 側で警告ログのみで握り潰す (本筋を止めない)。
+	UpdateProgressStep(ctx context.Context, requestID uuid.UUID, step string) error
 }
 
 // classifyHandlerError: handler が外部 (LLM / sandbox / judge) 呼び出しで受け取った
@@ -126,15 +129,27 @@ func (h *problemGenerateHandler) Type() string {
 	return job.TypeProblemGenerate
 }
 
+// ClassifyFailureReason: jobHandler 実装。本パッケージの classifyFailureReason
+// （10 タグの分類器）に委譲する。orchestrator が attempt_errors の各要素 +
+// generation_requests.failure_reason のタグ判定に使う。
+func (h *problemGenerateHandler) ClassifyFailureReason(err error) string {
+	return classifyFailureReason(err)
+}
+
 // OnDead: ジョブが dead 確定した時の後処理。
 //
 // jobs テーブル側は orchestrator が既に MarkDead 済み。本関数では
 // generation_requests を failed に遷移させて、UI 側のステータス画面が
 // 「永続失敗」と判定できるようにする (problem-generation.md §採点フロー)。
 //
+// lastErr: dead を引き起こした最後の Handle エラー。classifyFailureReason で
+// 具体タグ（judge_below_threshold / sandbox_failed / llm_invalid_output /
+// llm_unauthorized / llm_cost_exceeded / max_attempts_exceeded）に分類し、
+// generation_requests.failure_reason に書く（ops が DB から SELECT して原因分析）。
+//
 // payload parse 失敗 / DB UPDATE 失敗は警告ログのみで握り潰す
 // (jobs.last_error に残っているので運用追跡可能)。
-func (h *problemGenerateHandler) OnDead(ctx context.Context, j *job.Job) {
+func (h *problemGenerateHandler) OnDead(ctx context.Context, j *job.Job, lastErr error) {
 	var payload struct {
 		GenerationRequestID string `json:"generationRequestId"`
 	}
@@ -149,9 +164,61 @@ func (h *problemGenerateHandler) OnDead(ctx context.Context, j *job.Job) {
 			"job_id", j.ID, "id", payload.GenerationRequestID)
 		return
 	}
-	if err := markGenerationRequestFailed(ctx, h.pool, reqID); err != nil {
+	reason := classifyFailureReason(lastErr)
+	if err := markGenerationRequestFailed(ctx, h.pool, reqID, reason); err != nil {
 		slog.WarnContext(ctx, "problem.generate: failed to mark generation_request failed",
-			"job_id", j.ID, "err", err.Error())
+			"job_id", j.ID, "reason", reason, "err", err.Error())
+	}
+}
+
+// classifyFailureReason: dead 確定の最後の error を generation_requests.failure_reason
+// に書くタグに分類する。
+//
+// 即 dead 経路：
+//   - llm.ErrUnauthorized: "llm_unauthorized" (API キー不正・権限不足)
+//   - llm.ErrCostExceeded: "llm_cost_exceeded" (1 ジョブのコスト上限超過)
+//
+// retry 累積で dead に到達する経路（具体カテゴリ）：
+//   - ErrJudgeBelowThreshold: "judge_below_threshold" (judge スコア閾値未満)
+//   - ErrSandboxFailed: "sandbox_failed" (sandbox 検証で失敗：vitest 不合格 / timeout)
+//   - ErrSandboxInfra: "sandbox_infrastructure" (Docker daemon / image / コンテナ作成)
+//   - ErrLLMInvalidOutput: "llm_invalid_output" (LLM 出力 schema 違反)
+//   - llm.ErrRateLimit: "llm_rate_limit" (provider 429 が累積)
+//   - llm.ErrTimeout: "llm_timeout" (LLM 応答タイムアウトが累積)
+//   - llm.ErrInvalidSchema: "llm_schema_invalid" (provider 応答が JSON schema 違反)
+//
+// 上記いずれも背負わない fallback：
+//   - "max_attempts_exceeded" (真に未知。後段の last_error を見て調査する)
+//
+// 順序：先に「即 dead 経路」、次に「retry 累積の具体カテゴリ」（具体性が高い順）、
+// 最後に「LLM transient 種別」（classifyHandlerError で ErrInvalidProblem +
+// 元エラーが %w で 2 重 wrap されているため errors.Is で chain を辿れる）。
+func classifyFailureReason(err error) string {
+	switch {
+	case err == nil:
+		// 防御。本来 OnDead は handlerErr 非 nil の場合にしか呼ばれないが、
+		// 将来 reclaim 経由で dead に落ちる導線が増えた時の保険。
+		return "max_attempts_exceeded"
+	case errors.Is(err, llm.ErrUnauthorized):
+		return "llm_unauthorized"
+	case errors.Is(err, llm.ErrCostExceeded):
+		return "llm_cost_exceeded"
+	case errors.Is(err, ErrJudgeBelowThreshold):
+		return "judge_below_threshold"
+	case errors.Is(err, ErrSandboxFailed):
+		return "sandbox_failed"
+	case errors.Is(err, ErrSandboxInfra):
+		return "sandbox_infrastructure"
+	case errors.Is(err, ErrLLMInvalidOutput):
+		return "llm_invalid_output"
+	case errors.Is(err, llm.ErrRateLimit):
+		return "llm_rate_limit"
+	case errors.Is(err, llm.ErrTimeout):
+		return "llm_timeout"
+	case errors.Is(err, llm.ErrInvalidSchema):
+		return "llm_schema_invalid"
+	default:
+		return "max_attempts_exceeded"
 	}
 }
 
@@ -209,10 +276,21 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 		return nil
 	}
 
+	// 各ステップ開始時に generation_requests.progress_step を UPDATE する。
+	// 失敗時はログのみで握り潰す（観測性向上のための best-effort で、
+	// step 書き込みエラーで本筋を止めない）。
+	updateStep := func(step string) {
+		if err := h.store.UpdateProgressStep(ctx, requestID, step); err != nil {
+			slog.WarnContext(ctx, "problem.generate: update progress_step failed",
+				"job_id", j.ID, "step", step, "err", err.Error())
+		}
+	}
+
 	// 1. LLM 生成
 	// classifyHandlerError: provider 由来の transient error (429 / timeout /
 	// schema 違反 / NW エラー) を ErrInvalidProblem に詰め替えて retryable 化する。
 	// ErrUnauthorized / ErrCostExceeded は bare のままで即 dead 経路へ。
+	updateStep("llm_generating")
 	draft, err := h.generator.Generate(ctx, category, difficulty)
 	if err != nil {
 		return classifyHandlerError(err)
@@ -237,21 +315,24 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 	// 2. サンドボックス検証
 	// verifyInSandbox は内部で大半を ErrInvalidProblem wrap 済みだが、
 	// Docker daemon 由来の bare error を ErrInvalidProblem に詰め替える。
+	updateStep("sandbox_verifying")
 	if err := h.verifyInSandbox(ctx, draft); err != nil {
 		return classifyHandlerError(err)
 	}
 
 	// 3. judge 評価
 	// classifyHandlerError: judge LLM の transient error を retryable に倒す。
+	updateStep("judging")
 	judgeRes, err := h.evaluateQuality(ctx, draft, category, difficulty)
 	if err != nil {
 		return classifyHandlerError(err)
 	}
 	if !judgeRes.Passed() {
-		return fmt.Errorf("%w: judge score %d below threshold %d", ErrInvalidProblem, judgeRes.Total, judgeRes.Threshold)
+		return fmt.Errorf("%w: %w: judge score %d below threshold %d", ErrInvalidProblem, ErrJudgeBelowThreshold, judgeRes.Total, judgeRes.Threshold)
 	}
 
-	// 4. problems INSERT + generation_requests completed
+	// 4. 永続化（problems INSERT + generation_requests completed を 1 tx で閉じる）
+	updateStep("persisting")
 	scores := JudgeScoresPayload{
 		Clarity:          judgeRes.Clarity.Score,
 		TestCoverage:     judgeRes.TestCoverage.Score,
@@ -295,21 +376,26 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 // classifyHandlerError で ErrInvalidProblem に詰め替えられて retryable になる
 // (transient な docker daemon hang を MaxAttempts まで retry させるため)。
 func (h *problemGenerateHandler) verifyInSandbox(ctx context.Context, draft *ProblemDraft) error {
+	// 「LLM が生成した問題が sandbox 検証で落ちる」系の error は ErrSandboxFailed を
+	// 2 重 wrap。Docker daemon 由来の bare error だけは sentinel を付けず、
+	// classifyHandlerError で transient 化 → 累積で max_attempts_exceeded に倒す。
 	specBody, err := buildSpecFile(draft)
 	if err != nil {
-		return fmt.Errorf("%w: build spec: %v", ErrInvalidProblem, err)
+		return fmt.Errorf("%w: %w: build spec: %v", ErrInvalidProblem, ErrSandboxFailed, err)
 	}
 	res, err := h.sandbox.Run(ctx, []sandbox.FileSource{
 		{Name: SolutionFileName, Content: draft.ReferenceSolution},
 		{Name: SpecFileName, Content: specBody},
 	}, vitestCmd)
 	if err != nil {
-		// Docker daemon の一過性ハング等は呼び出し側で transient と分類されて
-		// MaxAttempts まで retry される (classifyHandlerError で wrap)。
-		return fmt.Errorf("grading: sandbox run: %w", err)
+		// Docker daemon ハング / image 不在 / コンテナ作成失敗等は ErrSandboxInfra
+		// 経由で failure_reason="sandbox_infrastructure" に倒す。
+		// classifyHandlerError で ErrInvalidProblem も被せて retryable 化する
+		// （複数 %w で sentinel が両方残る）。
+		return fmt.Errorf("%w: %w", ErrSandboxInfra, err)
 	}
 	if res.TimedOut {
-		return fmt.Errorf("%w: sandbox timed out", ErrInvalidProblem)
+		return fmt.Errorf("%w: %w: sandbox timed out", ErrInvalidProblem, ErrSandboxFailed)
 	}
 	if res.ExitCode != 0 {
 		// テスト失敗 (exit code 1) と vitest 起動失敗の区別は stdout の JSON
@@ -317,19 +403,19 @@ func (h *problemGenerateHandler) verifyInSandbox(ctx context.Context, draft *Pro
 		// 「環境エラー」扱い。
 		summary, parseErr := sandbox.ParseVitest(res.Stdout)
 		if parseErr != nil {
-			return fmt.Errorf("%w: vitest run failed (exit=%d, stderr=%s)", ErrInvalidProblem, res.ExitCode, truncate(res.Stderr, 200))
+			return fmt.Errorf("%w: %w: vitest run failed (exit=%d, stderr=%s)", ErrInvalidProblem, ErrSandboxFailed, res.ExitCode, truncate(res.Stderr, 200))
 		}
 		if !summary.AllPassed() {
-			return fmt.Errorf("%w: %d/%d tests failed", ErrInvalidProblem, summary.Failed, summary.Total)
+			return fmt.Errorf("%w: %w: %d/%d tests failed", ErrInvalidProblem, ErrSandboxFailed, summary.Failed, summary.Total)
 		}
 	}
 	// ExitCode 0 でも本当に走ったか確認 (テスト 0 件は不合格扱い)。
 	summary, parseErr := sandbox.ParseVitest(res.Stdout)
 	if parseErr != nil {
-		return fmt.Errorf("%w: parse vitest output: %v", ErrInvalidProblem, parseErr)
+		return fmt.Errorf("%w: %w: parse vitest output: %v", ErrInvalidProblem, ErrSandboxFailed, parseErr)
 	}
 	if !summary.AllPassed() {
-		return fmt.Errorf("%w: vitest reported %d/%d", ErrInvalidProblem, summary.Failed, summary.Total)
+		return fmt.Errorf("%w: %w: vitest reported %d/%d", ErrInvalidProblem, ErrSandboxFailed, summary.Failed, summary.Total)
 	}
 	return nil
 }
