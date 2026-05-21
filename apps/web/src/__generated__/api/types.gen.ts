@@ -456,7 +456,7 @@ export type SubmissionCreateRequest = {
 /**
  * SubmissionFailureKind
  */
-export type SubmissionFailureKind = 'test_failed' | 'timeout' | 'oom' | 'syntax' | 'runtime';
+export type SubmissionFailureKind = 'test_failed' | 'timeout' | 'oom' | 'syntax' | 'runtime' | 'type_error';
 
 /**
  * SubmissionResultPayload

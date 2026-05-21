@@ -316,7 +316,8 @@ export const zSubmissionFailureKind = z.enum([
     'timeout',
     'oom',
     'syntax',
-    'runtime'
+    'runtime',
+    'type_error'
 ]);
 
 /**

@@ -69,6 +69,7 @@ class SubmissionAcceptedResponse(_CamelModel):
 #     oom         : メモリ使用量超過（コンテナ OOMKilled）
 #     syntax      : 構文エラー（コードがそもそも実行できない）
 #     runtime     : 実行時例外（throw / 未捕捉例外）
+#     type_error  : 型エラー（tsc --noEmit が失敗）。型パズル系カテゴリ専用。
 #   いずれも submissions.status='graded' で確定する。
 #   インフラ起因の障害（docker daemon 切断等）は status='failed' 側で表現するため
 #   本 enum には含めない。
@@ -78,6 +79,7 @@ class SubmissionFailureKind(StrEnum):
     OOM = "oom"
     SYNTAX = "syntax"
     RUNTIME = "runtime"
+    TYPE_ERROR = "type_error"
 
 
 # SubmissionTestResultItem: 1 件のテストケース実行結果。
