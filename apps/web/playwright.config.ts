@@ -9,6 +9,7 @@ import {
   MOCK_GITHUB_PORT,
   REDIS_URL,
   WEB_PORT,
+  WORKER_DATABASE_URL,
   WORKER_HEALTH_PORT,
 } from "./e2e/_helpers/constants";
 
@@ -45,8 +46,8 @@ const _MOCK_GITHUB_ENV = {
 };
 
 // 採点 Worker を E2E 向け env で起動する（issue #80）。
-// - DATABASE_URL: 採点 Worker は pgx ドライバなので SQLAlchemy 形式 `+asyncpg` を除いた
-//   素の `postgresql://...` 形式を渡す（apps/workers/grading/internal/config/config.go 参照）。
+// - DATABASE_URL: pgx ドライバ用に dialect 接尾辞を除いた形式（WORKER_DATABASE_URL の
+//   コメント参照、constants.ts が SSoT）。
 // - WORKER_HEALTH_ADDR: /healthz を listen させる。dev では未設定で無効化される機能を
 //   E2E でのみ有効化することで、dev / E2E の Worker プロセスが port 衝突しないようにする。
 // - GOOGLE_API_KEY: provider 初期化時に空文字を弾くため dummy を渡す。grading-flow.spec.ts は
@@ -54,7 +55,7 @@ const _MOCK_GITHUB_ENV = {
 // - SANDBOX_TMP_DIR: macOS Docker Desktop で $TMPDIR (/var/folders/...) が File Sharing
 //   許可外の環境に当たることがあるため /tmp を明示。CI Linux runner では /tmp が常に共有可。
 const _WORKER_ENV = {
-  DATABASE_URL: DATABASE_URL.replace("+asyncpg", ""),
+  DATABASE_URL: WORKER_DATABASE_URL,
   WORKER_HEALTH_ADDR: `:${WORKER_HEALTH_PORT}`,
   GOOGLE_API_KEY: "e2e-dummy-key",
   SANDBOX_TMP_DIR: "/tmp",
