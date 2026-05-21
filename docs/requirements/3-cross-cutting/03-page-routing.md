@@ -37,25 +37,27 @@
 ここを真っ先に更新し、対応する `4-features/` の個別 .md と実装を追従させる。
 
 > 列の見方：
-> - **認証済の着地** / **未認証の着地**：その URL を直接踏んだ時に最終的に
->   ブラウザのアドレスバーに表示される URL（リダイレクトを追った後の終端）と、
->   そこに描画される画面を `/` 区切りで併記する
-> - 同じ URL に留まる場合は「`/foo`（留まる）／画面名」、リダイレクトされる
->   場合は「`/bar` に遷移／画面名」と書き分ける
+> - **画面名**：その URL に紐づく主要画面コンポーネント
+> - **認証済 / 未認証**：その URL を直接踏んだ時の挙動。記号は下記凡例
+> - **凡例**
+>   - `公開` ：その状態のユーザーにそのまま画面が見える（URL も画面も変わらない）
+>   - `非公開` ：その状態のユーザーには本来の画面を見せない。続く行が代替動作（リダイレクト or 案内ページ）
+>   - `△` ：URL は留まるが、別の案内画面に差し替えて表示
+>   - `→` ：別 URL にリダイレクト（矢印の後ろが着地先）
 > - ガード方法の詳細は §2 を参照
 
-| 経路 | 認証済の着地 | 未認証の着地 | ガード方法 |
-|---|---|---|---|
-| `/` | `/problems` に遷移／問題一覧 | `/`（留まる）／ランディング画面 | server-side cookie 判定 + `redirect()` |
-| `/login` | `/`（→ `/problems`）に遷移／再訪不可 | `/login`（留まる）／ログイン画面 | client-side `useEffect` で `router.replace` |
-| `/problems` | `/problems`（留まる）／問題一覧 | `/problems`（留まる）／問題一覧（ゲスト閲覧可） | なし（公開エンドポイント） |
-| `/problems/:id` | `/problems/:id`（留まる）／問題詳細 + 解答エディタ | `/problems/:id`（留まる）／`LoginRequiredMessage` 案内 | server-side cookie 判定 + 案内ページ差し替え |
-| `/problems/new` | `/problems/new`（留まる）／問題生成リクエスト画面 | `/login?next=/problems/new` に遷移 | `(authed)` layout + `router.replace("/login?next=...")` |
-| `/problems/generate/:requestId` | `/problems/generate/...`（留まる）／生成ステータス画面 | `/login?next=/problems/generate/...` に遷移 | `(authed)` layout |
-| `/me/history` | `/me/history`（留まる）／解答履歴一覧 | `/login?next=/me/history` に遷移 | `(authed)` layout |
-| `/me/stats` | `/me/stats`（留まる）／学習統計 | `/login?next=/me/stats` に遷移 | `(authed)` layout |
-| `/me/weakness` | `/me/weakness`（留まる）／弱点カテゴリ | `/login?next=/me/weakness` に遷移 | `(authed)` layout |
-| `404`（存在しないパス） | `/problems` に遷移／問題一覧 | `/` に遷移／ランディング画面 | `app/not-found.tsx` + `router.replace` |
+| 画面名 | 経路 | 認証済 | 未認証 | ガード方法 |
+|---|---|---|---|---|
+| ランディング | `/` | 非公開<br>→ `/problems` | 公開 | server-side cookie + `redirect()` |
+| ログイン | `/login` | 非公開<br>→ `?next` または `/` | 公開 | server-side cookie + `redirect()` |
+| 問題一覧 | `/problems` | 公開 | 公開 | なし |
+| 問題詳細 + 解答エディタ | `/problems/:id` | 公開 | 非公開<br>△ `LoginRequiredMessage` | server-side cookie + 案内ページ差し替え |
+| 問題生成リクエスト | `/problems/new` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
+| 生成ステータス | `/problems/generate/:requestId` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
+| 解答履歴 | `/me/history` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
+| 学習統計 | `/me/stats` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
+| 弱点カテゴリ | `/me/weakness` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
+| —（存在しないパス） | `404` | 非公開<br>→ `/problems` | 非公開<br>→ `/` | `app/not-found.tsx` + `router.replace` |
 
 ### 補足：`/auth/*`（OAuth 経路）
 
@@ -114,8 +116,8 @@ FastAPI に転送される）。本表の対象外。詳細は
   認証が必要な API エンドポイントは 401 を返す。
 - **FE 側のガード** は **UX 用の早期分岐**であり、ネットワーク帯域・チラ見せ
   防止・動線整流のために置く。
-  - server-side cookie presence チェック（`/`、`/problems/:id`）
-  - client-side `useGetAuthMe` 判定（`(authed)` layout、`/login`）
+  - server-side cookie presence チェック（`/`、`/login`、`/problems/:id`）
+  - client-side `useGetAuthMe` 判定（`(authed)` layout）
 - **Cookie の有効性チェックは行わない**。Cookie が存在するが Redis 側で
   セッションが失効しているケースは、API 呼び出しで 401 が返り、それを
   `ApiErrorProvider` がトーストで通知 + `/login` リダイレクトに繋ぐ
