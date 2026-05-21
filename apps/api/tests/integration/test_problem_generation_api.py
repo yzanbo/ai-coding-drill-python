@@ -25,6 +25,7 @@ from app.models.generation_requests import GenerationRequest
 from app.models.jobs import Job
 from app.models.problems import Problem
 
+from ._factories import create_problem
 from ._helpers import current_user_id, login_via_github
 
 
@@ -323,7 +324,8 @@ class TestGetStatusReturnsCorrectShape:
         request_id = uuid.UUID(post_res.json()["requestId"])
 
         # Worker の完了処理を模して、status / produced_problem_id を直接書き換える。
-        problem_id = await _insert_problem()
+        async with AsyncSessionLocal() as s:
+            problem_id = await create_problem(s)
         async with AsyncSessionLocal() as s:
             gr = (
                 await s.execute(
@@ -429,25 +431,3 @@ class TestGetStatusAuthorization:
         assert res.status_code == 422
 
 
-# ----------------------------------------------------------------------------
-# 補助：problems テーブルに最小行を 1 件作って id を返す
-# ----------------------------------------------------------------------------
-async def _insert_problem() -> uuid.UUID:
-    """produced_problem_id の FK 制約を満たすため problems に 1 件 INSERT して id を返す。"""
-    p = Problem(
-        title="dummy",
-        description="dummy",
-        category="array",
-        difficulty="easy",
-        language="typescript",
-        examples=[],
-        test_cases=[],
-        reference_solution="",
-        judge_scores={},
-    )
-    async with AsyncSessionLocal() as s:
-        s.add(p)
-        await s.flush()
-        new_id = p.id
-        await s.commit()
-    return new_id

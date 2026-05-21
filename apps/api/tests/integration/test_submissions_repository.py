@@ -14,7 +14,6 @@
 
 import uuid
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import delete
@@ -24,7 +23,8 @@ from app.db.session import AsyncSessionLocal
 from app.models.problems import Problem
 from app.models.submissions import Submission
 from app.repositories.submissions import SubmissionRepository
-from app.repositories.users import UserRepository
+
+from ._factories import create_problem, create_submission, create_user
 
 
 @pytest.fixture(autouse=True)
@@ -48,70 +48,19 @@ async def session() -> AsyncIterator[AsyncSession]:
         yield s
 
 
-async def _create_user(session: AsyncSession, name: str = "Taro") -> uuid.UUID:
-    """テスト用ユーザーを 1 件作って id を返す（FK 制約を満たすため）。"""
-    users = UserRepository(session)
-    async with session.begin():
-        user = await users.create(display_name=name, email=None)
-    return user.id
-
-
-async def _create_problem(
-    session: AsyncSession,
-    *,
-    title: str = "配列の合計",
-    deleted: bool = False,
-) -> uuid.UUID:
-    """テスト用 problem を 1 件作って id を返す。deleted=True ならソフトデリート印を付ける。"""
-    async with session.begin():
-        problem = Problem(
-            title=title,
-            description="合計を返してください",
-            category="array",
-            difficulty="easy",
-            language="typescript",
-            examples=[{"input": "[1,2,3]", "output": "6"}],
-            # test_cases.input は Worker 側 TestCase 契約に合わせて配列で入れる
-            # （文字列を入れると grading Worker が json unmarshal で落ちて即 dead 行きになる）。
-            test_cases=[{"input": [[1, 2, 3]], "expected": 6}],
-            reference_solution="x",
-            judge_scores={},
-        )
-        session.add(problem)
-        await session.flush()
-        problem_id = problem.id
-        if deleted:
-            problem.deleted_at = datetime.now(UTC)
-    return problem_id
-
-
-async def _create_submission(
-    session: AsyncSession,
-    *,
-    user_id: uuid.UUID,
-    problem_id: uuid.UUID,
-    code: str = "x",
-    deleted: bool = False,
-) -> uuid.UUID:
-    """テスト用 submission を 1 件作って id を返す。"""
-    async with session.begin():
-        sub = Submission(user_id=user_id, problem_id=problem_id, code=code)
-        session.add(sub)
-        await session.flush()
-        sub_id = sub.id
-        if deleted:
-            sub.deleted_at = datetime.now(UTC)
-    return sub_id
-
-
 class TestGetByIdForUser:
     async def test_正常系_自分のIDなら取得できる(
         self, session: AsyncSession
     ) -> None:
-        owner_id = await _create_user(session)
-        problem_id = await _create_problem(session)
-        sub_id = await _create_submission(
-            session, user_id=owner_id, problem_id=problem_id
+        owner_id = await create_user(session)
+        problem_id = await create_problem(session)
+        # 採点前の生 INSERT 状態（status=pending / result=None）を観測したいので明示する。
+        sub_id = await create_submission(
+            session,
+            user_id=owner_id,
+            problem_id=problem_id,
+            status="pending",
+            passed=None,
         )
         repo = SubmissionRepository(session)
 
@@ -124,20 +73,20 @@ class TestGetByIdForUser:
 
     async def test_異常系_他人のIDならNone(self, session: AsyncSession) -> None:
         """情報漏洩防止：他人の id を渡しても None（存在チェックも兼ねる契約）。"""
-        owner_id = await _create_user(session, name="Owner")
-        problem_id = await _create_problem(session)
-        sub_id = await _create_submission(
+        owner_id = await create_user(session, name="Owner")
+        problem_id = await create_problem(session)
+        sub_id = await create_submission(
             session, user_id=owner_id, problem_id=problem_id
         )
         # 別ユーザーを作って観測する。
-        other_id = await _create_user(session, name="Other")
+        other_id = await create_user(session, name="Other")
         repo = SubmissionRepository(session)
 
         loaded = await repo.get_by_id_for_user(submission_id=sub_id, user_id=other_id)
         assert loaded is None
 
     async def test_異常系_存在しないIDならNone(self, session: AsyncSession) -> None:
-        owner_id = await _create_user(session)
+        owner_id = await create_user(session)
         repo = SubmissionRepository(session)
 
         loaded = await repo.get_by_id_for_user(
@@ -149,9 +98,9 @@ class TestGetByIdForUser:
         self, session: AsyncSession
     ) -> None:
         """deleted_at IS NOT NULL の行は WHERE で除外される契約。"""
-        owner_id = await _create_user(session)
-        problem_id = await _create_problem(session)
-        sub_id = await _create_submission(
+        owner_id = await create_user(session)
+        problem_id = await create_problem(session)
+        sub_id = await create_submission(
             session, user_id=owner_id, problem_id=problem_id, deleted=True
         )
         repo = SubmissionRepository(session)
@@ -164,11 +113,11 @@ class TestListForUser:
     async def test_正常系_自分の解答のみ返り_他人の解答は混ざらない(
         self, session: AsyncSession
     ) -> None:
-        owner_id = await _create_user(session, name="Owner")
-        other_id = await _create_user(session, name="Other")
-        problem_id = await _create_problem(session)
-        await _create_submission(session, user_id=owner_id, problem_id=problem_id)
-        await _create_submission(session, user_id=other_id, problem_id=problem_id)
+        owner_id = await create_user(session, name="Owner")
+        other_id = await create_user(session, name="Other")
+        problem_id = await create_problem(session)
+        await create_submission(session, user_id=owner_id, problem_id=problem_id)
+        await create_submission(session, user_id=other_id, problem_id=problem_id)
         repo = SubmissionRepository(session)
 
         items, total = await repo.list_for_user(
@@ -186,12 +135,12 @@ class TestListForUser:
     async def test_正常系_並び順はcreated_at_DESC(
         self, session: AsyncSession
     ) -> None:
-        owner_id = await _create_user(session)
-        problem_id = await _create_problem(session)
-        old_id = await _create_submission(
+        owner_id = await create_user(session)
+        problem_id = await create_problem(session)
+        old_id = await create_submission(
             session, user_id=owner_id, problem_id=problem_id, code="old"
         )
-        new_id = await _create_submission(
+        new_id = await create_submission(
             session, user_id=owner_id, problem_id=problem_id, code="new"
         )
         repo = SubmissionRepository(session)
@@ -204,11 +153,11 @@ class TestListForUser:
     async def test_正常系_pageとpage_sizeでスライスされる(
         self, session: AsyncSession
     ) -> None:
-        owner_id = await _create_user(session)
-        problem_id = await _create_problem(session)
+        owner_id = await create_user(session)
+        problem_id = await create_problem(session)
         # 3 件作って page_size=2 で 1 ページ目 / 2 ページ目を観測する。
         for _ in range(3):
-            await _create_submission(
+            await create_submission(
                 session, user_id=owner_id, problem_id=problem_id
             )
         repo = SubmissionRepository(session)
@@ -230,12 +179,12 @@ class TestListForUser:
     async def test_異常系_ソフトデリートされたsubmissionは履歴に出ない(
         self, session: AsyncSession
     ) -> None:
-        owner_id = await _create_user(session)
-        problem_id = await _create_problem(session)
-        await _create_submission(
+        owner_id = await create_user(session)
+        problem_id = await create_problem(session)
+        await create_submission(
             session, user_id=owner_id, problem_id=problem_id, deleted=True
         )
-        await _create_submission(
+        await create_submission(
             session, user_id=owner_id, problem_id=problem_id
         )
         repo = SubmissionRepository(session)
@@ -255,15 +204,15 @@ class TestListForUser:
 
         問題が消えた後でも履歴に出すと title が陳腐化するため、両側で除外する。
         """
-        owner_id = await _create_user(session)
-        alive_problem_id = await _create_problem(session, title="生きてる問題")
-        dead_problem_id = await _create_problem(
+        owner_id = await create_user(session)
+        alive_problem_id = await create_problem(session, title="生きてる問題")
+        dead_problem_id = await create_problem(
             session, title="削除済み問題", deleted=True
         )
-        await _create_submission(
+        await create_submission(
             session, user_id=owner_id, problem_id=alive_problem_id
         )
-        await _create_submission(
+        await create_submission(
             session, user_id=owner_id, problem_id=dead_problem_id
         )
         repo = SubmissionRepository(session)
@@ -277,7 +226,7 @@ class TestListForUser:
         assert items[0].problem.title == "生きてる問題"
 
     async def test_正常系_0件なら空配列とtotal0(self, session: AsyncSession) -> None:
-        owner_id = await _create_user(session)
+        owner_id = await create_user(session)
         repo = SubmissionRepository(session)
 
         items, total = await repo.list_for_user(
