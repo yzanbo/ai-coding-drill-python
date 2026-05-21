@@ -3,7 +3,8 @@
 // ProblemGenerationStatusView: 生成ステータスをポーリングして UI を出し分ける本体。
 //   - pending: 「生成中…」を表示し、引き続きポーリング
 //   - completed: /problems/:problemId に自動遷移
-//   - failed: 失敗メッセージ + 再試行ボタン（/problems/new に戻す）
+//   - failed: 失敗メッセージ + 再試行ボタン（同じ条件で新規 generation_request を作り、
+//     新しい /problems/generate/:newRequestId に置換遷移）
 //   要件: docs/requirements/4-features/problem-generation.md §生成ステータス画面
 //
 //   失敗種別（LLM スキーマ違反 / Sandbox 失敗 / Judge 不合格）はユーザーには区別せず
@@ -16,6 +17,7 @@ import { AttemptErrorList } from "@/components/parts/attempt-error-list/attempt-
 import { GenerationProgress } from "@/components/parts/generation-progress/generation-progress";
 import { LiveDuration } from "@/components/parts/live-duration/live-duration";
 import { Button } from "@/components/ui/button/button";
+import { useRetryMyGeneration } from "@/hooks/use-retry-my-generation/use-retry-my-generation";
 import { formatDate } from "@/lib/utils/format-date";
 
 import { useGetProblemGenerationStatus } from "../../_hooks/_fetch/use-get-problem-generation-status/use-get-problem-generation-status";
@@ -28,6 +30,24 @@ export const ProblemGenerationStatusView = ({ requestId }: ProblemGenerationStat
   const router = useRouter();
   const { status, isLoading, isFetching, error, refetch } =
     useGetProblemGenerationStatus(requestId);
+  // useRetryMyGeneration: 生成履歴ページと共有のフック。同じ条件で新規 generation_request
+  //   を作り、成功後にその新しい requestId のステータス画面へ replace 遷移する。
+  const retryMutation = useRetryMyGeneration();
+
+  // onRetry: failed 状態のリクエストを再試行して、新しいリクエストの生成中画面に切り替える。
+  //   replace を使う理由：戻るボタンで failed の旧画面に戻れないようにする
+  //   （ポーリング済みの最終状態なので戻る価値が無い）。
+  //   失敗時はトーストを ApiErrorProvider が出すので、ここでは握り潰す。
+  const handleRetry = () => {
+    retryMutation
+      .retry(requestId)
+      .then((res) => {
+        router.replace(`/problems/generate/${res.id}`);
+      })
+      .catch(() => {
+        // ApiErrorProvider 側でトースト出ているので無視。
+      });
+  };
 
   // 完了したら問題詳細画面に自動遷移。
   //   useEffect で実行することで、レンダリング中の navigate を避ける（Next.js が警告を出すため）。
@@ -84,7 +104,9 @@ export const ProblemGenerationStatusView = ({ requestId }: ProblemGenerationStat
             「3 回中、どの試行でどのカテゴリの error が起きたか」が分かる。 */}
         <AttemptErrorList attemptErrors={status.attemptErrors ?? []} />
         <div className="text-center">
-          <Button onClick={() => router.replace("/problems/new")}>もう一度生成する</Button>
+          <Button onClick={handleRetry} disabled={retryMutation.isPending}>
+            再試行
+          </Button>
         </div>
       </div>
     );

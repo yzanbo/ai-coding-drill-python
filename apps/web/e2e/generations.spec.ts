@@ -5,13 +5,12 @@
 //     ((authed) layout のガード経路)
 //   - 認証ユーザー：履歴ゼロでも 200 で空表示
 //   - 認証ユーザー：seed-generation で各状態の行を直接 INSERT して表示確認
-//   - cancel / retry の細かいロジック（CSRF / 状態遷移）は Backend pytest が網羅済み。
-//     ここはブラウザ越しで「ボタンが出る」「クリックすると状態が更新される」の存在保証
+//   - retry の細かいロジック（CSRF / 状態遷移）は Backend pytest が網羅済み。
+//     ここはブラウザ越しで「ボタンが出る」の存在保証
 //
 // Worker の扱い：
 //   実 LLM 呼び出しは E2E では避け、Mock GitHub サーバの /_test/seed-generation で
 //   行を直接生やす（generation_requests INSERT のみ、jobs は介在させない）。
-//   pending 行のキャンセル試験は Worker が拾わない前提で 1 秒以内に観測する。
 
 import { MOCK_GITHUB_ORIGIN } from "./_helpers/constants";
 import { expect, loginAndGoto, test } from "./_helpers/test-fixtures";
@@ -88,17 +87,20 @@ test.describe("認証ユーザー: 各状態の行が表示される", () => {
     await expect(page.getByRole("button", { name: "再試行" })).toBeVisible();
   });
 
-  test("pending 行にキャンセルボタンが出る", async ({ page }) => {
+  test("pending 行はキャンセルボタンも再試行ボタンも出ない", async ({ page }) => {
     await loginAndGoto(page, "/");
     await seedGeneration(page.request, { status: "pending" });
 
     await page.goto("/me/generations");
 
     await expect(page.getByText("生成中…").first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "キャンセル" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "キャンセル" })).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "再試行" })).not.toBeVisible();
   });
 
   test("canceled 行は「キャンセル済」表示、ボタンは出ない", async ({ page }) => {
+    // canceled は旧仕様で書き込まれた既存データの表示互換のみ確認
+    // （新規に canceled を生むパスは API から削除済み）。
     await loginAndGoto(page, "/");
     await seedGeneration(page.request, { status: "canceled" });
 
