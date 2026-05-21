@@ -301,6 +301,10 @@ class MeGenerationsService:
             original_difficulty = original.difficulty
 
         # 既存 enqueue ロジックに retry_of を渡して再利用する。
+        # retry_of はチェーンの根 ID ではなく「ユーザーが押した failed 行 1 つ」
+        # を指す（線形 retry チェーンになる）。チェーン深さの N 回目表示は
+        # MeGenerationsRepository.compute_retry_depths が WITH RECURSIVE で算出するため、
+        # ここで根まで辿り直す必要は無い（要件 §履歴上のアクション）。
         accepted = await self.generation.enqueue_generation(
             user_id=user_id,
             category=ProblemCategory(original_category),

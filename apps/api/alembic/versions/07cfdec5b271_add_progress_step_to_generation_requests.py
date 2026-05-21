@@ -24,8 +24,13 @@ def upgrade() -> None:
     R1-7-2 ステップ進捗の可視化のための拡張：
       - progress_step : Worker が現在処理中のステップを書く文字列
         ("llm_generating" / "sandbox_verifying" / "judging" / "persisting")
-        terminal 行（completed / failed / canceled）では NULL に倒される
-        （Pydantic Literal が SSoT、DB CHECK 制約は無し）。
+        Pydantic Literal が SSoT、DB CHECK 制約は無し。
+        Worker は terminal 遷移時に本列を NULL クリアしない（completed/failed の
+        UPDATE は progress_step に触らない）。代わりに API レスポンス側
+        (services/me_generations.py の _coerce_progress_step) で
+        status != 'pending' なら None に倒すことで「terminal なのにステップが残る」
+        ような UI 表示を防いでいる。Worker クラッシュで残った値も次の reclaim 時に
+        新 Worker の "llm_generating" UPDATE で上書きされる。
 
     status だけだと「pending の間に Worker が今どこにいるか」が分からなかったため、
     UI（生成ステータス画面 / 生成履歴画面）でステップインジケータを表示できるよう

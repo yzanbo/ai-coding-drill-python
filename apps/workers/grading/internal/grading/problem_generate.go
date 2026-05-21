@@ -331,10 +331,8 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 		return fmt.Errorf("%w: %w: judge score %d below threshold %d", ErrInvalidProblem, ErrJudgeBelowThreshold, judgeRes.Total, judgeRes.Threshold)
 	}
 
-	// 4. 永続化
+	// 4. 永続化（problems INSERT + generation_requests completed を 1 tx で閉じる）
 	updateStep("persisting")
-
-	// 4. problems INSERT + generation_requests completed
 	scores := JudgeScoresPayload{
 		Clarity:          judgeRes.Clarity.Score,
 		TestCoverage:     judgeRes.TestCoverage.Score,
