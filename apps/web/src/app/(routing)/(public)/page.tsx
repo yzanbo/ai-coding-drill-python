@@ -17,6 +17,9 @@ export default async function RootPage() {
   }
 
   // 未ログイン：サイト概要 + ログイン誘導のシンプルなランディング画面。
+  //   CTA は「GitHub でログイン」1 つに絞る。
+  //   /problems を含む主要画面はすべて認証必須（R1-6）になったため、
+  //   未ログインでクリックしても /login にリダイレクトされるだけの導線は置かない。
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-6 py-24 text-center">
       <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">AI Coding Drill</h1>
@@ -24,12 +27,9 @@ export default async function RootPage() {
         LLM が自動生成した TypeScript
         の練習問題を、サンドボックスで採点しながら無限に解ける学習サイト。
       </p>
-      <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+      <div className="mt-10 flex justify-center">
         <Button asChild size="lg">
           <Link href="/login">GitHub でログイン</Link>
-        </Button>
-        <Button asChild size="lg" variant="outline">
-          <Link href="/problems">問題を見る</Link>
         </Button>
       </div>
     </main>
