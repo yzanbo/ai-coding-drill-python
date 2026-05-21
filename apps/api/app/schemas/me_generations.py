@@ -1,7 +1,6 @@
 # このファイルの役割：
 #   問題生成履歴・状態管理 API（R1-7）の HTTP 境界 JSON を定義する SSoT。
 #   - GET  /api/me/generations            : 自分の生成リクエスト履歴一覧
-#   - POST /api/me/generations/:id/cancel : pending のキャンセル
 #   - POST /api/me/generations/:id/retry  : failed の再試行（新規 generation_request 作成）
 #
 #   合わせて、DB の生 string を Literal enum に絞り込む coerce_* ヘルパも
@@ -159,16 +158,6 @@ class MeGenerationsListResponse(_CamelModel):
     page: int = Field(ge=1)
     page_size: int = Field(ge=1)
     total_pages: int = Field(ge=0)
-
-
-# GenerationRequestCancelResponse: cancel 成功時の最小レスポンス。
-#   キャンセル後の確定 status は必ず 'canceled' なので Literal で固定する
-#   （FE 側で型 narrow できる）。
-class GenerationRequestCancelResponse(_CamelModel):
-    """キャンセル後の最終状態。"""
-
-    id: UUID
-    status: Literal["canceled"]
 
 
 # GenerationRequestRetryResponse: retry 成功時のレスポンス。

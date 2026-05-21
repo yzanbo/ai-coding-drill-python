@@ -26,16 +26,6 @@ export const zAttemptError = z.object({
 });
 
 /**
- * GenerationRequestCancelResponse
- *
- * キャンセル後の最終状態。
- */
-export const zGenerationRequestCancelResponse = z.object({
-    id: z.uuid(),
-    status: z.literal('canceled')
-});
-
-/**
  * GenerationRequestRetryResponse
  *
  * 再試行で作られた新規 generation_request の最小情報。
@@ -437,15 +427,6 @@ export const zListMyGenerationsApiMeGenerationsGetQuery = z.object({
  * Successful Response
  */
 export const zListMyGenerationsApiMeGenerationsGetResponse = zMeGenerationsListResponse;
-
-export const zCancelMyGenerationApiMeGenerationsRequestIdCancelPostPath = z.object({
-    request_id: z.uuid()
-});
-
-/**
- * Successful Response
- */
-export const zCancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse = zGenerationRequestCancelResponse;
 
 export const zRetryMyGenerationApiMeGenerationsRequestIdRetryPostPath = z.object({
     request_id: z.uuid()
