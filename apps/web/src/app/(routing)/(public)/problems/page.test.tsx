@@ -117,6 +117,28 @@ describe("ProblemsListPage のカテゴリ別グルーピング", () => {
     // 期待: string カテゴリ (s1) → array カテゴリ (a2 easy → a3 medium → a1 hard)
     expect(order).toEqual(["/problems/s1", "/problems/a2", "/problems/a3", "/problems/a1"]);
   });
+
+  it("同一難易度内は title の日本語昇順（localeCompare ja）で並ぶ", async () => {
+    // 同一カテゴリ・同一難易度の 3 件を、わざとアルファベット順とは違う順序で渡す。
+    //   ja ロケールの localeCompare は仮名・漢字を一定順序でソートする。
+    //   期待: あ < い < う。
+    mockListResponse = {
+      items: [
+        { id: "a3", title: "うえ問題", category: "array", difficulty: "easy" },
+        { id: "a1", title: "あい問題", category: "array", difficulty: "easy" },
+        { id: "a2", title: "いう問題", category: "array", difficulty: "easy" },
+      ],
+      page: 1,
+      totalPages: 1,
+    };
+
+    const tree = await ProblemsListPage({
+      searchParams: Promise.resolve({}),
+    });
+
+    const order = collectHrefsByPrefix(tree, "/problems/").filter((h) => h !== "/problems/new");
+    expect(order).toEqual(["/problems/a1", "/problems/a2", "/problems/a3"]);
+  });
 });
 
 function findHrefInTree(node: unknown, target: string): boolean {
