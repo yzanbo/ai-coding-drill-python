@@ -26,12 +26,12 @@ import { expect, loginAndGoto, test } from "./_helpers/test-fixtures";
 //   value が見つからなければ即座に落としてテスト失敗にする（typo 検知）。
 const categoryLabel = (value: ProblemCategory): string => {
   const option = PROBLEM_CATEGORY_OPTIONS.find((c) => c.value === value);
-  if (!option) throw new Error(`unknown problem category: ${value}`);
+  if (!option) throw new Error(`未知のカテゴリ value: ${value}`);
   return option.label;
 };
 const difficultyLabel = (value: ProblemDifficulty): string => {
   const option = PROBLEM_DIFFICULTY_OPTIONS.find((d) => d.value === value);
-  if (!option) throw new Error(`unknown problem difficulty: ${value}`);
+  if (!option) throw new Error(`未知の難易度 value: ${value}`);
   return option.label;
 };
 
