@@ -443,6 +443,10 @@ jobs:
       - name: Install Playwright OS deps only (cache hit)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: cd apps/web && pnpm exec playwright install-deps chromium
+      # 採点 Worker の Go struct を job-schema から生成（internal/jobtypes/*.go は gitignore 対象で
+      # fresh checkout の CI では存在しないため、Worker の go build が失敗する。issue #80）。
+      # local の `mise run web:e2e` は depends で同タスクを自動実行する。
+      - run: mise run worker:grading:types-gen
       # 採点 Worker のサンドボックス image を先に build（grading-flow.spec.ts が Worker を起動するため、
       # image 不在だと Worker が fail-fast する。issue #80）。
       # local の `mise run web:e2e` は depends で同タスクを自動実行するが、CI は webServer を
