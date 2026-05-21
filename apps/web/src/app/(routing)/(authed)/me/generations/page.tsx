@@ -246,7 +246,7 @@ const GenerationRow = ({ item, onRetry, isRetryPending }: GenerationRowProps) =>
           {linkHref ? (
             <Link
               href={linkHref}
-              className="flex flex-1 flex-col gap-1 transition-all duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
+              className="flex flex-1 flex-col gap-1 transition-all duration-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
             >
               {summary}
             </Link>
