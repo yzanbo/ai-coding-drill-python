@@ -120,7 +120,9 @@ test.describe("問題生成 failed 時の再試行", () => {
     await loginAndGoto(page, "/problems/new");
 
     // フォーム送信までは正常系と同じ。
-    await page.getByText(categoryLabel("recursion"), { exact: true }).click();
+    // カテゴリは「文字列」を使う（"recursion" / "async" は採点 Worker 未対応のため
+    // 新規作成画面で一時的に非表示にしてある。フォーム上の選択肢に存在するものを選ぶ）。
+    await page.getByText(categoryLabel("string"), { exact: true }).click();
     await page.getByText(difficultyLabel("medium"), { exact: true }).click();
     await page.getByRole("button", { name: "問題を生成する" }).click();
 
