@@ -21,6 +21,11 @@ from app.repositories.generation_requests import GenerationRequestRepository
 from app.repositories.jobs import JobRepository
 from app.schemas.jobs.common import TraceContext
 from app.schemas.jobs.problem_generation import ProblemGenerationJobPayload
+from app.schemas.me_generations import (
+    coerce_attempt_errors,
+    coerce_failure_reason,
+    coerce_progress_step,
+)
 from app.schemas.problems import (
     GenerationStatus,
     ProblemCategory,
@@ -170,32 +175,25 @@ class ProblemGenerationService:
             raise
 
         # progress_step / failure_reason / attempt_errors:
-        #   生 string / list[dict] を返す前に MeGenerationsService と同じ防御線
-        #   (_coerce_progress_step / _coerce_failure_reason / _coerce_attempt_errors)
-        #   を通す。
-        from app.services.me_generations import (
-            _coerce_attempt_errors,
-            _coerce_failure_reason,
-            _coerce_progress_step,
-        )
-
+        #   生 string / list[dict] を返す前に schemas/me_generations 配下の
+        #   coerce_* 関数を通して未知値を None / 空配列に倒す。
         # attempt_errors は failed 時のみフェッチ（無駄な JOIN を避ける）。
         attempt_errors = []
         if status is GenerationStatus.FAILED:
             raw = await self.me_repo.fetch_attempt_errors(generation_request_ids=[gr.id])
-            attempt_errors = _coerce_attempt_errors(raw.get(gr.id))
+            attempt_errors = coerce_attempt_errors(raw.get(gr.id))
 
         return ProblemGenerateStatusResponse(
             request_id=gr.id,
             status=status,
             problem_id=gr.produced_problem_id if status is GenerationStatus.COMPLETED else None,
             progress_step=(
-                _coerce_progress_step(gr.progress_step)
+                coerce_progress_step(gr.progress_step)
                 if status is GenerationStatus.PENDING
                 else None
             ),
             failure_reason=(
-                _coerce_failure_reason(gr.failure_reason)
+                coerce_failure_reason(gr.failure_reason)
                 if status is GenerationStatus.FAILED
                 else None
             ),

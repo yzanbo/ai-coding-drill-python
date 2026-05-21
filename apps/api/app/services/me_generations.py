@@ -25,13 +25,13 @@ from app.core.exceptions import (
 from app.repositories.me_generations import MeGenerationsRepository
 from app.schemas.me_generations import (
     ME_GENERATIONS_PAGE_SIZE,
-    AttemptError,
-    FailureReasonTag,
     GenerationRequestCancelResponse,
     GenerationRequestRetryResponse,
     GenerationRequestSummary,
     MeGenerationsListResponse,
-    ProgressStep,
+    coerce_attempt_errors,
+    coerce_failure_reason,
+    coerce_progress_step,
 )
 from app.schemas.problems import (
     ProblemCategory,
@@ -40,85 +40,6 @@ from app.schemas.problems import (
 from app.services.problem_generation import ProblemGenerationService
 
 logger = logging.getLogger(__name__)
-
-# _KNOWN_FAILURE_REASONS: Worker が書く想定の失敗理由タグ集合。
-#   Worker (apps/workers/grading/internal/grading/problem_generate.go の
-#   classifyFailureReason) と 1:1 で揃える。集合に無い値（旧データ / 手動修正）
-#   は API レスポンスから除外し、FE 側のデフォルト文言にフォールバックさせる。
-_KNOWN_FAILURE_REASONS: frozenset[str] = frozenset(
-    [
-        "llm_unauthorized",
-        "llm_cost_exceeded",
-        "judge_below_threshold",
-        "sandbox_failed",
-        "sandbox_infrastructure",
-        "llm_invalid_output",
-        "llm_rate_limit",
-        "llm_timeout",
-        "llm_schema_invalid",
-        "max_attempts_exceeded",
-    ]
-)
-
-
-def _coerce_failure_reason(raw: str | None) -> FailureReasonTag | None:
-    """DB の生 string を FailureReasonTag に絞り込む。想定外値は None。
-
-    failed 以外の状態で値が紛れていた場合 / 旧データの未知タグ / NULL を
-    一括で None に倒し、API レスポンスからは除外する。
-    """
-    if raw is None:
-        return None
-    if raw in _KNOWN_FAILURE_REASONS:
-        return raw  # type: ignore[return-value]
-    return None
-
-
-# _KNOWN_PROGRESS_STEPS: Worker が書く想定のステップ集合。
-#   Worker (apps/workers/grading/internal/grading/problem_generate.go の Handle で
-#   updateProgressStep が書く 4 値) と 1:1。集合に無い値は API レスポンスから
-#   除外し、FE 側でステップ未確定（≒ キュー待ち or 起動直後）の表示にフォールバック。
-_KNOWN_PROGRESS_STEPS: frozenset[str] = frozenset(
-    [
-        "llm_generating",
-        "sandbox_verifying",
-        "judging",
-        "persisting",
-    ]
-)
-
-
-def _coerce_progress_step(raw: str | None) -> ProgressStep | None:
-    """DB の生 string を ProgressStep に絞り込む。想定外値は None。
-
-    Worker が pending 中に書く 4 タグ以外（旧データ / 手動修正 / 将来追加されたが
-    API 側が追従していない値）は除外する。FailureReasonTag と同じ防御線パターン。
-    """
-    if raw is None:
-        return None
-    if raw in _KNOWN_PROGRESS_STEPS:
-        return raw  # type: ignore[return-value]
-    return None
-
-
-def _coerce_attempt_errors(raw: list[dict] | None) -> list[AttemptError]:
-    """jobs.attempt_errors JSONB array を AttemptError のリストに整形する。
-
-    Worker が書く構造は camelCase {attempt, failureReason, message, failedAt} だが、
-    Pydantic の populate_by_name + alias_generator=to_camel が両対応するので
-    そのまま model_validate に渡せる。想定外値（旧データ / 手動修正）が混じった
-    要素は ValidationError で 1 件単位で skip し、他の要素は残す
-    （全体を 500 にしたくない、UI 側で見える範囲を最大化する方針）。
-    """
-    if not raw:
-        return []
-    out: list[AttemptError] = []
-    for elem in raw:
-        try:
-            out.append(AttemptError.model_validate(elem))
-        except Exception:  # noqa: BLE001 - 1 要素の不正で全体を落とさない
-            logger.warning("Skipping malformed attempt_error element: %r", elem)
-    return out
 
 
 class MeGenerationsService:
@@ -181,19 +102,19 @@ class MeGenerationsService:
                 retry_of=r.retry_of,
                 retry_count=retry_depths.get(r.id, 0),
                 # failure_reason: failed 行のみ enum 値を返す。Worker が書く 6 タグ
-                #   以外の値（旧データ / 想定外）は _coerce_failure_reason で None に倒す。
+                #   以外の値（旧データ / 想定外）は coerce_failure_reason で None に倒す。
                 failure_reason=(
-                    _coerce_failure_reason(r.failure_reason) if r.status == "failed" else None
+                    coerce_failure_reason(r.failure_reason) if r.status == "failed" else None
                 ),
                 # progress_step: pending 行のみ enum 値を返す。pending 以外では
                 #   ステップ列が NULL でない場合もあるが（古い遷移残り）、API では
                 #   None に倒す（ステップ表示は pending 中だけの関心）。
                 progress_step=(
-                    _coerce_progress_step(r.progress_step) if r.status == "pending" else None
+                    coerce_progress_step(r.progress_step) if r.status == "pending" else None
                 ),
                 # attempt_errors: failed 行のみ各試行のエラー履歴を返す。
                 attempt_errors=(
-                    _coerce_attempt_errors(attempt_errors_by_id.get(r.id))
+                    coerce_attempt_errors(attempt_errors_by_id.get(r.id))
                     if r.status == "failed"
                     else []
                 ),

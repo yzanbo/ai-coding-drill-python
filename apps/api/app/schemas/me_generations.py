@@ -4,15 +4,22 @@
 #   - POST /api/me/generations/:id/cancel : pending のキャンセル
 #   - POST /api/me/generations/:id/retry  : failed の再試行（新規 generation_request 作成）
 #
+#   合わせて、DB の生 string を Literal enum に絞り込む coerce_* ヘルパも
+#   ここに置く（型定義の隣に防御コアースを置くことで、Service / Router 双方から
+#   関数内 import なしで使える）。
+#
 # 関わる要件：
 #   - docs/requirements/4-features/problem-generation.md §履歴・状態管理
 
+import logging
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+
+logger = logging.getLogger(__name__)
 
 # GenerationStatus: generation_requests.status の許可値。
 #   DB CHECK 制約は無いので、Pydantic Literal が唯一の SSoT。
@@ -173,3 +180,86 @@ class GenerationRequestRetryResponse(_CamelModel):
     id: UUID
     status: Literal["pending"]
     retry_of: UUID
+
+
+# DB → API enum 詰め替え用の防御コアース関数群。
+#   生 string / 旧データ / 想定外値が API レスポンスに漏れないよう、Service が
+#   ORM オブジェクトを Pydantic に詰める前にここで弾く。
+#
+#   schemas 配下に置く理由：
+#     - 引数 / 戻り値とも本ファイルで定義された Literal / Pydantic モデルで完結する
+#     - core 以外の業務レイヤを import しない（terminal レイヤの約束を守れる）
+#     - Service / Router 双方から「private 越境 / 関数内 import」抜きで使える
+_KNOWN_FAILURE_REASONS: frozenset[str] = frozenset(
+    [
+        "llm_unauthorized",
+        "llm_cost_exceeded",
+        "judge_below_threshold",
+        "sandbox_failed",
+        "sandbox_infrastructure",
+        "llm_invalid_output",
+        "llm_rate_limit",
+        "llm_timeout",
+        "llm_schema_invalid",
+        "max_attempts_exceeded",
+    ]
+)
+
+
+def coerce_failure_reason(raw: str | None) -> FailureReasonTag | None:
+    """DB の生 string を FailureReasonTag に絞り込む。想定外値は None。
+
+    failed 以外の状態で値が紛れていた場合 / 旧データの未知タグ / NULL を
+    一括で None に倒し、API レスポンスからは除外する。Worker
+    (apps/workers/grading/internal/grading/problem_generate.go の
+    classifyFailureReason) と 1:1 で揃えた集合と比較する。
+    """
+    if raw is None:
+        return None
+    if raw in _KNOWN_FAILURE_REASONS:
+        return raw  # type: ignore[return-value]
+    return None
+
+
+_KNOWN_PROGRESS_STEPS: frozenset[str] = frozenset(
+    [
+        "llm_generating",
+        "sandbox_verifying",
+        "judging",
+        "persisting",
+    ]
+)
+
+
+def coerce_progress_step(raw: str | None) -> ProgressStep | None:
+    """DB の生 string を ProgressStep に絞り込む。想定外値は None。
+
+    Worker が pending 中に書く 4 タグ以外（旧データ / 手動修正 / 将来追加された
+    が API 側が追従していない値）は除外する。coerce_failure_reason と同じ
+    防御線パターン。
+    """
+    if raw is None:
+        return None
+    if raw in _KNOWN_PROGRESS_STEPS:
+        return raw  # type: ignore[return-value]
+    return None
+
+
+def coerce_attempt_errors(raw: list[dict] | None) -> list[AttemptError]:
+    """jobs.attempt_errors JSONB array を AttemptError のリストに整形する。
+
+    Worker が書く構造は camelCase {attempt, failureReason, message, failedAt} だが、
+    Pydantic の populate_by_name + alias_generator=to_camel が両対応するので
+    そのまま model_validate に渡せる。想定外値（旧データ / 手動修正）が混じった
+    要素は ValidationError で 1 件単位で skip し、他の要素は残す
+    （全体を 500 にしたくない、UI 側で見える範囲を最大化する方針）。
+    """
+    if not raw:
+        return []
+    out: list[AttemptError] = []
+    for elem in raw:
+        try:
+            out.append(AttemptError.model_validate(elem))
+        except Exception:  # noqa: BLE001 - 1 要素の不正で全体を落とさない
+            logger.warning("Skipping malformed attempt_error element: %r", elem)
+    return out
