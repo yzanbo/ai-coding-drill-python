@@ -69,15 +69,24 @@ class SubmissionAcceptedResponse(_CamelModel):
 #     oom         : メモリ使用量超過（コンテナ OOMKilled）
 #     syntax      : 構文エラー（コードがそもそも実行できない）
 #     runtime     : 実行時例外（throw / 未捕捉例外）
+#     type_error  : 型エラー（tsc --noEmit が失敗）。型パズル系カテゴリ専用。
 #   いずれも submissions.status='graded' で確定する。
 #   インフラ起因の障害（docker daemon 切断等）は status='failed' 側で表現するため
 #   本 enum には含めない。
+#
+# 命名規約のゆらぎ注意：
+#   本 enum の値はアンダースコア区切り（test_failed / type_error 等）。
+#   一方 ProblemCategory（problems.py）はハイフン区切り（type-puzzle 等）。
+#   両者は別境界（採点結果 vs カテゴリ識別子）の SSoT で歴史的に区切り文字が
+#   分かれた経緯があり、既存値との互換のため統一はしない。新値を足すときは
+#   各 enum 内の既存値に合わせる（ここではアンダースコア）。
 class SubmissionFailureKind(StrEnum):
     TEST_FAILED = "test_failed"
     TIMEOUT = "timeout"
     OOM = "oom"
     SYNTAX = "syntax"
     RUNTIME = "runtime"
+    TYPE_ERROR = "type_error"
 
 
 # SubmissionTestResultItem: 1 件のテストケース実行結果。

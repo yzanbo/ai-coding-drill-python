@@ -734,7 +734,8 @@
           "timeout",
           "oom",
           "syntax",
-          "runtime"
+          "runtime",
+          "type_error"
         ],
         "title": "SubmissionFailureKind",
         "type": "string"

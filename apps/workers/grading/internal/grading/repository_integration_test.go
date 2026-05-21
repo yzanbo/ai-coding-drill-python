@@ -209,11 +209,12 @@ func TestPgGradingStore_GetProblemForGrading_ReturnsTestCases(t *testing.T) {
 		`[{"input":[1,2],"expected":3},{"input":[5],"expected":5}]`, false)
 
 	store := newPgGradingStore(pool)
-	cases, err := store.GetProblemForGrading(ctx, problemID)
+	cases, category, err := store.GetProblemForGrading(ctx, problemID)
 	require.NoError(t, err)
 	require.Len(t, cases, 2)
 	assert.Equal(t, 3.0, cases[0].Expected, "1 番目の expected は 3")
 	assert.Equal(t, 5.0, cases[1].Expected, "2 番目の expected は 5")
+	assert.Equal(t, "array", category, "insertTestProblem は category='array' で挿入する")
 }
 
 func TestPgGradingStore_GetProblemForGrading_NotFound(t *testing.T) {
@@ -221,7 +222,7 @@ func TestPgGradingStore_GetProblemForGrading_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	store := newPgGradingStore(pool)
-	_, err := store.GetProblemForGrading(ctx, uuid.New())
+	_, _, err := store.GetProblemForGrading(ctx, uuid.New())
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrProblemNotFound, "存在しない id は ErrProblemNotFound")
 }
@@ -233,7 +234,7 @@ func TestPgGradingStore_GetProblemForGrading_SoftDeleted(t *testing.T) {
 	problemID := insertTestProblem(t, ctx, pool, `[]`, true) // deleted=true
 
 	store := newPgGradingStore(pool)
-	_, err := store.GetProblemForGrading(ctx, problemID)
+	_, _, err := store.GetProblemForGrading(ctx, problemID)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrProblemNotFound, "soft delete 行は ErrProblemNotFound")
 }
