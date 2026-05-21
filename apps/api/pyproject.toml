@@ -50,8 +50,11 @@ ignore = []
 
 # テストの関数名は日本語（→ .claude/rules/backend.md / .claude/skills/backend-test/SKILL.md）。
 # pep8-naming の N802 が日本語名を「lowercase でない」と弾くため tests 配下のみ免除する。
+# conftest.py は app.main を import する前に環境変数（RATE_LIMIT_STORAGE_URI /
+# DATABASE_URL 等）を仕込む必要があり、import 文より前に statement を置くため E402 を免除する。
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["N802"]
+"tests/conftest.py" = ["N802", "E402"]
 
 [tool.ruff.format]
 quote-style = "double"

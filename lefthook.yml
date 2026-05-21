@@ -138,11 +138,21 @@ pre-push:
     # API コード変更時（glob: apps/api/**/*.py）にのみ発火。integration テストは Postgres
     # 必須なので、DB 未起動なら fail させて push をブロックする（graceful skip は採用しない、
     # "ローカル緑 = 全テスト通過" の保証を強くするため）。fail 時は fail_text に従い
-    # docker compose up -d してから再 push すればよい。
+    # mise run test:up してから再 push すればよい。
+    #
+    # `mise run api:test` を経由する理由（issue #86 の延長 / dev DB 保護）：
+    #   pytest の integration テストは reset_* fixture で実テーブルを DELETE するため、
+    #   必ず テスト用 DB (:5433/ai_coding_drill_test) に向ける必要がある。api:test タスクは
+    #   depends で test:up を呼び、env で DATABASE_URL / REDIS_URL を強制上書きする。
+    #   直接 `uv run pytest` を呼ぶと .env の dev DSN がそのまま使われて作業データが消える
+    #   事故が起きるため、必ずタスク経由で起動する。
     api-pytest:
       glob: "apps/api/**/*.py"
-      root: apps/api
-      run: mise exec -- uv run pytest
+      # `mise exec --` で囲む理由：他フック（api-ruff / api-pyright / web-biome 等）と
+      # 一貫性を取るため。Git フックは非対話シェルで起動され ~/.zshrc 等の mise activate を
+      # 読まないため、mise 自体が PATH にあっても shims（uv / pnpm 等）が解決できない環境がある。
+      # `mise exec --` で明示的に mise の shim 解決パスを通してから `mise run` を呼ぶ。
+      run: mise exec -- mise run api:test
       fail_text: |
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -154,8 +164,11 @@ pre-push:
         【よくある原因】
           ・テストの修正漏れ / 実装変更の取り込み忘れ
               → 上のエラーに従ってテスト or 実装を修正
-          ・Postgres / Redis 未起動（asyncpg ConnectionRefusedError 等）
-              → docker compose up -d してから再 push
+          ・テスト用 Postgres / Redis 未起動（asyncpg ConnectionRefusedError 等）
+              → mise run test:up してから再 push（api:test は depends で自動起動するが
+                 Docker 本体が落ちている時はここで失敗する）
+          ・"テスト用 DB (DB 名末尾 '_test') に対してのみ実行できます" が出た
+              → PYTEST_DATABASE_URL で dev DSN を指していないか確認
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
