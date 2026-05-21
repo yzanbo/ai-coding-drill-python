@@ -44,27 +44,6 @@
         "title": "AttemptError",
         "type": "object"
       },
-      "GenerationRequestCancelResponse": {
-        "description": "キャンセル後の最終状態。",
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "status": {
-            "const": "canceled",
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "status"
-        ],
-        "title": "GenerationRequestCancelResponse",
-        "type": "object"
-      },
       "GenerationRequestRetryResponse": {
         "description": "再試行で作られた新規 generation_request の最小情報。",
         "properties": {
@@ -755,7 +734,8 @@
           "timeout",
           "oom",
           "syntax",
-          "runtime"
+          "runtime",
+          "type_error"
         ],
         "title": "SubmissionFailureKind",
         "type": "string"
@@ -1151,50 +1131,6 @@
         ]
       }
     },
-    "/api/me/generations/{request_id}/cancel": {
-      "post": {
-        "description": "pending のリクエストを canceled に倒す（Worker は state='dead' にして無効化）。\n\n- 他人のリクエスト / 存在しない → 404\n- pending 以外 → 409 Conflict",
-        "operationId": "cancel_my_generation_api_me_generations__request_id__cancel_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "request_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Request Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GenerationRequestCancelResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Cancel My Generation",
-        "tags": [
-          "me"
-        ]
-      }
-    },
     "/api/me/generations/{request_id}/retry": {
       "post": {
         "description": "failed のリクエストを新規 generation_request として複製する（retry_of リンク付き）。\n\n- 他人のリクエスト / 存在しない → 404\n- failed 以外 → 409 Conflict\n- 成功時 → 202 + 新規 id / status='pending' / retry_of\n- レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す",
@@ -1334,6 +1270,20 @@
               "description": "ページ番号（1 始まり）",
               "minimum": 1,
               "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "1 ページあたりの件数（上限 1000）",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "1 ページあたりの件数（上限 1000）",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Page Size",
               "type": "integer"
             }
           }

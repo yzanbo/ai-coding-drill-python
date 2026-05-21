@@ -60,19 +60,39 @@ describe("ProblemGenerationStatusView", () => {
     await vi.waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/problems/prob-xyz"));
   });
 
-  it("failed: 失敗メッセージと再試行ボタンを表示する", async () => {
+  it("failed: 失敗メッセージと再試行ボタンを表示し、押下で新規 generation_request の生成ステータス画面に遷移する", async () => {
     server.use(
       http.get(`${API_BASE}/api/problems/generate/req-ng`, () =>
         HttpResponse.json({ requestId: "req-ng", status: "failed" }),
+      ),
+      // retry API: 押下時に呼ばれる。新規 request の id を返す。
+      http.post(`${API_BASE}/api/me/generations/req-ng/retry`, () =>
+        HttpResponse.json({ id: "req-new", status: "pending", retryOf: "req-ng" }, { status: 202 }),
       ),
     );
 
     render(<ProblemGenerationStatusView requestId="req-ng" />, { wrapper: withQueryClient() });
 
     expect(await screen.findByText("生成に失敗しました")).toBeInTheDocument();
-    const retry = screen.getByRole("button", { name: "もう一度生成する" });
+    const retry = screen.getByRole("button", { name: "再試行" });
     await userEvent.click(retry);
-    expect(mockReplace).toHaveBeenCalledWith("/problems/new");
+    await vi.waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/problems/generate/req-new"));
+  });
+
+  it("failed: 「条件を変えてやり直す」リンクが /problems/new を指す", async () => {
+    // 二次導線: 主アクション（再試行）と別に、カテゴリ・難易度を変えてやり直したい
+    //   ユーザー / retry race 後の代替経路を確保する。
+    server.use(
+      http.get(`${API_BASE}/api/problems/generate/req-ng2`, () =>
+        HttpResponse.json({ requestId: "req-ng2", status: "failed" }),
+      ),
+    );
+
+    render(<ProblemGenerationStatusView requestId="req-ng2" />, { wrapper: withQueryClient() });
+
+    expect(await screen.findByText("生成に失敗しました")).toBeInTheDocument();
+    const changeLink = screen.getByRole("link", { name: "条件を変えてやり直す" });
+    expect(changeLink).toHaveAttribute("href", "/problems/new");
   });
 
   it("取得失敗: エラー文言と再読み込みボタンを表示し、押下で再フェッチが走る", async () => {

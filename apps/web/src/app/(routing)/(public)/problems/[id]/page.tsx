@@ -6,18 +6,17 @@
 //     （ADR 0042 §Decision「問題詳細の単純取得は Server Component の fetch」）。
 //   - 解答入力 + 「実行」ボタンは Client Component（AnswerWorkspace）に閉じ込め、
 //     props で problemId だけ渡す。
-//   - **認証必須**：未ログイン時は server-side で /login?next=/problems/:id に
-//     redirect する。問題一覧と同じガード方式で揃える
+//   - **認証必須**：未ログイン時の /login?next=... 倒しは src/middleware.ts が
+//     一手に引き受ける。本ファイルではガードを持たない
 //     （3-cross-cutting/03-page-routing.md §2）。
 //   - 存在しない / ソフトデリート済みの問題は API が 404 を返し、本ページは
 //     notFound() で Next.js の 404 画面に倒す。
 
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { getProblemDetailApiProblemsProblemIdGet } from "@/__generated__/api/sdk.gen";
 import { ApiError, throwIfError } from "@/lib/api/api-error";
 import { serverApiClient } from "@/lib/api/server-api-client";
-import { hasSessionCookie } from "@/lib/auth/session-cookie";
 import { formatCategoryLabel } from "@/lib/utils/category-label";
 import { formatDifficultyLabel } from "@/lib/utils/difficulty-label";
 
@@ -31,13 +30,8 @@ type ProblemDetailPageProps = {
 export default async function ProblemDetailPage({ params }: ProblemDetailPageProps) {
   const { id } = await params;
 
-  // 認証ガード：session_id Cookie が無ければ /login?next=/problems/:id に飛ばす。
-  //   Cookie 検証は Backend が SSoT のため、ここでは presence チェックに留める。
-  //   問題一覧と同じ server-side redirect 方式で揃える
-  //   （3-cross-cutting/03-page-routing.md §2）。
-  if (!(await hasSessionCookie())) {
-    redirect(`/login?next=${encodeURIComponent(`/problems/${id}`)}`);
-  }
+  // 認証ガードは src/middleware.ts に集約済み。未ログインは middleware が
+  // /login?next=/problems/:id に倒すため、ここはログイン済 Cookie ありを前提。
 
   // 不正な UUID は API 側で 422 が返るが、UI 上は単に「見つかりません」で
   // 統一した方が情報量が少なくて UX が安定するため、ここで 404 に倒す。

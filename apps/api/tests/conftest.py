@@ -15,6 +15,46 @@ import os
 
 os.environ.setdefault("RATE_LIMIT_STORAGE_URI", "memory://")
 
+# DATABASE_URL / REDIS_URL: 必ずテスト用ミドルウェアに向ける（pytest + Playwright 共用）。
+#   issue #86 の延長 / dev DB 保護。
+#   pytest の integration テストは reset_* fixture で実テーブルを DELETE するため、
+#   dev DB (localhost:5432/ai_coding_drill) に向くと作業中の問題データ等が消える事故が起きる。
+#   ここでテスト用ミドルウェア（docker-compose.test.yml の :5433 / :6380）に強制し、
+#   .env の DATABASE_URL がどう書かれていても dev DB を破壊できないように構造的に守る。
+#   優先順位（先勝ち）：
+#     1. PYTEST_DATABASE_URL / PYTEST_REDIS_URL（CI 等で別 DSN を渡したい時の明示上書き）
+#     2. TEST_DATABASE_URL / TEST_REDIS_URL（mise.toml [env] の SSoT、mise activate 時に展開）
+#     3. ハードコード fallback（mise を経由しない `uv run pytest` 直接起動時の最後の砦）
+#   DSN 文字列は mise.toml [env] の TEST_DATABASE_URL が SSoT。ここの fallback は保険。
+os.environ["DATABASE_URL"] = (
+    os.environ.get("PYTEST_DATABASE_URL")
+    or os.environ.get("TEST_DATABASE_URL")
+    or "postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_test"
+)
+os.environ["REDIS_URL"] = (
+    os.environ.get("PYTEST_REDIS_URL")
+    or os.environ.get("TEST_REDIS_URL")
+    or "redis://localhost:6380/0"
+)
+
+# 安全ガード：DATABASE_URL が dev DB 名 (_test で終わらない) を指していたら起動を拒否する。
+#   PYTEST_DATABASE_URL でうっかり dev DSN を渡しても、ここで弾く。
+# urlparse で DB 名だけを抜き出す理由：
+#   1. クエリパラメータ付き DSN (...ai_coding_drill_test?sslmode=require) に対応
+#      （文字列の endswith では「?sslmode=require」が末尾になり誤判定する）
+#   2. エラーメッセージにパスワード平文を出さない
+#      （DSN 全文を載せると CI ログ / Sentry / ターミナル履歴に postgres:postgres@... が残る。
+#       ローカル既定値は実害ないが、PYTEST_DATABASE_URL で本番風 DSN を渡されたケースに備える）
+from urllib.parse import urlparse  # noqa: E402
+
+_parsed_db_url = urlparse(os.environ["DATABASE_URL"])
+_db_name = _parsed_db_url.path.lstrip("/").rstrip("/")
+if not _db_name.endswith("_test"):
+    raise RuntimeError(
+        "pytest はテスト用 DB (DB 名末尾 '_test') に対してのみ実行できます。"
+        f" 接続先: host={_parsed_db_url.hostname} db={_db_name!r}"
+    )
+
 # AsyncIterator: 「非同期で 1 個ずつ値を渡せる関数」の戻り値型（Python 標準 / collections.abc）。
 #                yield を使う非同期ジェネレータ関数の型注釈に使う。
 from collections.abc import AsyncIterator

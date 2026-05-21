@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { cancelMyGenerationApiMeGenerationsRequestIdCancelPost, createHealthCheckHealthPost, getMeAuthMeGet, getMyStatsApiMeStatsGet, getMyWeaknessApiMeWeaknessGet, getProblemDetailApiProblemsProblemIdGet, getProblemGenerationStatusApiProblemsGenerateRequestIdGet, getSubmissionApiSubmissionsSubmissionIdGet, githubCallbackAuthGithubCallbackGet, healthzHealthzGet, listHealthChecksHealthGet, listMyGenerationsApiMeGenerationsGet, listMySubmissionsApiSubmissionsGet, listProblemsApiProblemsGet, logoutAuthLogoutPost, type Options, requestProblemGenerationApiProblemsGeneratePost, retryMyGenerationApiMeGenerationsRequestIdRetryPost, startGithubOauthAuthGithubGet, submitAnswerApiSubmissionsPost } from '../sdk.gen';
-import type { CancelMyGenerationApiMeGenerationsRequestIdCancelPostData, CancelMyGenerationApiMeGenerationsRequestIdCancelPostError, CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse, CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponse, GetMeAuthMeGetData, GetMeAuthMeGetResponse, GetMyStatsApiMeStatsGetData, GetMyStatsApiMeStatsGetResponse, GetMyWeaknessApiMeWeaknessGetData, GetMyWeaknessApiMeWeaknessGetResponse, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetError, GetProblemDetailApiProblemsProblemIdGetResponse, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetError, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetError, GetSubmissionApiSubmissionsSubmissionIdGetResponse, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetError, HealthzHealthzGetData, HealthzHealthzGetResponse, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponse, ListMyGenerationsApiMeGenerationsGetData, ListMyGenerationsApiMeGenerationsGetError, ListMyGenerationsApiMeGenerationsGetResponse, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetError, ListMySubmissionsApiSubmissionsGetResponse, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponse, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostError, RequestProblemGenerationApiProblemsGeneratePostResponse, RetryMyGenerationApiMeGenerationsRequestIdRetryPostData, RetryMyGenerationApiMeGenerationsRequestIdRetryPostError, RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponse, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetError, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostError, SubmitAnswerApiSubmissionsPostResponse } from '../types.gen';
+import { createHealthCheckHealthPost, getMeAuthMeGet, getMyStatsApiMeStatsGet, getMyWeaknessApiMeWeaknessGet, getProblemDetailApiProblemsProblemIdGet, getProblemGenerationStatusApiProblemsGenerateRequestIdGet, getSubmissionApiSubmissionsSubmissionIdGet, githubCallbackAuthGithubCallbackGet, healthzHealthzGet, listHealthChecksHealthGet, listMyGenerationsApiMeGenerationsGet, listMySubmissionsApiSubmissionsGet, listProblemsApiProblemsGet, logoutAuthLogoutPost, type Options, requestProblemGenerationApiProblemsGeneratePost, retryMyGenerationApiMeGenerationsRequestIdRetryPost, startGithubOauthAuthGithubGet, submitAnswerApiSubmissionsPost } from '../sdk.gen';
+import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponse, GetMeAuthMeGetData, GetMeAuthMeGetResponse, GetMyStatsApiMeStatsGetData, GetMyStatsApiMeStatsGetResponse, GetMyWeaknessApiMeWeaknessGetData, GetMyWeaknessApiMeWeaknessGetResponse, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetError, GetProblemDetailApiProblemsProblemIdGetResponse, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetError, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetError, GetSubmissionApiSubmissionsSubmissionIdGetResponse, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetError, HealthzHealthzGetData, HealthzHealthzGetResponse, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponse, ListMyGenerationsApiMeGenerationsGetData, ListMyGenerationsApiMeGenerationsGetError, ListMyGenerationsApiMeGenerationsGetResponse, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetError, ListMySubmissionsApiSubmissionsGetResponse, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponse, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostError, RequestProblemGenerationApiProblemsGeneratePostResponse, RetryMyGenerationApiMeGenerationsRequestIdRetryPostData, RetryMyGenerationApiMeGenerationsRequestIdRetryPostError, RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponse, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetError, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostError, SubmitAnswerApiSubmissionsPostResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -128,28 +128,6 @@ export const listMyGenerationsApiMeGenerationsGetInfiniteOptions = (options?: Op
     },
     queryKey: listMyGenerationsApiMeGenerationsGetInfiniteQueryKey(options)
 });
-
-/**
- * Cancel My Generation
- *
- * pending のリクエストを canceled に倒す（Worker は state='dead' にして無効化）。
- *
- * - 他人のリクエスト / 存在しない → 404
- * - pending 以外 → 409 Conflict
- */
-export const cancelMyGenerationApiMeGenerationsRequestIdCancelPostMutation = (options?: Partial<Options<CancelMyGenerationApiMeGenerationsRequestIdCancelPostData>>): UseMutationOptions<CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse, CancelMyGenerationApiMeGenerationsRequestIdCancelPostError, Options<CancelMyGenerationApiMeGenerationsRequestIdCancelPostData>> => {
-    const mutationOptions: UseMutationOptions<CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse, CancelMyGenerationApiMeGenerationsRequestIdCancelPostError, Options<CancelMyGenerationApiMeGenerationsRequestIdCancelPostData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await cancelMyGenerationApiMeGenerationsRequestIdCancelPost({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
 
 /**
  * Retry My Generation

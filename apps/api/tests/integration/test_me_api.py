@@ -9,9 +9,7 @@
 # 関わる要件：
 #   - docs/requirements/4-features/learning.md §API §受け入れ条件 §ビジネスルール
 
-import uuid
 from collections.abc import AsyncIterator
-from typing import Any
 
 import fakeredis.aioredis
 import pytest
@@ -23,6 +21,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.problems import Problem
 from app.models.submissions import Submission
 
+from ._factories import create_problem, create_submission
 from ._helpers import current_user_id, login_via_github
 
 
@@ -34,50 +33,6 @@ async def reset_me_tables() -> AsyncIterator[None]:
         await session.execute(delete(Problem))
         await session.commit()
     yield
-
-
-async def _insert_problem(*, category: str = "array") -> uuid.UUID:
-    async with AsyncSessionLocal() as session:
-        problem = Problem(
-            title="t",
-            description="d",
-            category=category,
-            difficulty="easy",
-            language="typescript",
-            examples=[{"input": "", "output": ""}],
-            test_cases=[{"input": "", "expected": ""}],
-            reference_solution="x",
-            judge_scores={},
-        )
-        session.add(problem)
-        await session.flush()
-        problem_id = problem.id
-        await session.commit()
-    return problem_id
-
-
-async def _insert_submission(
-    *,
-    user_id: uuid.UUID,
-    problem_id: uuid.UUID,
-    status: str = "graded",
-    passed: bool | None = True,
-) -> None:
-    """graded 行を直接 INSERT する（Worker 経由を待たないため）。"""
-    async with AsyncSessionLocal() as session:
-        sub = Submission(user_id=user_id, problem_id=problem_id, code="x")
-        sub.status = status
-        if passed is None:
-            sub.result = None
-        else:
-            result: dict[str, Any] = {
-                "passed": passed,
-                "durationMs": 100,
-                "testResults": [],
-            }
-            sub.result = result
-        session.add(sub)
-        await session.commit()
 
 
 class TestGetMyStats:
@@ -120,19 +75,20 @@ class TestGetMyStats:
         await login_via_github(client)
         user_id = await current_user_id(client)
 
-        array_problem = await _insert_problem(category="array")
-        recursion_problem = await _insert_problem(category="recursion")
-        # array: 2 / 2 = 1.0
-        await _insert_submission(
-            user_id=user_id, problem_id=array_problem, passed=True
-        )
-        await _insert_submission(
-            user_id=user_id, problem_id=array_problem, passed=True
-        )
-        # recursion: 0 / 1 = 0.0
-        await _insert_submission(
-            user_id=user_id, problem_id=recursion_problem, passed=False
-        )
+        async with AsyncSessionLocal() as session:
+            array_problem = await create_problem(session, category="array")
+            recursion_problem = await create_problem(session, category="recursion")
+            # array: 2 / 2 = 1.0
+            await create_submission(
+                session, user_id=user_id, problem_id=array_problem, passed=True
+            )
+            await create_submission(
+                session, user_id=user_id, problem_id=array_problem, passed=True
+            )
+            # recursion: 0 / 1 = 0.0
+            await create_submission(
+                session, user_id=user_id, problem_id=recursion_problem, passed=False
+            )
 
         res = await client.get("/api/me/stats")
 
@@ -170,21 +126,23 @@ class TestGetMyStats:
         #    混ざってはいけないノイズ）。
         await login_via_github(client, gh_id=1)
         user_a = await current_user_id(client)
-        problem_id = await _insert_problem(category="array")
-        await _insert_submission(
-            user_id=user_a, problem_id=problem_id, passed=True
-        )
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session, category="array")
+            await create_submission(
+                session, user_id=user_a, problem_id=problem_id, passed=True
+            )
         # 2) 別 gh_id でログインして B を作成 → B 名義の submission を 2 件作る。
         #    FK 制約上 users に行が無いと INSERT できないため、ログイン経由で
         #    B 行を生やすのが最短。
         await login_via_github(client, gh_id=2)
         user_b = await current_user_id(client)
-        await _insert_submission(
-            user_id=user_b, problem_id=problem_id, passed=False
-        )
-        await _insert_submission(
-            user_id=user_b, problem_id=problem_id, passed=False
-        )
+        async with AsyncSessionLocal() as session:
+            await create_submission(
+                session, user_id=user_b, problem_id=problem_id, passed=False
+            )
+            await create_submission(
+                session, user_id=user_b, problem_id=problem_id, passed=False
+            )
 
         # 3) この時点で client の Cookie は B のセッション。/me/stats は B 視点。
         res = await client.get("/api/me/stats")
@@ -231,13 +189,14 @@ class TestGetMyWeakness:
         user_id = await current_user_id(client)
 
         # async: 2 件全敗（accuracy=0 だが attempts=2 < 3 でサンプル不足）。
-        async_problem = await _insert_problem(category="async")
-        await _insert_submission(
-            user_id=user_id, problem_id=async_problem, passed=False
-        )
-        await _insert_submission(
-            user_id=user_id, problem_id=async_problem, passed=False
-        )
+        async with AsyncSessionLocal() as session:
+            async_problem = await create_problem(session, category="async")
+            await create_submission(
+                session, user_id=user_id, problem_id=async_problem, passed=False
+            )
+            await create_submission(
+                session, user_id=user_id, problem_id=async_problem, passed=False
+            )
 
         res = await client.get("/api/me/weakness")
 
@@ -255,25 +214,26 @@ class TestGetMyWeakness:
         await login_via_github(client)
         user_id = await current_user_id(client)
 
-        # recursion: 1 / 5 = 0.2（弱点）。
-        recursion_problem = await _insert_problem(category="recursion")
-        await _insert_submission(
-            user_id=user_id, problem_id=recursion_problem, passed=True
-        )
-        for _ in range(4):
-            await _insert_submission(
-                user_id=user_id, problem_id=recursion_problem, passed=False
+        async with AsyncSessionLocal() as session:
+            # recursion: 1 / 5 = 0.2（弱点）。
+            recursion_problem = await create_problem(session, category="recursion")
+            await create_submission(
+                session, user_id=user_id, problem_id=recursion_problem, passed=True
             )
-        # array: 8 / 10 = 0.8（弱点ではない）。
-        array_problem = await _insert_problem(category="array")
-        for _ in range(8):
-            await _insert_submission(
-                user_id=user_id, problem_id=array_problem, passed=True
-            )
-        for _ in range(2):
-            await _insert_submission(
-                user_id=user_id, problem_id=array_problem, passed=False
-            )
+            for _ in range(4):
+                await create_submission(
+                    session, user_id=user_id, problem_id=recursion_problem, passed=False
+                )
+            # array: 8 / 10 = 0.8（弱点ではない）。
+            array_problem = await create_problem(session, category="array")
+            for _ in range(8):
+                await create_submission(
+                    session, user_id=user_id, problem_id=array_problem, passed=True
+                )
+            for _ in range(2):
+                await create_submission(
+                    session, user_id=user_id, problem_id=array_problem, passed=False
+                )
 
         res = await client.get("/api/me/weakness")
 

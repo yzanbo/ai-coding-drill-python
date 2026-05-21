@@ -160,9 +160,10 @@ func TestClassifySandboxOutcome_Runtime(t *testing.T) {
 // 各メソッドが返す値・error を仕込み、呼び出し回数 / 引数を観測する。
 type fakeGradingStore struct {
 	// GetProblemForGrading が返す値。
-	getProblemCases []TestCase
-	getProblemErr   error
-	getProblemCalls int
+	getProblemCases    []TestCase
+	getProblemCategory string
+	getProblemErr      error
+	getProblemCalls    int
 
 	// UpdateSubmissionGraded の制御。
 	updateGradedErr   error
@@ -176,12 +177,12 @@ type fakeGradingStore struct {
 	lastFailedID      uuid.UUID
 }
 
-func (s *fakeGradingStore) GetProblemForGrading(_ context.Context, _ uuid.UUID) ([]TestCase, error) {
+func (s *fakeGradingStore) GetProblemForGrading(_ context.Context, _ uuid.UUID) ([]TestCase, string, error) {
 	s.getProblemCalls++
 	if s.getProblemErr != nil {
-		return nil, s.getProblemErr
+		return nil, "", s.getProblemErr
 	}
-	return s.getProblemCases, nil
+	return s.getProblemCases, s.getProblemCategory, nil
 }
 
 func (s *fakeGradingStore) UpdateSubmissionGraded(_ context.Context, _ uuid.UUID, score int, result []byte) error {
@@ -362,4 +363,172 @@ func TestOnDead_Grading_BadPayloadIsSwallowed(t *testing.T) {
 	h.OnDead(context.Background(), j, nil)
 
 	assert.Equal(t, 0, store.updateFailedCalls, "UUID parse 失敗時は UPDATE しない")
+}
+
+// ----------------------------------------------------------------------------
+// classifyTscOutcome: 型パズル系カテゴリで tsc --noEmit を先に走らせた結果の分類
+// (issue #79)
+// ----------------------------------------------------------------------------
+
+// TestClassifyTscOutcome_PassReturnsNil:
+// tsc が ExitCode=0 で終わった (= 型 OK) なら nil を返して Vitest 経路へ続行させる。
+func TestClassifyTscOutcome_PassReturnsNil(t *testing.T) {
+	t.Parallel()
+	res := &sandbox.Result{ExitCode: 0, Duration: 200 * time.Millisecond}
+	got := classifyTscOutcome(res)
+	assert.Nil(t, got, "型 OK は nil で短絡しないこと")
+}
+
+// TestClassifyTscOutcome_TypeErrorCarriesOutput:
+// tsc が非ゼロ終了したら failureKind=type_error。tsc の stdout (TS2322 等の診断文) を
+// 1 件の擬似テスト結果として testResults に詰めて UI に出せるようにする。
+func TestClassifyTscOutcome_TypeErrorCarriesOutput(t *testing.T) {
+	t.Parallel()
+	res := &sandbox.Result{
+		ExitCode: 1,
+		Stdout:   "solution.ts(2,7): error TS2322: Type 'string' is not assignable to type 'number'.\n",
+		Duration: 180 * time.Millisecond,
+	}
+	got := classifyTscOutcome(res)
+	require.NotNil(t, got)
+	assert.Equal(t, failureKindTypeError, got.FailureKind)
+	assert.False(t, got.Passed)
+	assert.Equal(t, 0, got.Score)
+	assert.Equal(t, 180, got.DurationMs)
+	require.Len(t, got.TestResults, 1, "tsc 出力 1 件を擬似テストとして詰める")
+	assert.Equal(t, "tsc", got.TestResults[0].Name)
+	assert.Contains(t, got.TestResults[0].Message, "TS2322")
+}
+
+// TestClassifyTscOutcome_TypeErrorFallsBackToStderr:
+// tsc は通常 stdout に診断を出すが、起動失敗や引数エラーでは stderr のみに出ることが
+// ある。stdout が空のとき stderr を Message に詰めるフォールバックを pin する。
+func TestClassifyTscOutcome_TypeErrorFallsBackToStderr(t *testing.T) {
+	t.Parallel()
+	res := &sandbox.Result{
+		ExitCode: 1,
+		Stdout:   "",
+		Stderr:   "error TS5023: Unknown compiler option 'foo'.\n",
+		Duration: 100 * time.Millisecond,
+	}
+	got := classifyTscOutcome(res)
+	require.NotNil(t, got)
+	assert.Equal(t, failureKindTypeError, got.FailureKind)
+	require.Len(t, got.TestResults, 1, "stderr 1 件を擬似テストとして詰める")
+	assert.Contains(t, got.TestResults[0].Message, "TS5023")
+}
+
+// TestClassifyTscOutcome_TimeoutAndOOM:
+// 型チェック自体が timeout / OOM になった場合は Vitest 経路と同じ分類を返す
+// (採点不能として graded 確定させる)。
+func TestClassifyTscOutcome_TimeoutAndOOM(t *testing.T) {
+	t.Parallel()
+	t.Run("timeout", func(t *testing.T) {
+		t.Parallel()
+		res := &sandbox.Result{TimedOut: true, ExitCode: -1}
+		got := classifyTscOutcome(res)
+		require.NotNil(t, got)
+		assert.Equal(t, failureKindTimeout, got.FailureKind)
+	})
+	t.Run("oom", func(t *testing.T) {
+		t.Parallel()
+		res := &sandbox.Result{OOMKilled: true, ExitCode: 137}
+		got := classifyTscOutcome(res)
+		require.NotNil(t, got)
+		assert.Equal(t, failureKindOOM, got.FailureKind)
+	})
+}
+
+// ----------------------------------------------------------------------------
+// Handle: type-puzzle カテゴリ分岐 (issue #79)
+// ----------------------------------------------------------------------------
+
+// TestHandle_Grading_TypePuzzle_TscFailureShortCircuits:
+// category="type-puzzle" の問題で tsc が型エラーを返したら、Vitest を走らせずに
+// failureKind=type_error で submissions を確定する (sandbox 呼び出しは 1 回のみ)。
+func TestHandle_Grading_TypePuzzle_TscFailureShortCircuits(t *testing.T) {
+	t.Parallel()
+	store := &fakeGradingStore{
+		getProblemCases:    []TestCase{{Input: []any{1}, Expected: 2}},
+		getProblemCategory: "type-puzzle",
+	}
+	sb := &fakeSandbox{
+		// 1 回目 (tsc) で型エラー終了。Vitest 経路には進まないので results は 1 件で十分。
+		result: &sandbox.Result{
+			ExitCode: 1,
+			Stdout:   "solution.ts(2,7): error TS2322: ...\n",
+			Duration: 150 * time.Millisecond,
+		},
+	}
+	h := newGradingHandlerForTest(store, sb)
+	j := makeGradingJob(t, uuid.New(), uuid.New(), "export const solve = (n) => 'oops';")
+
+	err := h.Handle(context.Background(), j)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, sb.calls, "tsc 1 回だけで Vitest は呼ばない")
+	assert.Equal(t, 1, store.updateGradedCalls)
+	assert.Equal(t, 0, store.lastGradedScore, "type_error は score=0")
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(store.lastGradedResult, &got))
+	assert.Equal(t, "type_error", got["failureKind"])
+	assert.Equal(t, false, got["passed"])
+}
+
+// TestHandle_Grading_TypePuzzle_TscPassRunsVitest:
+// category="type-puzzle" でも tsc が通れば Vitest 経路に進む。sandbox は tsc → vitest の
+// 2 回呼ばれ、最終的に通常の passed=true 結果が書き戻される。
+func TestHandle_Grading_TypePuzzle_TscPassRunsVitest(t *testing.T) {
+	t.Parallel()
+	store := &fakeGradingStore{
+		getProblemCases:    []TestCase{{Input: []any{1}, Expected: 2}},
+		getProblemCategory: "type-puzzle",
+	}
+	sb := &fakeSandbox{
+		results: []*sandbox.Result{
+			// 1 回目: tsc 成功
+			{ExitCode: 0, Duration: 100 * time.Millisecond},
+			// 2 回目: vitest 全 pass
+			{
+				ExitCode: 0,
+				Stdout:   `{"numTotalTests":1,"numPassedTests":1,"numFailedTests":0,"testResults":[]}`,
+				Duration: 200 * time.Millisecond,
+			},
+		},
+	}
+	h := newGradingHandlerForTest(store, sb)
+	j := makeGradingJob(t, uuid.New(), uuid.New(), "export const solve = (n: number) => n * 2;")
+
+	err := h.Handle(context.Background(), j)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, sb.calls, "tsc + vitest の 2 回 sandbox を実行")
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(store.lastGradedResult, &got))
+	assert.Equal(t, true, got["passed"])
+}
+
+// TestHandle_Grading_NonTypePuzzle_SkipsTsc:
+// category が type-puzzle 以外 (例: "array") なら tsc 経路はスキップされ、
+// sandbox は Vitest 1 回だけ呼ばれる (既存の挙動を回帰防止)。
+func TestHandle_Grading_NonTypePuzzle_SkipsTsc(t *testing.T) {
+	t.Parallel()
+	store := &fakeGradingStore{
+		getProblemCases:    []TestCase{{Input: []any{1}, Expected: 2}},
+		getProblemCategory: "array",
+	}
+	sb := &fakeSandbox{
+		result: &sandbox.Result{
+			ExitCode: 0,
+			Stdout:   `{"numTotalTests":1,"numPassedTests":1,"numFailedTests":0,"testResults":[]}`,
+			Duration: 120 * time.Millisecond,
+		},
+	}
+	h := newGradingHandlerForTest(store, sb)
+	j := makeGradingJob(t, uuid.New(), uuid.New(), "x")
+
+	err := h.Handle(context.Background(), j)
+	require.NoError(t, err)
+	assert.Equal(t, 1, sb.calls, "type-puzzle 以外は Vitest 1 回だけ")
 }

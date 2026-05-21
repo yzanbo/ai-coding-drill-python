@@ -17,7 +17,6 @@
 #     test_problems_rate_limit.py 側でユーザー単位カウンタ分離は検証済みのため、
 #     本ファイルでは閾値 + 429 ハンドラ整合のみを担保する。
 
-import uuid
 from collections.abc import AsyncIterator
 
 import fakeredis.aioredis
@@ -31,6 +30,7 @@ from app.deps.rate_limit import limiter
 from app.models.problems import Problem
 from app.models.submissions import Submission
 
+from ._factories import create_problem
 from ._helpers import login_via_github
 
 
@@ -52,27 +52,6 @@ async def reset_rate_limiter() -> AsyncIterator[None]:
     limiter.reset()
 
 
-async def _insert_problem() -> uuid.UUID:
-    """各 POST が 404 で先に弾かれないよう、生きている問題を 1 行 INSERT して id を返す。"""
-    async with AsyncSessionLocal() as session:
-        problem = Problem(
-            title="配列の合計",
-            description="合計を返してください",
-            category="array",
-            difficulty="easy",
-            language="typescript",
-            examples=[{"input": "[1,2,3]", "output": "6"}],
-            test_cases=[{"input": "[1,2,3]", "expected": "6"}],
-            reference_solution="x",
-            judge_scores={},
-        )
-        session.add(problem)
-        await session.flush()
-        problem_id = problem.id
-        await session.commit()
-    return problem_id
-
-
 class TestSubmissionsRateLimit:
     @respx.mock
     async def test_正常系_1分以内に20回までは202を返す(
@@ -82,7 +61,8 @@ class TestSubmissionsRateLimit:
     ) -> None:
         """閾値 20/minute の下限：20 回までは 202 が返る。"""
         del fake_redis
-        problem_id = await _insert_problem()
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session)
         csrf = await login_via_github(client, gh_id=3001)
 
         for i in range(20):
@@ -101,7 +81,8 @@ class TestSubmissionsRateLimit:
     ) -> None:
         """閾値 20/minute の上限：21 回目で 429 + 日本語 detail。"""
         del fake_redis
-        problem_id = await _insert_problem()
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session)
         csrf = await login_via_github(client, gh_id=3002)
 
         # 20 回までは流す。

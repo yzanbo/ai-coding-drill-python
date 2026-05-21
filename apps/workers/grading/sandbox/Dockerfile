@@ -12,7 +12,10 @@ FROM node:24-alpine
 
 # tsx: TypeScript ファイルを直接実行するランナー（ts-node の代替）。
 # vitest: テストランナー。採点ジョブで `vitest run --reporter=json` を実行する想定。
-RUN npm install -g tsx vitest
+# typescript: 型パズル系カテゴリ（issue #79）で採点前に tsc --noEmit を走らせるために必要。
+#             vitest が依存として TypeScript を引き込むが、`tsc` を確実に PATH に出すため
+#             明示インストールしておく。
+RUN npm install -g tsx vitest typescript
 
 # /sandbox: ジョブごとに solution.ts と test.ts を volume mount する作業ディレクトリ。
 WORKDIR /sandbox

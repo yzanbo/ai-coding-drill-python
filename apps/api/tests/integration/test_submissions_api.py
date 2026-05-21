@@ -13,7 +13,6 @@
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
-from typing import Any
 
 import fakeredis.aioredis
 import pytest
@@ -26,6 +25,7 @@ from app.models.jobs import Job
 from app.models.problems import Problem
 from app.models.submissions import Submission
 
+from ._factories import create_problem, create_submission
 from ._helpers import current_user_id, login_via_github
 
 
@@ -40,63 +40,6 @@ async def reset_submissions_table() -> AsyncIterator[None]:
         await session.execute(delete(Problem))
         await session.commit()
     yield
-
-
-async def _insert_problem(
-    *,
-    title: str = "配列の合計",
-    deleted: bool = False,
-) -> uuid.UUID:
-    async with AsyncSessionLocal() as session:
-        problem = Problem(
-            title=title,
-            description="合計を返してください",
-            category="array",
-            difficulty="easy",
-            language="typescript",
-            examples=[{"input": "[1,2,3]", "output": "6"}],
-            test_cases=[{"input": "[1,2,3]", "expected": "6"}],
-            reference_solution="x",
-            judge_scores={},
-        )
-        session.add(problem)
-        await session.flush()
-        problem_id = problem.id
-        if deleted:
-            problem.deleted_at = datetime.now(UTC)
-        await session.commit()
-    return problem_id
-
-
-async def _insert_submission(
-    *,
-    user_id: uuid.UUID,
-    problem_id: uuid.UUID,
-    code: str = "x",
-    status: str = "pending",
-    score: int | None = None,
-    result: dict[str, Any] | None = None,
-    graded_at: datetime | None = None,
-    deleted: bool = False,
-) -> uuid.UUID:
-    """テスト用 submission を直接 INSERT して id を返す。
-
-    GET 系テストでは「Worker が既に graded まで遷移させた状態」を作りたいことが
-    多いので、status / score / result / graded_at を任意で受け取る。
-    """
-    async with AsyncSessionLocal() as session:
-        sub = Submission(user_id=user_id, problem_id=problem_id, code=code)
-        sub.status = status
-        sub.score = score
-        sub.result = result
-        sub.graded_at = graded_at
-        session.add(sub)
-        await session.flush()
-        sub_id = sub.id
-        if deleted:
-            sub.deleted_at = datetime.now(UTC)
-        await session.commit()
-    return sub_id
 
 
 class TestPostSubmission:
@@ -120,7 +63,8 @@ class TestPostSubmission:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        problem_id = await _insert_problem()
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session)
         csrf = await login_via_github(client)
         user_id = await current_user_id(client)
 
@@ -215,7 +159,8 @@ class TestPostSubmission:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        problem_id = await _insert_problem(deleted=True)
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session, deleted=True)
         csrf = await login_via_github(client)
 
         res = await client.post(
@@ -232,7 +177,8 @@ class TestPostSubmission:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        problem_id = await _insert_problem()
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session)
         csrf = await login_via_github(client)
 
         res = await client.post(
@@ -260,10 +206,19 @@ class TestGetSubmissionById:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        problem_id = await _insert_problem()
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session)
         await login_via_github(client)
         user_id = await current_user_id(client)
-        sub_id = await _insert_submission(user_id=user_id, problem_id=problem_id)
+        # status=pending を観測する用途のため明示する（factory のデフォルトは graded）。
+        async with AsyncSessionLocal() as session:
+            sub_id = await create_submission(
+                session,
+                user_id=user_id,
+                problem_id=problem_id,
+                status="pending",
+                passed=None,
+            )
 
         res = await client.get(f"/api/submissions/{sub_id}")
 
@@ -284,34 +239,37 @@ class TestGetSubmissionById:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        problem_id = await _insert_problem()
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session)
         await login_via_github(client)
         user_id = await current_user_id(client)
         graded_at = datetime.now(UTC)
-        sub_id = await _insert_submission(
-            user_id=user_id,
-            problem_id=problem_id,
-            status="graded",
-            score=2,
-            result={
-                "passed": False,
-                "durationMs": 1340,
-                "failureKind": "test_failed",
-                "testResults": [
-                    {"name": "case1", "passed": True, "durationMs": 120},
-                    {
-                        "name": "case2",
-                        "passed": False,
-                        "durationMs": 80,
-                        "expected": "6",
-                        "actual": "7",
-                        "message": "AssertionError",
-                    },
-                    {"name": "case3", "passed": True, "durationMs": 100},
-                ],
-            },
-            graded_at=graded_at,
-        )
+        async with AsyncSessionLocal() as session:
+            sub_id = await create_submission(
+                session,
+                user_id=user_id,
+                problem_id=problem_id,
+                status="graded",
+                score=2,
+                result={
+                    "passed": False,
+                    "durationMs": 1340,
+                    "failureKind": "test_failed",
+                    "testResults": [
+                        {"name": "case1", "passed": True, "durationMs": 120},
+                        {
+                            "name": "case2",
+                            "passed": False,
+                            "durationMs": 80,
+                            "expected": "6",
+                            "actual": "7",
+                            "message": "AssertionError",
+                        },
+                        {"name": "case3", "passed": True, "durationMs": 100},
+                    ],
+                },
+                graded_at=graded_at,
+            )
 
         res = await client.get(f"/api/submissions/{sub_id}")
 
@@ -337,11 +295,15 @@ class TestGetSubmissionById:
     ) -> None:
         """情報漏洩防止：他人の id を渡しても 404（存在チェックと区別しない）。"""
         del fake_redis
-        problem_id = await _insert_problem()
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session)
         # Owner として 1 件作る。
         await login_via_github(client, gh_id=100)
         owner_id = await current_user_id(client)
-        sub_id = await _insert_submission(user_id=owner_id, problem_id=problem_id)
+        async with AsyncSessionLocal() as session:
+            sub_id = await create_submission(
+                session, user_id=owner_id, problem_id=problem_id
+            )
         # Other に切り替え（client は同一だが Cookie を再発行する）。
         client.cookies.clear()
         await login_via_github(client, gh_id=200)
@@ -379,16 +341,25 @@ class TestListSubmissions:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        problem_id = await _insert_problem(title="二倍にして返す")
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session, title="二倍にして返す")
         # Owner で 2 件作り、Other を 1 件混ぜる。
         await login_via_github(client, gh_id=300)
         owner_id = await current_user_id(client)
-        await _insert_submission(user_id=owner_id, problem_id=problem_id, code="old")
-        await _insert_submission(user_id=owner_id, problem_id=problem_id, code="new")
+        async with AsyncSessionLocal() as session:
+            await create_submission(
+                session, user_id=owner_id, problem_id=problem_id, code="old"
+            )
+            await create_submission(
+                session, user_id=owner_id, problem_id=problem_id, code="new"
+            )
         client.cookies.clear()
         await login_via_github(client, gh_id=301)
         other_id = await current_user_id(client)
-        await _insert_submission(user_id=other_id, problem_id=problem_id, code="other")
+        async with AsyncSessionLocal() as session:
+            await create_submission(
+                session, user_id=other_id, problem_id=problem_id, code="other"
+            )
 
         # Owner に戻して履歴を取る。
         client.cookies.clear()
@@ -417,12 +388,16 @@ class TestListSubmissions:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        problem_id = await _insert_problem()
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session)
         await login_via_github(client)
         user_id = await current_user_id(client)
         # 3 件作って pageSize=1 で 3 ページ + 超過 1 ページを観測。
-        for _ in range(3):
-            await _insert_submission(user_id=user_id, problem_id=problem_id)
+        async with AsyncSessionLocal() as session:
+            for _ in range(3):
+                await create_submission(
+                    session, user_id=user_id, problem_id=problem_id
+                )
 
         # page=3（最終ページ）：1 件返る。
         res = await client.get("/api/submissions?page=3&pageSize=1")
@@ -449,12 +424,20 @@ class TestListSubmissions:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        alive_problem = await _insert_problem(title="生きてる問題")
-        dead_problem = await _insert_problem(title="削除済み問題", deleted=True)
+        async with AsyncSessionLocal() as session:
+            alive_problem = await create_problem(session, title="生きてる問題")
+            dead_problem = await create_problem(
+                session, title="削除済み問題", deleted=True
+            )
         await login_via_github(client)
         user_id = await current_user_id(client)
-        await _insert_submission(user_id=user_id, problem_id=alive_problem)
-        await _insert_submission(user_id=user_id, problem_id=dead_problem)
+        async with AsyncSessionLocal() as session:
+            await create_submission(
+                session, user_id=user_id, problem_id=alive_problem
+            )
+            await create_submission(
+                session, user_id=user_id, problem_id=dead_problem
+            )
 
         res = await client.get("/api/submissions")
 
@@ -471,11 +454,17 @@ class TestListSubmissions:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        problem_id = await _insert_problem()
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session)
         await login_via_github(client)
         user_id = await current_user_id(client)
-        await _insert_submission(user_id=user_id, problem_id=problem_id, deleted=True)
-        await _insert_submission(user_id=user_id, problem_id=problem_id)
+        async with AsyncSessionLocal() as session:
+            await create_submission(
+                session, user_id=user_id, problem_id=problem_id, deleted=True
+            )
+            await create_submission(
+                session, user_id=user_id, problem_id=problem_id
+            )
 
         res = await client.get("/api/submissions")
 

@@ -21,7 +21,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ProblemNotFoundError
 from app.repositories.problems import ProblemRepository
 from app.schemas.problems import (
-    PROBLEMS_PAGE_SIZE,
     ProblemCategory,
     ProblemDetailResponse,
     ProblemDifficulty,
@@ -45,19 +44,22 @@ class ProblemService:
         category: ProblemCategory | None,
         difficulty: ProblemDifficulty | None,
         page: int,
+        # page_size: Router の Query(...) 側が既定値（PROBLEMS_PAGE_SIZE）を保持する
+        #   SSoT。Service 側でデフォルトを持つと既定値が 2 箇所に分散するため必須引数。
+        page_size: int,
     ) -> ProblemListResponse:
         """フィルタ + ページングして一覧を返す。
 
         - 0 件でも `items=[], page, totalPages=0` を返す（404 にはしない）
-        - totalPages は ceil(total / PROBLEMS_PAGE_SIZE)、total=0 なら 0
+        - totalPages は ceil(total / page_size)、total=0 なら 0
         """
         items, total = await self.problems.list_paginated(
             category=category.value if category is not None else None,
             difficulty=difficulty.value if difficulty is not None else None,
             page=page,
-            page_size=PROBLEMS_PAGE_SIZE,
+            page_size=page_size,
         )
-        total_pages = math.ceil(total / PROBLEMS_PAGE_SIZE) if total > 0 else 0
+        total_pages = math.ceil(total / page_size) if total > 0 else 0
         return ProblemListResponse(
             items=[ProblemSummaryResponse.model_validate(p) for p in items],
             page=page,

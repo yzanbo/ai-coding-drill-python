@@ -247,26 +247,40 @@ jobs:
     if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     services:
-      postgres:
+      # テスト用 Postgres。docker-compose.test.yml と同じ「ホスト :5433 / DB 名末尾 _test」に揃える。
+      # これにより local（mise run api:test → test:up）と CI（services）で
+      # DATABASE_URL が完全一致し、conftest.py の suffix guard が両環境で同じ挙動を取る（issue #86）。
+      postgres-test:
         image: postgres:18.3-alpine
         env:
-          POSTGRES_DB: ai_coding_drill
+          POSTGRES_DB: ai_coding_drill_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
-          - 5432:5432
+          - 5433:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d ai_coding_drill"
+          --health-cmd "pg_isready -U postgres -d ai_coding_drill_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill
+      # workflow env で DATABASE_URL をテスト DB に向ける。Alembic / pytest 双方が読む。
+      # local の docker-compose.test.yml と同じ port / DB 名（issue #86）。
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_test
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+      # Alembic を workflow env DATABASE_URL（:5433/ai_coding_drill_test）に対して流す。
       - run: mise run api:db-migrate
-      - run: mise run api:test
+      # `mise run api:test` を直接呼ばない理由：
+      #   api:test は depends = ["test:up"] で `docker compose -f docker-compose.test.yml up`
+      #   を起動するが、CI ではすでに services.postgres-test が :5433 を専有しているため
+      #   compose の port bind が衝突する。services と docker compose の二重起動を避けるため、
+      #   web-e2e ジョブが `pnpm exec playwright test` を直接呼ぶのと同じ流儀で、
+      #   ここも `uv run pytest` を直接呼ぶ。
+      # 安全性：conftest.py が DATABASE_URL の `_test` suffix を検証して dev DSN を弾くため、
+      #   workflow env 経由でも dev DB 接続事故は構造的に起きない。
+      - run: cd apps/api && mise exec -- uv run pytest
 
   # ====================================================================
   # apps/web（TypeScript / Next.js）品質ゲート — ADR 0018 / 0021 / 0024 / 0026 / 0036 / 0038
@@ -361,23 +375,26 @@ jobs:
           needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     services:
-      postgres:
+      # テスト用 Postgres。docker-compose.test.yml と同じ「ホスト :5433 / DB 名末尾 _test」に揃える。
+      # これにより local と CI で DATABASE_URL が完全一致し、/_test/reset の安全ガード
+      # （DB 名 `_test` allowlist）が両環境で同じ挙動を取る（issue #86）。
+      postgres-test:
         image: postgres:18.3-alpine
         env:
-          POSTGRES_DB: ai_coding_drill
+          POSTGRES_DB: ai_coding_drill_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
-          - 5432:5432
+          - 5433:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d ai_coding_drill"
+          --health-cmd "pg_isready -U postgres -d ai_coding_drill_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-      redis:
+      redis-test:
         image: redis:8.6-alpine
         ports:
-          - 6379:6379
+          - 6380:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s
@@ -386,15 +403,16 @@ jobs:
     env:
       # api / worker / mock サーバが共有する DB 接続文字列。
       # playwright.config.ts の webServer.env は workflow env を引き継がず明示注入する。
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill
-      # Redis の DB index は E2E 専用の /1 を使う (apps/web/e2e/_helpers/constants.ts と同じ)。
-      # CI の Redis コンテナは E2E 専用で他から触られないが、local 既定値と揃えて
-      # 設定の二重管理を避ける。
-      REDIS_URL: redis://localhost:6379/1
+      # local の docker-compose.test.yml と同じ port / DB 名（issue #86）。
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_test
+      # Redis は port 6380 でポート分離済みなので DB index は /0 で十分。
+      # local 既定値（apps/web/e2e/_helpers/constants.ts）と揃えて設定の二重管理を避ける。
+      REDIS_URL: redis://localhost:6380/0
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
       # DB schema を Alembic で作成（api / mock の /_test/reset が users テーブルを参照）。
+      # workflow env の DATABASE_URL を Alembic env.py が読む。
       - run: mise run api:db-migrate
       # Playwright のブラウザバイナリをキャッシュする。
       # cache key には Playwright 自身の version を含めて、version 上がった時に

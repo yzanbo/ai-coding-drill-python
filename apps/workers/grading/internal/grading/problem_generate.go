@@ -23,7 +23,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/job"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/jobtypes"
@@ -50,8 +49,8 @@ type judgeIface interface {
 	Evaluate(ctx context.Context, problemJSON string) (*judge.Result, error)
 }
 
-// generationStore: Handle が generation_requests / problems テーブルに対して
-// 行う読み書きを集約する。本番は pgGenerationStore (pool 直叩き)、
+// generationStore: Handle / OnDead が generation_requests / problems テーブルに
+// 対して行う読み書きを集約する。本番は pgGenerationStore (pool 直叩き)、
 // テストは in-memory fake に差し替え。
 type generationStore interface {
 	// SelectStatus: 行が無い場合 pgx.ErrNoRows を返す (handler 側で短絡しない)。
@@ -63,6 +62,10 @@ type generationStore interface {
 	// UpdateProgressStep: pending 行の現在ステップを書く (R1-7-2)。
 	// 失敗は handler 側で警告ログのみで握り潰す (本筋を止めない)。
 	UpdateProgressStep(ctx context.Context, requestID uuid.UUID, step string) error
+	// MarkFailed: dead 確定時に generation_requests を failed に遷移する。
+	// OnDead から呼ぶ。行が物理削除されていた場合は ErrGenerationRequestVanished を
+	// wrap して返し、呼び出し側で INFO 扱いに倒せるようにする（issue #83）。
+	MarkFailed(ctx context.Context, requestID uuid.UUID, reason string) error
 }
 
 // classifyHandlerError: handler が外部 (LLM / sandbox / judge) 呼び出しで受け取った
@@ -113,11 +116,9 @@ var vitestCmd = []string{"vitest", "run", "--reporter=json"}
 // problemGenerateHandler: orchestrator が dispatch するハンドラ実装。
 // 依存は全て interface で受け取り、テストで fake に差し替え可能にする。
 //
-// pool は OnDead で generation_requests を failed に遷移するときの
-// db handle として直接使う (store は WithTx ベースの高レベル API のため、
-// 1 行 UPDATE には素の pool の方が薄い)。
+// generation_requests への書き込みは Handle / OnDead とも store interface 経由に
+// 揃える（pool 直叩きの導線は廃止、issue #83 の refactor）。
 type problemGenerateHandler struct {
-	pool      *pgxpool.Pool
 	store     generationStore
 	generator generatorIface
 	sandbox   sandboxIface
@@ -165,7 +166,15 @@ func (h *problemGenerateHandler) OnDead(ctx context.Context, j *job.Job, lastErr
 		return
 	}
 	reason := classifyFailureReason(lastErr)
-	if err := markGenerationRequestFailed(ctx, h.pool, reqID, reason); err != nil {
+	if err := h.store.MarkFailed(ctx, reqID, reason); err != nil {
+		// 行が物理削除されていた場合（E2E reset レース / 将来の管理画面削除 等、
+		// issue #83）は WARN を出さず INFO に倒す。リクエスタ側が既に結果を
+		// 待っていないため「キャンセル相当の正常イベント」として扱う。
+		if errors.Is(err, ErrGenerationRequestVanished) {
+			slog.InfoContext(ctx, "problem.generate: generation_request vanished, skipping failed transition",
+				"job_id", j.ID, "generation_request_id", reqID)
+			return
+		}
 		slog.WarnContext(ctx, "problem.generate: failed to mark generation_request failed",
 			"job_id", j.ID, "reason", reason, "err", err.Error())
 	}
@@ -262,11 +271,23 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 	//    1 回目で status='completed' まで進んでいれば、ここで nil を返して
 	//    orchestrator に MarkSucceeded を再試行させる (冪等)。
 	//    status='failed' に達している場合も同様に再処理しない。
+	//
+	//    行不在 (pgx.ErrNoRows) も「キャンセル相当の正常イベント」として
+	//    INFO + nil 返却で短絡する（issue #83）。E2E /_test/reset のレース /
+	//    将来の管理画面 / GDPR 削除等で対応 row が消えるケースで、LLM 呼び出し
+	//    以降の高コスト処理を回さず即 succeeded に倒す。
 	status, producedProblemID, statusErr := h.store.SelectStatus(ctx, requestID)
-	if statusErr != nil && !errors.Is(statusErr, pgx.ErrNoRows) {
+	if statusErr != nil {
+		if errors.Is(statusErr, pgx.ErrNoRows) {
+			slog.InfoContext(ctx, "problem.generate: generation_request vanished before processing, marking succeeded",
+				"job_id", j.ID,
+				"generation_request_id", requestID,
+			)
+			return nil
+		}
 		return fmt.Errorf("grading: lookup generation_request before processing: %w", statusErr)
 	}
-	if statusErr == nil && status != "pending" {
+	if status != "pending" {
 		slog.InfoContext(ctx, "problem.generate: short-circuit (already finalized)",
 			"job_id", j.ID,
 			"generation_request_id", requestID,
@@ -354,6 +375,17 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 			// 別 worker が先に完了済 (at-least-once 重複)。本ジョブは成功扱いで
 			// orchestrator に MarkSucceeded を打たせる。
 			slog.InfoContext(ctx, "problem.generate: lost race to another worker, marking succeeded",
+				"job_id", j.ID,
+				"generation_request_id", requestID,
+			)
+			return nil
+		}
+		if errors.Is(txErr, ErrGenerationRequestVanished) {
+			// 処理中に generation_requests 行が物理削除された（E2E /_test/reset
+			// レース / 将来の管理画面削除 等、issue #83）。LLM コストは既に発生
+			// 済みだがリクエスタが結果を待っていない以上 problems INSERT は
+			// 巻き戻され、ジョブ自体は正常終了扱いに倒す（WARN 抑止）。
+			slog.InfoContext(ctx, "problem.generate: generation_request vanished mid-processing, marking succeeded",
 				"job_id", j.ID,
 				"generation_request_id", requestID,
 			)

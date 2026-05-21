@@ -78,7 +78,9 @@ def _make_problem(*, problem_id: uuid.UUID | None = None) -> Problem:
         difficulty="easy",
         language="typescript",
         examples=[{"input": "", "output": ""}],
-        test_cases=[{"input": "", "expected": ""}],
+        # test_cases.input は Worker 側 TestCase 契約に合わせて配列で入れる
+        # （文字列を入れると grading Worker が json unmarshal で落ちて即 dead 行きになる）。
+        test_cases=[{"input": [], "expected": None}],
         reference_solution="",
         judge_scores={},
     )
