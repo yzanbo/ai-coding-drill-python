@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button/button";
 import { Card, CardContent } from "@/components/ui/card/card";
 import { formatCategoryLabel } from "@/lib/utils/category-label";
 
+import { LiveDuration } from "./_components/live-duration/live-duration";
 import { useCancelMyGeneration } from "./_hooks/_fetch/use-cancel-my-generation/use-cancel-my-generation";
 import { useGetMyGenerations } from "./_hooks/_fetch/use-get-my-generations/use-get-my-generations";
 import { useRetryMyGeneration } from "./_hooks/_fetch/use-retry-my-generation/use-retry-my-generation";
@@ -47,19 +48,6 @@ const formatDate = (iso: string | null | undefined): string => {
   const hh = String(d.getHours()).padStart(2, "0");
   const mi = String(d.getMinutes()).padStart(2, "0");
   return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
-};
-
-// formatDuration: 経過時間（ms）を「12 秒」「3 分 5 秒」表記に丸める。
-//   completedAt が無い（= 進行中）の時は「今この瞬間」までの経過時間を返す。
-//   1 秒ポーリングで再レンダリングされるたびに値が進むので、pending 行はカウンタ
-//   として動いて見える。
-const formatDuration = (createdAt: string, completedAt: string | null | undefined): string => {
-  const start = new Date(createdAt).getTime();
-  const end = completedAt ? new Date(completedAt).getTime() : Date.now();
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return "—";
-  const sec = Math.max(0, Math.floor((end - start) / 1000));
-  if (sec < 60) return `${sec} 秒`;
-  return `${Math.floor(sec / 60)} 分 ${sec % 60} 秒`;
 };
 
 // FAILURE_MESSAGE: failed 行に出すユーザー向け汎用文言。
@@ -224,7 +212,8 @@ const GenerationRow = ({
             ) : null}
           </div>
           <span className="text-xs text-muted-foreground">
-            {formatDate(item.createdAt)} ／ 所要 {formatDuration(item.createdAt, item.completedAt)}
+            {formatDate(item.createdAt)} ／ 所要{" "}
+            <LiveDuration createdAt={item.createdAt} completedAt={item.completedAt} />
           </span>
           {item.status === "failed" ? (
             <span className="text-xs text-destructive">失敗理由: {FAILURE_MESSAGE}</span>
