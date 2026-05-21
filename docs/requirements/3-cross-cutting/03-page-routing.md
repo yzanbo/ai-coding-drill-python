@@ -91,6 +91,12 @@ FastAPI に転送される）。本表の対象外。詳細は
     重複が消える
 - **境界**：「Cookie の有無」しか見ない。Redis セッション失効は `(authed)` layout
   または ApiErrorProvider が拾う。
+- **stale Cookie ループ防止**：Backend は 401 を返す時、リクエストに `session_id`
+  Cookie が付いていれば Max-Age=0 で物理削除する（[apps/api/app/main.py](../../../apps/api/app/main.py)
+  の `clear_stale_session_cookie_on_401` middleware）。これにより
+  「Cookie あり + Redis 失効」状態のリクエストが 1 回 401 を返した時点で
+  Cookie が消え、次の `/login` 訪問では Cookie 無し扱いとなって LoginForm が
+  表示される（`/login` Server の `hasSessionCookie` → redirect ループに陥らない）。
 
 ### 2.2 `(authed)` layout（Client Component 経路の 2 段目）
 
@@ -135,12 +141,17 @@ FastAPI に転送される）。本表の対象外。詳細は
   `ApiErrorProvider` がトーストで通知 + `/login` リダイレクトに繋ぐ
   （詳細は [authentication.md §認証 API が失敗した時の FE 側挙動](../4-features/authentication.md)）。
 - **Cookie 名 SSoT** は [`apps/api/app/core/config.py`](../../../apps/api/app/core/config.py) の
-  `session_cookie_name`（既定 `session_id`）。FE 側は
-  [`apps/web/src/lib/auth/session-cookie.ts`](../../../apps/web/src/lib/auth/session-cookie.ts) に
-  `hasSessionCookie()` ヘルパとして集約し、すべての server-side ガード経路
-  （`/` / `/login` / `/problems` / `/problems/:id` / `not-found.tsx`）で
-  このヘルパを import して使う。Cookie 名そのものは内部実装に隠蔽（呼び出し側で
-  cookie 名や `.has()` / `.get()` の使い分けを意識しないで済むようにする）。
+  `session_cookie_name`（既定 `session_id`）。FE 側は 2 ファイルに分けて配置：
+  - [`apps/web/src/lib/auth/session-cookie-name.ts`](../../../apps/web/src/lib/auth/session-cookie-name.ts)：
+    Cookie 名定数 `SESSION_COOKIE_NAME` のみを置く（`next/headers` 非依存）。
+    Edge Runtime の [`src/middleware.ts`](../../../apps/web/src/middleware.ts) はこちらから import する。
+  - [`apps/web/src/lib/auth/session-cookie.ts`](../../../apps/web/src/lib/auth/session-cookie.ts)：
+    `hasSessionCookie()` ヘルパ（`next/headers` 依存、Server Component 専用）を置く。
+    すべての guest-only ガード経路（`/` / `/login` / `not-found.tsx`）で
+    このヘルパを import して使う。
+  - 物理ファイルを分ける理由：Edge Runtime（middleware）から `next/headers` を
+    間接 import すると Next.js の server-only 制約に抵触するため、Cookie 名定数
+    だけを `next/headers` 非依存ファイルに切り出している。
 
 ---
 

@@ -14,14 +14,16 @@
 #   yield を含む `async def` 関数の戻り値型に使う。
 #   asynccontextmanager は AsyncIterator ではなく AsyncGenerator を要求する
 #   （Python 3.12+ の typeshed で正式化）。
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from slowapi.errors import RateLimitExceeded
 
 # verify_csrf: 状態変更 API（POST/PUT/DELETE/PATCH）の double submit cookie 検証
 #              middleware（中身は core/csrf.py）。
+from app.core.config import get_settings
+from app.core.cookies import clear_session_cookies
 from app.core.csrf import verify_csrf
 
 # register_exception_handlers: ドメイン例外を HTTP レスポンスに変換する
@@ -76,6 +78,30 @@ app = FastAPI(title="AI Coding Drill API", lifespan=lifespan)
 # GET / HEAD / OPTIONS と /auth/github 系は中で skip する。
 # 認証ガード自体は各ルーター内で Depends(get_current_user) を使う（backend.md）。
 app.middleware("http")(verify_csrf)
+
+
+# clear_stale_session_cookie_on_401: 401 レスポンスを返す時に、リクエストが
+#   session_id Cookie を持っていたら Max-Age=0 で物理削除する。
+#
+#   背景：Cookie はブラウザに残っているが Redis 側でセッションが失効している
+#   「stale Cookie」状態のユーザーが認証必須画面 → /auth/me 401 → /login redirect
+#   → /login は Cookie を見て元の画面に戻す、の無限ループを構造的に断ち切る。
+#   一度 401 が返れば Cookie を消すことで、次の /login 訪問時は Cookie なし扱い
+#   となり、LoginForm が表示される。
+#
+#   ログイン関連の正規 401（CSRF 失敗等）でも Cookie を巻き込み削除するが、
+#   401 = 認証情報が無効、という解釈で問題はない（再ログインを強制する方向）。
+@app.middleware("http")
+async def clear_stale_session_cookie_on_401(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    response = await call_next(request)
+    if response.status_code == 401:
+        settings = get_settings()
+        if settings.session_cookie_name in request.cookies:
+            clear_session_cookies(response)
+    return response
 
 # ドメイン例外 → HTTP レスポンスの変換ハンドラを登録する。
 #   services/* が raise する業務例外（GenerationRequestNotFoundError 等)を

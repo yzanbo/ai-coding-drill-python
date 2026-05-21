@@ -1,5 +1,6 @@
 # このファイルの役割：
-#   セッション ID（sid）を Cookie に乗せる前に署名し、読み出し時に検証するヘルパ。
+#   セッション ID（sid）を Cookie に乗せる前に署名 / 読み出し時に検証するヘルパと、
+#   セッション Cookie（session_id + csrf_token）を一括クリアするヘルパを置く。
 #
 #   仕組み：
 #     - 中身は CSPRNG で生成された不透明な sid（32 byte 相当）
@@ -16,6 +17,7 @@
 #
 #   セッション本体は Redis に保存。Cookie に入るのは「sid + 署名」だけ。
 
+from fastapi import Response
 from itsdangerous import BadSignature, URLSafeSerializer
 
 from app.core.config import get_settings
@@ -54,6 +56,35 @@ def sign_sid(sid: str) -> str:
     そのまま入れられる。
     """
     return _serializer().dumps(sid)
+
+
+def clear_session_cookies(response: Response) -> None:
+    """session_id と csrf_token の両 Cookie を Max-Age=0 で消す。
+
+    ログアウト時の明示的クリアと、stale session（Cookie はあるが Redis に
+    対応 session が無い / 署名検証失敗）を検出した時の 401 レスポンス両方で
+    使う共通ヘルパ。
+
+    set_cookie 側と domain= / path= / secure= / samesite= / httponly= の各属性を
+    揃える必要がある（揃わないとブラウザが別 Cookie と判定して古い値が残る）。
+    """
+    settings = get_settings()
+    response.delete_cookie(
+        key=settings.session_cookie_name,
+        path="/",
+        secure=settings.cookie_secure,
+        httponly=True,
+        samesite="lax",
+        domain=settings.cookie_domain,
+    )
+    response.delete_cookie(
+        key=settings.csrf_cookie_name,
+        path="/",
+        secure=settings.cookie_secure,
+        httponly=False,
+        samesite="lax",
+        domain=settings.cookie_domain,
+    )
 
 
 def unsign_sid(signed_value: str) -> str | None:

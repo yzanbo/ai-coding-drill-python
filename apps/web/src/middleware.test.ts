@@ -61,9 +61,42 @@ describe("middleware", () => {
   });
 
   describe("PROTECTED 対象外のパス", () => {
-    it.each(["/", "/login", "/login?next=%2Fproblems"])("%s は Cookie 無しでも通す", (path) => {
+    it.each([
+      "/",
+      "/login",
+      "/login?next=%2Fproblems",
+      // /problems/abc/def: PROTECTED は :id 1 segment までで、深い path は対象外。
+      //   Next.js 側に該当 page が無く 404 になるので middleware は素通りでよい。
+      "/problems/abc/def",
+    ])("%s は Cookie 無しでも通す", (path) => {
       const res = middleware(buildRequest(path));
       expect(res.headers.get("location")).toBeNull();
+    });
+  });
+
+  describe("PROTECTED 境界", () => {
+    // /me 単独：/^\/me(\/|$)/ にマッチし PROTECTED 扱い。Next.js 側に該当 page
+    //   は無く 404 になるが、未ログインで /me 系を踏んだ時は /login に倒した方が
+    //   「/me 系は要ログイン」という一貫性が出る。
+    it("/me 単独も PROTECTED として /login に redirect する", () => {
+      const res = middleware(buildRequest("/me"));
+      expect(res.status).toBe(307);
+      const locUrl = new URL(res.headers.get("location") ?? "");
+      expect(locUrl.pathname).toBe("/login");
+      expect(locUrl.searchParams.get("next")).toBe("/me");
+    });
+
+    // 非 ASCII / 特殊文字を含む next の安全性：NextRequest が URL を percent-encode
+    //   した形のまま req.nextUrl.search に保持し、URLSearchParams.set が next クエリ
+    //   値として安全に乗せる。/login 側 safeNextPath で同等の URL として読み戻せる。
+    //   日本語は %E6%97%A5%E6%9C%AC%E8%AA%9E に、`+` は `+` のまま（クエリ文字列での
+    //   `+` 解釈はパース側依存）に保たれる。
+    it("非 ASCII / 特殊文字を含むクエリも next に安全に乗る", () => {
+      const res = middleware(buildRequest("/problems?q=日本語&plus=a+b"));
+      const locUrl = new URL(res.headers.get("location") ?? "");
+      expect(locUrl.searchParams.get("next")).toBe(
+        "/problems?q=%E6%97%A5%E6%9C%AC%E8%AA%9E&plus=a+b",
+      );
     });
   });
 });

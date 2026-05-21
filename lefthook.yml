@@ -148,6 +148,19 @@ pre-push:
     #   事故が起きるため、必ずタスク経由で起動する。
     api-pytest:
       glob: "apps/api/**/*.py"
+      # skip: push 対象のコミット差分に .py 変更が一切無ければスキップする。
+      #   lefthook 1.7 系の pre-push は `glob:` 単体だと filter として効かず、
+      #   .py 差分ゼロの push でも api-pytest が発火して並行 worktree との Docker
+      #   コンテナ衝突で誤失敗するケースがある。push 範囲（@{upstream}..HEAD）の
+      #   diff を自前で grep し、空なら早期 skip して構造的に回避する。
+      #   - `@{upstream}` が無い（新規ブランチ初回 push 等）場合は `origin/main` に
+      #     フォールバック。それでも無い場合は skip しない（保守的）。
+      #   - `! ... | grep -q` の終了コード 0 で lefthook が hook を skip する。
+      skip:
+        - run: |
+            base="$(git rev-parse --symbolic-full-name '@{upstream}' 2>/dev/null || echo refs/remotes/origin/main)"
+            git rev-parse --verify "$base" >/dev/null 2>&1 || exit 1
+            ! git diff --name-only "$base..HEAD" | grep -qE '^apps/api/.*\.py$'
       # `mise exec --` で囲む理由：他フック（api-ruff / api-pyright / web-biome 等）と
       # 一貫性を取るため。Git フックは非対話シェルで起動され ~/.zshrc 等の mise activate を
       # 読まないため、mise 自体が PATH にあっても shims（uv / pnpm 等）が解決できない環境がある。

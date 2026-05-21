@@ -52,6 +52,61 @@ class TestUnauthenticated:
         res = await client.post("/auth/logout")
         assert res.status_code == 401
 
+    async def test_異常系_stale_session_cookie付きの401は両Cookieを削除する(
+        self, client: AsyncClient
+    ) -> None:
+        """Cookie はあるが Redis に session が無い stale 状態の loop 防止。
+
+        Frontend (authed) layout の useGetAuthMe → 401 → /login → /login Server
+        の hasSessionCookie → redirect で原画面 → 再び 401 ... の無限ループを
+        構造的に断ち切る。401 を返した時点で session_id / csrf_token Cookie を
+        Max-Age=0 で物理削除する（main.py の clear_stale_session_cookie_on_401
+        middleware）。
+        """
+        settings = get_settings()
+        # 署名形式に合わない / Redis にも対応 session が無い stale Cookie を
+        #   ブラウザに残っている想定でクライアントに積む。
+        client.cookies.set(settings.session_cookie_name, "garbage.value")
+
+        res = await client.get("/auth/me")
+        assert res.status_code == 401
+
+        # Set-Cookie 群を全部見て、session_id と csrf_token の両方が
+        # Max-Age=0（または expires=過去）で削除指示されていることを確認。
+        set_cookies = res.headers.get_list("set-cookie")
+        session_clear = any(
+            settings.session_cookie_name in sc
+            and ("Max-Age=0" in sc or "expires=Thu, 01 Jan 1970" in sc)
+            for sc in set_cookies
+        )
+        csrf_clear = any(
+            settings.csrf_cookie_name in sc
+            and ("Max-Age=0" in sc or "expires=Thu, 01 Jan 1970" in sc)
+            for sc in set_cookies
+        )
+        assert session_clear, f"session_id 削除 Set-Cookie が出ていない: {set_cookies}"
+        assert csrf_clear, f"csrf_token 削除 Set-Cookie が出ていない: {set_cookies}"
+
+    async def test_異常系_Cookieなしの401はSet_Cookieを発行しない(
+        self, client: AsyncClient
+    ) -> None:
+        """純粋な未ログイン（Cookie 無し）の 401 では余計な Set-Cookie を出さない。
+
+        clear_stale_session_cookie_on_401 middleware は session_id Cookie が
+        リクエストに付いている時だけ発火する仕様。
+        """
+        settings = get_settings()
+        # クライアントに何の Cookie も積まずに /auth/me を叩く。
+        assert settings.session_cookie_name not in client.cookies
+
+        res = await client.get("/auth/me")
+        assert res.status_code == 401
+
+        set_cookies = res.headers.get_list("set-cookie")
+        # session 関連の Set-Cookie が一切出ていないこと。
+        assert not any(settings.session_cookie_name in sc for sc in set_cookies)
+        assert not any(settings.csrf_cookie_name in sc for sc in set_cookies)
+
 
 class TestAuthGithub:
     async def test_正常系_GET_auth_githubは302でstateがURLに乗る(
