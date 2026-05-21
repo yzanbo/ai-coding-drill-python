@@ -60,16 +60,15 @@ test.describe("未ログインガード", () => {
     expect(page.url()).toContain("/login?next=%2Fproblems");
   });
 
-  test("未ログインで /problems?category=array&page=2 を踏むとクエリが保持される", async ({
+  test("未ログインで /problems?category=array を踏むとフィルタが next に保持される", async ({
     page,
   }) => {
-    await page.goto("/problems?category=array&page=2");
+    // /problems はカテゴリ別アコーディオン化に伴いページネーションを撤去したため、
+    //   保持対象は category / difficulty のフィルタのみ（page は型ごと削除済み）。
+    await page.goto("/problems?category=array");
 
     await expect(page).toHaveURL(/\/login\?next=/);
-    // category / page もまとめて next に詰めて redirect されること。
-    expect(page.url()).toContain(
-      `/login?next=${encodeURIComponent("/problems?category=array&page=2")}`,
-    );
+    expect(page.url()).toContain(`/login?next=${encodeURIComponent("/problems?category=array")}`);
   });
 
   test("未ログインで /problems/:id を踏むと /login?next=/problems/:id に server-side redirect される", async ({
