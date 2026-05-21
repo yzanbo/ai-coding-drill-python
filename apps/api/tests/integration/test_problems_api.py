@@ -49,9 +49,8 @@ async def _insert_problem(
             difficulty=difficulty,
             language="typescript",
             examples=examples or [{"input": "[1,2,3]", "output": "6"}],
-            # test_cases.input は Worker 側 TestCase 契約（[]any）に合わせて配列で入れる。
-            # 文字列を入れると grading Worker が json unmarshal で落ちて即 dead 行きになる。
-            # 契約 SSoT: apps/workers/grading/internal/grading/generation_prompt.go の TestCase
+            # test_cases.input は Worker 側 TestCase 契約に合わせて配列で入れる
+            # （文字列を入れると grading Worker が json unmarshal で落ちて即 dead 行きになる）。
             test_cases=test_cases
             or [
                 {"input": [[1, 2, 3]], "expected": 6},

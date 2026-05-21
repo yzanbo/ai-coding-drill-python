@@ -217,22 +217,21 @@ func TestPgGradingStore_GetProblemForGrading_ReturnsTestCases(t *testing.T) {
 }
 
 // TestPgGradingStore_GetProblemForGrading_ParsesSeedHelperShape:
-// seed helper (apps/web/e2e/_mock-github/server.py の /_test/seed-problem や
-// apps/api/tests/integration/*.py の _insert_problem) が作る test_cases JSON を
-// そのままパースできることを pin する regression test。
+// API / Web 側の seed helper が作る test_cases JSON shape を、Worker 側で
+// そのままパースできることを pin する regression test (issue #82)。
 //
-// 過去 (issue #82) に seed が input="[1,2,3]" のような文字列で作られており、
-// Worker 側 TestCase (Input []any) と shape が合わずに即 dead に流れていた。
-// この test は seed helper と同じ shape を直接埋めて、JSON unmarshal 経路で
-// "cannot unmarshal string into Go struct field TestCase.input" が出ないことを
-// 確認する。seed helper の shape を再び壊した時にここで気付ける。
+// 過去に seed が input="[1,2,3]" のような文字列で作られていて、Worker 側
+// TestCase (Input []any) と shape が合わずに json unmarshal で即 dead に
+// 流れていた。本 test は seed と同じ shape を直接埋めて、unmarshal 経路で
+// "cannot unmarshal string into Go struct field TestCase.input" が出ない
+// ことを確認する。seed の shape を再び壊した時にここで気付ける。
 func TestPgGradingStore_GetProblemForGrading_ParsesSeedHelperShape(t *testing.T) {
 	pool := testsupport.StartPostgres(t)
 	ctx := context.Background()
 
-	// shape は apps/web/e2e/_mock-github/server.py の /_test/seed-problem と
-	// apps/api/tests/**/test_*.py の _insert_problem / _make_problem が作るものと
-	// 完全一致させる (solve(a: number[]) → number の引数 1 個ぶんを配列で包む)。
+	// solve(a: number[]) を Vitest harness が solve(...input) と spread する設計に
+	// 合わせ、input は引数 1 つを配列で包んだ `[[1,2,3]]` / `[[]]` になる。
+	// API / Web 側の seed helper はこれと完全一致した shape を吐く契約。
 	problemID := insertTestProblem(t, ctx, pool,
 		`[{"input":[[1,2,3]],"expected":6},{"input":[[]],"expected":0}]`, false)
 
