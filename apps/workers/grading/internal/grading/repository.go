@@ -143,6 +143,28 @@ func (s *pgGenerationStore) SelectStatus(ctx context.Context, requestID uuid.UUI
 	return selectGenerationRequestStatus(ctx, s.pool, requestID)
 }
 
+// UpdateProgressStep: pending 行に「現在処理中のステップ」を書く。
+//
+// step は schemas/me_generations.py の ProgressStep enum と 1:1：
+// "llm_generating" / "sandbox_verifying" / "judging" / "persisting"。
+//
+// WHERE status='pending' で守ることで、terminal 行（completed/failed/canceled）に
+// 後から step が混入するのを防ぐ。0 行更新時は警告のみで握り潰す（step 書き込みは
+// 観測性向上のための best-effort で、本筋の処理を止めない）。
+func (s *pgGenerationStore) UpdateProgressStep(ctx context.Context, requestID uuid.UUID, step string) error {
+	_, err := s.pool.Exec(ctx, `
+UPDATE generation_requests
+   SET progress_step = $2,
+       updated_at = NOW()
+ WHERE id = $1
+   AND status = 'pending';
+`, requestID, step)
+	if err != nil {
+		return fmt.Errorf("grading: update generation_request progress_step: %w", err)
+	}
+	return nil
+}
+
 // InsertProblemAndCompleteRequest: generationStore interface 実装。
 // problems INSERT と generation_requests UPDATE を 1 tx に閉じる
 // (ADR 0046 冪等性契約)。失敗時は WithTx が自動 rollback するため、
@@ -258,10 +280,13 @@ RETURNING id;
 // ErrGenerationRequestAlreadyFinalized を返し、呼び出し側で「行不在」と
 // 「すでに finalized」を区別できるようにする (前者は実害、後者は重複処理)。
 func markGenerationRequestCompleted(ctx context.Context, exec dbExecutor, requestID, problemID uuid.UUID) error {
+	// completed_at = NOW(): R1-7 で追加。履歴画面の「所要時間」表示に使う
+	// （/me/generations が completed_at - created_at で経過時間を計算）。
 	tag, err := exec.Exec(ctx, `
 UPDATE generation_requests
    SET status = 'completed',
        produced_problem_id = $2,
+       completed_at = NOW(),
        updated_at = NOW()
  WHERE id = $1
    AND status = 'pending';
@@ -281,14 +306,23 @@ UPDATE generation_requests
 //
 // WHERE に status='pending' を入れることで、すでに completed のリクエストを
 // failed で塗り潰す事故を防ぐ (handler 短絡で防ぐ前段防御 + DB 側多重防御)。
-func markGenerationRequestFailed(ctx context.Context, exec dbExecutor, requestID uuid.UUID) error {
+// markGenerationRequestFailed: 再生成を最大試行回数まで尽くしても作れなかった場合の
+// failed 遷移。R1-7 で failure_reason / completed_at の書き込みを追加（履歴画面の
+// 「失敗理由 / 所要時間」表示に使う）。
+//
+// failureReason は短い分類タグ（例: "judge_below_threshold" / "sandbox_failed" /
+// "llm_invalid_output"）。ユーザー UI には汎用メッセージで丸めるが、運用ログ用に
+// 詳細種別を DB に永続化する。
+func markGenerationRequestFailed(ctx context.Context, exec dbExecutor, requestID uuid.UUID, failureReason string) error {
 	tag, err := exec.Exec(ctx, `
 UPDATE generation_requests
    SET status = 'failed',
+       failure_reason = $2,
+       completed_at = NOW(),
        updated_at = NOW()
  WHERE id = $1
    AND status = 'pending';
-`, requestID)
+`, requestID, failureReason)
 	if err != nil {
 		return fmt.Errorf("grading: update generation_request to failed: %w", err)
 	}

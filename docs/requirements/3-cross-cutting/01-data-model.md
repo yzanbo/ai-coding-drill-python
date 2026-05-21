@@ -18,6 +18,7 @@ erDiagram
   users ||--o{ generation_requests : requests
   generation_requests ||--o| problems : produces
   generation_requests ||--o| jobs : triggers
+  generation_requests ||--o| generation_requests : retry_of
 
   users {
     uuid id PK
@@ -71,6 +72,10 @@ erDiagram
     text difficulty
     text status
     uuid produced_problem_id FK
+    uuid retry_of FK
+    text failure_reason
+    text progress_step
+    timestamptz completed_at
     timestamptz created_at
     timestamptz updated_at
   }
@@ -86,6 +91,7 @@ erDiagram
     timestamptz locked_at
     text locked_by
     text last_error
+    jsonb attempt_errors
     jsonb result
     timestamptz created_at
     timestamptz updated_at

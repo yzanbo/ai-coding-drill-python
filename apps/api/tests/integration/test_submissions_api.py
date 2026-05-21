@@ -143,14 +143,26 @@ class TestPostSubmission:
                 .scalars()
                 .all()
             )
+        # 本テストが pin したい契約は「POST /api/submissions が submissions に
+        # 1 行 INSERT し、user_id / problem_id を正しく詰める」こと（Backend の
+        # API 責務）。INSERT 後の status / result / score / graded_at は Worker が
+        # 握っており本契約のスコープ外。
+        #
+        # 同期実行下では status='pending' 直後で観測できるが、dev:all で Worker を
+        # 同時起動した状態だと既に 'graded' / 'failed' に遷移していることがある。
+        # 「初期値そのもの」ではなく「初期値から始まる有効遷移のいずれか」を
+        # 許容する形で assert する。
+        allowed_sub_statuses = {"pending", "graded", "failed"}
         assert len(rows) == 1
         assert rows[0].id == submission_id
         assert rows[0].problem_id == problem_id
-        assert rows[0].status == "pending"
-        # Worker が書く列はまだ未設定（status='pending' 段階の契約）。
-        assert rows[0].result is None
-        assert rows[0].score is None
-        assert rows[0].graded_at is None
+        assert rows[0].status in allowed_sub_statuses
+        # result / score / graded_at は status='pending' のときのみ未設定。
+        # Worker が触った後は値が入っていてよい（観測時点による）。
+        if rows[0].status == "pending":
+            assert rows[0].result is None
+            assert rows[0].score is None
+            assert rows[0].graded_at is None
 
         # R1-5: 同一 tx 内で jobs に 1 行 INSERT + NOTIFY が走る契約（ADR 0004）。
         # queue='grading' / type='submission.grade' / payload に traceContext が

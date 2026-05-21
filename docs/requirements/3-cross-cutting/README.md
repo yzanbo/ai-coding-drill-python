@@ -22,6 +22,7 @@
 |---|---|---|
 | 01 | [data-model](./01-data-model.md) | ER 図（全体俯瞰）・命名規則・横断方針（ID 戦略・タイムスタンプ・JSON カラム・ジョブペイロード共通フィールド・マイグレーション運用） |
 | 02 | [api-conventions](./02-api-conventions.md) | API 共通仕様（基本方針・認証・エラー形式・ステータスコード・レート制限・OpenAPI 方針・非同期パターン） |
+| 03 | [page-routing](./03-page-routing.md) | 画面ルーティングと認証ガード（全画面 × 認証状態の着地マトリクス・ガード方法の使い分け・グローバルナビ） |
 | _template.md | [_template.md](./_template.md) | 新規横断要件追加用テンプレ |
 
 ---

@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createHealthCheckHealthPost, getMeAuthMeGet, getProblemDetailApiProblemsProblemIdGet, getProblemGenerationStatusApiProblemsGenerateRequestIdGet, getSubmissionApiSubmissionsSubmissionIdGet, githubCallbackAuthGithubCallbackGet, healthzHealthzGet, listHealthChecksHealthGet, listMySubmissionsApiSubmissionsGet, listProblemsApiProblemsGet, logoutAuthLogoutPost, type Options, requestProblemGenerationApiProblemsGeneratePost, startGithubOauthAuthGithubGet, submitAnswerApiSubmissionsPost } from '../sdk.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponse, GetMeAuthMeGetData, GetMeAuthMeGetResponse, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetError, GetProblemDetailApiProblemsProblemIdGetResponse, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetError, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetError, GetSubmissionApiSubmissionsSubmissionIdGetResponse, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetError, HealthzHealthzGetData, HealthzHealthzGetResponse, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponse, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetError, ListMySubmissionsApiSubmissionsGetResponse, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponse, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostError, RequestProblemGenerationApiProblemsGeneratePostResponse, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetError, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostError, SubmitAnswerApiSubmissionsPostResponse } from '../types.gen';
+import { cancelMyGenerationApiMeGenerationsRequestIdCancelPost, createHealthCheckHealthPost, getMeAuthMeGet, getMyStatsApiMeStatsGet, getMyWeaknessApiMeWeaknessGet, getProblemDetailApiProblemsProblemIdGet, getProblemGenerationStatusApiProblemsGenerateRequestIdGet, getSubmissionApiSubmissionsSubmissionIdGet, githubCallbackAuthGithubCallbackGet, healthzHealthzGet, listHealthChecksHealthGet, listMyGenerationsApiMeGenerationsGet, listMySubmissionsApiSubmissionsGet, listProblemsApiProblemsGet, logoutAuthLogoutPost, type Options, requestProblemGenerationApiProblemsGeneratePost, retryMyGenerationApiMeGenerationsRequestIdRetryPost, startGithubOauthAuthGithubGet, submitAnswerApiSubmissionsPost } from '../sdk.gen';
+import type { CancelMyGenerationApiMeGenerationsRequestIdCancelPostData, CancelMyGenerationApiMeGenerationsRequestIdCancelPostError, CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse, CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponse, GetMeAuthMeGetData, GetMeAuthMeGetResponse, GetMyStatsApiMeStatsGetData, GetMyStatsApiMeStatsGetResponse, GetMyWeaknessApiMeWeaknessGetData, GetMyWeaknessApiMeWeaknessGetResponse, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetError, GetProblemDetailApiProblemsProblemIdGetResponse, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetError, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetError, GetSubmissionApiSubmissionsSubmissionIdGetResponse, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetError, HealthzHealthzGetData, HealthzHealthzGetResponse, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponse, ListMyGenerationsApiMeGenerationsGetData, ListMyGenerationsApiMeGenerationsGetError, ListMyGenerationsApiMeGenerationsGetResponse, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetError, ListMySubmissionsApiSubmissionsGetResponse, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponse, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostError, RequestProblemGenerationApiProblemsGeneratePostResponse, RetryMyGenerationApiMeGenerationsRequestIdRetryPostData, RetryMyGenerationApiMeGenerationsRequestIdRetryPostError, RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponse, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetError, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostError, SubmitAnswerApiSubmissionsPostResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -39,20 +39,22 @@ const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions
     return [params];
 };
 
-export const listProblemsApiProblemsGetQueryKey = (options?: Options<ListProblemsApiProblemsGetData>) => createQueryKey('listProblemsApiProblemsGet', options);
+export const listMyGenerationsApiMeGenerationsGetQueryKey = (options?: Options<ListMyGenerationsApiMeGenerationsGetData>) => createQueryKey('listMyGenerationsApiMeGenerationsGet', options);
 
 /**
- * List Problems
+ * List My Generations
  *
- * カテゴリ・難易度フィルタ付きで問題一覧を返す。
+ * 自分の generation_requests を created_at DESC でページネーション付きで返す。
  *
- * - 認証不要（ゲスト閲覧可、problem-display-and-answer.md §ビジネスルール）
- * - 並び順は created_at DESC（新着優先）
- * - 0 件でも 200 + items=[] / totalPages=0 で返す
+ * - 履歴ゼロは items=[] / totalPages=0（200 のまま）
+ * - page が totalPages を超えても 200 + items=[] を返す（404 にはしない、
+ * FE 側で前ページにクランプする運用）
+ * - prompt_version は jobs.payload から JOIN 取得、消えていれば null
+ * - retry_count は retry_of チェーンの深さ
  */
-export const listProblemsApiProblemsGetOptions = (options?: Options<ListProblemsApiProblemsGetData>) => queryOptions<ListProblemsApiProblemsGetResponse, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, ReturnType<typeof listProblemsApiProblemsGetQueryKey>>({
+export const listMyGenerationsApiMeGenerationsGetOptions = (options?: Options<ListMyGenerationsApiMeGenerationsGetData>) => queryOptions<ListMyGenerationsApiMeGenerationsGetResponse, ListMyGenerationsApiMeGenerationsGetError, ListMyGenerationsApiMeGenerationsGetResponse, ReturnType<typeof listMyGenerationsApiMeGenerationsGetQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listProblemsApiProblemsGet({
+        const { data } = await listMyGenerationsApiMeGenerationsGet({
             ...options,
             ...queryKey[0],
             signal,
@@ -60,7 +62,7 @@ export const listProblemsApiProblemsGetOptions = (options?: Options<ListProblems
         });
         return data;
     },
-    queryKey: listProblemsApiProblemsGetQueryKey(options)
+    queryKey: listMyGenerationsApiMeGenerationsGetQueryKey(options)
 });
 
 const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>>(queryKey: QueryKey<Options>, page: K) => {
@@ -91,6 +93,160 @@ const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'hea
     }
     return params as unknown as typeof page;
 };
+
+export const listMyGenerationsApiMeGenerationsGetInfiniteQueryKey = (options?: Options<ListMyGenerationsApiMeGenerationsGetData>): QueryKey<Options<ListMyGenerationsApiMeGenerationsGetData>> => createQueryKey('listMyGenerationsApiMeGenerationsGet', options, true);
+
+/**
+ * List My Generations
+ *
+ * 自分の generation_requests を created_at DESC でページネーション付きで返す。
+ *
+ * - 履歴ゼロは items=[] / totalPages=0（200 のまま）
+ * - page が totalPages を超えても 200 + items=[] を返す（404 にはしない、
+ * FE 側で前ページにクランプする運用）
+ * - prompt_version は jobs.payload から JOIN 取得、消えていれば null
+ * - retry_count は retry_of チェーンの深さ
+ */
+export const listMyGenerationsApiMeGenerationsGetInfiniteOptions = (options?: Options<ListMyGenerationsApiMeGenerationsGetData>) => infiniteQueryOptions<ListMyGenerationsApiMeGenerationsGetResponse, ListMyGenerationsApiMeGenerationsGetError, InfiniteData<ListMyGenerationsApiMeGenerationsGetResponse>, QueryKey<Options<ListMyGenerationsApiMeGenerationsGetData>>, number | Pick<QueryKey<Options<ListMyGenerationsApiMeGenerationsGetData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+// @ts-ignore
+{
+    queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<QueryKey<Options<ListMyGenerationsApiMeGenerationsGetData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+            query: {
+                page: pageParam
+            }
+        };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await listMyGenerationsApiMeGenerationsGet({
+            ...options,
+            ...params,
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listMyGenerationsApiMeGenerationsGetInfiniteQueryKey(options)
+});
+
+/**
+ * Cancel My Generation
+ *
+ * pending のリクエストを canceled に倒す（Worker は state='dead' にして無効化）。
+ *
+ * - 他人のリクエスト / 存在しない → 404
+ * - pending 以外 → 409 Conflict
+ */
+export const cancelMyGenerationApiMeGenerationsRequestIdCancelPostMutation = (options?: Partial<Options<CancelMyGenerationApiMeGenerationsRequestIdCancelPostData>>): UseMutationOptions<CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse, CancelMyGenerationApiMeGenerationsRequestIdCancelPostError, Options<CancelMyGenerationApiMeGenerationsRequestIdCancelPostData>> => {
+    const mutationOptions: UseMutationOptions<CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse, CancelMyGenerationApiMeGenerationsRequestIdCancelPostError, Options<CancelMyGenerationApiMeGenerationsRequestIdCancelPostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await cancelMyGenerationApiMeGenerationsRequestIdCancelPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Retry My Generation
+ *
+ * failed のリクエストを新規 generation_request として複製する（retry_of リンク付き）。
+ *
+ * - 他人のリクエスト / 存在しない → 404
+ * - failed 以外 → 409 Conflict
+ * - 成功時 → 202 + 新規 id / status='pending' / retry_of
+ * - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す
+ */
+export const retryMyGenerationApiMeGenerationsRequestIdRetryPostMutation = (options?: Partial<Options<RetryMyGenerationApiMeGenerationsRequestIdRetryPostData>>): UseMutationOptions<RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponse, RetryMyGenerationApiMeGenerationsRequestIdRetryPostError, Options<RetryMyGenerationApiMeGenerationsRequestIdRetryPostData>> => {
+    const mutationOptions: UseMutationOptions<RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponse, RetryMyGenerationApiMeGenerationsRequestIdRetryPostError, Options<RetryMyGenerationApiMeGenerationsRequestIdRetryPostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await retryMyGenerationApiMeGenerationsRequestIdRetryPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getMyStatsApiMeStatsGetQueryKey = (options?: Options<GetMyStatsApiMeStatsGetData>) => createQueryKey('getMyStatsApiMeStatsGet', options);
+
+/**
+ * Get My Stats
+ *
+ * 全期間・全カテゴリの正答率を返す（取得時点でリアルタイム集計）。
+ *
+ * - 採点完了行（status='graded'）のみカウント
+ * - 履歴ゼロのユーザーには total=0 / accuracy=0.0 / byCategory=[] を返す
+ * - ソフトデリートは無視（履歴永続保存、learning.md §ビジネスルール）
+ */
+export const getMyStatsApiMeStatsGetOptions = (options?: Options<GetMyStatsApiMeStatsGetData>) => queryOptions<GetMyStatsApiMeStatsGetResponse, DefaultError, GetMyStatsApiMeStatsGetResponse, ReturnType<typeof getMyStatsApiMeStatsGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMyStatsApiMeStatsGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMyStatsApiMeStatsGetQueryKey(options)
+});
+
+export const getMyWeaknessApiMeWeaknessGetQueryKey = (options?: Options<GetMyWeaknessApiMeWeaknessGetData>) => createQueryKey('getMyWeaknessApiMeWeaknessGet', options);
+
+/**
+ * Get My Weakness
+ *
+ * 正答率の低いカテゴリ Top N を返す。
+ *
+ * 抽出ルール（learning.md §ビジネスルール）：
+ * - 3 問以上解答かつ正答率 50% 未満のカテゴリのみ対象
+ * - accuracy 昇順、tie-break で attempts 降順
+ * - Top 5 まで返す
+ */
+export const getMyWeaknessApiMeWeaknessGetOptions = (options?: Options<GetMyWeaknessApiMeWeaknessGetData>) => queryOptions<GetMyWeaknessApiMeWeaknessGetResponse, DefaultError, GetMyWeaknessApiMeWeaknessGetResponse, ReturnType<typeof getMyWeaknessApiMeWeaknessGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMyWeaknessApiMeWeaknessGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMyWeaknessApiMeWeaknessGetQueryKey(options)
+});
+
+export const listProblemsApiProblemsGetQueryKey = (options?: Options<ListProblemsApiProblemsGetData>) => createQueryKey('listProblemsApiProblemsGet', options);
+
+/**
+ * List Problems
+ *
+ * カテゴリ・難易度フィルタ付きで問題一覧を返す。
+ *
+ * - 認証不要（ゲスト閲覧可、problem-display-and-answer.md §ビジネスルール）
+ * - 並び順は created_at DESC（新着優先）
+ * - 0 件でも 200 + items=[] / totalPages=0 で返す
+ */
+export const listProblemsApiProblemsGetOptions = (options?: Options<ListProblemsApiProblemsGetData>) => queryOptions<ListProblemsApiProblemsGetResponse, ListProblemsApiProblemsGetError, ListProblemsApiProblemsGetResponse, ReturnType<typeof listProblemsApiProblemsGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listProblemsApiProblemsGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listProblemsApiProblemsGetQueryKey(options)
+});
 
 export const listProblemsApiProblemsGetInfiniteQueryKey = (options?: Options<ListProblemsApiProblemsGetData>): QueryKey<Options<ListProblemsApiProblemsGetData>> => createQueryKey('listProblemsApiProblemsGet', options, true);
 

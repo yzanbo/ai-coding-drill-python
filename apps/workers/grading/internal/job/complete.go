@@ -73,28 +73,72 @@ WHERE id = $1;
 	return nil
 }
 
+// AttemptError: jobs.attempt_errors JSONB array の 1 要素（R1-7-3）。
+// 各試行（MarkFailed / MarkDead）のたびに 1 件 append される。
+// failureReason は呼び出し側が分類したタグ（ハンドラ固有の classifyFailureReason
+// 経由、e.g. grading の "llm_rate_limit" / "sandbox_failed"）。
+// 試行ごとに「何が原因で失敗したか」を残し、UI でユーザーがデバッグできるようにする。
+type AttemptError struct {
+	Attempt       int       `json:"attempt"`
+	FailureReason string    `json:"failureReason"`
+	Message       string    `json:"message"`
+	FailedAt      time.Time `json:"failedAt"`
+}
+
+// attemptErrorMaxMessageLen: message フィールドの長さ上限（バイト）。
+// スタックトレースや LLM 応答本文が混入した時に DB / API レスポンスを膨らませない
+// ための安全弁。超過分は ASCII truncation で切る。
+const attemptErrorMaxMessageLen = 1000
+
+// buildAttemptError: append 用の 1 要素を組み立てる。failureReason が空文字なら
+// "unclassified" にフォールバックする（呼び出し側のハンドラが分類関数を持たない
+// ケース、e.g. submission.grade）。
+func buildAttemptError(attempt int, failureReason, message string) AttemptError {
+	if failureReason == "" {
+		failureReason = "unclassified"
+	}
+	if len(message) > attemptErrorMaxMessageLen {
+		message = message[:attemptErrorMaxMessageLen]
+	}
+	return AttemptError{
+		Attempt:       attempt,
+		FailureReason: failureReason,
+		Message:       message,
+		FailedAt:      time.Now().UTC(),
+	}
+}
+
 // MarkFailed: リトライ可能な失敗を記録する。
 //
 // attempts < MaxAttempts なら state='queued' に戻し、run_at を
 // backoffSchedule に従って未来に押し戻す。
 // MaxAttempts 到達なら state='dead' に落とす (= 再取得不能、運用 DLQ 相当)。
 //
+// failureReason は呼び出し側ハンドラが分類したタグ（空文字なら "unclassified"）。
+// attempt_errors JSONB array にこの試行のエラー詳細を append する。
+//
 // 呼び出し側は claim 時点の Job.Attempts を渡す (= claim で +1 された後の値)。
-func MarkFailed(ctx context.Context, pool *pgxpool.Pool, jobID int64, attempts int, lastErr string) error {
+func MarkFailed(ctx context.Context, pool *pgxpool.Pool, jobID int64, attempts int, lastErr, failureReason string) error {
+	entry := buildAttemptError(attempts, failureReason, lastErr)
+	entryJSON, err := json.Marshal(entry)
+	if err != nil {
+		return fmt.Errorf("job: marshal attempt error: %w", err)
+	}
 	if IsTerminalAttempt(attempts) {
-		return markDead(ctx, pool, jobID, lastErr)
+		return markDead(ctx, pool, jobID, lastErr, entryJSON)
 	}
 	backoff := backoffFor(attempts)
-	_, err := pool.Exec(ctx, `
+	_, err = pool.Exec(ctx, `
 UPDATE jobs SET
   state = 'queued',
   locked_at = NULL,
   locked_by = NULL,
   last_error = $2,
+  attempt_errors = attempt_errors || $4::jsonb,
   run_at = NOW() + $3::interval,
   updated_at = NOW()
 WHERE id = $1;
-`, jobID, lastErr, fmt.Sprintf("%d seconds", int64(backoff.Seconds())))
+`, jobID, lastErr, fmt.Sprintf("%d seconds", int64(backoff.Seconds())), entryJSON)
 	if err != nil {
 		return fmt.Errorf("job: mark failed (retry): %w", err)
 	}
@@ -103,21 +147,31 @@ WHERE id = $1;
 
 // MarkDead: リトライ不可能なエラーを記録して即 dead に落とす。
 // LLM unauthorized 等の「リトライしても直らない」エラー専用。
-func MarkDead(ctx context.Context, pool *pgxpool.Pool, jobID int64, lastErr string) error {
-	return markDead(ctx, pool, jobID, lastErr)
+func MarkDead(ctx context.Context, pool *pgxpool.Pool, jobID int64, lastErr, failureReason string) error {
+	// attempt 番号は呼び出し側で「最後の試行回」を渡せないため、便宜的に 0 を入れる。
+	// 実用上 OnDead のテストでは即 dead 経路の attempt 数は jobs.attempts で別途
+	// 観測できるので、要素単体の attempt は 0 で問題ない（UI 側は jobs.attempts と
+	// 突き合わせて表示）。
+	entry := buildAttemptError(0, failureReason, lastErr)
+	entryJSON, err := json.Marshal(entry)
+	if err != nil {
+		return fmt.Errorf("job: marshal attempt error: %w", err)
+	}
+	return markDead(ctx, pool, jobID, lastErr, entryJSON)
 }
 
-// markDead: 内部実装。state='dead' に遷移 + locked_at をクリア。
-func markDead(ctx context.Context, pool *pgxpool.Pool, jobID int64, lastErr string) error {
+// markDead: 内部実装。state='dead' に遷移 + locked_at をクリア + attempt_errors に append。
+func markDead(ctx context.Context, pool *pgxpool.Pool, jobID int64, lastErr string, entryJSON []byte) error {
 	_, err := pool.Exec(ctx, `
 UPDATE jobs SET
   state = 'dead',
   locked_at = NULL,
   locked_by = NULL,
   last_error = $2,
+  attempt_errors = attempt_errors || $3::jsonb,
   updated_at = NOW()
 WHERE id = $1;
-`, jobID, lastErr)
+`, jobID, lastErr, entryJSON)
 	if err != nil {
 		return fmt.Errorf("job: mark dead: %w", err)
 	}

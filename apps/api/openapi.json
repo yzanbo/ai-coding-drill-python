@@ -1,6 +1,239 @@
 {
   "components": {
     "schemas": {
+      "AttemptError": {
+        "description": "1 回分の試行エラー（jobs.attempt_errors の 1 要素）。",
+        "properties": {
+          "attempt": {
+            "minimum": 0.0,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "failedAt": {
+            "format": "date-time",
+            "title": "Failedat",
+            "type": "string"
+          },
+          "failureReason": {
+            "enum": [
+              "llm_unauthorized",
+              "llm_cost_exceeded",
+              "judge_below_threshold",
+              "sandbox_failed",
+              "sandbox_infrastructure",
+              "llm_invalid_output",
+              "llm_rate_limit",
+              "llm_timeout",
+              "llm_schema_invalid",
+              "max_attempts_exceeded"
+            ],
+            "title": "Failurereason",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt",
+          "failureReason",
+          "message",
+          "failedAt"
+        ],
+        "title": "AttemptError",
+        "type": "object"
+      },
+      "GenerationRequestCancelResponse": {
+        "description": "キャンセル後の最終状態。",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "canceled",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "GenerationRequestCancelResponse",
+        "type": "object"
+      },
+      "GenerationRequestRetryResponse": {
+        "description": "再試行で作られた新規 generation_request の最小情報。",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "retryOf": {
+            "format": "uuid",
+            "title": "Retryof",
+            "type": "string"
+          },
+          "status": {
+            "const": "pending",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "retryOf"
+        ],
+        "title": "GenerationRequestRetryResponse",
+        "type": "object"
+      },
+      "GenerationRequestSummary": {
+        "description": "生成リクエスト履歴の 1 行分。",
+        "properties": {
+          "attemptErrors": {
+            "items": {
+              "$ref": "#/components/schemas/AttemptError"
+            },
+            "title": "Attempterrors",
+            "type": "array"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "completedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completedat"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "difficulty": {
+            "title": "Difficulty",
+            "type": "string"
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "llm_unauthorized",
+                  "llm_cost_exceeded",
+                  "judge_below_threshold",
+                  "sandbox_failed",
+                  "sandbox_infrastructure",
+                  "llm_invalid_output",
+                  "llm_rate_limit",
+                  "llm_timeout",
+                  "llm_schema_invalid",
+                  "max_attempts_exceeded"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failurereason"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "producedProblemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Producedproblemid"
+          },
+          "progressStep": {
+            "anyOf": [
+              {
+                "enum": [
+                  "llm_generating",
+                  "sandbox_verifying",
+                  "judging",
+                  "persisting"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progressstep"
+          },
+          "promptVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promptversion"
+          },
+          "retryCount": {
+            "minimum": 0.0,
+            "title": "Retrycount",
+            "type": "integer"
+          },
+          "retryOf": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retryof"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "completed",
+              "failed",
+              "canceled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "difficulty",
+          "status",
+          "retryCount",
+          "createdAt"
+        ],
+        "title": "GenerationRequestSummary",
+        "type": "object"
+      },
       "GenerationStatus": {
         "enum": [
           "pending",
@@ -41,6 +274,160 @@
           "created_at"
         ],
         "title": "HealthCheckResponse",
+        "type": "object"
+      },
+      "MeCategoryStat": {
+        "description": "カテゴリ別の解答数・正解数・正答率。",
+        "properties": {
+          "accuracy": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Accuracy",
+            "type": "number"
+          },
+          "attempts": {
+            "minimum": 0.0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "correct": {
+            "minimum": 0.0,
+            "title": "Correct",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "attempts",
+          "correct",
+          "accuracy"
+        ],
+        "title": "MeCategoryStat",
+        "type": "object"
+      },
+      "MeGenerationsListResponse": {
+        "description": "生成履歴一覧 + ページネーション情報。",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GenerationRequestSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "minimum": 1.0,
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "totalPages": {
+            "minimum": 0.0,
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "MeGenerationsListResponse",
+        "type": "object"
+      },
+      "MeStatsResponse": {
+        "description": "全期間の正答率 + カテゴリ別習熟度。",
+        "properties": {
+          "accuracy": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Accuracy",
+            "type": "number"
+          },
+          "byCategory": {
+            "items": {
+              "$ref": "#/components/schemas/MeCategoryStat"
+            },
+            "title": "Bycategory",
+            "type": "array"
+          },
+          "correct": {
+            "minimum": 0.0,
+            "title": "Correct",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "correct",
+          "accuracy",
+          "byCategory"
+        ],
+        "title": "MeStatsResponse",
+        "type": "object"
+      },
+      "MeWeakCategoryItem": {
+        "description": "弱点に該当するカテゴリ 1 件。",
+        "properties": {
+          "accuracy": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Accuracy",
+            "type": "number"
+          },
+          "attempts": {
+            "minimum": 0.0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "correct": {
+            "minimum": 0.0,
+            "title": "Correct",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "attempts",
+          "correct",
+          "accuracy"
+        ],
+        "title": "MeWeakCategoryItem",
+        "type": "object"
+      },
+      "MeWeaknessResponse": {
+        "description": "弱点カテゴリ Top N。",
+        "properties": {
+          "weakCategories": {
+            "items": {
+              "$ref": "#/components/schemas/MeWeakCategoryItem"
+            },
+            "title": "Weakcategories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "weakCategories"
+        ],
+        "title": "MeWeaknessResponse",
         "type": "object"
       },
       "ProblemCategory": {
@@ -164,6 +551,61 @@
       "ProblemGenerateStatusResponse": {
         "description": "生成リクエストの現在ステータス。completed の時のみ problemId を含む。",
         "properties": {
+          "attemptErrors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AttemptError"
+            },
+            "title": "Attempterrors",
+            "type": "array"
+          },
+          "completedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completedat"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "llm_unauthorized",
+                  "llm_cost_exceeded",
+                  "judge_below_threshold",
+                  "sandbox_failed",
+                  "sandbox_infrastructure",
+                  "llm_invalid_output",
+                  "llm_rate_limit",
+                  "llm_timeout",
+                  "llm_schema_invalid",
+                  "max_attempts_exceeded"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failurereason"
+          },
           "problemId": {
             "anyOf": [
               {
@@ -175,6 +617,23 @@
               }
             ],
             "title": "Problemid"
+          },
+          "progressStep": {
+            "anyOf": [
+              {
+                "enum": [
+                  "llm_generating",
+                  "sandbox_verifying",
+                  "judging",
+                  "persisting"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progressstep"
           },
           "requestId": {
             "format": "uuid",
@@ -647,6 +1106,183 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/me/generations": {
+      "get": {
+        "description": "自分の generation_requests を created_at DESC でページネーション付きで返す。\n\n- 履歴ゼロは items=[] / totalPages=0（200 のまま）\n- page が totalPages を超えても 200 + items=[] を返す（404 にはしない、\n  FE 側で前ページにクランプする運用）\n- prompt_version は jobs.payload から JOIN 取得、消えていれば null\n- retry_count は retry_of チェーンの深さ",
+        "operationId": "list_my_generations_api_me_generations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeGenerationsListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List My Generations",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/generations/{request_id}/cancel": {
+      "post": {
+        "description": "pending のリクエストを canceled に倒す（Worker は state='dead' にして無効化）。\n\n- 他人のリクエスト / 存在しない → 404\n- pending 以外 → 409 Conflict",
+        "operationId": "cancel_my_generation_api_me_generations__request_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationRequestCancelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel My Generation",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/generations/{request_id}/retry": {
+      "post": {
+        "description": "failed のリクエストを新規 generation_request として複製する（retry_of リンク付き）。\n\n- 他人のリクエスト / 存在しない → 404\n- failed 以外 → 409 Conflict\n- 成功時 → 202 + 新規 id / status='pending' / retry_of\n- レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す",
+        "operationId": "retry_my_generation_api_me_generations__request_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationRequestRetryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry My Generation",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/stats": {
+      "get": {
+        "description": "全期間・全カテゴリの正答率を返す（取得時点でリアルタイム集計）。\n\n- 採点完了行（status='graded'）のみカウント\n- 履歴ゼロのユーザーには total=0 / accuracy=0.0 / byCategory=[] を返す\n- ソフトデリートは無視（履歴永続保存、learning.md §ビジネスルール）",
+        "operationId": "get_my_stats_api_me_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get My Stats",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/weakness": {
+      "get": {
+        "description": "正答率の低いカテゴリ Top N を返す。\n\n抽出ルール（learning.md §ビジネスルール）：\n  - 3 問以上解答かつ正答率 50% 未満のカテゴリのみ対象\n  - accuracy 昇順、tie-break で attempts 降順\n  - Top 5 まで返す",
+        "operationId": "get_my_weakness_api_me_weakness_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeWeaknessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get My Weakness",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/api/problems": {
       "get": {
         "description": "カテゴリ・難易度フィルタ付きで問題一覧を返す。\n\n- 認証不要（ゲスト閲覧可、problem-display-and-answer.md §ビジネスルール）\n- 並び順は created_at DESC（新着優先）\n- 0 件でも 200 + items=[] / totalPages=0 で返す",

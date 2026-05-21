@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetErrors, GetProblemDetailApiProblemsProblemIdGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetErrors, GetSubmissionApiSubmissionsSubmissionIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetErrors, ListMySubmissionsApiSubmissionsGetResponses, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetErrors, ListProblemsApiProblemsGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostErrors, RequestProblemGenerationApiProblemsGeneratePostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostErrors, SubmitAnswerApiSubmissionsPostResponses } from './types.gen';
+import type { CancelMyGenerationApiMeGenerationsRequestIdCancelPostData, CancelMyGenerationApiMeGenerationsRequestIdCancelPostErrors, CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponses, CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetMyStatsApiMeStatsGetData, GetMyStatsApiMeStatsGetResponses, GetMyWeaknessApiMeWeaknessGetData, GetMyWeaknessApiMeWeaknessGetResponses, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetErrors, GetProblemDetailApiProblemsProblemIdGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetErrors, GetSubmissionApiSubmissionsSubmissionIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, ListMyGenerationsApiMeGenerationsGetData, ListMyGenerationsApiMeGenerationsGetErrors, ListMyGenerationsApiMeGenerationsGetResponses, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetErrors, ListMySubmissionsApiSubmissionsGetResponses, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetErrors, ListProblemsApiProblemsGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostErrors, RequestProblemGenerationApiProblemsGeneratePostResponses, RetryMyGenerationApiMeGenerationsRequestIdRetryPostData, RetryMyGenerationApiMeGenerationsRequestIdRetryPostErrors, RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostErrors, SubmitAnswerApiSubmissionsPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,64 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: Record<string, unknown>;
 };
+
+/**
+ * List My Generations
+ *
+ * 自分の generation_requests を created_at DESC でページネーション付きで返す。
+ *
+ * - 履歴ゼロは items=[] / totalPages=0（200 のまま）
+ * - page が totalPages を超えても 200 + items=[] を返す（404 にはしない、
+ * FE 側で前ページにクランプする運用）
+ * - prompt_version は jobs.payload から JOIN 取得、消えていれば null
+ * - retry_count は retry_of チェーンの深さ
+ */
+export const listMyGenerationsApiMeGenerationsGet = <ThrowOnError extends boolean = false>(options?: Options<ListMyGenerationsApiMeGenerationsGetData, ThrowOnError>) => (options?.client ?? client).get<ListMyGenerationsApiMeGenerationsGetResponses, ListMyGenerationsApiMeGenerationsGetErrors, ThrowOnError>({ url: '/api/me/generations', ...options });
+
+/**
+ * Cancel My Generation
+ *
+ * pending のリクエストを canceled に倒す（Worker は state='dead' にして無効化）。
+ *
+ * - 他人のリクエスト / 存在しない → 404
+ * - pending 以外 → 409 Conflict
+ */
+export const cancelMyGenerationApiMeGenerationsRequestIdCancelPost = <ThrowOnError extends boolean = false>(options: Options<CancelMyGenerationApiMeGenerationsRequestIdCancelPostData, ThrowOnError>) => (options.client ?? client).post<CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponses, CancelMyGenerationApiMeGenerationsRequestIdCancelPostErrors, ThrowOnError>({ url: '/api/me/generations/{request_id}/cancel', ...options });
+
+/**
+ * Retry My Generation
+ *
+ * failed のリクエストを新規 generation_request として複製する（retry_of リンク付き）。
+ *
+ * - 他人のリクエスト / 存在しない → 404
+ * - failed 以外 → 409 Conflict
+ * - 成功時 → 202 + 新規 id / status='pending' / retry_of
+ * - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す
+ */
+export const retryMyGenerationApiMeGenerationsRequestIdRetryPost = <ThrowOnError extends boolean = false>(options: Options<RetryMyGenerationApiMeGenerationsRequestIdRetryPostData, ThrowOnError>) => (options.client ?? client).post<RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponses, RetryMyGenerationApiMeGenerationsRequestIdRetryPostErrors, ThrowOnError>({ url: '/api/me/generations/{request_id}/retry', ...options });
+
+/**
+ * Get My Stats
+ *
+ * 全期間・全カテゴリの正答率を返す（取得時点でリアルタイム集計）。
+ *
+ * - 採点完了行（status='graded'）のみカウント
+ * - 履歴ゼロのユーザーには total=0 / accuracy=0.0 / byCategory=[] を返す
+ * - ソフトデリートは無視（履歴永続保存、learning.md §ビジネスルール）
+ */
+export const getMyStatsApiMeStatsGet = <ThrowOnError extends boolean = false>(options?: Options<GetMyStatsApiMeStatsGetData, ThrowOnError>) => (options?.client ?? client).get<GetMyStatsApiMeStatsGetResponses, unknown, ThrowOnError>({ url: '/api/me/stats', ...options });
+
+/**
+ * Get My Weakness
+ *
+ * 正答率の低いカテゴリ Top N を返す。
+ *
+ * 抽出ルール（learning.md §ビジネスルール）：
+ * - 3 問以上解答かつ正答率 50% 未満のカテゴリのみ対象
+ * - accuracy 昇順、tie-break で attempts 降順
+ * - Top 5 まで返す
+ */
+export const getMyWeaknessApiMeWeaknessGet = <ThrowOnError extends boolean = false>(options?: Options<GetMyWeaknessApiMeWeaknessGetData, ThrowOnError>) => (options?.client ?? client).get<GetMyWeaknessApiMeWeaknessGetResponses, unknown, ThrowOnError>({ url: '/api/me/weakness', ...options });
 
 /**
  * List Problems

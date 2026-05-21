@@ -341,7 +341,7 @@ func TestOnDead_Grading(t *testing.T) {
 	subID := uuid.New()
 	j := makeGradingJob(t, subID, uuid.New(), "x")
 
-	h.OnDead(context.Background(), j)
+	h.OnDead(context.Background(), j, nil)
 
 	assert.Equal(t, 1, store.updateFailedCalls, "UpdateSubmissionFailed が 1 回呼ばれる")
 	assert.Equal(t, subID, store.lastFailedID, "payload の submissionId が渡る")
@@ -359,7 +359,7 @@ func TestOnDead_Grading_BadPayloadIsSwallowed(t *testing.T) {
 		Payload: []byte(`{"submissionId":"not-a-uuid"}`),
 	}
 
-	h.OnDead(context.Background(), j)
+	h.OnDead(context.Background(), j, nil)
 
 	assert.Equal(t, 0, store.updateFailedCalls, "UUID parse 失敗時は UPDATE しない")
 }

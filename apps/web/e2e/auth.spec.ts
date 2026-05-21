@@ -28,12 +28,13 @@ test.describe("/login 画面", () => {
 });
 
 test.describe("ログインフロー (正常系)", () => {
-  test("ボタン押下 → mock GitHub → callback → /auth/me 200 でホームへ", async ({ page }) => {
+  test("ボタン押下 → mock GitHub → callback → /auth/me 200 で /problems へ", async ({ page }) => {
     // mock GitHub に直接遷移 (Backend が /auth/github → mock authorize に 302)。
     await loginViaMockGithub(page);
 
-    // callback 処理後、ホーム / に着地している。
-    await expect(page).toHaveURL("/");
+    // callback 処理後、Backend は "/" に redirect するが、`/` がサーバ side で
+    // /problems に再 redirect するため、ブラウザの最終 URL は /problems になる。
+    await expect(page).toHaveURL("/problems");
 
     // セッション Cookie が払い出され /auth/me が 200 を返す。
     const me = await page.request.get("/auth/me");
@@ -48,7 +49,7 @@ test.describe("ログインフロー (正常系)", () => {
 test.describe("ログアウトフロー", () => {
   test("ログイン後にログアウトすると /auth/me が 401 を返す", async ({ page }) => {
     await loginViaMockGithub(page);
-    await expect(page).toHaveURL("/");
+    await expect(page).toHaveURL("/problems");
 
     // /auth/logout は POST + CSRF 必須 (double submit cookie)。
     // ブラウザ経由でヘッダーのログアウトボタンを押す方が UX 通りだが、
@@ -81,25 +82,26 @@ test.describe("(authed) ルートグループのガード", () => {
 });
 
 test.describe("認証済みユーザーの /login 再訪", () => {
-  test("ログイン済みで /login を開くとホーム / にリダイレクト", async ({ page }) => {
+  test("ログイン済みで /login を開くと /problems にリダイレクト", async ({ page }) => {
     await loginViaMockGithub(page);
-    await expect(page).toHaveURL("/");
+    await expect(page).toHaveURL("/problems");
 
-    // /login にアクセスすると useEffect で router.replace("/") が走り即遷移する想定。
+    // /login にアクセスすると useEffect で router.replace("/") が走る。
+    // `/` 側でサーバ side redirect が走り、最終的に /problems に着地する。
     await page.goto("/login");
-    await expect(page).toHaveURL("/");
+    await expect(page).toHaveURL("/problems");
   });
 });
 
 test.describe("next= パラメータの外部 URL 拒否", () => {
-  test("/login?next=https://evil.com でログインしてもホーム / に遷移する", async ({ page }) => {
+  test("/login?next=https://evil.com でログインしても /problems に遷移する", async ({ page }) => {
     // /login に next= を付けて訪問 (未認証なのでログイン画面が表示される)。
     await page.goto("/login?next=https%3A%2F%2Fevil.com");
     await expect(page.getByRole("link", { name: "GitHub でログイン" })).toBeVisible();
 
-    // ログイン完走後、外部 URL は弾かれてホーム / に遷移しているはず。
+    // ログイン完走後、外部 URL は弾かれて "/" → /problems に遷移しているはず。
     await loginViaMockGithub(page);
-    await expect(page).toHaveURL("/");
+    await expect(page).toHaveURL("/problems");
   });
 });
 

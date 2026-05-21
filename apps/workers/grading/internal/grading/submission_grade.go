@@ -56,15 +56,26 @@ func (h *submissionGradeHandler) Type() string {
 	return job.TypeSubmissionGrade
 }
 
+// ClassifyFailureReason: jobHandler 実装。採点側は attempt 単位の分類器を持たない
+// ため空文字を返す（job.MarkFailed/MarkDead 側で "unclassified" にフォールバック）。
+// 採点 attempt_errors は UI でユーザーに見せる用途を当面持たないため最小実装。
+func (h *submissionGradeHandler) ClassifyFailureReason(_ error) string {
+	return ""
+}
+
 // OnDead: ジョブが dead 確定した時の後処理。
 //
 // jobs テーブル側は orchestrator が既に MarkDead 済み。本関数では submissions を
 // status='failed' に遷移させて、ユーザー画面に「採点不能」を表示できるようにする
 // (grading.md §採点結果表示「一時的なシステムエラー」)。
 //
+// lastErr は submissions.failure_reason 列を持たないため使わない（採点側は
+// ユーザーに「採点不能」とだけ伝え、詳細は jobs.last_error に残る）。
+// 引数は jobHandler interface 整合のため受ける。
+//
 // payload parse 失敗 / DB UPDATE 失敗は警告ログのみで握り潰す
 // (jobs.last_error に残っているので運用追跡可能)。
-func (h *submissionGradeHandler) OnDead(ctx context.Context, j *job.Job) {
+func (h *submissionGradeHandler) OnDead(ctx context.Context, j *job.Job, _ error) {
 	var payload struct {
 		SubmissionID string `json:"submissionId"`
 	}

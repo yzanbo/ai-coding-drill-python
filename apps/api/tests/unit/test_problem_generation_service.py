@@ -61,6 +61,11 @@ def service(
     s = ProblemGenerationService(mock_session)
     s.requests = mock_requests_repo  # type: ignore[assignment]
     s.jobs = mock_jobs_repo  # type: ignore[assignment]
+    # me_repo は get_status 内で failed 行の attempt_errors フェッチに使う。
+    # 既定で空辞書を返す AsyncMock に差し替えて SQL 発行を抑止する。
+    me_repo_mock = AsyncMock()
+    me_repo_mock.fetch_attempt_errors.return_value = {}
+    s.me_repo = me_repo_mock  # type: ignore[assignment]
     return s
 
 
@@ -114,6 +119,7 @@ class TestEnqueueGeneration:
             user_id=user_id,
             category="array",
             difficulty="easy",
+            retry_of=None,
         )
 
         # jobs.enqueue が generation キュー + problem.generate type で呼ばれる。
@@ -160,6 +166,7 @@ class TestEnqueueGeneration:
             user_id=user_id,
             category="type-puzzle",
             difficulty="hard",
+            retry_of=None,
         )
         payload = mock_jobs_repo.enqueue.call_args.kwargs["payload"]
         assert payload["category"] == "type-puzzle"

@@ -61,10 +61,18 @@ type Deps struct {
 //   - OnDead: MaxAttempts 到達 or 不可逆エラーで dead 確定した時に呼ばれる。
 //     関連ドメイン行 (generation_requests / submissions) を failed に
 //     遷移させる責務をハンドラ側に持たせる (orchestrator は generic に保つ)。
+//     lastErr は dead を引き起こした最後の Handle エラー。ハンドラ側で
+//     failure_reason 分類等に使う（採点側のように使わない場合は無視してよい）。
+//   - ClassifyFailureReason: 1 回の試行 error を attempt_errors JSONB array
+//     に書く failureReason タグに分類する（R1-7-3）。problem.generate 用は
+//     classifyFailureReason の 10 タグ、submission.grade 用は "" を返す
+//     （採点側は attempt 単位のカテゴリ化を持たないため、attempt_errors の
+//     要素は "unclassified" タグで残る）。
 type jobHandler interface {
 	Type() string
 	Handle(ctx context.Context, j *job.Job) error
-	OnDead(ctx context.Context, j *job.Job)
+	OnDead(ctx context.Context, j *job.Job, lastErr error)
+	ClassifyFailureReason(err error) string
 }
 
 // Orchestrator: ジョブ消費ループの本体。
@@ -217,19 +225,26 @@ func (o *Orchestrator) handleHandlerError(ctx context.Context, j *job.Job, handl
 	retryable := errors.Is(handlerErr, ErrInvalidProblem)
 	dead := !retryable || job.IsTerminalAttempt(j.Attempts)
 
+	// failureReason: 本試行を attempt_errors JSONB に書くタグ。ハンドラ固有の
+	// classifyFailureReason に委譲（problem.generate は 10 タグ、
+	// submission.grade は "" で "unclassified" にフォールバック）。
+	reason := o.handler.ClassifyFailureReason(handlerErr)
+
 	if dead {
 		logger.WarnContext(ctx, "orchestrator: marking job dead")
-		if err := job.MarkDead(ctx, o.deps.Pool, j.ID, handlerErr.Error()); err != nil {
+		if err := job.MarkDead(ctx, o.deps.Pool, j.ID, handlerErr.Error(), reason); err != nil {
 			logger.ErrorContext(ctx, "orchestrator: mark dead failed", "err2", err.Error())
 		}
 		// ハンドラ固有の dead 時処理 (generation_requests / submissions を failed に)。
+		// handlerErr は dead を引き起こした最後の error。問題生成側は
+		// classifyFailureReason で具体タグに分類して DB に書く。
 		// 失敗は本質的でないため警告ログのみで継続 (jobs テーブルに記録は残る)。
-		o.handler.OnDead(ctx, j)
+		o.handler.OnDead(ctx, j, handlerErr)
 		return
 	}
 
 	logger.WarnContext(ctx, "orchestrator: marking job failed for retry")
-	if err := job.MarkFailed(ctx, o.deps.Pool, j.ID, j.Attempts, handlerErr.Error()); err != nil {
+	if err := job.MarkFailed(ctx, o.deps.Pool, j.ID, j.Attempts, handlerErr.Error(), reason); err != nil {
 		logger.ErrorContext(ctx, "orchestrator: mark failed failed", "err2", err.Error())
 	}
 }
