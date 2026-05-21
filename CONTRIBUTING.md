@@ -212,8 +212,16 @@ mise run web:typecheck    # tsc --noEmit
 mise run web:knip         # 未使用検出
 mise run web:syncpack     # package.json 整合性
 mise run web:types-gen    # Hey API で OpenAPI から TS / Zod / HTTP クライアント生成
-mise run web:e2e          # Playwright E2E
+mise run web:e2e          # Playwright E2E（先に e2e:up が動いて E2E 専用 DB を起動）
+mise run e2e:up           # E2E 専用 Postgres :5433 + Redis :6380 を起動して migrations 適用
+mise run e2e:down         # E2E 専用 Postgres + Redis を停止 + ボリューム破棄
 ```
+
+> **E2E は dev DB と分離されている**（issue #86）：
+> `mise run web:e2e` は dev の :5432 / :6379 ではなく [docker-compose.e2e.yml](docker-compose.e2e.yml) で
+> 立てた専用 Postgres（:5433 / DB `ai_coding_drill_e2e`、tmpfs）と専用 Redis（:6380）に繋ぐ。
+> `/_test/reset` の TRUNCATE が dev データを巻き添えで消す事故を構造的に防いでいる。
+> `dev:all` と並行起動可能。
 
 ### Workers（apps/workers/*、Go）
 

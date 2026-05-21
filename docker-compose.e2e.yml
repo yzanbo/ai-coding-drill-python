@@ -1,0 +1,53 @@
+# E2E 専用ミドルウェア（Postgres + Redis、dev から完全分離）
+#
+# 役割：
+#   - issue #86 の長期 fix。dev DB（docker-compose.yml）と物理的に分離した
+#     Postgres / Redis を立てて、E2E の /_test/reset が dev データを巻き添えで
+#     消す事故を構造的に防ぐ。
+#   - ホスト側のポートを dev (5432 / 6379) と被らない 5433 / 6380 にして
+#     dev:all と E2E を並行起動できるようにする。
+#   - tmpfs で /var/lib/postgresql/data / /data をメモリ上に展開して
+#     E2E run を高速化する（永続化不要のため）。
+#
+# 起動：
+#   docker compose -f docker-compose.e2e.yml up -d --wait   # ヘルスチェック通過まで待つ
+#   docker compose -f docker-compose.e2e.yml down -v        # コンテナ + tmpfs を破棄
+#
+# mise から：
+#   mise run e2e:up      # 起動 + Alembic 適用
+#   mise run e2e:down    # 停止 + ボリューム破棄
+
+services:
+  postgres-e2e:
+    image: postgres:18.3-alpine
+    container_name: ai-coding-drill-postgres-e2e
+    environment:
+      POSTGRES_DB: ai_coding_drill_e2e
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      # ホスト側 5433 → コンテナ 5432。dev の 5432 と並行起動可能。
+      - "5433:5432"
+    tmpfs:
+      # E2E は揮発でよい。tmpfs にすることで I/O が速くなる + 後始末不要。
+      # Postgres 18+ は data 配下に version 別サブディレクトリを掘る挙動だが、
+      # tmpfs は空ディレクトリから initdb されるので問題なく動く。
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_coding_drill_e2e"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  redis-e2e:
+    image: redis:8.6-alpine
+    container_name: ai-coding-drill-redis-e2e
+    ports:
+      - "6380:6379"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

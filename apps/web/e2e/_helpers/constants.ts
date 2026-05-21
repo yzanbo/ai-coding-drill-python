@@ -17,12 +17,15 @@ export const WEB_PORT = 3001;
 
 // DATABASE_URL / REDIS_URL: 環境変数で上書き可能。CI と dev で同じ config を
 // 使い回せるよう、ハードコードではなく env fallback 構造にしている。
-// Redis は dev (/0) と分離した DB index (/1) を使う。理由はポート分離と同じ:
-// E2E の /_test/reset が FLUSHDB するため、dev:all のセッションを巻き添えで消さないよう
-// 物理的に名前空間を分ける。DB index 分離は Redis ネイティブ機能で追加インフラ不要。
-// 注: Postgres の DB 名分離は docker-compose の init script + Alembic migration の
-// 多重実行が必要になるため follow-up issue として別 PR で扱う。
+//
+// E2E は dev (5432 / 6379) と分離した専用ミドルウェア（docker-compose.e2e.yml）に接続する:
+//   - Postgres: ホスト 5433 / DB 名 `ai_coding_drill_e2e`
+//   - Redis:    ホスト 6380 / DB index /0（dev とポートで分かれているので index は 0 でよい）
+// この分離は issue #86 の長期 fix。/_test/reset の TRUNCATE / FLUSHDB が dev データを
+// 巻き添えで消す事故を構造的に防ぐため、ポートと DB 名の両方で物理的に名前空間を分ける。
+// /_test/reset 側の安全ガードは DB 名末尾 `_e2e` を要求する allowlist になっている
+// （apps/web/e2e/_mock-github/server.py の _ensure_e2e_db_url）。
 export const DATABASE_URL =
   process.env.DATABASE_URL ??
-  "postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill";
-export const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6379/1";
+  "postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_e2e";
+export const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6380/0";

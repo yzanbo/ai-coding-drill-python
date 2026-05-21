@@ -253,11 +253,18 @@ uv run alembic merge heads -m "merge"   # 分岐した head を統合
 
 ## ローカル DB の初期化（全データリセット）
 
+dev / E2E は別 docker-compose に分かれているため、リセットも別々に行う（issue #86）。
+
 ```bash
+# dev DB（docker-compose.yml）
 docker compose exec postgres dropdb -U postgres ai_coding_drill
 docker compose exec postgres createdb -U postgres ai_coding_drill
 mise run api:db-migrate
 # シードは別途スクリプト：cd apps/api && uv run python -m app.db.seeds
+
+# E2E DB（docker-compose.e2e.yml、tmpfs なので down -v が最速）
+mise run e2e:down       # tmpfs ボリュームごと破棄
+mise run e2e:up         # 再起動 + alembic upgrade head
 ```
 
 ## シードデータの管理

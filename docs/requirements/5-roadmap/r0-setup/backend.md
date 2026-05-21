@@ -73,29 +73,49 @@ uv run pyright .                      # pyright が動く
 
 ---
 
-## 3. docker-compose.yml（Postgres + Redis）配置
+## 3. docker-compose.yml（Postgres + Redis）配置 + E2E 専用ミドルウェアの分離
 
 **目的**：ローカル開発用ミドルウェアを `docker-compose.yml` 1 ファイルで再現可能にする。**この時点から `docker-compose.yml` が Postgres / Redis 版数の SSoT** — README / 他ドキュメントは具体版数を書かずここを参照する。
 
+同時に **E2E 専用ミドルウェア（`docker-compose.e2e.yml`）を dev から完全分離**して配置する。Playwright の `/_test/reset` が TRUNCATE / FLUSHDB を発火するため、dev DB と物理的に名前空間を分けないと開発中のデータが E2E run のたびに巻き添えで消える。dev と E2E の並行起動も成立する（→ [issue #86](https://github.com/yzanbo/ai-coding-drill-python/issues/86) の長期 fix を最初から内蔵した状態で出発する）。
+
 **作業内容**：
 1. **最新安定版を調査**：[Docker Hub: postgres](https://hub.docker.com/_/postgres) と [Docker Hub: redis](https://hub.docker.com/_/redis) で latest stable の alpine tag（例 `18.3-alpine` / `8.6-alpine`）を確認
-2. **ルートに `docker-compose.yml` 配置**：Postgres と Redis のサービス定義、`postgres:<x.y>-alpine` / `redis:<x.y>-alpine` を image に pin、healthcheck を `pg_isready` / `redis-cli ping` で設定、永続ボリュームを宣言
-3. **`README.md` を書き換え**：「技術スタック概要」表のデータストア行を最新版数に更新
+2. **ルートに `docker-compose.yml` 配置**（dev 用）：Postgres と Redis のサービス定義、`postgres:<x.y>-alpine` / `redis:<x.y>-alpine` を image に pin、healthcheck を `pg_isready` / `redis-cli ping` で設定、永続ボリュームを宣言。port は dev 既定の `5432` / `6379`、DB 名は `ai_coding_drill`
+3. **ルートに `docker-compose.e2e.yml` 配置**（E2E 用、dev と完全分離）：
+   - port をホスト側 `5433` / `6380` にずらして dev の `5432` / `6379` と並行起動可能にする
+   - Postgres の DB 名は `ai_coding_drill_e2e`（末尾 `_e2e` を allowlist のキーにする、後段の `/_test/reset` ガード根拠）
+   - `tmpfs` で `/var/lib/postgresql/data` と `/data` をメモリ上に展開（永続化不要、E2E run 高速化）
+   - healthcheck は dev と同じ
+4. **`mise.toml` に E2E 専用 task を 3 つ追記**（`docker-compose.e2e.yml` の存在が前提）：
+   - `[tasks."api:db-migrate:e2e"]`：`env = { DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_e2e" }` を上書き指定し、`dir = "apps/api"` で `uv run alembic upgrade head` を実行
+   - `[tasks."e2e:up"]`：`run = ["docker compose -f docker-compose.e2e.yml up -d --wait", "mise run api:db-migrate:e2e"]`（healthcheck 通過まで `--wait` で同期、その直後に Alembic を流す）
+   - `[tasks."e2e:down"]`：`docker compose -f docker-compose.e2e.yml down -v`（tmpfs ボリュームごと破棄）
+   - **frontend.md で配置する `web:e2e` task は `depends = ["e2e:up"]` で本 task に chain される前提**で、本 step では 3 task を**先回り定義**する（backend.md / frontend.md / worker.md の他 task と同じ「先回り登録」パターン）
+5. **`README.md` を書き換え**：「技術スタック概要」表のデータストア行を最新版数に更新
 
 **完了確認**：
 ```bash
-docker compose up -d                                    # 起動
-docker compose ps                                       # postgres / redis が "healthy" になる
-docker compose exec postgres psql -U postgres -c "\l"   # データベース一覧（ai_coding_drill が出る）
-docker compose exec redis redis-cli ping                # PONG が返る
-docker compose down                                     # 停止
+# dev 側
+docker compose up -d                                                # 起動
+docker compose ps                                                   # postgres / redis が "healthy"
+docker compose exec postgres psql -U postgres -c "\l"               # ai_coding_drill が出る
+
+# E2E 側（dev と並行起動可能）
+docker compose -f docker-compose.e2e.yml up -d --wait               # ヘルスチェック通過まで待つ
+docker compose -f docker-compose.e2e.yml ps                         # postgres-e2e / redis-e2e が "healthy"
+docker compose -f docker-compose.e2e.yml exec postgres-e2e \
+  psql -U postgres -c "\l"                                          # ai_coding_drill_e2e が出る
+docker compose -f docker-compose.e2e.yml down -v                    # 停止 + ボリューム破棄
+docker compose down                                                 # dev 側停止
 ```
 
 **前提**：本ファイルの「2. apps/api 環境構築」（apps/api workspace が動く必要はないが、次 step 以降で利用する）
 
-**関連 ADR**：[ADR 0004](../../../adr/0004-postgres-as-job-queue.md) / [ADR 0037](../../../adr/0037-sqlalchemy-alembic-for-database.md)
+**関連 ADR**：[ADR 0004](../../../adr/0004-postgres-as-job-queue.md) / [ADR 0037](../../../adr/0037-sqlalchemy-alembic-for-database.md) / [ADR 0038](../../../adr/0038-test-frameworks.md)（Playwright が共用する E2E 専用 DB の根拠）
 
 > **位置づけ**：DB は Worker（R1）も同じスキーマに jobs テーブルを追加する形で参加する共有資源。最初の使用者である Backend フェーズに bundle してある。
+> E2E 専用 DB は Frontend / Playwright フェーズで初めて使われるが、dev DB と一緒に「最初に決め切る」べきインフラ判断のため Backend フェーズで配置する。Backend / Worker 着手段階で `/_test/reset` 相当の破壊的エンドポイントを誤って dev DB に向けて書くリスクを構造的に避ける狙い。
 
 ---
 
@@ -106,7 +126,9 @@ docker compose down                                     # 停止
 **作業内容**：
 1. `apps/api/app/core/config.py` に `Settings`（pydantic-settings）を定義：`DATABASE_URL` / `REDIS_URL` 等を `.env` 経由で読み取れるように
 2. `apps/api/app/db/session.py` に `AsyncEngine` + `async_sessionmaker` + `get_async_session` 依存関数を実装
-3. ルート（または `apps/api/`）に `.env.example` を配置（`DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill` 等）
+3. `apps/api/.env.example` を配置：
+   - dev 用：`DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill` と `REDIS_URL=redis://localhost:6379/0`（実値、`.env` にコピーして使う）
+   - E2E 用：`# DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_e2e` と `# REDIS_URL=redis://localhost:6380/0` を**コメントアウト行で併記**（`mise run e2e:up` 経由で task env が上書きするため `.env` で切り替える必要は通常ないが、手動で `mise run api:db-migrate:e2e` 相当を素の `alembic` で叩く時の参考値として残す）
 4. `apps/api/app/main.py` から設定ロードを動作確認（`Settings()` がエラーなくインスタンス化される）
 
 **完了確認**：
@@ -335,11 +357,12 @@ mise exec -- lefthook run pre-push        # api-pytest exit 1 + fail_text 表示
 - 新規ジョブ 5 種：`api-lint` / `api-typecheck` / `api-audit` / `api-deps-check` / `api-test`
   - 各ジョブで `actions/checkout` → `jdx/mise-action`（SHA pin、内部で `mise install` 実行）→ `mise run api:<task>`
   - `api-test` のみ Postgres を **GitHub Actions の `services` 機能**で立て、`alembic upgrade head` 後に `pytest`（unit + integration）を実行
+  - `api-test` の services は **dev 側の docker-compose.yml と同じ port / DB 名**（`postgres :5432` / DB `ai_coding_drill`）を使う。E2E 側（後段 frontend.md の `web-e2e` ジョブが使う `:5433/ai_coding_drill_e2e`）とは port / DB 名の両方で名前空間を分けて、ジョブ間で意味的に混線しない構成にする
 - `ci-success` の `needs:` に上記 5 ジョブを追加
 
 **設計判断（`api-test` を CI に含める）**：pre-push hook は `--no-verify` でバイパスされ得るため、CI が **最後の砦**として integration テストも回す。hook と CI の二重防御で「ローカル緑 = 全テスト通過」の保証を hook bypass 時にもリモートで再現する。
 
-**Postgres 版数の同期**：CI の services の `image: postgres:<x.y>-alpine` は `docker-compose.yml` と版数を揃える運用とする（手動同期）。R0 時点では片方を更新したらもう片方も書き換える。後続フェーズで両者を同期する仕組みを検討。
+**Postgres 版数の同期**：CI の services の `image: postgres:<x.y>-alpine` は `docker-compose.yml` / `docker-compose.e2e.yml` と版数を揃える運用とする（手動同期）。R0 時点では片方を更新したらもう 2 箇所も書き換える。後続フェーズで三者を同期する仕組みを検討。
 
 **完了確認**：
 - PR を作ると `api-lint` / `api-typecheck` / `api-audit` / `api-deps-check` / `api-test` の 5 ジョブが並列で走る
