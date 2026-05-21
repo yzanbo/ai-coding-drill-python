@@ -11,7 +11,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { listMySubmissionsApiSubmissionsGet } from "@/__generated__/api/sdk.gen";
 import type { SubmissionsListResponse } from "@/__generated__/api/types.gen";
-import { ApiError, throwIfError } from "@/lib/api/api-error";
+import { type ApiError, throwIfError } from "@/lib/api/api-error";
+import { authAwareRetry } from "@/lib/api/query-retry";
 
 const mySubmissionsQueryKey = (page: number) => ["me", "submissions", { page }] as const;
 
@@ -30,10 +31,7 @@ export const useGetMySubmissions = (page: number): UseGetMySubmissionsReturn => 
           query: { page },
         }),
       ),
-    retry: (failureCount, error) => {
-      if (error instanceof ApiError && error.status === 401) return false;
-      return failureCount < 1;
-    },
+    retry: authAwareRetry,
   });
 
   return {

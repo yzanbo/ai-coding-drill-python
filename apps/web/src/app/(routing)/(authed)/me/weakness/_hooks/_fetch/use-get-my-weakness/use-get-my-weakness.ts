@@ -10,7 +10,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getMyWeaknessApiMeWeaknessGet } from "@/__generated__/api/sdk.gen";
 import type { MeWeaknessResponse } from "@/__generated__/api/types.gen";
-import { ApiError, throwIfError } from "@/lib/api/api-error";
+import { type ApiError, throwIfError } from "@/lib/api/api-error";
+import { authAwareRetry } from "@/lib/api/query-retry";
 
 const ME_WEAKNESS_QUERY_KEY = ["me", "weakness"] as const;
 
@@ -24,10 +25,7 @@ export const useGetMyWeakness = (): UseGetMyWeaknessReturn => {
   const query = useQuery<MeWeaknessResponse, ApiError>({
     queryKey: ME_WEAKNESS_QUERY_KEY,
     queryFn: () => throwIfError(getMyWeaknessApiMeWeaknessGet()),
-    retry: (failureCount, error) => {
-      if (error instanceof ApiError && error.status === 401) return false;
-      return failureCount < 1;
-    },
+    retry: authAwareRetry,
   });
 
   return {

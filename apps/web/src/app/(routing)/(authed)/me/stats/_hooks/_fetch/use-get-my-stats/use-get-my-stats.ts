@@ -11,7 +11,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getMyStatsApiMeStatsGet } from "@/__generated__/api/sdk.gen";
 import type { MeStatsResponse } from "@/__generated__/api/types.gen";
-import { ApiError, throwIfError } from "@/lib/api/api-error";
+import { type ApiError, throwIfError } from "@/lib/api/api-error";
+import { authAwareRetry } from "@/lib/api/query-retry";
 
 const ME_STATS_QUERY_KEY = ["me", "stats"] as const;
 
@@ -26,12 +27,9 @@ export const useGetMyStats = (): UseGetMyStatsReturn => {
   const query = useQuery<MeStatsResponse, ApiError>({
     queryKey: ME_STATS_QUERY_KEY,
     queryFn: () => throwIfError(getMyStatsApiMeStatsGet()),
-    // retry: 401 は認証ガード（(authed) layout）が捌くため、ここでは即 error に倒す。
-    //   5xx も 1 回だけ retry（既定値）に任せる。
-    retry: (failureCount, error) => {
-      if (error instanceof ApiError && error.status === 401) return false;
-      return failureCount < 1;
-    },
+    // retry: 401 は (authed) layout が捌くため即 error に倒し、それ以外は 1 回だけ retry。
+    //   詳細は @/lib/api/query-retry.ts の authAwareRetry。
+    retry: authAwareRetry,
   });
 
   return {
