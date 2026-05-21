@@ -23,6 +23,7 @@
 #   （mise タスク: worker:<worker>:types-gen から呼ばれる）
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -106,8 +107,70 @@ def main(argv: list[str]) -> int:
         print(f"wrote {out_file.relative_to(worker_dir.parent.parent.parent)} (top-level={title})")
         wrote += 1
 
+    # 共有 $defs 型の重複を解消する。
+    #   Pydantic は TraceContext を共通サブモデルとして使うため、
+    #   schema 側で $ref で参照される。quicktype は 1 schema = 1 file で
+    #   個別生成するので、複数の schema が同じ $def を参照すると
+    #   同名の Go type 宣言が複数ファイルに出て redeclared エラーになる。
+    #   全ファイルは同じ package（jobtypes）なので、最初の 1 ファイルに残し
+    #   他のファイルからは同名の型 / コメント / Unmarshal/Marshal を削る。
+    _dedupe_shared_types(out_dir)
+
     print(f"summary: wrote {wrote}, total {len(schemas)}")
     return 0
+
+
+# _TYPE_BLOCK_RE: `type Name struct {...}` を 1 ブロック単位でマッチする正規表現。
+#   名前は ASCII の大文字始まり PascalCase 前提（quicktype の出力規約）。
+#   非貪欲 + 改行マッチで {...} 内に他の type が無いことを利用する。
+_TYPE_BLOCK_RE = re.compile(
+    r"^// [^\n]*\n(?:// [^\n]*\n)*type ([A-Z][A-Za-z0-9_]*) struct \{[^{}]*\}\n",
+    re.MULTILINE,
+)
+
+
+def _dedupe_shared_types(out_dir: Path) -> None:
+    """複数 .go ファイルに同名で出てくる type 宣言ブロックを最初の 1 個に絞る。
+
+    削除対象は「同名の type ブロックが 2 個以上ある」ものだけ。
+    各 schema 固有の Payload 型（GradingJobPayload 等）は名前が違うので残る。
+    """
+    go_files = sorted(out_dir.glob("*.go"))
+    if not go_files:
+        return
+
+    # 1 周目: 全ファイルから type ブロックを抜き出し、出現ファイルを記録する。
+    occurrences: dict[str, list[Path]] = {}
+    for go_file in go_files:
+        text = go_file.read_text(encoding="utf-8")
+        for match in _TYPE_BLOCK_RE.finditer(text):
+            type_name = match.group(1)
+            occurrences.setdefault(type_name, []).append(go_file)
+
+    # 重複しているものだけ抽出（1 ファイルしか無い型は触らない）。
+    duplicated = {name: paths for name, paths in occurrences.items() if len(paths) > 1}
+    if not duplicated:
+        return
+
+    # 2 周目: 各重複型について、最初に出てきたファイル以外から該当ブロックを削除する。
+    #   alphabetical sort なので「最初」はファイル名昇順。
+    for type_name, paths in duplicated.items():
+        keeper = paths[0]
+        for path in paths[1:]:
+            text = path.read_text(encoding="utf-8")
+            # 該当 type 名のブロックだけを削る正規表現。先頭コメント込み。
+            pattern = re.compile(
+                rf"^// [^\n]*\n(?:// [^\n]*\n)*type {re.escape(type_name)} struct \{{[^{{}}]*\}}\n",
+                re.MULTILINE,
+            )
+            new_text, count = pattern.subn("", text)
+            if count > 0:
+                path.write_text(new_text, encoding="utf-8")
+        other_count = len(paths) - 1
+        print(
+            f"dedup: kept {type_name} in {keeper.name}, "
+            f"removed from {other_count} other file(s)"
+        )
 
 
 if __name__ == "__main__":

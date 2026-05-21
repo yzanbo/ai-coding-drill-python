@@ -40,6 +40,30 @@ export const zProblemDifficulty = z.enum([
 ]);
 
 /**
+ * ProblemExample
+ *
+ * 画面表示用の入出力例。input / output は表示用の文字列。
+ */
+export const zProblemExample = z.object({
+    input: z.string(),
+    output: z.string()
+});
+
+/**
+ * ProblemDetailResponse
+ *
+ * 問題詳細。テストケースの一部のみ examples として公開する。
+ */
+export const zProblemDetailResponse = z.object({
+    category: zProblemCategory,
+    description: z.string(),
+    difficulty: zProblemDifficulty,
+    examples: z.array(zProblemExample),
+    id: z.uuid(),
+    title: z.string()
+});
+
+/**
  * ProblemGenerateAcceptedResponse
  *
  * 生成リクエスト受付完了。クライアントは requestId でポーリングを始める。
@@ -74,6 +98,141 @@ export const zProblemGenerateStatusResponse = z.object({
 });
 
 /**
+ * ProblemSummaryResponse
+ *
+ * 問題一覧の 1 行分。タイトル / カテゴリ / 難易度のみで一覧 UI に必要十分。
+ */
+export const zProblemSummaryResponse = z.object({
+    category: zProblemCategory,
+    difficulty: zProblemDifficulty,
+    id: z.uuid(),
+    title: z.string()
+});
+
+/**
+ * ProblemListResponse
+ *
+ * 問題一覧 + ページネーション情報。
+ *
+ * 一覧クエリ単発で SSoT が固定されており、PaginationMeta + Page の
+ * 汎用化（backend.md 推奨）は 2 つ目の paginated エンドポイントが
+ * 出てきた時点で行う（YAGNI、CLAUDE.md §設計原則）。
+ */
+export const zProblemListResponse = z.object({
+    items: z.array(zProblemSummaryResponse),
+    page: z.int(),
+    totalPages: z.int()
+});
+
+/**
+ * SubmissionAcceptedResponse
+ *
+ * 解答送信の受付完了。クライアントは submissionId を持って結果取得 API を叩く。
+ */
+export const zSubmissionAcceptedResponse = z.object({
+    status: z.literal('pending').optional().default('pending'),
+    submissionId: z.uuid()
+});
+
+/**
+ * SubmissionCreateRequest
+ *
+ * 解答送信リクエスト。
+ */
+export const zSubmissionCreateRequest = z.object({
+    code: z.string().min(1).max(100000),
+    problemId: z.uuid()
+});
+
+/**
+ * SubmissionFailureKind
+ */
+export const zSubmissionFailureKind = z.enum([
+    'test_failed',
+    'timeout',
+    'oom',
+    'syntax',
+    'runtime'
+]);
+
+/**
+ * SubmissionStatus
+ */
+export const zSubmissionStatus = z.enum([
+    'pending',
+    'graded',
+    'failed'
+]);
+
+/**
+ * SubmissionSummary
+ *
+ * 解答履歴の 1 行分。問題タイトルまで含めて一覧 UI に必要十分。
+ */
+export const zSubmissionSummary = z.object({
+    gradedAt: z.iso.datetime().nullish(),
+    id: z.uuid(),
+    problemId: z.uuid(),
+    problemTitle: z.string(),
+    score: z.int().nullish(),
+    status: zSubmissionStatus,
+    totalCount: z.int().nullish()
+});
+
+/**
+ * SubmissionTestResultItem
+ *
+ * 1 テストケース分の結果。passed=false の時に expected/actual/message が埋まる。
+ */
+export const zSubmissionTestResultItem = z.object({
+    actual: z.string().nullish(),
+    durationMs: z.int(),
+    expected: z.string().nullish(),
+    message: z.string().nullish(),
+    name: z.string(),
+    passed: z.boolean()
+});
+
+/**
+ * SubmissionResultPayload
+ *
+ * 採点完了時の結果ペイロード。Worker が submissions.result に書き込む形と一致。
+ */
+export const zSubmissionResultPayload = z.object({
+    durationMs: z.int(),
+    failureKind: zSubmissionFailureKind.nullish(),
+    passed: z.boolean(),
+    testResults: z.array(zSubmissionTestResultItem).optional()
+});
+
+/**
+ * SubmissionStatusResponse
+ *
+ * 解答 + 採点結果。クライアントは pending の間ポーリングする。
+ */
+export const zSubmissionStatusResponse = z.object({
+    gradedAt: z.iso.datetime().nullish(),
+    id: z.uuid(),
+    problemId: z.uuid(),
+    result: zSubmissionResultPayload.nullish(),
+    score: z.int().nullish(),
+    status: zSubmissionStatus,
+    totalCount: z.int().nullish()
+});
+
+/**
+ * SubmissionsListResponse
+ *
+ * 解答履歴一覧 + ページネーション情報。
+ */
+export const zSubmissionsListResponse = z.object({
+    items: z.array(zSubmissionSummary),
+    page: z.int(),
+    pageSize: z.int(),
+    totalPages: z.int()
+});
+
+/**
  * UserResponse
  *
  * 現在ログイン中のユーザー情報。GET /auth/me が返す形。
@@ -105,6 +264,17 @@ export const zHttpValidationError = z.object({
     detail: z.array(zValidationError).optional()
 });
 
+export const zListProblemsApiProblemsGetQuery = z.object({
+    category: zProblemCategory.nullish(),
+    difficulty: zProblemDifficulty.nullish(),
+    page: z.int().gte(1).optional().default(1)
+});
+
+/**
+ * Successful Response
+ */
+export const zListProblemsApiProblemsGetResponse = zProblemListResponse;
+
 export const zRequestProblemGenerationApiProblemsGeneratePostBody = zProblemGenerateRequest;
 
 /**
@@ -120,6 +290,41 @@ export const zGetProblemGenerationStatusApiProblemsGenerateRequestIdGetPath = z.
  * Successful Response
  */
 export const zGetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponse = zProblemGenerateStatusResponse;
+
+export const zGetProblemDetailApiProblemsProblemIdGetPath = z.object({
+    problem_id: z.uuid()
+});
+
+/**
+ * Successful Response
+ */
+export const zGetProblemDetailApiProblemsProblemIdGetResponse = zProblemDetailResponse;
+
+export const zListMySubmissionsApiSubmissionsGetQuery = z.object({
+    page: z.int().gte(1).optional().default(1),
+    pageSize: z.int().gte(1).lte(100).optional().default(20)
+});
+
+/**
+ * Successful Response
+ */
+export const zListMySubmissionsApiSubmissionsGetResponse = zSubmissionsListResponse;
+
+export const zSubmitAnswerApiSubmissionsPostBody = zSubmissionCreateRequest;
+
+/**
+ * Successful Response
+ */
+export const zSubmitAnswerApiSubmissionsPostResponse = zSubmissionAcceptedResponse;
+
+export const zGetSubmissionApiSubmissionsSubmissionIdGetPath = z.object({
+    submission_id: z.uuid()
+});
+
+/**
+ * Successful Response
+ */
+export const zGetSubmissionApiSubmissionsSubmissionIdGetResponse = zSubmissionStatusResponse;
 
 export const zStartGithubOauthAuthGithubGetQuery = z.object({
     next: z.string().nullish()

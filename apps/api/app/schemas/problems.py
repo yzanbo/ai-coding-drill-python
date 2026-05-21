@@ -90,3 +90,65 @@ class ProblemGenerateStatusResponse(_CamelModel):
     status: GenerationStatus
     # problem_id: completed の時のみ非 None。pending / failed では None（JSON では省略される）。
     problem_id: UUID | None = None
+
+
+# ----------------------------------------------------------------------------
+# 問題閲覧（一覧 / 詳細）— problem-display-and-answer.md §API（R1-4）
+# ----------------------------------------------------------------------------
+
+# PROBLEMS_PAGE_SIZE: 1 ページあたりの件数（サーバ側固定）。
+#   将来 limit クエリで可変にする時はここを既定値に格上げする。
+PROBLEMS_PAGE_SIZE = 20
+
+
+# ProblemExample: 入出力例 1 件（テストケースの一部を「見える化」したもの）。
+#   要件側 JSON 例：{ "input": "[1,2,3]", "output": "6" }
+class ProblemExample(_CamelModel):
+    """画面表示用の入出力例。input / output は表示用の文字列。"""
+
+    input: str
+    output: str
+
+
+# ProblemSummaryResponse: GET /api/problems の items 要素 1 件。
+#   一覧用に最小限のカラムだけを返す（description / examples は詳細でのみ返す）。
+class ProblemSummaryResponse(_CamelModel):
+    """問題一覧の 1 行分。タイトル / カテゴリ / 難易度のみで一覧 UI に必要十分。"""
+
+    id: UUID
+    title: str
+    category: ProblemCategory
+    difficulty: ProblemDifficulty
+
+
+# ProblemListResponse: GET /api/problems の 200 レスポンス全体。
+#   要件側 JSON 例：{ "items": [...], "page": 1, "totalPages": 10 }
+class ProblemListResponse(_CamelModel):
+    """問題一覧 + ページネーション情報。
+
+    一覧クエリ単発で SSoT が固定されており、PaginationMeta + Page の
+    汎用化（backend.md 推奨）は 2 つ目の paginated エンドポイントが
+    出てきた時点で行う（YAGNI、CLAUDE.md §設計原則）。
+    """
+
+    items: list[ProblemSummaryResponse]
+    page: int
+    total_pages: int
+
+
+# ProblemDetailResponse: GET /api/problems/:id の 200 レスポンス。
+#   ★マスキングの実体★：本モデルは test_cases / reference_solution /
+#   judge_scores を持たない。SQLAlchemy モデル（models/problems.py）には
+#   それらが存在するが、Pydantic レスポンスに含めないことで
+#   「API レスポンスから完全な test_cases が読み出せない」要件
+#   （problem-display-and-answer.md §受け入れ条件）を満たす。
+#   from_attributes=True で ORM から余分なフィールドが付くことはない。
+class ProblemDetailResponse(_CamelModel):
+    """問題詳細。テストケースの一部のみ examples として公開する。"""
+
+    id: UUID
+    title: str
+    description: str
+    examples: list[ProblemExample]
+    category: ProblemCategory
+    difficulty: ProblemDifficulty

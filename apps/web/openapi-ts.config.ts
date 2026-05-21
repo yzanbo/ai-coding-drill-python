@@ -36,9 +36,26 @@ export default defineConfig({
   },
 
   // plugins: 生成する成果物の種類。
-  //   - @hey-api/client-fetch : 標準 fetch ベースの型付き HTTP クライアント
-  //   - @hey-api/sdk          : エンドポイントごとの型付き呼び出し関数群
-  //   - @hey-api/typescript   : 純粋な TS 型定義（components/schemas 由来）
-  //   - zod                   : 各スキーマに対応する Zod のバリデータ
-  plugins: ["@hey-api/client-fetch", "@hey-api/typescript", "@hey-api/sdk", "zod"],
+  //   - @hey-api/client-fetch     : 標準 fetch ベースの型付き HTTP クライアント
+  //   - @hey-api/sdk              : エンドポイントごとの型付き呼び出し関数群
+  //   - @hey-api/typescript       : 純粋な TS 型定義（components/schemas 由来）
+  //   - zod                       : 各スキーマに対応する Zod のバリデータ
+  //   - @tanstack/react-query     : useQuery / useMutation 用の *Options と
+  //                                 query key を生成する。Client Component 側で
+  //                                 ポーリングや mutation を書く時に使う（ADR 0042、
+  //                                 R1-4 で導入）。queryOptions / mutationOptions の
+  //                                 両方を on にして、useGet* / usePost* フックの
+  //                                 中で `useQuery(getProblemsOptions(...))` の形で
+  //                                 呼べるようにする。
+  plugins: [
+    "@hey-api/client-fetch",
+    "@hey-api/typescript",
+    "@hey-api/sdk",
+    "zod",
+    {
+      name: "@tanstack/react-query",
+      queryOptions: true,
+      mutationOptions: true,
+    },
+  ],
 });

@@ -129,7 +129,13 @@ func main() {
 	}()
 
 	// orchestrator: claim/dispatch/complete + reclaim を担う。
-	orch, err := grading.New(ctx, grading.Deps{
+	// R1-5 で 2 個並行起動する形になった (ADR 0040、R7 で generation 切り出し時に
+	// gradingOrch だけ残せば良いよう main.go 層で並べる):
+	//   - genOrch:     queue='generation' / type='problem.generate'
+	//   - gradingOrch: queue='grading'    / type='submission.grade'
+	// sandbox.Runner / pool / provider は共有可。Generator / Judge は採点側では
+	// nil で渡せる (Deps optional 化済、grading フローは LLM 不使用)。
+	genOrch, err := grading.New(ctx, grading.Deps{
 		Pool:         pool,
 		Generator:    grading.NewProblemGenerator(genPrompt, provider),
 		Sandbox:      sb,
@@ -138,12 +144,28 @@ func main() {
 		ReclaimAfter: time.Duration(cfg.ReclaimAfterMinutes) * time.Minute,
 	})
 	if err != nil {
-		logger.ErrorContext(ctx, "orchestrator init failed", "err", err.Error())
+		logger.ErrorContext(ctx, "generation orchestrator init failed", "err", err.Error())
 		os.Exit(1)
 	}
 	defer func() {
-		if err := orch.Close(); err != nil {
-			logger.WarnContext(ctx, "orchestrator close", "err", err.Error())
+		if err := genOrch.Close(); err != nil {
+			logger.WarnContext(ctx, "generation orchestrator close", "err", err.Error())
+		}
+	}()
+
+	gradingOrch, err := grading.NewForGrading(ctx, grading.Deps{
+		Pool:         pool,
+		Sandbox:      sb,
+		WorkerID:     cfg.WorkerID,
+		ReclaimAfter: time.Duration(cfg.ReclaimAfterMinutes) * time.Minute,
+	})
+	if err != nil {
+		logger.ErrorContext(ctx, "grading orchestrator init failed", "err", err.Error())
+		os.Exit(1)
+	}
+	defer func() {
+		if err := gradingOrch.Close(); err != nil {
+			logger.WarnContext(ctx, "grading orchestrator close", "err", err.Error())
 		}
 	}()
 
@@ -161,21 +183,29 @@ func main() {
 		"judge_prompt_hash", judgePrompt.Hash(),
 	)
 
-	// goroutine 群: Concurrency 本の claim ループ + 1 本の reclaim ループ。
-	// 全 in-flight ジョブの完了を待ってから main を抜ける (グレースフルシャットダウン)。
+	// goroutine 群: 各 Orchestrator が Concurrency 本の claim ループ + 1 本の
+	// reclaim ループを持つ。全 in-flight ジョブの完了を待ってから main を抜ける
+	// (グレースフルシャットダウン)。
+	// reclaim ループは genOrch 側だけが持てば十分 (jobs テーブル全体をスキャンして
+	// locked_at が古い行を queued に戻す責務で queue 名に依存しないため、片方で十分)。
 	var wg sync.WaitGroup
 	// for range int (Go 1.22+): i 変数が不要なため `i := 0; i < N; i++` を簡略化。
 	for range cfg.Concurrency {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			orch.Run(ctx)
+			genOrch.Run(ctx)
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			gradingOrch.Run(ctx)
 		}()
 	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		orch.RunReclaim(ctx)
+		genOrch.RunReclaim(ctx)
 	}()
 
 	<-ctx.Done()
