@@ -31,9 +31,17 @@ const NotifyChannel = "new_job"
 // apps/api/app/services/problem_generation.py の _JOB_QUEUE = "generation" と一致。
 const GenerationQueue = "generation"
 
+// GradingQueue: 採点ジョブを投げ込む論理キュー名 (R1-5)。
+// apps/api/app/services/submissions.py の _JOB_QUEUE = "grading" と一致。
+const GradingQueue = "grading"
+
 // TypeProblemGenerate: 問題生成ジョブの type 値。
 // apps/api/app/services/problem_generation.py の _JOB_TYPE = "problem.generate" と一致。
 const TypeProblemGenerate = "problem.generate"
+
+// TypeSubmissionGrade: 採点ジョブの type 値 (R1-5)。
+// apps/api/app/services/submissions.py の _JOB_TYPE = "submission.grade" と一致。
+const TypeSubmissionGrade = "submission.grade"
 
 // MaxAttempts: 1 ジョブの最大試行回数。
 // 業務側 SSoT は problem-generation.md「最大 3 回再生成」。

@@ -68,6 +68,11 @@ type Result struct {
 	// TimedOut: Runner.timeout で打ち切った場合 true。
 	// false で ExitCode != 0 は「コードが Exit 0 以外で終了した」(テスト失敗 / 例外)。
 	TimedOut bool
+	// OOMKilled: コンテナがメモリ上限超過で OOM Killer に殺された場合 true。
+	// Docker daemon の State.OOMKilled (公式 signal) を ContainerInspect で取得する。
+	// ExitCode==137 (SIGKILL 由来) でも、ユーザコードからの kill -9 と区別できる。
+	// Inspect 失敗時は false で fall back する (Result 取得は継続する)。
+	OOMKilled bool
 	// Duration: コンテナ実行に要した時間 (Stat/Logs 取得は除く)。観測ログ用。
 	Duration time.Duration
 }
@@ -228,17 +233,34 @@ func (r *Runner) Run(ctx context.Context, files []FileSource, cmd []string) (*Re
 	}
 	duration := time.Since(start)
 
+	// OOM 判定: Docker daemon の State.OOMKilled を公式 signal として参照する。
+	// ContainerRemove (defer) の前に取らないと Inspect 対象が消える。
+	// Inspect 失敗時は警告ログのみ残して false で続行 (ExitCode による副次判定が
+	// orchestrator 側に残っている場合のフォールバックを壊さない)。
+	oomKilled := false
+	inspectCtx, inspectCancel := context.WithTimeout(ctx, 5*time.Second)
+	if info, inspectErr := r.cli.ContainerInspect(inspectCtx, containerID, client.ContainerInspectOptions{}); inspectErr == nil {
+		if info.Container.State != nil {
+			oomKilled = info.Container.State.OOMKilled
+		}
+	} else {
+		slog.WarnContext(ctx, "sandbox: container inspect failed (OOM detection degraded)",
+			"container_id", containerID, "err", inspectErr.Error())
+	}
+	inspectCancel()
+
 	stdout, stderr, err := r.collectLogs(ctx, containerID)
 	if err != nil {
 		return nil, fmt.Errorf("sandbox: collect logs: %w", err)
 	}
 
 	return &Result{
-		ExitCode: int(exitCode),
-		Stdout:   stdout,
-		Stderr:   stderr,
-		TimedOut: timedOut,
-		Duration: duration,
+		ExitCode:  int(exitCode),
+		Stdout:    stdout,
+		Stderr:    stderr,
+		TimedOut:  timedOut,
+		OOMKilled: oomKilled,
+		Duration:  duration,
 	}, nil
 }
 

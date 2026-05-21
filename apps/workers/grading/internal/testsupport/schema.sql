@@ -7,14 +7,14 @@
 --
 -- 構造:
 --   - gen_random_uuid() のため pgcrypto 拡張を有効化
---   - users / problems / generation_requests / jobs の 4 テーブル
---   - 採点機能 (submissions) や認証 (auth_providers) は本 PR の Worker
---     integration テストでは触らないため省略
+--   - users / problems / generation_requests / jobs / submissions の 5 テーブル
+--   - 認証 (auth_providers) は Worker integration テストでは触らないため省略
 --
 -- Worker 実装側 SSoT との対応:
 --   - jobs           : apps/api/app/models/jobs.py
 --   - generation_requests : apps/api/app/models/generation_requests.py
 --   - problems       : apps/api/app/models/problems.py
+--   - submissions    : apps/api/app/models/submissions.py (R1-5 採点フローで追加)
 --   - users          : apps/api/app/models/users.py (一部のみ)
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -77,3 +77,21 @@ CREATE TABLE IF NOT EXISTS jobs (
   updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS ix_jobs_queue_state_run_at ON jobs(queue, state, run_at);
+
+-- submissions: 解答送信 + 採点結果の台帳 (R1-5)。Worker (grading) が
+-- pending → graded / failed を UPDATE する。Backend は INSERT と read のみ。
+CREATE TABLE IF NOT EXISTS submissions (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  problem_id  UUID NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+  code        VARCHAR NOT NULL,
+  status      VARCHAR(16) NOT NULL DEFAULT 'pending',
+  result      JSONB,
+  score       INTEGER,
+  created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  graded_at   TIMESTAMP WITH TIME ZONE,
+  deleted_at  TIMESTAMP WITH TIME ZONE
+);
+CREATE INDEX IF NOT EXISTS ix_submissions_user_id_created_at_active
+  ON submissions(user_id, created_at DESC)
+  WHERE deleted_at IS NULL;

@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/job"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/jobtypes"
@@ -108,11 +109,50 @@ var vitestCmd = []string{"vitest", "run", "--reporter=json"}
 
 // problemGenerateHandler: orchestrator が dispatch するハンドラ実装。
 // 依存は全て interface で受け取り、テストで fake に差し替え可能にする。
+//
+// pool は OnDead で generation_requests を failed に遷移するときの
+// db handle として直接使う (store は WithTx ベースの高レベル API のため、
+// 1 行 UPDATE には素の pool の方が薄い)。
 type problemGenerateHandler struct {
+	pool      *pgxpool.Pool
 	store     generationStore
 	generator generatorIface
 	sandbox   sandboxIface
 	judge     judgeIface
+}
+
+// Type: jobHandler 実装。本ハンドラが受け持つ job.Type を返す。
+func (h *problemGenerateHandler) Type() string {
+	return job.TypeProblemGenerate
+}
+
+// OnDead: ジョブが dead 確定した時の後処理。
+//
+// jobs テーブル側は orchestrator が既に MarkDead 済み。本関数では
+// generation_requests を failed に遷移させて、UI 側のステータス画面が
+// 「永続失敗」と判定できるようにする (problem-generation.md §採点フロー)。
+//
+// payload parse 失敗 / DB UPDATE 失敗は警告ログのみで握り潰す
+// (jobs.last_error に残っているので運用追跡可能)。
+func (h *problemGenerateHandler) OnDead(ctx context.Context, j *job.Job) {
+	var payload struct {
+		GenerationRequestID string `json:"generationRequestId"`
+	}
+	if err := jsonUnmarshal(j.Payload, &payload); err != nil {
+		slog.WarnContext(ctx, "problem.generate: cannot parse payload to fail generation_request",
+			"job_id", j.ID, "err", err.Error())
+		return
+	}
+	reqID, err := parseUUID(payload.GenerationRequestID)
+	if err != nil {
+		slog.WarnContext(ctx, "problem.generate: bad generation_request_id",
+			"job_id", j.ID, "id", payload.GenerationRequestID)
+		return
+	}
+	if err := markGenerationRequestFailed(ctx, h.pool, reqID); err != nil {
+		slog.WarnContext(ctx, "problem.generate: failed to mark generation_request failed",
+			"job_id", j.ID, "err", err.Error())
+	}
 }
 
 // Handle: 1 件のジョブを処理する。
@@ -177,12 +217,21 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 	if err != nil {
 		return classifyHandlerError(err)
 	}
+	// 観測ログ必須フィールド (04-observability.md「LLM 呼び出し時の追加フィールド」):
+	//   provider / model / prompt_version / input_tokens / output_tokens /
+	//   cost_usd / cache_hit / 所要時間。R1 から全フィールドを記録する
+	//   (後追加だと過去ログの集計が不可能になるため)。
 	slog.InfoContext(ctx, "problem.generate: llm done",
 		"job_id", j.ID,
 		"title", draft.Title,
+		"provider", draft.GeneratedBy.Provider,
+		"model", draft.GeneratedBy.Model,
+		"prompt_version", draft.GeneratedBy.PromptVersion,
 		"cost_usd", draft.GeneratedBy.CostUSD,
 		"input_tokens", draft.GeneratedBy.InputTokens,
 		"output_tokens", draft.GeneratedBy.OutputTokens,
+		"cache_hit", draft.GeneratedBy.CacheHit,
+		"latency_ms", draft.GeneratedBy.LatencyMs,
 	)
 
 	// 2. サンドボックス検証

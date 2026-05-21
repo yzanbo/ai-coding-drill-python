@@ -61,6 +61,25 @@ test.describe("ログアウトフロー", () => {
   });
 });
 
+test.describe("(authed) ルートグループのガード", () => {
+  test("未認証で /problems/new に直アクセスすると /login?next=/problems/new に遷移する", async ({
+    page,
+  }) => {
+    // (authed)/layout.tsx の useEffect が router.replace("/login?next=...") を呼ぶ。
+    // FE 側の早期リダイレクトの存在保証 (API の 401 が最終 SSoT、ここは UX 用)。
+    await page.goto("/problems/new");
+
+    // next クエリに元 path が encodeURIComponent 済みで載る。
+    // 末尾 $ は意図的: ガードが付ける URL の形を契約として固定し、余計なクエリの混入に気付けるようにする。
+    // /login 画面そのものの描画確認は `/login 画面` describe が担うので、ここでは行わない (責務分離)。
+    await expect(page).toHaveURL(/\/login\?next=%2Fproblems%2Fnew$/);
+
+    // セッションは未確立。
+    const me = await page.request.get("/auth/me");
+    expect(me.status()).toBe(401);
+  });
+});
+
 test.describe("認証済みユーザーの /login 再訪", () => {
   test("ログイン済みで /login を開くとホーム / にリダイレクト", async ({ page }) => {
     await loginViaMockGithub(page);

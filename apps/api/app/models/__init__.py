@@ -7,6 +7,7 @@ from app.models.generation_requests import GenerationRequest
 from app.models.health_check import HealthCheck
 from app.models.jobs import Job
 from app.models.problems import Problem
+from app.models.submissions import Submission
 from app.models.users import User
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "HealthCheck",
     "Job",
     "Problem",
+    "Submission",
     "User",
 ]

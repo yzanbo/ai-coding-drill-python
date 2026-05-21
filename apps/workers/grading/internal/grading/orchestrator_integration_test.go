@@ -32,14 +32,31 @@ import (
 )
 
 // fakeJobHandler: Orchestrator に差し込む jobHandler 実装。任意のエラーを返す。
+//
+// jobHandler interface (Type / Handle / OnDead) を全て実装する。R1-5 で
+// Orchestrator が generic 化した時に Type/OnDead が追加された (関連ドメイン行の
+// failed 遷移をハンドラ側に委譲する責務分離)。
 type fakeJobHandler struct {
-	err   error
-	calls int
+	err         error
+	jobType     string
+	calls       int
+	onDeadCalls int
+}
+
+func (f *fakeJobHandler) Type() string {
+	if f.jobType != "" {
+		return f.jobType
+	}
+	return job.TypeProblemGenerate
 }
 
 func (f *fakeJobHandler) Handle(_ context.Context, _ *job.Job) error {
 	f.calls++
 	return f.err
+}
+
+func (f *fakeJobHandler) OnDead(_ context.Context, _ *job.Job) {
+	f.onDeadCalls++
 }
 
 // insertGenerationJob: jobs テーブルに problem.generate ジョブを 1 行 INSERT。
@@ -155,8 +172,13 @@ func TestOrchestrator_PermanentErrorMarksDead(t *testing.T) {
 	state, _, _ := fetchJobState(t, ctx, pool, jobID)
 	assert.Equal(t, "dead", state, "permanent error は state='dead' に直行")
 
-	// generation_requests は failed に遷移するはず (orchestrator.failGenerationRequest 経路)。
-	assert.Equal(t, "failed", fetchGenerationRequestStatus(t, ctx, pool, requestID))
+	// dead 確定時に handler.OnDead が呼ばれる契約 (R1-5 で generic 化、Orchestrator は
+	// 関連ドメイン行の failed 遷移をハンドラ側に委譲する)。
+	// generation_requests の failed 遷移は problemGenerateHandler.OnDead の責務で、
+	// 本テスト (fakeJobHandler) では OnDead の呼び出し回数だけ pin する。
+	assert.Equal(t, 1, handler.onDeadCalls, "OnDead が 1 回呼ばれる")
+	// generation_requests は本テストでは pending のまま (fakeJobHandler は UPDATE しない)。
+	assert.Equal(t, "pending", fetchGenerationRequestStatus(t, ctx, pool, requestID))
 }
 
 // TestOrchestrator_TransientErrorAtMaxAttemptsMarksDead:
@@ -183,7 +205,9 @@ func TestOrchestrator_TransientErrorAtMaxAttemptsMarksDead(t *testing.T) {
 	assert.Equal(t, "dead", state, "MaxAttempts 到達後の transient error は dead に")
 	assert.Equal(t, 3, attempts, "claim で attempts +1 されて MaxAttempts に到達")
 
-	assert.Equal(t, "failed", fetchGenerationRequestStatus(t, ctx, pool, requestID))
+	// dead 確定時に handler.OnDead が呼ばれる契約 (上記 PermanentErrorMarksDead と同じ)。
+	assert.Equal(t, 1, handler.onDeadCalls, "OnDead が 1 回呼ばれる")
+	_ = requestID // generation_requests への副作用は handler 責務 (本テストは pin しない)
 }
 
 // TestOrchestrator_HandlerSuccessMarksSucceeded:
@@ -202,4 +226,128 @@ func TestOrchestrator_HandlerSuccessMarksSucceeded(t *testing.T) {
 
 	state, _, _ := fetchJobState(t, ctx, pool, jobID)
 	assert.Equal(t, "succeeded", state)
+}
+
+// insertGradingJob: jobs テーブルに submission.grade ジョブを 1 行 INSERT (R1-5)。
+// FK 制約 (submissions.user_id → users.id / submissions.problem_id → problems.id)
+// を満たすため、users / problems / submissions も先に作る。
+func insertGradingJob(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (jobID int64, submissionID, userID, problemID uuid.UUID) {
+	t.Helper()
+	userID = uuid.New()
+	_, err := pool.Exec(ctx, `
+INSERT INTO users (id, display_name) VALUES ($1, 'test-user')`, userID)
+	require.NoError(t, err)
+
+	problemID = uuid.New()
+	_, err = pool.Exec(ctx, `
+INSERT INTO problems (id, title, description, category, difficulty, language,
+                      examples, test_cases, reference_solution, judge_scores)
+VALUES ($1, 't', 'd', 'array', 'easy', 'typescript',
+        '[]'::jsonb,
+        '[{"input":[1],"expected":1}]'::jsonb,
+        'export const solve = (n) => n;',
+        '{}'::jsonb)`, problemID)
+	require.NoError(t, err)
+
+	submissionID = uuid.New()
+	_, err = pool.Exec(ctx, `
+INSERT INTO submissions (id, user_id, problem_id, code, status)
+VALUES ($1, $2, $3, 'export const solve = (n) => n;', 'pending')`, submissionID, userID, problemID)
+	require.NoError(t, err)
+
+	payload, err := json.Marshal(jobtypes.GradingJobPayload{
+		SubmissionID: submissionID.String(),
+		UserID:       userID.String(),
+		ProblemID:    problemID.String(),
+		Code:         "export const solve = (n) => n;",
+	})
+	require.NoError(t, err)
+
+	err = pool.QueryRow(ctx, `
+INSERT INTO jobs (queue, type, payload, state, attempts, run_at)
+VALUES ($1, $2, $3::jsonb, 'queued', 0, NOW() - interval '1 second')
+RETURNING id`, job.GradingQueue, job.TypeSubmissionGrade, payload).Scan(&jobID)
+	require.NoError(t, err)
+	return jobID, submissionID, userID, problemID
+}
+
+// fetchSubmissionStatus: submissions 行の status を取って返す (R1-5)。
+func fetchSubmissionStatus(t *testing.T, ctx context.Context, pool *pgxpool.Pool, submissionID uuid.UUID) string {
+	t.Helper()
+	var status string
+	err := pool.QueryRow(ctx, `SELECT status FROM submissions WHERE id = $1`, submissionID).Scan(&status)
+	require.NoError(t, err)
+	return status
+}
+
+// makeGradingTestOrchestrator: fakeJobHandler を握った採点 Orchestrator (queue=grading) を作る。
+// fakeJobHandler の jobType を "submission.grade" に揃えて dispatch を通す。
+func makeGradingTestOrchestrator(t *testing.T, ctx context.Context, pool *pgxpool.Pool, handler jobHandler) *Orchestrator {
+	t.Helper()
+	orch, err := newWithHandler(ctx, Deps{
+		Pool:     pool,
+		Queue:    job.GradingQueue,
+		WorkerID: "test-worker-grading",
+	}, handler)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = orch.Close()
+	})
+	return orch
+}
+
+// TestOrchestrator_GradingDispatchSucceeded:
+// queue='grading' の Orchestrator が submission.grade ジョブを claim し、
+// handler.Handle を呼んで MarkSucceeded まで進むことを確認 (R1-5)。
+func TestOrchestrator_GradingDispatchSucceeded(t *testing.T) {
+	ctx := context.Background()
+	pool := testsupport.StartPostgres(t)
+
+	handler := &fakeJobHandler{jobType: job.TypeSubmissionGrade, err: nil}
+	orch := makeGradingTestOrchestrator(t, ctx, pool, handler)
+
+	jobID, submissionID, _, _ := insertGradingJob(t, ctx, pool)
+
+	orch.tryProcessOne(ctx)
+
+	assert.Equal(t, 1, handler.calls, "採点ハンドラが 1 回呼ばれる")
+	state, _, _ := fetchJobState(t, ctx, pool, jobID)
+	assert.Equal(t, "succeeded", state, "成功なら state='succeeded'")
+	// fakeJobHandler は submissions を UPDATE しないため pending のまま。
+	// submissions の graded 遷移は submissionGradeHandler.Handle の責務
+	// (本テストは orchestrator の dispatch / 成功経路だけ pin する)。
+	assert.Equal(t, "pending", fetchSubmissionStatus(t, ctx, pool, submissionID))
+}
+
+// TestOrchestrator_GradingTypeMismatchMarksDead:
+// queue=grading に何らかの事故で別 type のジョブが混入したら、
+// dispatch は error を返して dead 経路に流す (orchestrator.dispatch の type 検査)。
+func TestOrchestrator_GradingTypeMismatchMarksDead(t *testing.T) {
+	ctx := context.Background()
+	pool := testsupport.StartPostgres(t)
+
+	// handler は submission.grade を期待するが、INSERT するジョブの type を
+	// 別の値にして mismatch を作る。
+	handler := &fakeJobHandler{jobType: job.TypeSubmissionGrade}
+	orch := makeGradingTestOrchestrator(t, ctx, pool, handler)
+
+	// queue=grading だが type=problem.generate のジョブを INSERT (運用事故シミュ)。
+	userID := uuid.New()
+	_, err := pool.Exec(ctx, `INSERT INTO users (id, display_name) VALUES ($1, 't')`, userID)
+	require.NoError(t, err)
+	var jobID int64
+	err = pool.QueryRow(ctx, `
+INSERT INTO jobs (queue, type, payload, state, attempts, run_at)
+VALUES ($1, 'problem.generate', '{}'::jsonb, 'queued', 0, NOW() - interval '1 second')
+RETURNING id`, job.GradingQueue).Scan(&jobID)
+	require.NoError(t, err)
+
+	orch.tryProcessOne(ctx)
+
+	// handler は呼ばれない (dispatch の type 検査で弾かれる)。
+	assert.Equal(t, 0, handler.calls, "type mismatch なら handler.Handle は呼ばない")
+	state, _, _ := fetchJobState(t, ctx, pool, jobID)
+	assert.Equal(t, "dead", state, "type mismatch は永続失敗扱いで即 dead")
+	// OnDead は呼ばれる (orchestrator は handler を 1 個しか持たない契約)。
+	assert.Equal(t, 1, handler.onDeadCalls)
 }

@@ -1,0 +1,63 @@
+{
+  "$defs": {
+    "TraceContext": {
+      "description": "W3C Trace Context の最小表現（traceparent + tracestate）。\n\nBackend（Producer）が現在の OTel Span のコンテキストをジョブ payload に\n詰めることで、Worker（Consumer）側が同一トレースの子スパンを発行できる。\n詳細仕様は ADR 0010。\n\n- traceparent : \"00-<trace-id>-<span-id>-<flags>\" の固定書式（W3C 仕様）。\n                OTel SDK 未導入の R1〜R3 期間は None（= 親なし）として送り、\n                Worker は None を受けたら新規 root span を発行する。\n                R4「観測性」で OTel が入った後は常に有効値が入る前提に変える。\n                空文字を sentinel に使わないのは W3C 仕様で無効書式となり、\n                将来 traceparent パーサを差し込んだ時に「空文字 = 無効値」と\n                「未指定」を区別できなくなるため。\n- tracestate  : ベンダー固有の追加情報。未使用なら空文字",
+      "properties": {
+        "traceparent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Traceparent"
+        },
+        "tracestate": {
+          "default": "",
+          "title": "Tracestate",
+          "type": "string"
+        }
+      },
+      "title": "TraceContext",
+      "type": "object"
+    }
+  },
+  "description": "採点 Worker が受け取るジョブ payload。\n\nBackend が POST /api/submissions のトランザクション内で INSERT INTO jobs\n（queue='grading' / type='submission.grade'）し、Worker が JSON として\n読み出してサンドボックス採点を実行する。Worker 側の Go struct は\napps/workers/grading/internal/jobtypes/grading.go に quicktype で\n自動生成される。\n\n- submission_id : 採点対象 submissions 行の id。Worker が UPDATE する主キー\n- user_id      : 観測ログ・ownership 突合に使う\n- problem_id   : 採点対象の問題 id（test_cases / reference_solution を引く）\n- code         : ユーザーが提出した TS コード（solution.ts として保存）\n- trace_context : ADR 0010「全ジョブ payload に必須」",
+  "properties": {
+    "code": {
+      "title": "Code",
+      "type": "string"
+    },
+    "problemId": {
+      "format": "uuid",
+      "title": "Problemid",
+      "type": "string"
+    },
+    "submissionId": {
+      "format": "uuid",
+      "title": "Submissionid",
+      "type": "string"
+    },
+    "traceContext": {
+      "$ref": "#/$defs/TraceContext",
+      "description": "W3C Trace Context（ADR 0010）。Worker 側で子スパンの親として使う。"
+    },
+    "userId": {
+      "format": "uuid",
+      "title": "Userid",
+      "type": "string"
+    }
+  },
+  "required": [
+    "submissionId",
+    "userId",
+    "problemId",
+    "code",
+    "traceContext"
+  ],
+  "title": "GradingJobPayload",
+  "type": "object"
+}

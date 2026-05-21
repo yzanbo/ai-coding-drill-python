@@ -13,6 +13,7 @@ package grading
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -149,4 +150,154 @@ func TestMarkGenerationRequestFailed_NotFoundReturnsError(t *testing.T) {
 	err := markGenerationRequestFailed(ctx, pool, uuid.New())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
+}
+
+// ----------------------------------------------------------------------------
+// pgGradingStore (R1-5): GetProblemForGrading / UpdateSubmissionGraded /
+//                       UpdateSubmissionFailed の SQL を実 Postgres で検証。
+// ----------------------------------------------------------------------------
+
+// insertTestProblem: テスト用の problems 行を 1 件 INSERT して id を返す。
+//
+//	test_cases JSONB: 引数 cases をそのまま埋め込む (シリアライズ済み JSON 文字列)。
+//	deleted=true ならソフトデリート印を付ける (採点不可ケースの観測)。
+func insertTestProblem(t *testing.T, ctx context.Context, pool *pgxpool.Pool, testCasesJSON string, deleted bool) uuid.UUID {
+	t.Helper()
+	problemID := uuid.New()
+	_, err := pool.Exec(ctx, `
+INSERT INTO problems (id, title, description, category, difficulty, language,
+                      examples, test_cases, reference_solution, judge_scores)
+VALUES ($1, 't', 'd', 'array', 'easy', 'typescript',
+        '[]'::jsonb, $2::jsonb,
+        'export const solve = (n) => n;',
+        '{}'::jsonb)`, problemID, testCasesJSON)
+	require.NoError(t, err)
+	if deleted {
+		_, err = pool.Exec(ctx, `UPDATE problems SET deleted_at = NOW() WHERE id = $1`, problemID)
+		require.NoError(t, err)
+	}
+	return problemID
+}
+
+// insertTestSubmission: テスト用の submissions 行を 1 件 INSERT して id を返す。
+//
+//	status='pending' で作成 (Worker が UPDATE する前の状態)。
+func insertTestSubmission(t *testing.T, ctx context.Context, pool *pgxpool.Pool, userID, problemID uuid.UUID) uuid.UUID {
+	t.Helper()
+	subID := uuid.New()
+	_, err := pool.Exec(ctx, `
+INSERT INTO submissions (id, user_id, problem_id, code, status)
+VALUES ($1, $2, $3, 'x', 'pending')`, subID, userID, problemID)
+	require.NoError(t, err)
+	return subID
+}
+
+func TestPgGradingStore_GetProblemForGrading_ReturnsTestCases(t *testing.T) {
+	pool := testsupport.StartPostgres(t)
+	ctx := context.Background()
+
+	problemID := insertTestProblem(t, ctx, pool,
+		`[{"input":[1,2],"expected":3},{"input":[5],"expected":5}]`, false)
+
+	store := newPgGradingStore(pool)
+	cases, err := store.GetProblemForGrading(ctx, problemID)
+	require.NoError(t, err)
+	require.Len(t, cases, 2)
+	assert.Equal(t, 3.0, cases[0].Expected, "1 番目の expected は 3")
+	assert.Equal(t, 5.0, cases[1].Expected, "2 番目の expected は 5")
+}
+
+func TestPgGradingStore_GetProblemForGrading_NotFound(t *testing.T) {
+	pool := testsupport.StartPostgres(t)
+	ctx := context.Background()
+
+	store := newPgGradingStore(pool)
+	_, err := store.GetProblemForGrading(ctx, uuid.New())
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrProblemNotFound, "存在しない id は ErrProblemNotFound")
+}
+
+func TestPgGradingStore_GetProblemForGrading_SoftDeleted(t *testing.T) {
+	pool := testsupport.StartPostgres(t)
+	ctx := context.Background()
+
+	problemID := insertTestProblem(t, ctx, pool, `[]`, true) // deleted=true
+
+	store := newPgGradingStore(pool)
+	_, err := store.GetProblemForGrading(ctx, problemID)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrProblemNotFound, "soft delete 行は ErrProblemNotFound")
+}
+
+func TestPgGradingStore_UpdateSubmissionGraded_TransitionsPendingToGraded(t *testing.T) {
+	pool := testsupport.StartPostgres(t)
+	ctx := context.Background()
+
+	userIDStr := testsupport.InsertTestUser(t, pool)
+	userID, err := uuid.Parse(userIDStr)
+	require.NoError(t, err)
+	problemID := insertTestProblem(t, ctx, pool, `[]`, false)
+	subID := insertTestSubmission(t, ctx, pool, userID, problemID)
+
+	store := newPgGradingStore(pool)
+	resultJSON := []byte(`{"passed":true,"durationMs":120,"testResults":[]}`)
+	err = store.UpdateSubmissionGraded(ctx, subID, 5, resultJSON)
+	require.NoError(t, err)
+
+	var status string
+	var score int
+	var result []byte
+	var gradedAt *time.Time
+	err = pool.QueryRow(ctx, `
+SELECT status, score, result, graded_at FROM submissions WHERE id = $1`, subID).
+		Scan(&status, &score, &result, &gradedAt)
+	require.NoError(t, err)
+	assert.Equal(t, "graded", status)
+	assert.Equal(t, 5, score)
+	assert.JSONEq(t, string(resultJSON), string(result), "result JSONB がそのまま書き込まれる")
+	assert.NotNil(t, gradedAt, "graded_at が埋まる")
+}
+
+func TestPgGradingStore_UpdateSubmissionGraded_AlreadyFinalizedReturnsSentinel(t *testing.T) {
+	pool := testsupport.StartPostgres(t)
+	ctx := context.Background()
+
+	userIDStr := testsupport.InsertTestUser(t, pool)
+	userID, err := uuid.Parse(userIDStr)
+	require.NoError(t, err)
+	problemID := insertTestProblem(t, ctx, pool, `[]`, false)
+	subID := insertTestSubmission(t, ctx, pool, userID, problemID)
+
+	// 1 回目の UPDATE で graded に遷移。
+	store := newPgGradingStore(pool)
+	err = store.UpdateSubmissionGraded(ctx, subID, 1, []byte(`{"passed":true,"durationMs":1,"testResults":[]}`))
+	require.NoError(t, err)
+
+	// 2 回目は status='pending' でなくなっているため 0 行 → sentinel が返る契約。
+	err = store.UpdateSubmissionGraded(ctx, subID, 9, []byte(`{"passed":false,"durationMs":1,"testResults":[]}`))
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrSubmissionAlreadyFinalized)
+}
+
+func TestPgGradingStore_UpdateSubmissionFailed_TransitionsPendingToFailed(t *testing.T) {
+	pool := testsupport.StartPostgres(t)
+	ctx := context.Background()
+
+	userIDStr := testsupport.InsertTestUser(t, pool)
+	userID, err := uuid.Parse(userIDStr)
+	require.NoError(t, err)
+	problemID := insertTestProblem(t, ctx, pool, `[]`, false)
+	subID := insertTestSubmission(t, ctx, pool, userID, problemID)
+
+	store := newPgGradingStore(pool)
+	err = store.UpdateSubmissionFailed(ctx, subID)
+	require.NoError(t, err)
+
+	var status string
+	var gradedAt *time.Time
+	err = pool.QueryRow(ctx, `SELECT status, graded_at FROM submissions WHERE id = $1`, subID).
+		Scan(&status, &gradedAt)
+	require.NoError(t, err)
+	assert.Equal(t, "failed", status)
+	assert.NotNil(t, gradedAt, "failed 確定時刻として graded_at が埋まる")
 }

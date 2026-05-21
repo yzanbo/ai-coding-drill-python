@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostErrors, RequestProblemGenerationApiProblemsGeneratePostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors } from './types.gen';
+import type { CreateHealthCheckHealthPostData, CreateHealthCheckHealthPostResponses, GetMeAuthMeGetData, GetMeAuthMeGetResponses, GetProblemDetailApiProblemsProblemIdGetData, GetProblemDetailApiProblemsProblemIdGetErrors, GetProblemDetailApiProblemsProblemIdGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GetSubmissionApiSubmissionsSubmissionIdGetData, GetSubmissionApiSubmissionsSubmissionIdGetErrors, GetSubmissionApiSubmissionsSubmissionIdGetResponses, GithubCallbackAuthGithubCallbackGetData, GithubCallbackAuthGithubCallbackGetErrors, HealthzHealthzGetData, HealthzHealthzGetResponses, ListHealthChecksHealthGetData, ListHealthChecksHealthGetResponses, ListMySubmissionsApiSubmissionsGetData, ListMySubmissionsApiSubmissionsGetErrors, ListMySubmissionsApiSubmissionsGetResponses, ListProblemsApiProblemsGetData, ListProblemsApiProblemsGetErrors, ListProblemsApiProblemsGetResponses, LogoutAuthLogoutPostData, LogoutAuthLogoutPostResponses, RequestProblemGenerationApiProblemsGeneratePostData, RequestProblemGenerationApiProblemsGeneratePostErrors, RequestProblemGenerationApiProblemsGeneratePostResponses, StartGithubOauthAuthGithubGetData, StartGithubOauthAuthGithubGetErrors, SubmitAnswerApiSubmissionsPostData, SubmitAnswerApiSubmissionsPostErrors, SubmitAnswerApiSubmissionsPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,17 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: Record<string, unknown>;
 };
+
+/**
+ * List Problems
+ *
+ * カテゴリ・難易度フィルタ付きで問題一覧を返す。
+ *
+ * - 認証不要（ゲスト閲覧可、problem-display-and-answer.md §ビジネスルール）
+ * - 並び順は created_at DESC（新着優先）
+ * - 0 件でも 200 + items=[] / totalPages=0 で返す
+ */
+export const listProblemsApiProblemsGet = <ThrowOnError extends boolean = false>(options?: Options<ListProblemsApiProblemsGetData, ThrowOnError>) => (options?.client ?? client).get<ListProblemsApiProblemsGetResponses, ListProblemsApiProblemsGetErrors, ThrowOnError>({ url: '/api/problems', ...options });
 
 /**
  * Request Problem Generation
@@ -48,6 +59,62 @@ export const requestProblemGenerationApiProblemsGeneratePost = <ThrowOnError ext
  * - status='completed' の時のみ problemId フィールドが付く
  */
 export const getProblemGenerationStatusApiProblemsGenerateRequestIdGet = <ThrowOnError extends boolean = false>(options: Options<GetProblemGenerationStatusApiProblemsGenerateRequestIdGetData, ThrowOnError>) => (options.client ?? client).get<GetProblemGenerationStatusApiProblemsGenerateRequestIdGetResponses, GetProblemGenerationStatusApiProblemsGenerateRequestIdGetErrors, ThrowOnError>({ url: '/api/problems/generate/{request_id}', ...options });
+
+/**
+ * Get Problem Detail
+ *
+ * 問題詳細を返す。テストケース全体は返さず examples（公開用 1〜数件）のみ含む。
+ *
+ * - 認証不要（problem-display-and-answer.md §ビジネスルール）
+ * - 存在しない / ソフトデリート済みは 404
+ * - レスポンスから test_cases / reference_solution / judge_scores を完全に
+ * 落とすマスキングは ProblemDetailResponse のスキーマ定義で実施される
+ */
+export const getProblemDetailApiProblemsProblemIdGet = <ThrowOnError extends boolean = false>(options: Options<GetProblemDetailApiProblemsProblemIdGetData, ThrowOnError>) => (options.client ?? client).get<GetProblemDetailApiProblemsProblemIdGetResponses, GetProblemDetailApiProblemsProblemIdGetErrors, ThrowOnError>({ url: '/api/problems/{problem_id}', ...options });
+
+/**
+ * List My Submissions
+ *
+ * 自分の解答履歴をページングで返す。
+ *
+ * 並び順は created_at DESC（新着順）。problem_title まで含めて返すため
+ * 一覧 UI 側は追加の問題詳細取得が不要。
+ */
+export const listMySubmissionsApiSubmissionsGet = <ThrowOnError extends boolean = false>(options?: Options<ListMySubmissionsApiSubmissionsGetData, ThrowOnError>) => (options?.client ?? client).get<ListMySubmissionsApiSubmissionsGetResponses, ListMySubmissionsApiSubmissionsGetErrors, ThrowOnError>({ url: '/api/submissions', ...options });
+
+/**
+ * Submit Answer
+ *
+ * 解答コードを受け付けて submissions 行を作成し、202 で submissionId を返す。
+ *
+ * 挙動：
+ * - 対象問題の存在確認（存在しない / soft delete 済みは 404）
+ * - submissions に 1 行 INSERT（status='pending'）
+ * - 同一トランザクション内で jobs に 1 行 INSERT + NOTIFY new_job
+ * - レート制限: 1 ユーザー 1 分 / 20 回まで
+ *
+ * クライアントはレスポンスの submissionId を持って
+ * GET /api/submissions/:id をポーリングし、status が graded / failed に遷移するのを待つ。
+ */
+export const submitAnswerApiSubmissionsPost = <ThrowOnError extends boolean = false>(options: Options<SubmitAnswerApiSubmissionsPostData, ThrowOnError>) => (options.client ?? client).post<SubmitAnswerApiSubmissionsPostResponses, SubmitAnswerApiSubmissionsPostErrors, ThrowOnError>({
+    url: '/api/submissions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Submission
+ *
+ * 採点状態 + 結果を返す。
+ *
+ * - pending の間は score / totalCount / result / gradedAt が None
+ * - graded / failed に遷移してから埋まる（Worker が UPDATE）
+ * - 他人の id や存在しない id は 404
+ */
+export const getSubmissionApiSubmissionsSubmissionIdGet = <ThrowOnError extends boolean = false>(options: Options<GetSubmissionApiSubmissionsSubmissionIdGetData, ThrowOnError>) => (options.client ?? client).get<GetSubmissionApiSubmissionsSubmissionIdGetResponses, GetSubmissionApiSubmissionsSubmissionIdGetErrors, ThrowOnError>({ url: '/api/submissions/{submission_id}', ...options });
 
 /**
  * Start Github Oauth

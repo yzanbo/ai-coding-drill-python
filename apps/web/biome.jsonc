@@ -15,9 +15,18 @@
     // includes: 走査対象。Next.js のビルド生成物 / 自動生成コード / shadcn/ui は除外する。
     //   先頭の "**" で全体を含めてから "!" で個別除外する書式。
     //   - .next                       : Next.js ビルド生成物
+    //   - .next-e2e                   : E2E 用 Next.js ビルド生成物（playwright.config.ts で
+    //                                   NEXT_DIST_DIR=.next-e2e として並走起動、PR #76）
     //   - src/__generated__           : Hey API 生成物（ADR 0006、R1 以降。frontend.md 実装契約で配置確定）
     //   - src/components/ui           : shadcn/ui の生成コード（規約上 lint しない、R1 以降）
-    "includes": ["**", "!.next", "!next-env.d.ts", "!src/__generated__", "!src/components/ui"]
+    "includes": [
+      "**",
+      "!.next",
+      "!.next-e2e",
+      "!next-env.d.ts",
+      "!src/__generated__",
+      "!src/components/ui"
+    ]
   },
   "formatter": {
     "enabled": true,
