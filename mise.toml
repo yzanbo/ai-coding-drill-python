@@ -89,8 +89,15 @@ dir = "apps/api"
 run = "uv run fastapi dev"
 
 [tasks."api:test"]
-description = "Backend テスト（pytest + httpx + asyncio）"
+description = "Backend テスト（pytest + httpx + asyncio）。E2E 専用 DB :5433/ai_coding_drill_e2e に向ける（dev DB 保護、issue #86）"
 dir = "apps/api"
+# depends に e2e:up を並べる：pytest の integration テストは reset_* fixture で
+#   実テーブルを DELETE するため、必ず E2E 専用 Postgres / Redis に対して走らせる。
+#   docker compose up --wait + alembic は idempotent なので毎回呼んでも数秒で完了。
+depends = ["e2e:up"]
+# env で DATABASE_URL / REDIS_URL を強制上書き。conftest.py 側にも安全ガードを置いているが、
+# こちらでも明示しておくことで「mise 経由で起動した時に何に向くか」を SSoT として残す。
+env = { DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_e2e", REDIS_URL = "redis://localhost:6380/0" }
 run = "uv run pytest"
 
 [tasks."api:lint"]

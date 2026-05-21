@@ -15,6 +15,31 @@ import os
 
 os.environ.setdefault("RATE_LIMIT_STORAGE_URI", "memory://")
 
+# DATABASE_URL / REDIS_URL: 必ず E2E 専用ミドルウェアに向ける（issue #86 / dev DB 保護）。
+#   pytest の integration テストは reset_* fixture で実テーブルを DELETE するため、
+#   dev DB (localhost:5432/ai_coding_drill) に向くと作業中の問題データ等が消える事故が起きる。
+#   ここで E2E 側ミドルウェア（docker-compose.e2e.yml の :5433 / :6380）に強制し、
+#   .env の DATABASE_URL がどう書かれていても dev DB を破壊できないように構造的に守る。
+#   CI から別 DSN を渡したい時は環境変数 PYTEST_DATABASE_URL / PYTEST_REDIS_URL で
+#   明示的に上書きできる（無指定なら下の既定値）。
+os.environ["DATABASE_URL"] = os.environ.get(
+    "PYTEST_DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_e2e",
+)
+os.environ["REDIS_URL"] = os.environ.get(
+    "PYTEST_REDIS_URL",
+    "redis://localhost:6380/0",
+)
+
+# 安全ガード：DATABASE_URL が dev DB 名 (_e2e で終わらない) を指していたら起動を拒否する。
+#   PYTEST_DATABASE_URL でうっかり dev DSN を渡しても、ここで弾く。
+_db_url = os.environ["DATABASE_URL"]
+if not _db_url.rstrip("/").endswith("_e2e"):
+    raise RuntimeError(
+        "pytest は E2E 専用 DB (DB 名末尾 '_e2e') に対してのみ実行できます。"
+        f" 現在の DATABASE_URL: {_db_url}"
+    )
+
 # AsyncIterator: 「非同期で 1 個ずつ値を渡せる関数」の戻り値型（Python 標準 / collections.abc）。
 #                yield を使う非同期ジェネレータ関数の型注釈に使う。
 from collections.abc import AsyncIterator

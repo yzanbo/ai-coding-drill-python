@@ -84,8 +84,9 @@ uv run pyright .                      # pyright が動く
 2. **ルートに `docker-compose.yml` 配置**（dev 用）：Postgres と Redis のサービス定義、`postgres:<x.y>-alpine` / `redis:<x.y>-alpine` を image に pin、healthcheck を `pg_isready` / `redis-cli ping` で設定、永続ボリュームを宣言。port は dev 既定の `5432` / `6379`、DB 名は `ai_coding_drill`
 3. **ルートに `docker-compose.e2e.yml` 配置**（E2E 用、dev と完全分離）：
    - port をホスト側 `5433` / `6380` にずらして dev の `5432` / `6379` と並行起動可能にする
-   - Postgres の DB 名は `ai_coding_drill_e2e`（末尾 `_e2e` を allowlist のキーにする、後段の `/_test/reset` ガード根拠）
+   - Postgres の DB 名は `ai_coding_drill_e2e`（末尾 `_e2e` を allowlist のキーにする、後段の `/_test/reset` ガード根拠 + pytest 側の安全ガード根拠）
    - `tmpfs` で `/var/lib/postgresql/data` と `/data` をメモリ上に展開（永続化不要、E2E run 高速化）
+   - **`PGDATA=/var/lib/postgresql/data/pgdata` を environment に追加**：Postgres 18+ の Docker image は `/var/lib/postgresql/data` を直接 `PGDATA` にすると「空ディレクトリ＝中身のないボリューム」と判断して initdb せずに起動エラーで落ちる（major version 別サブディレクトリ運用が公式推奨になったため）。PGDATA をサブディレクトリに固定すれば tmpfs でも問題なく初期化される
    - healthcheck は dev と同じ
 4. **`mise.toml` に E2E 専用 task を 3 つ追記**（`docker-compose.e2e.yml` の存在が前提）：
    - `[tasks."api:db-migrate:e2e"]`：`env = { DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_e2e" }` を上書き指定し、`dir = "apps/api"` で `uv run alembic upgrade head` を実行
@@ -202,11 +203,18 @@ docker compose exec postgres psql -U postgres ai_coding_drill -c "\dt"   # healt
    - `POST` は `HealthCheck()` を `session.add()` + `session.commit()` + `session.refresh()`、`{id, created_at}` を返す
    - `GET` は `select(HealthCheck).order_by(HealthCheck.created_at.desc()).limit(10)` の結果を返す
 2. `apps/api/app/main.py` で `app.include_router(health.router)` 登録
-3. `apps/api/tests/test_health.py` に integration テスト：
+3. `apps/api/tests/conftest.py` の冒頭で **`DATABASE_URL` / `REDIS_URL` を E2E 専用ミドルウェアに強制上書き** + **DB 名末尾 `_e2e` の安全ガード** を入れる：
+   - integration テストは `reset_*` fixture で実テーブルを DELETE するため、dev DB（`:5432/ai_coding_drill`）に向くと**作業中の問題データ等が pytest 実行のたびに消える事故**が起きる（pre-push の `api-pytest` 経由でも発生）
+   - `app.main` を import する**前に** `os.environ["DATABASE_URL"] = ...:5433/ai_coding_drill_e2e` を仕込み、`AsyncSessionLocal` の engine 生成時点で E2E 側を向くようにする（`RATE_LIMIT_STORAGE_URI=memory://` と同じパターン）
+   - CI から別 DSN を渡したい時は `PYTEST_DATABASE_URL` / `PYTEST_REDIS_URL` で上書きできる構造にする（無指定なら E2E 既定値）
+   - 取り違え事故防止のため「DB 名末尾が `_e2e` でなければ `RuntimeError` で起動拒否」のガードを足す
+4. `apps/api/tests/test_health.py` に integration テスト：
    - `@pytest.mark.integration` 付き（マーカー宣言は **step 2 の pyproject.toml `[tool.pytest.ini_options]` で済み**）
    - httpx + ASGITransport（in-process 通信、外部 HTTP 不要）で `POST` → `GET` の往復を検証
-   - DB は docker-compose の Postgres（`@pytest.fixture` で各テストごとに DELETE で初期化）
-4. `mise exec -- uv run pytest -m integration` で疎通確認
+   - DB は E2E 専用 Postgres（step 5 で立てた `docker-compose.e2e.yml` の `:5433/ai_coding_drill_e2e`）。`@pytest.fixture` で各テストごとに DELETE で初期化
+5. `mise.toml` の `[tasks."api:test"]` に `depends = ["e2e:up"]` と `env = { DATABASE_URL = "...:5433/ai_coding_drill_e2e", REDIS_URL = "redis://localhost:6380/0" }` を設定（E2E ミドルウェアの自動起動 + DSN 強制上書き）
+6. `lefthook.yml` の pre-push `api-pytest` は `mise exec -- uv run pytest` ではなく **`mise run api:test`** を呼ぶ：直接 `uv run pytest` を呼ぶと `.env` の dev DSN がそのまま使われて作業データが消える事故が起きるため、必ず env 上書き付きの mise task 経由で起動する
+7. `mise exec -- uv run pytest -m integration` で疎通確認（または `mise run api:test`）
 5. **router ファイル冒頭コメント規約**：`routers/health.py` の冒頭に **役割 / エンドポイント一覧 / 設計判断** の 3 ブロックをコメントで記述する（step 8 で `routers/probes.py` を追加する際も同じ構造に揃え、相互参照させる）
 
 **完了確認**：

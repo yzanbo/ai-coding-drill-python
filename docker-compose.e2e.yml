@@ -25,13 +25,22 @@ services:
       POSTGRES_DB: ai_coding_drill_e2e
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      # PGDATA を tmpfs 内の **サブディレクトリ** に明示。
+      #   Postgres 18+ の Docker イメージは /var/lib/postgresql/data を直接 PGDATA にすると
+      #   「mount された空ディレクトリ＝中身のないボリュームだ」と判断して
+      #   initdb せずに起動エラーで落ちる仕様になった
+      #   （major version 別サブディレクトリ運用が推奨されたため）。
+      #   PGDATA をサブディレクトリに固定することで、Postgres が空のサブディレクトリに
+      #   initdb していい状態と認識し、tmpfs でも問題なく初期化が走るようになる
+      #   （公式 image の README 推奨パターン）。
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       # ホスト側 5433 → コンテナ 5432。dev の 5432 と並行起動可能。
       - "5433:5432"
     tmpfs:
       # E2E は揮発でよい。tmpfs にすることで I/O が速くなる + 後始末不要。
-      # Postgres 18+ は data 配下に version 別サブディレクトリを掘る挙動だが、
-      # tmpfs は空ディレクトリから initdb されるので問題なく動く。
+      # tmpfs の根 (/var/lib/postgresql/data) は空のまま、その下の pgdata/ サブディレクトリに
+      # initdb される（PGDATA env で指定）。
       - /var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d ai_coding_drill_e2e"]
