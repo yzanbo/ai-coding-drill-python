@@ -149,7 +149,12 @@ func (h *problemGenerateHandler) OnDead(ctx context.Context, j *job.Job) {
 			"job_id", j.ID, "id", payload.GenerationRequestID)
 		return
 	}
-	if err := markGenerationRequestFailed(ctx, h.pool, reqID); err != nil {
+	// failureReason: MVP では「再試行上限を超えた」固定タグを書く（R1-7）。
+	//   詳細種別（judge_below_threshold / sandbox_failed / llm_invalid_output 等）を
+	//   伝えるには orchestrator → OnDead に最後の error を渡す interface 変更が必要で、
+	//   本 commit のスコープを超える。UI 側は固定タグで「失敗理由: 再試行上限超過」と
+	//   表示し、運用ログでは jobs.last_error が詳細を持つ。
+	if err := markGenerationRequestFailed(ctx, h.pool, reqID, "max_attempts_exceeded"); err != nil {
 		slog.WarnContext(ctx, "problem.generate: failed to mark generation_request failed",
 			"job_id", j.ID, "err", err.Error())
 	}

@@ -134,20 +134,29 @@ func TestMarkGenerationRequestFailed_SetsStatusFailed(t *testing.T) {
 	userID := testsupport.InsertTestUser(t, pool)
 	reqID := insertGenerationRequest(t, ctx, pool, userID)
 
-	err := markGenerationRequestFailed(ctx, pool, reqID)
+	err := markGenerationRequestFailed(ctx, pool, reqID, "test_reason")
 	require.NoError(t, err)
 
+	// R1-7: status だけでなく failure_reason / completed_at も書かれる契約。
 	var status string
-	err = pool.QueryRow(ctx, `SELECT status FROM generation_requests WHERE id = $1`, reqID).Scan(&status)
+	var failureReason *string
+	var completedAt *time.Time
+	err = pool.QueryRow(ctx,
+		`SELECT status, failure_reason, completed_at FROM generation_requests WHERE id = $1`,
+		reqID,
+	).Scan(&status, &failureReason, &completedAt)
 	require.NoError(t, err)
 	assert.Equal(t, "failed", status)
+	require.NotNil(t, failureReason)
+	assert.Equal(t, "test_reason", *failureReason)
+	assert.NotNil(t, completedAt)
 }
 
 func TestMarkGenerationRequestFailed_NotFoundReturnsError(t *testing.T) {
 	pool := testsupport.StartPostgres(t)
 	ctx := context.Background()
 
-	err := markGenerationRequestFailed(ctx, pool, uuid.New())
+	err := markGenerationRequestFailed(ctx, pool, uuid.New(), "test_reason")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
