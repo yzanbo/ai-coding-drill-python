@@ -232,9 +232,14 @@ func main() {
 				logger.ErrorContext(ctx, "health server", "err", err.Error())
 			}
 		}()
-		// シャットダウン: ctx.Done() でグレースフルに止める。
-		// 最大 5 秒待ってから強制 close。
+		// シャットダウン: ctx.Done() でグレースフルに止める（最大 5 秒待って強制 close）。
+		// wg 管理に揃える理由: 他の goroutine (orchestrator / reclaim / listener) と同じ
+		// 「wg.Wait() で全完了を待つ」規律を破らないため。実装上は listener goroutine が
+		// Shutdown 完了で抜けるので wg.Wait() は本 goroutine 無くても return するが、
+		// 「wg 非管理の goroutine もアリ」と後続実装者に誤読させない目的を優先する。
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			<-ctx.Done()
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
