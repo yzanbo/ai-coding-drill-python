@@ -17,12 +17,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
 import { safeNextPath } from "@/lib/utils/safe-next-path";
 
 import { LoginForm } from "./_components/login-form/login-form";
-
-// SESSION_COOKIE_NAME: Backend の core/config.py の session_cookie_name と一致。
-const SESSION_COOKIE_NAME = "session_id";
 
 type LoginPageProps = {
   // Next.js 16 で page に渡る searchParams は Promise。

@@ -10,9 +10,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button/button";
-
-// SESSION_COOKIE_NAME: Backend の core/config.py の session_cookie_name と一致。
-const SESSION_COOKIE_NAME = "session_id";
+import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
 
 export default async function RootPage() {
   const sessionCookie = (await cookies()).get(SESSION_COOKIE_NAME);

@@ -19,14 +19,11 @@ import { getProblemDetailApiProblemsProblemIdGet } from "@/__generated__/api/sdk
 import { LoginRequiredMessage } from "@/components/parts/login-required-message/login-required-message";
 import { ApiError, throwIfError } from "@/lib/api/api-error";
 import { serverApiClient } from "@/lib/api/server-api-client";
+import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
 import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
 import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
 
 import { AnswerWorkspace } from "./_components/answer-workspace/answer-workspace";
-
-// SESSION_COOKIE_NAME: Backend の core/config.py の session_cookie_name と一致させる。
-//   ここで定数化しておくのは「Cookie 名が変わった時に検索しやすくする」ため。
-const SESSION_COOKIE_NAME = "session_id";
 
 type ProblemDetailPageProps = {
   // Next.js 16 で page に渡る params は Promise。
