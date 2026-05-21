@@ -6,6 +6,7 @@
 //       pending: スピナー + 「採点中...」
 //       graded:  passed=true なら「正解」、それ以外は failureKind で分岐
 //                  test_failed → 失敗テスト一覧
+//                  type_error  → tsc 出力をテスト一覧と同じ枠で表示（型パズル系、issue #79）
 //                  timeout / oom / syntax / runtime → 種別メッセージ
 //       failed:  「一時的なエラーです」+ 再試行ボタン (onRetry コールバック)
 //
@@ -35,12 +36,14 @@ type GradingResultProps = {
 //     oom:         「メモリ使用量超過」
 //     syntax:      「構文エラー」
 //     runtime:     「実行時エラー」
+//     type_error:  「型エラー」（型パズル系カテゴリで tsc --noEmit が失敗した時、issue #79）
 const FAILURE_KIND_LABELS: Record<string, string> = {
   test_failed: "テスト不合格",
   timeout: "タイムアウト",
   oom: "メモリ使用量超過",
   syntax: "構文エラー",
   runtime: "実行時エラー",
+  type_error: "型エラー",
 };
 
 export const GradingResult = ({ submissionId, onRetry }: GradingResultProps) => {
@@ -140,8 +143,12 @@ export const GradingResult = ({ submissionId, onRetry }: GradingResultProps) => 
         <p className="text-muted-foreground">実行時間: {formatDurationMs(result.durationMs)}</p>
         {/* 失敗テストの詳細は test_failed の時だけ価値がある。
             timeout / oom / syntax / runtime はそもそもテストが走らずまとめて
-            「不合格」になるため、ここでは failed のテストケースのみ列挙する。 */}
-        {result.failureKind === "test_failed" && <FailedCases items={result.testResults ?? []} />}
+            「不合格」になるため、ここでは failed のテストケースのみ列挙する。
+            type_error は tsc 出力を 1 件の擬似テストとして testResults に詰めてあるため
+            同じ枠で表示する（issue #79）。 */}
+        {(result.failureKind === "test_failed" || result.failureKind === "type_error") && (
+          <FailedCases items={result.testResults ?? []} />
+        )}
       </div>
     </ResultCard>
   );
