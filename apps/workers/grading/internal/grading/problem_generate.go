@@ -23,7 +23,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/job"
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/jobtypes"
@@ -50,8 +49,8 @@ type judgeIface interface {
 	Evaluate(ctx context.Context, problemJSON string) (*judge.Result, error)
 }
 
-// generationStore: Handle が generation_requests / problems テーブルに対して
-// 行う読み書きを集約する。本番は pgGenerationStore (pool 直叩き)、
+// generationStore: Handle / OnDead が generation_requests / problems テーブルに
+// 対して行う読み書きを集約する。本番は pgGenerationStore (pool 直叩き)、
 // テストは in-memory fake に差し替え。
 type generationStore interface {
 	// SelectStatus: 行が無い場合 pgx.ErrNoRows を返す (handler 側で短絡しない)。
@@ -63,6 +62,10 @@ type generationStore interface {
 	// UpdateProgressStep: pending 行の現在ステップを書く (R1-7-2)。
 	// 失敗は handler 側で警告ログのみで握り潰す (本筋を止めない)。
 	UpdateProgressStep(ctx context.Context, requestID uuid.UUID, step string) error
+	// MarkFailed: dead 確定時に generation_requests を failed に遷移する。
+	// OnDead から呼ぶ。行が物理削除されていた場合は ErrGenerationRequestVanished を
+	// wrap して返し、呼び出し側で INFO 扱いに倒せるようにする（issue #83）。
+	MarkFailed(ctx context.Context, requestID uuid.UUID, reason string) error
 }
 
 // classifyHandlerError: handler が外部 (LLM / sandbox / judge) 呼び出しで受け取った
@@ -113,11 +116,9 @@ var vitestCmd = []string{"vitest", "run", "--reporter=json"}
 // problemGenerateHandler: orchestrator が dispatch するハンドラ実装。
 // 依存は全て interface で受け取り、テストで fake に差し替え可能にする。
 //
-// pool は OnDead で generation_requests を failed に遷移するときの
-// db handle として直接使う (store は WithTx ベースの高レベル API のため、
-// 1 行 UPDATE には素の pool の方が薄い)。
+// generation_requests への書き込みは Handle / OnDead とも store interface 経由に
+// 揃える（pool 直叩きの導線は廃止、issue #83 の refactor）。
 type problemGenerateHandler struct {
-	pool      *pgxpool.Pool
 	store     generationStore
 	generator generatorIface
 	sandbox   sandboxIface
@@ -165,7 +166,7 @@ func (h *problemGenerateHandler) OnDead(ctx context.Context, j *job.Job, lastErr
 		return
 	}
 	reason := classifyFailureReason(lastErr)
-	if err := markGenerationRequestFailed(ctx, h.pool, reqID, reason); err != nil {
+	if err := h.store.MarkFailed(ctx, reqID, reason); err != nil {
 		// 行が物理削除されていた場合（E2E reset レース / 将来の管理画面削除 等、
 		// issue #83）は WARN を出さず INFO に倒す。リクエスタ側が既に結果を
 		// 待っていないため「キャンセル相当の正常イベント」として扱う。

@@ -203,6 +203,13 @@ type fakeStore struct {
 	//   Handle が "llm_generating" → "sandbox_verifying" → "judging" → "persisting"
 	//   の順序でステップ遷移を書いていることを確認する用。
 	progressSteps []string
+	// markFailedErr: MarkFailed が返す error。OnDead の分岐確認用。
+	//   ErrGenerationRequestVanished を仕込むと「dead 確定後に行が消えていた」
+	//   レアケースを模擬できる（issue #83）。
+	markFailedErr    error
+	markFailedCalls  int
+	lastMarkedReqID  uuid.UUID
+	lastMarkedReason string
 }
 
 func (s *fakeStore) SelectStatus(_ context.Context, _ uuid.UUID) (string, *uuid.UUID, error) {
@@ -234,6 +241,15 @@ func (s *fakeStore) InsertProblemAndCompleteRequest(_ context.Context, _ *Proble
 func (s *fakeStore) UpdateProgressStep(_ context.Context, _ uuid.UUID, step string) error {
 	s.progressSteps = append(s.progressSteps, step)
 	return nil
+}
+
+// MarkFailed: OnDead が呼ぶ failed 遷移。テストでは呼び出し回数 / 渡された
+// reqID / reason を記録し、markFailedErr が仕込まれていればそれを返す。
+func (s *fakeStore) MarkFailed(_ context.Context, requestID uuid.UUID, reason string) error {
+	s.markFailedCalls++
+	s.lastMarkedReqID = requestID
+	s.lastMarkedReason = reason
+	return s.markFailedErr
 }
 
 // fakeGenerator / fakeSandbox / fakeJudge: 各 interface を in-memory で実装。
@@ -470,6 +486,46 @@ func TestHandle_VanishedMidProcessing(t *testing.T) {
 	err := h.Handle(context.Background(), makeJob(t))
 	require.NoError(t, err, "処理途中での行消失も nil 返却で succeeded に倒すべき")
 	assert.Equal(t, 1, store.insertCalls)
+}
+
+// TestOnDead_CallsMarkFailedWithClassifiedReason: lastErr から
+// classifyFailureReason で導いたタグ付きで MarkFailed が呼ばれることを pin。
+func TestOnDead_CallsMarkFailedWithClassifiedReason(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeStore{}
+	h := newHandlerForTest(store, &fakeGenerator{}, &fakeSandbox{}, &fakeJudge{})
+
+	j := makeJob(t)
+	lastErr := fmt.Errorf("%w: %w: judge below", ErrInvalidProblem, ErrJudgeBelowThreshold)
+	h.OnDead(context.Background(), j, lastErr)
+
+	assert.Equal(t, 1, store.markFailedCalls)
+	assert.Equal(t, "judge_below_threshold", store.lastMarkedReason)
+}
+
+// TestOnDead_VanishedSwallowsAsInfo: MarkFailed が ErrGenerationRequestVanished を
+// 返した場合（dead 確定後に行が消えていた race）に WARN を出さず INFO で
+// 飲み込むことを pin する（issue #83）。
+//
+// OnDead は戻り値が無いため、副作用ベースで確認する：
+//   - markFailedCalls=1（呼ばれたこと）
+//   - panic / 例外が無いこと（vanished 分岐を通る）
+//
+// 戻り値ベースの assert ができないため、ログレベル切替の挙動は本テスト後の
+// 手動 grep / 統合観測（pre-push hook の lefthook 出力 等）で確認する。
+func TestOnDead_VanishedSwallowsAsInfo(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeStore{
+		markFailedErr: fmt.Errorf("%w: id=foo", ErrGenerationRequestVanished),
+	}
+	h := newHandlerForTest(store, &fakeGenerator{}, &fakeSandbox{}, &fakeJudge{})
+
+	require.NotPanics(t, func() {
+		h.OnDead(context.Background(), makeJob(t), errors.New("any handler err"))
+	})
+	assert.Equal(t, 1, store.markFailedCalls)
 }
 
 // TestHandle_HappyPath: 全 step 成功時に Insert が 1 回呼ばれて nil 返却。

@@ -165,6 +165,14 @@ UPDATE generation_requests
 	return nil
 }
 
+// MarkFailed: generationStore interface 実装。dead 確定時の
+// generation_requests を failed に遷移する。OnDead からのみ呼ばれる。
+// 行が物理削除されていた場合は ErrGenerationRequestVanished を wrap して
+// 返し、OnDead 側で INFO 扱いに倒せるようにする（issue #83）。
+func (s *pgGenerationStore) MarkFailed(ctx context.Context, requestID uuid.UUID, reason string) error {
+	return markGenerationRequestFailed(ctx, s.pool, requestID, reason)
+}
+
 // InsertProblemAndCompleteRequest: generationStore interface 実装。
 // problems INSERT と generation_requests UPDATE を 1 tx に閉じる
 // (ADR 0046 冪等性契約)。失敗時は WithTx が自動 rollback するため、
