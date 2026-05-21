@@ -118,13 +118,16 @@ func TestMarkGenerationRequestCompleted_SetsStatusAndProblemID(t *testing.T) {
 	assert.Equal(t, created.ID, *producedProblemID)
 }
 
-func TestMarkGenerationRequestCompleted_NotFoundReturnsError(t *testing.T) {
+func TestMarkGenerationRequestCompleted_VanishedReturnsSentinel(t *testing.T) {
 	pool := testsupport.StartPostgres(t)
 	ctx := context.Background()
 
 	err := markGenerationRequestCompleted(ctx, pool, uuid.New(), uuid.New())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	// issue #83: 行不在は ErrGenerationRequestVanished sentinel に統一。
+	//   handler 側で errors.Is で識別して INFO + nil 返却に倒すため、
+	//   文字列マッチではなく sentinel チェックで pin する。
+	assert.ErrorIs(t, err, ErrGenerationRequestVanished)
 }
 
 func TestMarkGenerationRequestFailed_SetsStatusFailed(t *testing.T) {
@@ -152,13 +155,14 @@ func TestMarkGenerationRequestFailed_SetsStatusFailed(t *testing.T) {
 	assert.NotNil(t, completedAt)
 }
 
-func TestMarkGenerationRequestFailed_NotFoundReturnsError(t *testing.T) {
+func TestMarkGenerationRequestFailed_VanishedReturnsSentinel(t *testing.T) {
 	pool := testsupport.StartPostgres(t)
 	ctx := context.Background()
 
 	err := markGenerationRequestFailed(ctx, pool, uuid.New(), "test_reason")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	// issue #83: 行不在は ErrGenerationRequestVanished sentinel に統一。
+	assert.ErrorIs(t, err, ErrGenerationRequestVanished)
 }
 
 // ----------------------------------------------------------------------------

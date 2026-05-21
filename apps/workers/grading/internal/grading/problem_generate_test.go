@@ -186,7 +186,10 @@ func TestClassifyFailureReason(t *testing.T) {
 // fakeStore: generationStore を in-memory で実装する。
 // 既存 status と Insert 結果を仕込めるようにする。
 type fakeStore struct {
-	// selectStatus: SelectStatus が返す値。default は ErrNoRows (= 初回処理扱い)。
+	// selectStatus: SelectStatus が返す値。default は "pending"
+	//   （= 行存在 / 初回処理待ち、本処理に進むケース）。
+	//   "completed" / "failed" を入れると冪等性ガードで短絡。
+	//   行不在（vanished、issue #83）を模擬したい時は selectErr に pgx.ErrNoRows を入れる。
 	selectStatus       string
 	selectProducedID   *uuid.UUID
 	selectErr          error
@@ -207,11 +210,12 @@ func (s *fakeStore) SelectStatus(_ context.Context, _ uuid.UUID) (string, *uuid.
 	if s.selectErr != nil {
 		return "", nil, s.selectErr
 	}
-	if s.selectStatus == "" {
-		// default: 行が無い扱い (handler は ErrNoRows を pending 同等として扱う)
-		return "", nil, pgx.ErrNoRows
+	status := s.selectStatus
+	if status == "" {
+		// default: 行ありで pending（本処理に進む典型ケース）。
+		status = "pending"
 	}
-	return s.selectStatus, s.selectProducedID, nil
+	return status, s.selectProducedID, nil
 }
 
 func (s *fakeStore) InsertProblemAndCompleteRequest(_ context.Context, _ *ProblemDraft, category, _ string, _ JudgeScoresPayload, requestID uuid.UUID) (*CreatedProblem, error) {
@@ -421,6 +425,51 @@ func TestHandle_IdempotencyShortCircuit(t *testing.T) {
 	assert.Equal(t, 0, sb.calls, "sandbox は呼ばれてはいけない")
 	assert.Equal(t, 0, jd.calls, "judge は呼ばれてはいけない")
 	assert.Equal(t, 0, store.insertCalls, "insert は呼ばれてはいけない")
+}
+
+// TestHandle_VanishedAtEntry: 冒頭の SelectStatus が pgx.ErrNoRows を返す
+// （= generation_requests 行が物理削除済み、E2E /_test/reset レース等）場合、
+// LLM / sandbox / judge / Insert を一切呼ばずに nil 返却して MarkSucceeded に
+// 倒すことを pin する（issue #83）。
+func TestHandle_VanishedAtEntry(t *testing.T) {
+	t.Parallel()
+
+	// 行不在を明示的に模擬（pgx.ErrNoRows）。
+	store := &fakeStore{selectErr: pgx.ErrNoRows}
+	gen, sb, jd := &fakeGenerator{}, &fakeSandbox{}, &fakeJudge{}
+	h := newHandlerForTest(store, gen, sb, jd)
+
+	err := h.Handle(context.Background(), makeJob(t))
+	require.NoError(t, err, "行不在は正常イベント扱いで nil 返却すべき")
+	assert.Equal(t, 1, store.selectCalls)
+	assert.Equal(t, 0, gen.calls, "行不在なら LLM を呼んではいけない")
+	assert.Equal(t, 0, sb.calls)
+	assert.Equal(t, 0, jd.calls)
+	assert.Equal(t, 0, store.insertCalls)
+}
+
+// TestHandle_VanishedMidProcessing: LLM / sandbox / judge 通過後の
+// InsertProblemAndCompleteRequest が ErrGenerationRequestVanished を返す場合
+// （= 処理途中で行が削除された、稀な race）も nil 返却で MarkSucceeded に
+// 倒すことを pin する。LLM コストは既に発生するが、orchestrator の WARN を
+// 出さない方針（issue #83）。
+func TestHandle_VanishedMidProcessing(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeStore{
+		// SelectStatus は pending を返す（行存在、handler は本処理に進む）。
+		selectStatus: "pending",
+		// InsertProblemAndCompleteRequest が呼ばれた時点で行が消えていた状況を模擬。
+		insertErr: fmt.Errorf("%w: id=foo", ErrGenerationRequestVanished),
+	}
+	gen := &fakeGenerator{draft: validDraft()}
+	sb := &fakeSandbox{result: &sandbox.Result{ExitCode: 0, Stdout: validVitestStdout}}
+	jd := &fakeJudge{result: validJudgeResult()}
+	h := newHandlerForTest(store, gen, sb, jd)
+
+	err := h.Handle(context.Background(), makeJob(t))
+	require.NoError(t, err, "処理途中での行消失も nil 返却で succeeded に倒すべき")
+	assert.Equal(t, 1, store.insertCalls)
 }
 
 // TestHandle_HappyPath: 全 step 成功時に Insert が 1 回呼ばれて nil 返却。
