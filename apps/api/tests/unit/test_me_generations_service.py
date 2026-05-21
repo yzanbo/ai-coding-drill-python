@@ -85,6 +85,7 @@ class TestListHistory:
         mock_repo.list_for_user.return_value = []
         mock_repo.count_for_user.return_value = 0
         mock_repo.fetch_prompt_versions.return_value = {}
+        mock_repo.fetch_attempt_errors.return_value = {}
         mock_repo.compute_retry_depths.return_value = {}
 
         res = await service.list_history(user_id=uuid.uuid4(), page=1)
@@ -102,6 +103,7 @@ class TestListHistory:
         mock_repo.count_for_user.return_value = 2
         mock_repo.fetch_prompt_versions.return_value = {gr1.id: "v1", gr2.id: None}
         mock_repo.compute_retry_depths.return_value = {gr1.id: 0, gr2.id: 2}
+        mock_repo.fetch_attempt_errors.return_value = {gr2.id: []}
 
         res = await service.list_history(user_id=uuid.uuid4(), page=1)
 
@@ -128,6 +130,7 @@ class TestListHistory:
         mock_repo.list_for_user.return_value = [gr]
         mock_repo.count_for_user.return_value = 1
         mock_repo.fetch_prompt_versions.return_value = {gr.id: None}
+        mock_repo.fetch_attempt_errors.return_value = {gr.id: []}
         mock_repo.compute_retry_depths.return_value = {gr.id: 0}
 
         res = await service.list_history(user_id=uuid.uuid4(), page=1)
@@ -140,6 +143,7 @@ class TestListHistory:
         mock_repo.list_for_user.return_value = []
         mock_repo.count_for_user.return_value = 25
         mock_repo.fetch_prompt_versions.return_value = {}
+        mock_repo.fetch_attempt_errors.return_value = {}
         mock_repo.compute_retry_depths.return_value = {}
 
         res = await service.list_history(user_id=uuid.uuid4(), page=1)

@@ -105,6 +105,48 @@ class MeGenerationsRepository:
             out[key] = row.prompt_version
         return out
 
+    async def fetch_attempt_errors(
+        self,
+        *,
+        generation_request_ids: list[UUID],
+    ) -> dict[UUID, list[dict]]:
+        """対応する jobs.attempt_errors JSONB array を取得する（failed 行の試行ごと
+        エラー履歴表示用）。
+
+        - fetch_prompt_versions と同じパターンで JOIN 取得（DISTINCT ON で最新 jobs.id）
+        - jobs が TTL で消えていれば空配列
+        - Service 側で AttemptError に整形して status=='failed' の行だけに詰める
+        - 戻り値の型は list[dict]（生の JSONB）。Pydantic 整形は Service 側で行う
+          ことで Repository を ORM オブジェクト返却に近い責務（ADR 0044）に保つ
+        """
+        if not generation_request_ids:
+            return {}
+
+        id_strs = [str(i) for i in generation_request_ids]
+        gr_id_expr = Job.payload["generationRequestId"].astext
+        stmt = (
+            select(
+                gr_id_expr.label("gr_id"),
+                Job.attempt_errors.label("attempt_errors"),
+            )
+            .where(
+                Job.type == "problem.generate",
+                gr_id_expr.in_(id_strs),
+            )
+            .order_by(gr_id_expr, desc(Job.id))
+            .distinct(gr_id_expr)
+        )
+        result = await self.session.execute(stmt)
+        out: dict[UUID, list[dict]] = {gid: [] for gid in generation_request_ids}
+        for row in result.all():
+            try:
+                key = UUID(row.gr_id)
+            except (ValueError, TypeError):
+                continue
+            # JSONB は SQLAlchemy が Python list/dict にして返す。
+            out[key] = row.attempt_errors or []
+        return out
+
     async def cancel_pending(
         self,
         *,

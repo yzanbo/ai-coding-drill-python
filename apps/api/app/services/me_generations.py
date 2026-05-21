@@ -25,6 +25,7 @@ from app.core.exceptions import (
 from app.repositories.me_generations import MeGenerationsRepository
 from app.schemas.me_generations import (
     ME_GENERATIONS_PAGE_SIZE,
+    AttemptError,
     FailureReasonTag,
     GenerationRequestCancelResponse,
     GenerationRequestRetryResponse,
@@ -50,7 +51,11 @@ _KNOWN_FAILURE_REASONS: frozenset[str] = frozenset(
         "llm_cost_exceeded",
         "judge_below_threshold",
         "sandbox_failed",
+        "sandbox_infrastructure",
         "llm_invalid_output",
+        "llm_rate_limit",
+        "llm_timeout",
+        "llm_schema_invalid",
         "max_attempts_exceeded",
     ]
 )
@@ -96,6 +101,26 @@ def _coerce_progress_step(raw: str | None) -> ProgressStep | None:
     return None
 
 
+def _coerce_attempt_errors(raw: list[dict] | None) -> list[AttemptError]:
+    """jobs.attempt_errors JSONB array を AttemptError のリストに整形する。
+
+    Worker が書く構造は camelCase {attempt, failureReason, message, failedAt} だが、
+    Pydantic の populate_by_name + alias_generator=to_camel が両対応するので
+    そのまま model_validate に渡せる。想定外値（旧データ / 手動修正）が混じった
+    要素は ValidationError で 1 件単位で skip し、他の要素は残す
+    （全体を 500 にしたくない、UI 側で見える範囲を最大化する方針）。
+    """
+    if not raw:
+        return []
+    out: list[AttemptError] = []
+    for elem in raw:
+        try:
+            out.append(AttemptError.model_validate(elem))
+        except Exception:  # noqa: BLE001 - 1 要素の不正で全体を落とさない
+            logger.warning("Skipping malformed attempt_error element: %r", elem)
+    return out
+
+
 class MeGenerationsService:
     """問題生成履歴 + キャンセル / 再試行のサービス。
 
@@ -135,6 +160,13 @@ class MeGenerationsService:
             user_id=user_id,
             request_ids=ids,
         )
+        # attempt_errors: failed 行のデバッグ詳細表示用に JOIN 取得（R1-7-3）。
+        #   failed 以外の行は本フェッチで取得しても Service 側で空配列に倒すため
+        #   実害は無いが、ids を絞ると無駄な JOIN を減らせる。
+        failed_ids = [r.id for r in rows if r.status == "failed"]
+        attempt_errors_by_id = await self.repo.fetch_attempt_errors(
+            generation_request_ids=failed_ids,
+        )
 
         items = [
             GenerationRequestSummary(
@@ -158,6 +190,12 @@ class MeGenerationsService:
                 #   None に倒す（ステップ表示は pending 中だけの関心）。
                 progress_step=(
                     _coerce_progress_step(r.progress_step) if r.status == "pending" else None
+                ),
+                # attempt_errors: failed 行のみ各試行のエラー履歴を返す。
+                attempt_errors=(
+                    _coerce_attempt_errors(attempt_errors_by_id.get(r.id))
+                    if r.status == "failed"
+                    else []
                 ),
                 created_at=r.created_at,
                 completed_at=r.completed_at,

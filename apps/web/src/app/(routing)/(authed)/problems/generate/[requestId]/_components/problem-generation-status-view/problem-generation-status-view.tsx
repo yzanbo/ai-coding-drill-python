@@ -12,6 +12,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+import { AttemptErrorList } from "@/components/parts/attempt-error-list/attempt-error-list";
 import { GenerationProgress } from "@/components/parts/generation-progress/generation-progress";
 import { LiveDuration } from "@/components/parts/live-duration/live-duration";
 import { Button } from "@/components/ui/button/button";
@@ -68,18 +69,23 @@ export const ProblemGenerationStatusView = ({ requestId }: ProblemGenerationStat
 
   if (status?.status === "failed") {
     return (
-      <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-12 text-center">
-        <p className="text-base font-semibold">生成に失敗しました</p>
-        <p className="text-sm text-muted-foreground">
+      <div className="mx-auto flex max-w-md flex-col gap-3 py-12">
+        <p className="text-center text-base font-semibold">生成に失敗しました</p>
+        <p className="text-center text-sm text-muted-foreground">
           条件を変えるかしばらく時間を置いて、もう一度お試しください。
         </p>
         {status.createdAt ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-center text-xs text-muted-foreground">
             開始: {formatDate(status.createdAt)} ／ 所要{" "}
             <LiveDuration createdAt={status.createdAt} completedAt={status.completedAt} />
           </p>
         ) : null}
-        <Button onClick={() => router.replace("/problems/new")}>もう一度生成する</Button>
+        {/* 試行ごとのエラー履歴を折りたたみで提示。max_attempts_exceeded でも
+            「3 回中、どの試行でどのカテゴリの error が起きたか」が分かる。 */}
+        <AttemptErrorList attemptErrors={status.attemptErrors ?? []} />
+        <div className="text-center">
+          <Button onClick={() => router.replace("/problems/new")}>もう一度生成する</Button>
+        </div>
       </div>
     );
   }

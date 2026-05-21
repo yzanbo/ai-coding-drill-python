@@ -48,9 +48,14 @@ class ProblemGenerationService:
     """
 
     def __init__(self, db_session: AsyncSession) -> None:
+        # me_repo は failed 行の attempt_errors JSONB をフェッチするためだけに
+        # 持つ（生成履歴ドメインの repository を一部間借りする形）。
+        from app.repositories.me_generations import MeGenerationsRepository
+
         self.db_session = db_session
         self.requests = GenerationRequestRepository(db_session)
         self.jobs = JobRepository(db_session)
+        self.me_repo = MeGenerationsRepository(db_session)
 
     async def enqueue_generation(
         self,
@@ -164,13 +169,21 @@ class ProblemGenerationService:
             )
             raise
 
-        # progress_step / failure_reason: pending と failed それぞれの時だけ詰める。
-        #   生 string を返す前に MeGenerationsService と同じ防御線
-        #   (_coerce_progress_step / _coerce_failure_reason) を通す。
+        # progress_step / failure_reason / attempt_errors:
+        #   生 string / list[dict] を返す前に MeGenerationsService と同じ防御線
+        #   (_coerce_progress_step / _coerce_failure_reason / _coerce_attempt_errors)
+        #   を通す。
         from app.services.me_generations import (
+            _coerce_attempt_errors,
             _coerce_failure_reason,
             _coerce_progress_step,
         )
+
+        # attempt_errors は failed 時のみフェッチ（無駄な JOIN を避ける）。
+        attempt_errors = []
+        if status is GenerationStatus.FAILED:
+            raw = await self.me_repo.fetch_attempt_errors(generation_request_ids=[gr.id])
+            attempt_errors = _coerce_attempt_errors(raw.get(gr.id))
 
         return ProblemGenerateStatusResponse(
             request_id=gr.id,
@@ -186,6 +199,7 @@ class ProblemGenerationService:
                 if status is GenerationStatus.FAILED
                 else None
             ),
+            attempt_errors=attempt_errors,
             created_at=gr.created_at,
             completed_at=gr.completed_at,
         )

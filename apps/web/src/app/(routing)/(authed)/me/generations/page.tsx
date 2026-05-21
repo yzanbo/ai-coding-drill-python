@@ -17,6 +17,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
 import type { GenerationRequestSummary } from "@/__generated__/api/types.gen";
+import { AttemptErrorList } from "@/components/parts/attempt-error-list/attempt-error-list";
 import { GenerationProgress } from "@/components/parts/generation-progress/generation-progress";
 import { LiveDuration } from "@/components/parts/live-duration/live-duration";
 import { StatusBadge, type StatusTone } from "@/components/parts/status-badge/status-badge";
@@ -55,7 +56,12 @@ const FAILURE_MESSAGES: Record<NonNullable<GenerationRequestSummary["failureReas
   judge_below_threshold:
     "品質チェックを通過する問題を生成できませんでした。もう一度お試しください。",
   sandbox_failed: "生成された問題の動作検証に失敗しました。もう一度お試しください。",
+  sandbox_infrastructure:
+    "コード実行環境に一時的な問題が発生しました。しばらく時間を置いてお試しください。",
   llm_invalid_output: "AI の応答形式が想定外でした。もう一度お試しください。",
+  llm_rate_limit: "AI へのリクエストが集中しています。しばらく時間を置いてお試しください。",
+  llm_timeout: "AI 応答がタイムアウトしました。もう一度お試しください。",
+  llm_schema_invalid: "AI 応答の形式チェックに連続で失敗しました。もう一度お試しください。",
   max_attempts_exceeded: "問題を生成できませんでした。もう一度お試しください。",
 };
 const FAILURE_MESSAGE_FALLBACK = FAILURE_MESSAGES.max_attempts_exceeded;
@@ -213,10 +219,15 @@ const GenerationRow = ({
             <LiveDuration createdAt={item.createdAt} completedAt={item.completedAt} />
           </span>
           {item.status === "failed" ? (
-            <span className="text-xs text-destructive">
-              失敗理由:{" "}
-              {item.failureReason ? FAILURE_MESSAGES[item.failureReason] : FAILURE_MESSAGE_FALLBACK}
-            </span>
+            <>
+              <span className="text-xs text-destructive">
+                失敗理由:{" "}
+                {item.failureReason
+                  ? FAILURE_MESSAGES[item.failureReason]
+                  : FAILURE_MESSAGE_FALLBACK}
+              </span>
+              <AttemptErrorList attemptErrors={item.attemptErrors ?? []} />
+            </>
           ) : null}
           {item.status === "pending" ? (
             <GenerationProgress currentStep={item.progressStep} variant="compact" />

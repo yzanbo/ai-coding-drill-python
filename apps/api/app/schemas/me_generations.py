@@ -35,7 +35,11 @@ FailureReasonTag = Literal[
     "llm_cost_exceeded",
     "judge_below_threshold",
     "sandbox_failed",
+    "sandbox_infrastructure",
     "llm_invalid_output",
+    "llm_rate_limit",
+    "llm_timeout",
+    "llm_schema_invalid",
     "max_attempts_exceeded",
 ]
 
@@ -60,6 +64,7 @@ ProgressStep = Literal[
     "persisting",
 ]
 
+
 # ME_GENERATIONS_PAGE_SIZE: 履歴 1 ページあたりの行数。
 #   要件 .md にはサイズ指定が無いため、解答履歴 (/me/history) と同じ 20 に揃える。
 ME_GENERATIONS_PAGE_SIZE = 20
@@ -74,6 +79,23 @@ class _CamelModel(BaseModel):
         populate_by_name=True,
         serialize_by_alias=True,
     )
+
+
+# AttemptError: Worker が 1 回の試行（MarkFailed / MarkDead）ごとに jobs.attempt_errors
+# JSONB array に append する 1 要素。failureReason は単一試行に対する classifyFailureReason
+# の出力で、最終的な generation_requests.failure_reason と意味は同じ enum を再利用する。
+class AttemptError(_CamelModel):
+    """1 回分の試行エラー（jobs.attempt_errors の 1 要素）。"""
+
+    # attempt: jobs.attempts と同じ値（1, 2, 3...）。MarkDead 経路（即 dead）では
+    #   Worker が attempt=0 を入れるため min は 0 まで許容する。
+    attempt: int = Field(ge=0)
+    # failure_reason: その回の error から classifyFailureReason で分類したタグ。
+    failure_reason: FailureReasonTag
+    # message: 生のエラー文字列（Worker 側で長さ上限 1000 文字に truncate 済）。
+    message: str
+    # failed_at: その試行が失敗した時刻（jobs.MarkFailed/MarkDead 呼び出し時の NOW()）。
+    failed_at: datetime
 
 
 # GenerationRequestSummary: 履歴 1 行分の表示用サマリ。
@@ -112,6 +134,13 @@ class GenerationRequestSummary(_CamelModel):
     #   Service 側で status=='pending' の時だけ詰める（completed/failed/canceled では
     #   ステップ列が残っていても返さない）。
     progress_step: ProgressStep | None = None
+    # attempt_errors: failed 行のみ、全 MaxAttempts 回の試行ごとのエラー履歴を返す。
+    #   Worker が jobs.MarkFailed / MarkDead で append した JSONB array を読み出す。
+    #   「3 回試行のうち何が起きたか」が分かり、「全部 rate_limit」「初回 sandbox、
+    #   2 回目 judge 不合格」等のパターン特定が DB / UI から可能になる。
+    #   本人のリクエストしか取得経路が無い（user_id 一致 WHERE 完備）ため、内部詳細の
+    #   漏洩懸念は構造的に解消されている。jobs が TTL で消えていれば空配列。
+    attempt_errors: list[AttemptError] = Field(default_factory=list)
     created_at: datetime
     completed_at: datetime | None = None
 

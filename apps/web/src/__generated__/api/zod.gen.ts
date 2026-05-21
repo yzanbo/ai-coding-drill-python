@@ -3,6 +3,29 @@
 import * as z from 'zod';
 
 /**
+ * AttemptError
+ *
+ * 1 回分の試行エラー（jobs.attempt_errors の 1 要素）。
+ */
+export const zAttemptError = z.object({
+    attempt: z.int().gte(0),
+    failedAt: z.iso.datetime(),
+    failureReason: z.enum([
+        'llm_unauthorized',
+        'llm_cost_exceeded',
+        'judge_below_threshold',
+        'sandbox_failed',
+        'sandbox_infrastructure',
+        'llm_invalid_output',
+        'llm_rate_limit',
+        'llm_timeout',
+        'llm_schema_invalid',
+        'max_attempts_exceeded'
+    ]),
+    message: z.string()
+});
+
+/**
  * GenerationRequestCancelResponse
  *
  * キャンセル後の最終状態。
@@ -29,6 +52,7 @@ export const zGenerationRequestRetryResponse = z.object({
  * 生成リクエスト履歴の 1 行分。
  */
 export const zGenerationRequestSummary = z.object({
+    attemptErrors: z.array(zAttemptError).optional(),
     category: z.string(),
     completedAt: z.iso.datetime().nullish(),
     createdAt: z.iso.datetime(),
@@ -38,7 +62,11 @@ export const zGenerationRequestSummary = z.object({
         'llm_cost_exceeded',
         'judge_below_threshold',
         'sandbox_failed',
+        'sandbox_infrastructure',
         'llm_invalid_output',
+        'llm_rate_limit',
+        'llm_timeout',
+        'llm_schema_invalid',
         'max_attempts_exceeded'
     ]).nullish(),
     id: z.uuid(),
@@ -207,6 +235,7 @@ export const zProblemGenerateRequest = z.object({
  * 生成リクエストの現在ステータス。completed の時のみ problemId を含む。
  */
 export const zProblemGenerateStatusResponse = z.object({
+    attemptErrors: z.array(zAttemptError).optional().default([]),
     completedAt: z.iso.datetime().nullish(),
     createdAt: z.iso.datetime().nullish(),
     failureReason: z.enum([
@@ -214,7 +243,11 @@ export const zProblemGenerateStatusResponse = z.object({
         'llm_cost_exceeded',
         'judge_below_threshold',
         'sandbox_failed',
+        'sandbox_infrastructure',
         'llm_invalid_output',
+        'llm_rate_limit',
+        'llm_timeout',
+        'llm_schema_invalid',
         'max_attempts_exceeded'
     ]).nullish(),
     problemId: z.uuid().nullish(),

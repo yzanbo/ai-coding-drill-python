@@ -21,7 +21,7 @@ from pydantic.alias_generators import to_camel
 # 生成ステータス画面で使う enum を履歴側 schema から再利用する。
 #   FailureReasonTag / ProgressStep は schemas/me_generations.py が SSoT
 #   （Worker classifyFailureReason / progress_step UPDATE と 1:1 対応）。
-from app.schemas.me_generations import FailureReasonTag, ProgressStep
+from app.schemas.me_generations import AttemptError, FailureReasonTag, ProgressStep
 
 
 # ProblemCategory: 問題のカテゴリ。
@@ -106,6 +106,10 @@ class ProblemGenerateStatusResponse(_CamelModel):
     # failure_reason: failed 行のみ enum 値を返す。同じく schemas/me_generations.py
     #   の FailureReasonTag を再利用する（情報漏洩懸念は固定 enum で構造的に解消済み）。
     failure_reason: FailureReasonTag | None = None
+    # attempt_errors: failed 行のみ、全試行のエラー履歴を返す（本人のリクエスト
+    #   へのデバッグ詳細）。詳細は schemas/me_generations.py
+    #   GenerationRequestSummary.attempt_errors 参照。
+    attempt_errors: list[AttemptError] = []
     # created_at / completed_at: 開始時刻 / 終了時刻。所要時間表示に使う。
     #   pending の間は completed_at=None（FE 側で「now との差分」を出す）。
     created_at: datetime | None = None

@@ -5,6 +5,30 @@ export type ClientOptions = {
 };
 
 /**
+ * AttemptError
+ *
+ * 1 回分の試行エラー（jobs.attempt_errors の 1 要素）。
+ */
+export type AttemptError = {
+    /**
+     * Attempt
+     */
+    attempt: number;
+    /**
+     * Failedat
+     */
+    failedAt: string;
+    /**
+     * Failurereason
+     */
+    failureReason: 'llm_unauthorized' | 'llm_cost_exceeded' | 'judge_below_threshold' | 'sandbox_failed' | 'sandbox_infrastructure' | 'llm_invalid_output' | 'llm_rate_limit' | 'llm_timeout' | 'llm_schema_invalid' | 'max_attempts_exceeded';
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
  * GenerationRequestCancelResponse
  *
  * キャンセル後の最終状態。
@@ -47,6 +71,10 @@ export type GenerationRequestRetryResponse = {
  */
 export type GenerationRequestSummary = {
     /**
+     * Attempterrors
+     */
+    attemptErrors?: Array<AttemptError>;
+    /**
      * Category
      */
     category: string;
@@ -65,7 +93,7 @@ export type GenerationRequestSummary = {
     /**
      * Failurereason
      */
-    failureReason?: 'llm_unauthorized' | 'llm_cost_exceeded' | 'judge_below_threshold' | 'sandbox_failed' | 'llm_invalid_output' | 'max_attempts_exceeded' | null;
+    failureReason?: 'llm_unauthorized' | 'llm_cost_exceeded' | 'judge_below_threshold' | 'sandbox_failed' | 'sandbox_infrastructure' | 'llm_invalid_output' | 'llm_rate_limit' | 'llm_timeout' | 'llm_schema_invalid' | 'max_attempts_exceeded' | null;
     /**
      * Id
      */
@@ -321,6 +349,10 @@ export type ProblemGenerateRequest = {
  */
 export type ProblemGenerateStatusResponse = {
     /**
+     * Attempterrors
+     */
+    attemptErrors?: Array<AttemptError>;
+    /**
      * Completedat
      */
     completedAt?: string | null;
@@ -331,7 +363,7 @@ export type ProblemGenerateStatusResponse = {
     /**
      * Failurereason
      */
-    failureReason?: 'llm_unauthorized' | 'llm_cost_exceeded' | 'judge_below_threshold' | 'sandbox_failed' | 'llm_invalid_output' | 'max_attempts_exceeded' | null;
+    failureReason?: 'llm_unauthorized' | 'llm_cost_exceeded' | 'judge_below_threshold' | 'sandbox_failed' | 'sandbox_infrastructure' | 'llm_invalid_output' | 'llm_rate_limit' | 'llm_timeout' | 'llm_schema_invalid' | 'max_attempts_exceeded' | null;
     /**
      * Problemid
      */

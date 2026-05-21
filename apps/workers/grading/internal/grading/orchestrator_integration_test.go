@@ -59,6 +59,12 @@ func (f *fakeJobHandler) OnDead(_ context.Context, _ *job.Job, _ error) {
 	f.onDeadCalls++
 }
 
+// ClassifyFailureReason: テストでは attempt_errors の中身までは検証しないため、
+// 固定タグを返すだけにする（orchestrator の interface 充足が目的）。
+func (f *fakeJobHandler) ClassifyFailureReason(_ error) string {
+	return "test_fake"
+}
+
 // insertGenerationJob: jobs テーブルに problem.generate ジョブを 1 行 INSERT。
 // state='queued' / run_at は過去 (= claim 可能) / payload は最小有効値。
 // FK 制約 (generation_requests.user_id → users.id) のため users も先に作る。

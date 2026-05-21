@@ -1,6 +1,49 @@
 {
   "components": {
     "schemas": {
+      "AttemptError": {
+        "description": "1 回分の試行エラー（jobs.attempt_errors の 1 要素）。",
+        "properties": {
+          "attempt": {
+            "minimum": 0.0,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "failedAt": {
+            "format": "date-time",
+            "title": "Failedat",
+            "type": "string"
+          },
+          "failureReason": {
+            "enum": [
+              "llm_unauthorized",
+              "llm_cost_exceeded",
+              "judge_below_threshold",
+              "sandbox_failed",
+              "sandbox_infrastructure",
+              "llm_invalid_output",
+              "llm_rate_limit",
+              "llm_timeout",
+              "llm_schema_invalid",
+              "max_attempts_exceeded"
+            ],
+            "title": "Failurereason",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt",
+          "failureReason",
+          "message",
+          "failedAt"
+        ],
+        "title": "AttemptError",
+        "type": "object"
+      },
       "GenerationRequestCancelResponse": {
         "description": "キャンセル後の最終状態。",
         "properties": {
@@ -52,6 +95,13 @@
       "GenerationRequestSummary": {
         "description": "生成リクエスト履歴の 1 行分。",
         "properties": {
+          "attemptErrors": {
+            "items": {
+              "$ref": "#/components/schemas/AttemptError"
+            },
+            "title": "Attempterrors",
+            "type": "array"
+          },
           "category": {
             "title": "Category",
             "type": "string"
@@ -85,7 +135,11 @@
                   "llm_cost_exceeded",
                   "judge_below_threshold",
                   "sandbox_failed",
+                  "sandbox_infrastructure",
                   "llm_invalid_output",
+                  "llm_rate_limit",
+                  "llm_timeout",
+                  "llm_schema_invalid",
                   "max_attempts_exceeded"
                 ],
                 "type": "string"
@@ -497,6 +551,14 @@
       "ProblemGenerateStatusResponse": {
         "description": "生成リクエストの現在ステータス。completed の時のみ problemId を含む。",
         "properties": {
+          "attemptErrors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AttemptError"
+            },
+            "title": "Attempterrors",
+            "type": "array"
+          },
           "completedAt": {
             "anyOf": [
               {
@@ -529,7 +591,11 @@
                   "llm_cost_exceeded",
                   "judge_below_threshold",
                   "sandbox_failed",
+                  "sandbox_infrastructure",
                   "llm_invalid_output",
+                  "llm_rate_limit",
+                  "llm_timeout",
+                  "llm_schema_invalid",
                   "max_attempts_exceeded"
                 ],
                 "type": "string"

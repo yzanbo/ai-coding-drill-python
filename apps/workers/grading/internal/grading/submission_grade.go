@@ -56,6 +56,13 @@ func (h *submissionGradeHandler) Type() string {
 	return job.TypeSubmissionGrade
 }
 
+// ClassifyFailureReason: jobHandler 実装。採点側は attempt 単位の分類器を持たない
+// ため空文字を返す（job.MarkFailed/MarkDead 側で "unclassified" にフォールバック）。
+// 採点 attempt_errors は UI でユーザーに見せる用途を当面持たないため最小実装。
+func (h *submissionGradeHandler) ClassifyFailureReason(_ error) string {
+	return ""
+}
+
 // OnDead: ジョブが dead 確定した時の後処理。
 //
 // jobs テーブル側は orchestrator が既に MarkDead 済み。本関数では submissions を

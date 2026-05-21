@@ -146,13 +146,28 @@ func TestClassifyFailureReason(t *testing.T) {
 			want: "llm_invalid_output",
 		},
 		{
-			name: "具体 sentinel 無し（LLM 一過性エラー累積）は max_attempts_exceeded",
+			name: "llm.ErrRateLimit (transient 累積) は llm_rate_limit に分類",
 			in:   fmt.Errorf("%w: transient external error: %w", ErrInvalidProblem, llm.ErrRateLimit),
-			want: "max_attempts_exceeded",
+			want: "llm_rate_limit",
 		},
 		{
-			name: "Docker daemon hang 由来の bare error も max_attempts_exceeded",
-			in:   errors.New("sandbox: docker daemon connection refused"),
+			name: "llm.ErrTimeout (transient 累積) は llm_timeout に分類",
+			in:   fmt.Errorf("%w: transient external error: %w", ErrInvalidProblem, llm.ErrTimeout),
+			want: "llm_timeout",
+		},
+		{
+			name: "llm.ErrInvalidSchema (transient 累積) は llm_schema_invalid に分類",
+			in:   fmt.Errorf("%w: transient external error: %w", ErrInvalidProblem, llm.ErrInvalidSchema),
+			want: "llm_schema_invalid",
+		},
+		{
+			name: "ErrSandboxInfra (Docker daemon / image 不在) は sandbox_infrastructure に分類",
+			in:   fmt.Errorf("%w: transient external error: %w", ErrInvalidProblem, fmt.Errorf("%w: %w", ErrSandboxInfra, errors.New("docker daemon connection refused"))),
+			want: "sandbox_infrastructure",
+		},
+		{
+			name: "真に未知の bare error は max_attempts_exceeded fallback",
+			in:   errors.New("something unexpected happened"),
 			want: "max_attempts_exceeded",
 		},
 	}

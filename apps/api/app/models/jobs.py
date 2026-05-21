@@ -78,6 +78,17 @@ class Job(Base):
     )
     locked_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     last_error: Mapped[str | None] = mapped_column(String, nullable=True)
+    # attempt_errors: 各試行のエラー履歴を JSONB array で保持（R1-7-3）。
+    #   Worker が MarkFailed / MarkDead のたびに 1 要素 append する：
+    #     {"attempt": int, "failureReason": str, "message": str, "failedAt": str}
+    #   max_attempts_exceeded の中身（rate_limit / timeout / sandbox 等）を
+    #   試行単位で追えるようにする。スキーマ詳細は schemas/me_generations.py
+    #   AttemptError 参照。NOT NULL DEFAULT '[]' で既存行は空配列に backfill 済。
+    attempt_errors: Mapped[list] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=text("'[]'::jsonb"),
+    )
     result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),

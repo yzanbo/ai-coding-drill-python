@@ -129,6 +129,13 @@ func (h *problemGenerateHandler) Type() string {
 	return job.TypeProblemGenerate
 }
 
+// ClassifyFailureReason: jobHandler 実装。本パッケージの classifyFailureReason
+// （10 タグの分類器）に委譲する。orchestrator が attempt_errors の各要素 +
+// generation_requests.failure_reason のタグ判定に使う。
+func (h *problemGenerateHandler) ClassifyFailureReason(err error) string {
+	return classifyFailureReason(err)
+}
+
 // OnDead: ジョブが dead 確定した時の後処理。
 //
 // jobs テーブル側は orchestrator が既に MarkDead 済み。本関数では
@@ -167,17 +174,25 @@ func (h *problemGenerateHandler) OnDead(ctx context.Context, j *job.Job, lastErr
 // classifyFailureReason: dead 確定の最後の error を generation_requests.failure_reason
 // に書くタグに分類する。
 //
+// 即 dead 経路：
 //   - llm.ErrUnauthorized: "llm_unauthorized" (API キー不正・権限不足)
 //   - llm.ErrCostExceeded: "llm_cost_exceeded" (1 ジョブのコスト上限超過)
-//   - ErrJudgeBelowThreshold: "judge_below_threshold" (judge スコア閾値未満が累積)
-//   - ErrSandboxFailed: "sandbox_failed" (sandbox 検証が累積で失敗)
-//   - ErrLLMInvalidOutput: "llm_invalid_output" (LLM 出力 schema 違反が累積)
-//   - 上記いずれも背負わない: "max_attempts_exceeded"
-//     (LLM 一過性エラー累積 / Docker daemon ハング 等の分類不能 fallback)
 //
-// 順序：先に LLM 系（即 dead 経路）を見て、その後に retryable 系の具体タグを見る。
-// errors.Is は最も内側まで chain を辿るため、複数 sentinel を背負った error でも
-// 1 つに分類できる。
+// retry 累積で dead に到達する経路（具体カテゴリ）：
+//   - ErrJudgeBelowThreshold: "judge_below_threshold" (judge スコア閾値未満)
+//   - ErrSandboxFailed: "sandbox_failed" (sandbox 検証で失敗：vitest 不合格 / timeout)
+//   - ErrSandboxInfra: "sandbox_infrastructure" (Docker daemon / image / コンテナ作成)
+//   - ErrLLMInvalidOutput: "llm_invalid_output" (LLM 出力 schema 違反)
+//   - llm.ErrRateLimit: "llm_rate_limit" (provider 429 が累積)
+//   - llm.ErrTimeout: "llm_timeout" (LLM 応答タイムアウトが累積)
+//   - llm.ErrInvalidSchema: "llm_schema_invalid" (provider 応答が JSON schema 違反)
+//
+// 上記いずれも背負わない fallback：
+//   - "max_attempts_exceeded" (真に未知。後段の last_error を見て調査する)
+//
+// 順序：先に「即 dead 経路」、次に「retry 累積の具体カテゴリ」（具体性が高い順）、
+// 最後に「LLM transient 種別」（classifyHandlerError で ErrInvalidProblem +
+// 元エラーが %w で 2 重 wrap されているため errors.Is で chain を辿れる）。
 func classifyFailureReason(err error) string {
 	switch {
 	case err == nil:
@@ -192,8 +207,16 @@ func classifyFailureReason(err error) string {
 		return "judge_below_threshold"
 	case errors.Is(err, ErrSandboxFailed):
 		return "sandbox_failed"
+	case errors.Is(err, ErrSandboxInfra):
+		return "sandbox_infrastructure"
 	case errors.Is(err, ErrLLMInvalidOutput):
 		return "llm_invalid_output"
+	case errors.Is(err, llm.ErrRateLimit):
+		return "llm_rate_limit"
+	case errors.Is(err, llm.ErrTimeout):
+		return "llm_timeout"
+	case errors.Is(err, llm.ErrInvalidSchema):
+		return "llm_schema_invalid"
 	default:
 		return "max_attempts_exceeded"
 	}
@@ -367,9 +390,11 @@ func (h *problemGenerateHandler) verifyInSandbox(ctx context.Context, draft *Pro
 		{Name: SpecFileName, Content: specBody},
 	}, vitestCmd)
 	if err != nil {
-		// Docker daemon の一過性ハング等は呼び出し側で transient と分類されて
-		// MaxAttempts まで retry される (classifyHandlerError で wrap)。
-		return fmt.Errorf("grading: sandbox run: %w", err)
+		// Docker daemon ハング / image 不在 / コンテナ作成失敗等は ErrSandboxInfra
+		// 経由で failure_reason="sandbox_infrastructure" に倒す。
+		// classifyHandlerError で ErrInvalidProblem も被せて retryable 化する
+		// （複数 %w で sentinel が両方残る）。
+		return fmt.Errorf("%w: %w", ErrSandboxInfra, err)
 	}
 	if res.TimedOut {
 		return fmt.Errorf("%w: %w: sandbox timed out", ErrInvalidProblem, ErrSandboxFailed)

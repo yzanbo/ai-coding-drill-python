@@ -40,6 +40,11 @@ var (
 	ErrLLMInvalidOutput    = fmt.Errorf("grading: llm output schema invalid")
 	ErrSandboxFailed       = fmt.Errorf("grading: sandbox verification failed")
 	ErrJudgeBelowThreshold = fmt.Errorf("grading: judge score below threshold")
+	// ErrSandboxInfra: sandbox 起動自体に失敗（Docker daemon 接続不可 / image
+	//   不在 / コンテナ作成失敗 等）。verifyInSandbox 内のテスト不合格
+	//   （ErrSandboxFailed）とは区別し、failure_reason="sandbox_infrastructure"
+	//   に倒すことで「Docker 環境の問題なのか問題の質の問題なのか」を切り分け可能に。
+	ErrSandboxInfra = fmt.Errorf("grading: sandbox infrastructure failure")
 )
 
 // ErrInvalidProblem: LLM 応答が ProblemDraft として parse できない or
