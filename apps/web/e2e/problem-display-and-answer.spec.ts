@@ -168,12 +168,22 @@ test.describe("一覧フィルタ", () => {
     await page.waitForURL("/problems");
     await page.goto("/problems?category=array");
 
+    // /problems はカテゴリ別アコーディオンで初期は全て閉じている。Radix の
+    //   AccordionContent は閉じている間 hidden 属性が付き Playwright の
+    //   toBeVisible では visible と判定されない。カテゴリ trigger（button role）
+    //   を開いてから問題タイトルを検査する。
+    //   フィルタ category=array が効いている時は「配列」カテゴリ枠のみ描画されるので、
+    //   「文字列の問題B」は枠ごと描画されず not.toBeVisible が成立する。
+    await page.getByRole("button", { name: /配列/ }).click();
     await expect(page.getByText("配列の問題A")).toBeVisible();
     await expect(page.getByText("文字列の問題B")).not.toBeVisible();
 
-    // フィルタクリアで両方見える状態に戻る。
+    // フィルタクリアで両カテゴリ枠が並ぶ状態に戻る。各カテゴリのアコーディオンを
+    //   開いてから中身の可視性を検査する。
     await page.getByRole("button", { name: "フィルタをクリア" }).click();
     await expect(page).toHaveURL(/\/problems$/);
+    await page.getByRole("button", { name: /配列/ }).click();
+    await page.getByRole("button", { name: /文字列/ }).click();
     await expect(page.getByText("配列の問題A")).toBeVisible();
     await expect(page.getByText("文字列の問題B")).toBeVisible();
   });
