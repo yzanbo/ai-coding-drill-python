@@ -262,15 +262,25 @@ const (
 const categoryTypePuzzle = "type-puzzle"
 
 // tscCmd: 型パズル系カテゴリ向けの型チェックコマンド (issue #79)。
-// sandbox 内で solution.ts と solution.spec.ts を tsc --noEmit にかけて
-// 型エラーの有無だけを検出する。実行ファイルは出さない (--noEmit)。
+// sandbox 内で solution.ts のみを tsc --noEmit にかけて型エラーの有無を検出する。
+// 実行ファイルは出さない (--noEmit)。
 //
-//   - --strict          : null 安全 / 暗黙 any 等の型パズルで本質的な検査を有効化
-//   - --skipLibCheck    : node_modules 配下の .d.ts のエラーで採点が壊れるのを防ぐ
-//   - --target es2022   : Node 24 (sandbox/Dockerfile) と合わせる
-//   - --module esnext   : import/export 文法を許容
-//   - --moduleResolution bundler : node_modules への解決を緩める (vitest 由来の型を拾う)
-//   - --types vitest/globals : describe/it/expect のグローバル型を有効化
+// spec.ts は対象に含めない:
+//
+//	spec.ts は `import { describe, it, expect } from "vitest"` を持つが、
+//	sandbox は /sandbox 配下に node_modules を mount しない（vitest は
+//	/usr/local/lib/node_modules にグローバル install）。tsc のモジュール解決は
+//	カレントから上に node_modules を辿るため "vitest" の解決に必ず失敗し、
+//	正しい解答でも type_error で落ちる。spec.ts は採点 harness（自動生成）であり
+//	ユーザーの提出物ではないため、型チェック対象から外すのが正しい。
+//	ユーザの solution.ts に閉じた型エラーだけが採点対象になる。
+//
+//	  - --strict          : null 安全 / 暗黙 any 等、型パズルで本質的な検査を有効化
+//	  - --skipLibCheck    : node_modules 配下の .d.ts のエラーで採点が壊れるのを防ぐ
+//	  - --target es2022   : Node 24 (sandbox/Dockerfile) と合わせる
+//	  - --module esnext   : solution.ts 内の import/export 文法を許容
+//	  - --moduleResolution bundler : solution.ts が将来 `.ts` 拡張子付き import を
+//	                                 含んだ場合に解決できるよう defensively 指定
 //
 // 終了コード 0 = 型 OK、それ以外 = 型エラー (= failureKind=type_error)。
 var tscCmd = []string{
@@ -281,9 +291,7 @@ var tscCmd = []string{
 	"--target", "es2022",
 	"--module", "esnext",
 	"--moduleResolution", "bundler",
-	"--types", "vitest/globals",
 	SolutionFileName,
-	SpecFileName,
 }
 
 // classifyTscOutcome: 型パズル系カテゴリで先行実行した tsc --noEmit の結果を解釈する。

@@ -400,6 +400,24 @@ func TestClassifyTscOutcome_TypeErrorCarriesOutput(t *testing.T) {
 	assert.Contains(t, got.TestResults[0].Message, "TS2322")
 }
 
+// TestClassifyTscOutcome_TypeErrorFallsBackToStderr:
+// tsc は通常 stdout に診断を出すが、起動失敗や引数エラーでは stderr のみに出ることが
+// ある。stdout が空のとき stderr を Message に詰めるフォールバックを pin する。
+func TestClassifyTscOutcome_TypeErrorFallsBackToStderr(t *testing.T) {
+	t.Parallel()
+	res := &sandbox.Result{
+		ExitCode: 1,
+		Stdout:   "",
+		Stderr:   "error TS5023: Unknown compiler option 'foo'.\n",
+		Duration: 100 * time.Millisecond,
+	}
+	got := classifyTscOutcome(res)
+	require.NotNil(t, got)
+	assert.Equal(t, failureKindTypeError, got.FailureKind)
+	require.Len(t, got.TestResults, 1, "stderr 1 件を擬似テストとして詰める")
+	assert.Contains(t, got.TestResults[0].Message, "TS5023")
+}
+
 // TestClassifyTscOutcome_TimeoutAndOOM:
 // 型チェック自体が timeout / OOM になった場合は Vitest 経路と同じ分類を返す
 // (採点不能として graded 確定させる)。

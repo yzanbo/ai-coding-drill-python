@@ -14,7 +14,10 @@
 //   - docs/requirements/4-features/grading.md §採点結果表示
 //   - docs/requirements/4-features/grading.md §受け入れ条件
 
-import type { SubmissionTestResultItem } from "@/__generated__/api/types.gen";
+import type {
+  SubmissionFailureKind,
+  SubmissionTestResultItem,
+} from "@/__generated__/api/types.gen";
 import { Button } from "@/components/ui/button/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card/card";
 
@@ -37,7 +40,12 @@ type GradingResultProps = {
 //     syntax:      「構文エラー」
 //     runtime:     「実行時エラー」
 //     type_error:  「型エラー」（型パズル系カテゴリで tsc --noEmit が失敗した時、issue #79）
-const FAILURE_KIND_LABELS: Record<string, string> = {
+//
+// 型注釈は Record<SubmissionFailureKind, string>:
+//   Backend (SubmissionFailureKind) に値が増えたとき、ここの抜けを tsc が compile
+//   error で教えてくれる。fallback ("?? 不合格") は残してあるので、未掲載の値が
+//   来てもランタイムは壊れない（あくまで開発時の気付き用）。
+const FAILURE_KIND_LABELS: Record<SubmissionFailureKind, string> = {
   test_failed: "テスト不合格",
   timeout: "タイムアウト",
   oom: "メモリ使用量超過",
