@@ -1,6 +1,160 @@
 {
   "components": {
     "schemas": {
+      "GenerationRequestCancelResponse": {
+        "description": "キャンセル後の最終状態。",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "canceled",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "GenerationRequestCancelResponse",
+        "type": "object"
+      },
+      "GenerationRequestRetryResponse": {
+        "description": "再試行で作られた新規 generation_request の最小情報。",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "retryOf": {
+            "format": "uuid",
+            "title": "Retryof",
+            "type": "string"
+          },
+          "status": {
+            "const": "pending",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "retryOf"
+        ],
+        "title": "GenerationRequestRetryResponse",
+        "type": "object"
+      },
+      "GenerationRequestSummary": {
+        "description": "生成リクエスト履歴の 1 行分。",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "completedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completedat"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "difficulty": {
+            "title": "Difficulty",
+            "type": "string"
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failurereason"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "producedProblemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Producedproblemid"
+          },
+          "promptVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promptversion"
+          },
+          "retryCount": {
+            "minimum": 0.0,
+            "title": "Retrycount",
+            "type": "integer"
+          },
+          "retryOf": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retryof"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "completed",
+              "failed",
+              "canceled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "difficulty",
+          "status",
+          "retryCount",
+          "createdAt"
+        ],
+        "title": "GenerationRequestSummary",
+        "type": "object"
+      },
       "GenerationStatus": {
         "enum": [
           "pending",
@@ -74,6 +228,41 @@
           "accuracy"
         ],
         "title": "MeCategoryStat",
+        "type": "object"
+      },
+      "MeGenerationsListResponse": {
+        "description": "生成履歴一覧 + ページネーション情報。",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GenerationRequestSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "minimum": 1.0,
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "totalPages": {
+            "minimum": 0.0,
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "totalPages"
+        ],
+        "title": "MeGenerationsListResponse",
         "type": "object"
       },
       "MeStatsResponse": {
@@ -766,6 +955,139 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/me/generations": {
+      "get": {
+        "description": "自分の generation_requests を created_at DESC でページネーション付きで返す。\n\n- 履歴ゼロは items=[] / totalPages=0（200 のまま）\n- prompt_version は jobs.payload から JOIN 取得、消えていれば null\n- retry_count は retry_of チェーンの深さ",
+        "operationId": "list_my_generations_api_me_generations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeGenerationsListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List My Generations",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/generations/{request_id}/cancel": {
+      "post": {
+        "description": "pending のリクエストを canceled に倒す（Worker は state='dead' にして無効化）。\n\n- 他人のリクエスト / 存在しない → 404\n- pending 以外 → 409 Conflict",
+        "operationId": "cancel_my_generation_api_me_generations__request_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationRequestCancelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel My Generation",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/generations/{request_id}/retry": {
+      "post": {
+        "description": "failed のリクエストを新規 generation_request として複製する（retry_of リンク付き）。\n\n- 他人のリクエスト / 存在しない → 404\n- failed 以外 → 409 Conflict\n- 成功時 → 202 + 新規 id / status='pending' / retry_of",
+        "operationId": "retry_my_generation_api_me_generations__request_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationRequestRetryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry My Generation",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/api/me/stats": {
       "get": {
         "description": "全期間・全カテゴリの正答率を返す（取得時点でリアルタイム集計）。\n\n- 採点完了行（status='graded'）のみカウント\n- 履歴ゼロのユーザーには total=0 / accuracy=0.0 / byCategory=[] を返す\n- ソフトデリートは無視（履歴永続保存、learning.md §ビジネスルール）",

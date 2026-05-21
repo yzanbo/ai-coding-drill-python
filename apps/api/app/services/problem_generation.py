@@ -58,14 +58,18 @@ class ProblemGenerationService:
         user_id: UUID,
         category: ProblemCategory,
         difficulty: ProblemDifficulty,
+        retry_of: UUID | None = None,
     ) -> ProblemGenerateAcceptedResponse:
         """生成リクエストを受付けてジョブを enqueue する。
 
         振る舞い：
-          1. generation_requests に 1 行 INSERT（status='pending'）
+          1. generation_requests に 1 行 INSERT（status='pending'、retry_of は任意）
           2. ジョブ payload を組み立て（W3C Trace Context を埋め込む、ADR 0010）
           3. jobs に 1 行 INSERT + NOTIFY new_job を同一トランザクション内で実行
           4. 202 用の Pydantic を返す
+
+        retry_of: /api/me/generations/:id/retry から呼ばれた時に元 ID を指す。
+                  本 Service は履歴の意味付けを意識せず、Repository に素通しで渡す。
         """
         # async with session.begin():
         #   このブロック内で行われた DB 変更（generation_requests INSERT +
@@ -80,6 +84,7 @@ class ProblemGenerationService:
                 user_id=user_id,
                 category=category.value,
                 difficulty=difficulty.value,
+                retry_of=retry_of,
             )
 
             # W3C Trace Context（ADR 0010）を payload に埋める箱。

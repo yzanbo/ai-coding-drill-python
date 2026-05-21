@@ -5,6 +5,94 @@ export type ClientOptions = {
 };
 
 /**
+ * GenerationRequestCancelResponse
+ *
+ * キャンセル後の最終状態。
+ */
+export type GenerationRequestCancelResponse = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Status
+     */
+    status: 'canceled';
+};
+
+/**
+ * GenerationRequestRetryResponse
+ *
+ * 再試行で作られた新規 generation_request の最小情報。
+ */
+export type GenerationRequestRetryResponse = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Retryof
+     */
+    retryOf: string;
+    /**
+     * Status
+     */
+    status: 'pending';
+};
+
+/**
+ * GenerationRequestSummary
+ *
+ * 生成リクエスト履歴の 1 行分。
+ */
+export type GenerationRequestSummary = {
+    /**
+     * Category
+     */
+    category: string;
+    /**
+     * Completedat
+     */
+    completedAt?: string | null;
+    /**
+     * Createdat
+     */
+    createdAt: string;
+    /**
+     * Difficulty
+     */
+    difficulty: string;
+    /**
+     * Failurereason
+     */
+    failureReason?: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Producedproblemid
+     */
+    producedProblemId?: string | null;
+    /**
+     * Promptversion
+     */
+    promptVersion?: string | null;
+    /**
+     * Retrycount
+     */
+    retryCount: number;
+    /**
+     * Retryof
+     */
+    retryOf?: string | null;
+    /**
+     * Status
+     */
+    status: 'pending' | 'completed' | 'failed' | 'canceled';
+};
+
+/**
  * GenerationStatus
  */
 export type GenerationStatus = 'pending' | 'completed' | 'failed';
@@ -55,6 +143,30 @@ export type MeCategoryStat = {
      * Correct
      */
     correct: number;
+};
+
+/**
+ * MeGenerationsListResponse
+ *
+ * 生成履歴一覧 + ページネーション情報。
+ */
+export type MeGenerationsListResponse = {
+    /**
+     * Items
+     */
+    items: Array<GenerationRequestSummary>;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Pagesize
+     */
+    pageSize: number;
+    /**
+     * Totalpages
+     */
+    totalPages: number;
 };
 
 /**
@@ -489,6 +601,96 @@ export type ValidationError = {
      */
     type: string;
 };
+
+export type ListMyGenerationsApiMeGenerationsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Page
+         */
+        page?: number;
+    };
+    url: '/api/me/generations';
+};
+
+export type ListMyGenerationsApiMeGenerationsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListMyGenerationsApiMeGenerationsGetError = ListMyGenerationsApiMeGenerationsGetErrors[keyof ListMyGenerationsApiMeGenerationsGetErrors];
+
+export type ListMyGenerationsApiMeGenerationsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: MeGenerationsListResponse;
+};
+
+export type ListMyGenerationsApiMeGenerationsGetResponse = ListMyGenerationsApiMeGenerationsGetResponses[keyof ListMyGenerationsApiMeGenerationsGetResponses];
+
+export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostData = {
+    body?: never;
+    path: {
+        /**
+         * Request Id
+         */
+        request_id: string;
+    };
+    query?: never;
+    url: '/api/me/generations/{request_id}/cancel';
+};
+
+export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostError = CancelMyGenerationApiMeGenerationsRequestIdCancelPostErrors[keyof CancelMyGenerationApiMeGenerationsRequestIdCancelPostErrors];
+
+export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: GenerationRequestCancelResponse;
+};
+
+export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse = CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponses[keyof CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponses];
+
+export type RetryMyGenerationApiMeGenerationsRequestIdRetryPostData = {
+    body?: never;
+    path: {
+        /**
+         * Request Id
+         */
+        request_id: string;
+    };
+    query?: never;
+    url: '/api/me/generations/{request_id}/retry';
+};
+
+export type RetryMyGenerationApiMeGenerationsRequestIdRetryPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RetryMyGenerationApiMeGenerationsRequestIdRetryPostError = RetryMyGenerationApiMeGenerationsRequestIdRetryPostErrors[keyof RetryMyGenerationApiMeGenerationsRequestIdRetryPostErrors];
+
+export type RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: GenerationRequestRetryResponse;
+};
+
+export type RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponse = RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponses[keyof RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponses];
 
 export type GetMyStatsApiMeStatsGetData = {
     body?: never;
