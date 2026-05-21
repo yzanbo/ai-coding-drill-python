@@ -36,6 +36,13 @@ export const useGetMyGenerations = (page: number): UseGetMyGenerationsReturn => 
           query: { page },
         }),
       ),
+    // 進行中の生成リクエストはサーバ側で状態が刻々と変わるため、ページ遷移で
+    //   この画面に戻ってきた時はキャッシュを「古い」とみなして即フェッチする。
+    //   既定の staleTime=60s に従うと、戻ってきてからポーリング 1 周目までの間に
+    //   古い snapshot が表示されたままになり「リロードしないと更新されない」ように
+    //   見える事故が起きる。
+    staleTime: 0,
+    refetchOnMount: "always",
     // refetchInterval: 進行中（pending）の行が 1 つでもあれば POLL_INTERVAL_MS、
     //   全件終端なら false（停止）。「進行中」の判定は status を見るだけで済む。
     //   error が立っている時は polling を止める（401 等で 1 秒おきにリクエストが

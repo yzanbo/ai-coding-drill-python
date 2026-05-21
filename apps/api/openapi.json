@@ -1336,6 +1336,20 @@
               "title": "Page",
               "type": "integer"
             }
+          },
+          {
+            "description": "1 ページあたりの件数（上限 1000）",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "1 ページあたりの件数（上限 1000）",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
           }
         ],
         "responses": {

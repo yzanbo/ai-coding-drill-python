@@ -798,6 +798,12 @@ export type ListProblemsApiProblemsGetData = {
          * ページ番号（1 始まり）
          */
         page?: number;
+        /**
+         * Page Size
+         *
+         * 1 ページあたりの件数（上限 1000）
+         */
+        page_size?: number;
     };
     url: '/api/problems';
 };

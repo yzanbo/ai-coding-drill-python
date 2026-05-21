@@ -210,6 +210,17 @@ class TestListProblems:
         res = await client.get("/api/problems?page=0")
         assert res.status_code == 422
 
+    async def test_異常系_page_size_1001以上は422(
+        self,
+        client: AsyncClient,
+        fake_redis: fakeredis.aioredis.FakeRedis,
+    ) -> None:
+        # 未認証で叩けるエンドポイントのため、page_size は上限 1000 で頭打ち。
+        #   攻撃面を絞る目的（FE の ALL_FETCH_PAGE_SIZE と一致）。
+        del fake_redis
+        res = await client.get("/api/problems?page_size=1001")
+        assert res.status_code == 422
+
 
 # ----------------------------------------------------------------------------
 # GET /api/problems/:problemId （詳細）
