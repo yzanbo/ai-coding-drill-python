@@ -396,11 +396,18 @@ def _build_app() -> FastAPI:
                 category,
                 difficulty,
                 "typescript",
+                # examples は表示用なので Example struct (string × string) に合わせて
+                # 文字列で持つ（apps/workers/grading/internal/grading/generation_prompt.go の
+                # `Example` 定義参照）。
                 json.dumps([{"input": "[1,2,3]", "output": "6"}]),
-                # test_cases.input は Worker 側 TestCase 契約に合わせて配列で入れる。
-                # Worker 側 Vitest harness は solve(...input) と spread するため、
-                # solve(a: number[]) を呼ぶ時は input = 引数 1 個を配列で包んだ `[[1,2,3]]` / `[[]]`。
-                # 文字列を入れると grading Worker が json unmarshal で落ちて即 dead 行きになる。
+                # test_cases は採点 Worker が `solve(...input)` で spread して呼ぶ仕様
+                # （apps/workers/grading/internal/grading/test_template.go 参照）。
+                # input は **引数配列**（外側）の中に各引数の実値（内側）を入れる：
+                # `solve(a: number[])` に `a=[1,2,3]` を渡すなら `input=[[1,2,3]]`、
+                # 引数なしなら `input=[]`。expected は実際の戻り値型（number）。
+                # 旧 string 形式（"[1,2,3]" / "6"）だと Worker の json.Unmarshal が
+                # `cannot unmarshal string into Go struct field TestCase.input` で
+                # fail-fast し、grading-flow.spec.ts が graded に届かない（issue #80）。
                 json.dumps(
                     [
                         {"input": [[1, 2, 3]], "expected": 6},
