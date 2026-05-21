@@ -117,9 +117,11 @@ class MeGenerationsService:
         - 自分のものだが pending でない → GenerationRequestNotCancelableError（409）
         - cancel 成功 → status='canceled' で返す
         """
-        # SELECT + UPDATE を 1 トランザクションで行う。
-        #   SELECT の autobegun tx と begin() の二重起動を避けるため、両方を
-        #   begin() ブロックに入れる。例外時は自動で rollback される。
+        # SELECT と UPDATE を 1 つのトランザクションにまとめる。
+        #   SQLAlchemy は SELECT 時に内部でトランザクションを自動で開くため、
+        #   外側で begin() を 2 回開こうとするとエラーになる。最初から
+        #   begin() ブロックの中に両方入れて、ブロック終了時に一括 commit する
+        #   （途中で例外が出れば自動で rollback）。
         async with self.db_session.begin():
             gr = await self.repo.get_for_user(
                 request_id=request_id, user_id=user_id,
@@ -173,10 +175,11 @@ class MeGenerationsService:
         将来 idempotency-key 受け取りに拡張する場合は API 仕様変更を伴うため、
         本実装は MVP 範囲として「rate limit が backstop」前提に留める。
         """
-        # SELECT を独立した tx で実行して閉じる（commit）。SQLAlchemy は SELECT 時に
-        # tx を autobegin するため、ここで begin() で明示的に閉じておかないと
-        # enqueue_generation が開く後段の begin() と「A transaction is already
-        # begun on this Session」で衝突する。
+        # SELECT 部分を独立したトランザクションにまとめて commit までやってしまう。
+        #   SQLAlchemy は SELECT 時にも内部でトランザクションを自動で開くため、
+        #   ここで明示的に begin() で囲って閉じておかないと、後段で呼ぶ
+        #   enqueue_generation が自前で begin() を開いた時に「もう開いてる」と
+        #   エラーになる。
         async with self.db_session.begin():
             original = await self.repo.get_for_user(
                 request_id=request_id, user_id=user_id,

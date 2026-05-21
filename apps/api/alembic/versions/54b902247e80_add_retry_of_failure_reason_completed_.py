@@ -43,6 +43,17 @@ def upgrade() -> None:
         'generation_requests',
         sa.Column('completed_at', postgresql.TIMESTAMP(timezone=True), nullable=True),
     )
+    # 既存の終了済み行を backfill。
+    #   completed_at は今回新設したカラムなので、本マイグレーション前に
+    #   completed / failed に到達済みの行は NULL のまま残る。
+    #   履歴画面の所要時間表示が「completed_at が無い行 = 進行中」とみなして
+    #   現在時刻との差分を出してしまうため、updated_at（最終遷移時刻）を入れて
+    #   表示が壊れないようにする。canceled は今回新設した状態なので既存行に存在しない。
+    op.execute(
+        "UPDATE generation_requests "
+        "SET completed_at = updated_at "
+        "WHERE status IN ('completed', 'failed') AND completed_at IS NULL"
+    )
     # 自己参照 FK。ON DELETE SET NULL で「親が物理削除されても子は残す」設計
     # （履歴のトレーサビリティを優先し、不完全な行は UI 側で「元行不明」表示）。
     op.create_foreign_key(

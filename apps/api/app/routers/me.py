@@ -104,6 +104,8 @@ async def list_my_generations(
     """自分の generation_requests を created_at DESC でページネーション付きで返す。
 
     - 履歴ゼロは items=[] / totalPages=0（200 のまま）
+    - page が totalPages を超えても 200 + items=[] を返す（404 にはしない、
+      FE 側で前ページにクランプする運用）
     - prompt_version は jobs.payload から JOIN 取得、消えていれば null
     - retry_count は retry_of チェーンの深さ
     """

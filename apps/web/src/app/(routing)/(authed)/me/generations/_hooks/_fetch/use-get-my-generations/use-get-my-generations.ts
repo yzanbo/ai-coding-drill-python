@@ -38,7 +38,10 @@ export const useGetMyGenerations = (page: number): UseGetMyGenerationsReturn => 
       ),
     // refetchInterval: 進行中（pending）の行が 1 つでもあれば POLL_INTERVAL_MS、
     //   全件終端なら false（停止）。「進行中」の判定は status を見るだけで済む。
+    //   error が立っている時は polling を止める（401 等で 1 秒おきにリクエストが
+    //   飛び続けるのを防ぐ。retry は authAwareRetry 側に任せる）。
     refetchInterval: (q) => {
+      if (q.state.error) return false;
       const data = q.state.data;
       if (!data) return POLL_INTERVAL_MS; // 初回ロード中は polling 開始
       const hasInFlight = data.items.some((it) => it.status === "pending");

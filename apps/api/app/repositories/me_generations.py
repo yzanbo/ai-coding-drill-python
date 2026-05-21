@@ -78,10 +78,10 @@ class MeGenerationsRepository:
         id_strs = [str(i) for i in generation_request_ids]
 
         # 各 generation_request_id ごとに「最新の jobs.id」を一段で取りたい。
-        #   PostgreSQL DISTINCT ON でグループ別に最大 id を 1 行に絞る。
-        #   DISTINCT ON の式と ORDER BY の先頭式が「同じ文字列」になる必要があるため、
-        #   gr_id_expr を 1 度作って使い回す（毎回 .payload[...] を書くと SQLAlchemy が
-        #   バインドを別パラメータで出してしまい "must match" エラーになる）。
+        #   PostgreSQL の DISTINCT ON で同じ id のグループから先頭 1 行だけ残す。
+        #   DISTINCT ON で指定する式と ORDER BY 先頭の式は完全に同じものを書く
+        #   必要があるため、gr_id_expr を 1 度作って使い回す
+        #   （.payload[...] を 2 回書くと別物扱いになりエラーになる）。
         gr_id_expr = Job.payload["generationRequestId"].astext
         stmt = (
             select(
@@ -115,10 +115,15 @@ class MeGenerationsRepository:
 
         振る舞い：
           - 対象 generation_request が「自分 + 現状 pending」の時のみ status='canceled' /
-            completed_at=NOW() を書く（race condition で running になっていたら何もしない）
-          - 同時に、対応する jobs を state='queued' → 'dead' に更新（Worker が
-            SELECT FOR UPDATE SKIP LOCKED で取らないようにする）
+            completed_at=NOW() を書く（既に Worker が処理を進めていたら何もしない）
+          - 同時に、対応する jobs を state='queued' → 'dead' に更新（まだ Worker が
+            取っていないジョブを取られないようにする）
           - 戻り値：実際に状態遷移したかどうか（True なら成功、False なら遷移条件不一致）
+
+        ⚠ 既に Worker がジョブを取って LLM 呼び出しを始めている場合、本関数は
+           jobs を 'dead' に倒せない（既に state='running' 等になっているため）。
+           Worker 側にも実行中のキャンセル機構は無いため、走り始めた LLM 呼び出しは
+           最後まで走り切る。本関数はあくまで「未着手ジョブの起動阻止」専用。
 
         Service 側でトランザクション境界を握る前提で、本関数内では commit しない。
         """

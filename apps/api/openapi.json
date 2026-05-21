@@ -946,7 +946,7 @@
   "paths": {
     "/api/me/generations": {
       "get": {
-        "description": "自分の generation_requests を created_at DESC でページネーション付きで返す。\n\n- 履歴ゼロは items=[] / totalPages=0（200 のまま）\n- prompt_version は jobs.payload から JOIN 取得、消えていれば null\n- retry_count は retry_of チェーンの深さ",
+        "description": "自分の generation_requests を created_at DESC でページネーション付きで返す。\n\n- 履歴ゼロは items=[] / totalPages=0（200 のまま）\n- page が totalPages を超えても 200 + items=[] を返す（404 にはしない、\n  FE 側で前ページにクランプする運用）\n- prompt_version は jobs.payload から JOIN 取得、消えていれば null\n- retry_count は retry_of チェーンの深さ",
         "operationId": "list_my_generations_api_me_generations_get",
         "parameters": [
           {
