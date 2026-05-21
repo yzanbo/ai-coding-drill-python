@@ -1,7 +1,6 @@
 # MeGenerationsService: 問題生成履歴・状態管理（R1-7）のビジネスロジック層（ADR 0044）。
 #
 #   - list_history : ページネーション付きで自分の generation_requests を返す
-#   - cancel       : pending のリクエストをキャンセル（jobs を dead に倒す）
 #   - retry        : failed のリクエストを新規 generation_request として複製
 #
 #   prompt_version は jobs.payload から JOIN 取得、retry_count は WITH RECURSIVE
@@ -11,21 +10,18 @@
 #   - docs/requirements/4-features/problem-generation.md §履歴・状態管理
 #   - docs/requirements/4-features/problem-generation.md §API
 
-import logging
 import math
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
-    GenerationRequestNotCancelableError,
     GenerationRequestNotFoundError,
     GenerationRequestNotRetryableError,
 )
 from app.repositories.me_generations import MeGenerationsRepository
 from app.schemas.me_generations import (
     ME_GENERATIONS_PAGE_SIZE,
-    GenerationRequestCancelResponse,
     GenerationRequestRetryResponse,
     GenerationRequestSummary,
     MeGenerationsListResponse,
@@ -39,11 +35,9 @@ from app.schemas.problems import (
 )
 from app.services.problem_generation import ProblemGenerationService
 
-logger = logging.getLogger(__name__)
-
 
 class MeGenerationsService:
-    """問題生成履歴 + キャンセル / 再試行のサービス。
+    """問題生成履歴 + 再試行のサービス。
 
     - 1 リクエストにつき 1 インスタンス生成
     - 再試行は ProblemGenerationService.enqueue_generation を内部で呼ぶ
@@ -129,55 +123,6 @@ class MeGenerationsService:
             page_size=ME_GENERATIONS_PAGE_SIZE,
             total_pages=total_pages,
         )
-
-    async def cancel(
-        self,
-        *,
-        user_id: UUID,
-        request_id: UUID,
-    ) -> GenerationRequestCancelResponse:
-        """pending のリクエストをキャンセルする。
-
-        - 自分のものでない / 存在しない → GenerationRequestNotFoundError（404）
-        - 自分のものだが pending でない → GenerationRequestNotCancelableError（409）
-        - cancel 成功 → status='canceled' で返す
-        """
-        # SELECT と UPDATE を 1 つのトランザクションにまとめる。
-        #   SQLAlchemy は SELECT 時に内部でトランザクションを自動で開くため、
-        #   外側で begin() を 2 回開こうとするとエラーになる。最初から
-        #   begin() ブロックの中に両方入れて、ブロック終了時に一括 commit する
-        #   （途中で例外が出れば自動で rollback）。
-        async with self.db_session.begin():
-            gr = await self.repo.get_for_user(
-                request_id=request_id, user_id=user_id,
-            )
-            if gr is None:
-                raise GenerationRequestNotFoundError
-            if gr.status != "pending":
-                raise GenerationRequestNotCancelableError(current_status=gr.status)
-
-            transitioned = await self.repo.cancel_pending(
-                request_id=request_id,
-                user_id=user_id,
-            )
-            if not transitioned:
-                # race: 取得時点では pending だったが、cancel UPDATE 直前に
-                # Worker が拾って completed / failed に進めた場合などはここに来る。
-                # Worker は pending → completed / failed の 1 ステップ遷移しか書かない
-                # ため、実際の current_status を再取得して 409 に乗せる
-                # （ハードコードだと FE 側のメッセージが事実と食い違う）。
-                refetched = await self.repo.get_for_user(
-                    request_id=request_id, user_id=user_id,
-                )
-                actual = refetched.status if refetched is not None else "unknown"
-                raise GenerationRequestNotCancelableError(current_status=actual)
-
-        logger.info(
-            "Generation request canceled: user_id=%s request_id=%s",
-            user_id,
-            request_id,
-        )
-        return GenerationRequestCancelResponse(id=request_id, status="canceled")
 
     async def retry(
         self,

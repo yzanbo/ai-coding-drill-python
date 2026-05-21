@@ -26,16 +26,6 @@ export const zAttemptError = z.object({
 });
 
 /**
- * GenerationRequestCancelResponse
- *
- * キャンセル後の最終状態。
- */
-export const zGenerationRequestCancelResponse = z.object({
-    id: z.uuid(),
-    status: z.literal('canceled')
-});
-
-/**
  * GenerationRequestRetryResponse
  *
  * 再試行で作られた新規 generation_request の最小情報。
@@ -316,7 +306,8 @@ export const zSubmissionFailureKind = z.enum([
     'timeout',
     'oom',
     'syntax',
-    'runtime'
+    'runtime',
+    'type_error'
 ]);
 
 /**
@@ -437,15 +428,6 @@ export const zListMyGenerationsApiMeGenerationsGetQuery = z.object({
  */
 export const zListMyGenerationsApiMeGenerationsGetResponse = zMeGenerationsListResponse;
 
-export const zCancelMyGenerationApiMeGenerationsRequestIdCancelPostPath = z.object({
-    request_id: z.uuid()
-});
-
-/**
- * Successful Response
- */
-export const zCancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse = zGenerationRequestCancelResponse;
-
 export const zRetryMyGenerationApiMeGenerationsRequestIdRetryPostPath = z.object({
     request_id: z.uuid()
 });
@@ -468,7 +450,8 @@ export const zGetMyWeaknessApiMeWeaknessGetResponse = zMeWeaknessResponse;
 export const zListProblemsApiProblemsGetQuery = z.object({
     category: zProblemCategory.nullish(),
     difficulty: zProblemDifficulty.nullish(),
-    page: z.int().gte(1).optional().default(1)
+    page: z.int().gte(1).optional().default(1),
+    page_size: z.int().gte(1).lte(1000).optional().default(20)
 });
 
 /**

@@ -1,9 +1,8 @@
-# /api/me/generations 系ルーター（GET / cancel / retry）の結合テスト。
+# /api/me/generations 系ルーター（GET / retry）の結合テスト。
 #
 # テスト方針：
 #   - 実 FastAPI + 実 Postgres + fakeredis + GitHub OAuth スタブで実セッションを作る
 #   - GET   : 自分のみ表示、prompt_version JOIN、retry_count、ページネーション
-#   - cancel: pending → 200 + canceled、他人 / 不存在 → 404、pending 以外 → 409
 #   - retry : failed → 202 + 新規 generation_request + retry_of リンク、他状態 → 409
 #
 # 関わる要件：
@@ -17,7 +16,7 @@ import fakeredis.aioredis
 import pytest
 import respx
 from httpx import AsyncClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete
 
 from app.db.session import AsyncSessionLocal
 from app.models.generation_requests import GenerationRequest
@@ -191,67 +190,6 @@ class TestGetGenerationsHistory:
         counts = {it["id"]: it["retryCount"] for it in items}
         assert counts[str(original)] == 0
         assert counts[str(retry1)] == 1
-
-
-# ----------------------------------------------------------------------------
-# POST /api/me/generations/:id/cancel
-# ----------------------------------------------------------------------------
-class TestCancelGeneration:
-    @respx.mock
-    async def test_正常系_pending_を_canceled_に倒す(
-        self, client: AsyncClient, fake_redis: fakeredis.aioredis.FakeRedis
-    ) -> None:
-        del fake_redis
-        csrf = await login_via_github(client)
-        user_id = await current_user_id(client)
-        gr = await _insert_gr(user_id=user_id, status="pending")
-        await _insert_job(generation_request_id=gr, state="queued")
-
-        res = await client.post(
-            f"/api/me/generations/{gr}/cancel",
-            headers={"X-CSRF-Token": csrf},
-        )
-        assert res.status_code == 200
-        assert res.json() == {"id": str(gr), "status": "canceled"}
-
-        # jobs も dead に倒れている
-        async with AsyncSessionLocal() as s:
-            jobs = (await s.execute(select(Job))).scalars().all()
-        assert all(j.state == "dead" for j in jobs)
-
-    @respx.mock
-    async def test_異常系_pending以外は409(
-        self, client: AsyncClient, fake_redis: fakeredis.aioredis.FakeRedis
-    ) -> None:
-        del fake_redis
-        csrf = await login_via_github(client)
-        user_id = await current_user_id(client)
-        gr = await _insert_gr(user_id=user_id, status="completed", completed=True)
-
-        res = await client.post(
-            f"/api/me/generations/{gr}/cancel",
-            headers={"X-CSRF-Token": csrf},
-        )
-        assert res.status_code == 409
-        assert "completed" in res.json()["detail"]
-
-    @respx.mock
-    async def test_異常系_他人のリクエストは404(
-        self, client: AsyncClient, fake_redis: fakeredis.aioredis.FakeRedis
-    ) -> None:
-        del fake_redis
-        # A の generation を作る
-        await login_via_github(client, gh_id=1)
-        a_id = await current_user_id(client)
-        gr_of_a = await _insert_gr(user_id=a_id, status="pending")
-
-        # B でログイン後 A の id を cancel しようとする
-        csrf = await login_via_github(client, gh_id=2)
-        res = await client.post(
-            f"/api/me/generations/{gr_of_a}/cancel",
-            headers={"X-CSRF-Token": csrf},
-        )
-        assert res.status_code == 404
 
 
 # ----------------------------------------------------------------------------

@@ -1,48 +1,27 @@
 // /problems ページ（Server Component）のロジック単体テスト。
 //
 // 何を担保するか：
-//   - `?page=999` のように totalPages を超える page で踏まれたら、最終ページに
-//     `redirect()` で寄せる（page.tsx §「ページ範囲外」）。
-//   - totalPages=0（条件に合う問題ゼロ）の時は寄せ先が無いので redirect しない。
-//   - 範囲内（1..totalPages）は redirect しない。
+//   - ヘッダーに「新規問題を生成」リンクが描画される。
+//   - 取得した items はカテゴリ別にグルーピングされ、難易度昇順で並ぶ。
 //
 // 仕組み：
 //   ProblemsListPage は async な Server Component なので、Testing Library で
-//   render するのではなく、関数を直接 await して呼び出し、`redirect()` モックが
-//   呼ばれたかを観測する。実際の Next.js ランタイムでは redirect() は内部例外を
-//   throw して制御を抜くが、テストでは vi.fn() に置き換えて副作用だけ拾えれば
-//   検証目的を満たす（redirect 後の JSX レンダリングは検証対象外）。
+//   render するのではなく、関数を直接 await して呼び出し、戻り値の React
+//   ツリーを観測する。
+//
+//   認証ガード（未ログイン → /login?next=/problems）の検証は本ファイルでは
+//   行わず、src/middleware.test.ts に移譲した。middleware にガードを寄せた
+//   ため、本ページは常にログイン済前提で render される。
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// next/navigation: Server Component の redirect だけ差し替え。
-//   redirect は通常 throw するが、テストでは spy だけ取りたいので何もしないモックにする。
-const mockRedirect = vi.fn();
-vi.mock("next/navigation", () => ({
-  redirect: (...args: unknown[]) => mockRedirect(...args),
-}));
-
-// next/headers: cookies() を差し替える。テストごとに「Cookie あり / なし」を切替。
-//   既定はログイン済み（cookie あり）にしておく。未ログイン分岐は専用ブロックで上書き。
-//   hasSessionCookie ヘルパは内部で .has() を呼ぶため、get と連動させて両方差し替える。
-let mockCookieGetReturn: { value: string } | undefined;
-vi.mock("next/headers", () => ({
-  cookies: () =>
-    Promise.resolve({
-      get: () => mockCookieGetReturn,
-      has: () => mockCookieGetReturn !== undefined,
-    }),
-}));
-
 // listProblemsApiProblemsGet: 一覧 API クライアント。
-//   各テストで totalPages / items を差し替えてページネーション分岐を再現する。
+//   テストでは items を差し替えてグルーピング / ソートを検証する。
 let mockListResponse: {
   items: Array<{ id: string; title: string; category: string; difficulty: string }>;
-  total: number;
   page: number;
   totalPages: number;
 };
-// throwIfError は response.ok を見て分岐するため、ダミーの ok レスポンスも併せて返す。
 vi.mock("@/__generated__/api/sdk.gen", () => ({
   listProblemsApiProblemsGet: vi.fn(async () => ({
     data: mockListResponse,
@@ -51,129 +30,80 @@ vi.mock("@/__generated__/api/sdk.gen", () => ({
   })),
 }));
 
-// serverApiClient: Server Component から呼ばれる Hey API クライアント。
-//   ロード時に env validation を走らせて throw するため、テストでは無害な値に差し替える。
 vi.mock("@/lib/api/server-api-client", () => ({
   serverApiClient: {},
 }));
 
-// 子の Client Component（フィルタフォーム）も render したいだけなのでスタブ。
 vi.mock("./_components/problems-filter-form/problems-filter-form", () => ({
   ProblemsFilterForm: () => null,
 }));
 
-// import は vi.mock の後に置く（Vitest が hoisting する mock を先に効かせるため）。
 const { default: ProblemsListPage } = await import("./page");
 
 beforeEach(() => {
-  mockRedirect.mockReset();
-  mockListResponse = { items: [], total: 0, page: 1, totalPages: 0 };
-  // 既定はログイン済み（cookie あり）。未ログインの認証ガード分岐は
-  // 別 describe で明示的に undefined に上書きする。
-  mockCookieGetReturn = { value: "dummy-session" };
-});
-
-describe("ProblemsListPage の認証ガード", () => {
-  it("Cookie 無し（未ログイン）なら /login?next=/problems に redirect する", async () => {
-    mockCookieGetReturn = undefined;
-
-    await ProblemsListPage({ searchParams: Promise.resolve({}) });
-
-    expect(mockRedirect).toHaveBeenCalledWith("/login?next=%2Fproblems");
-  });
-
-  it("Cookie 無し + フィルタ / ページ番号は next に保持される", async () => {
-    mockCookieGetReturn = undefined;
-
-    await ProblemsListPage({
-      searchParams: Promise.resolve({ category: "array", difficulty: "easy", page: "2" }),
-    });
-
-    expect(mockRedirect).toHaveBeenCalledWith(
-      `/login?next=${encodeURIComponent("/problems?category=array&difficulty=easy&page=2")}`,
-    );
-  });
-});
-
-describe("ProblemsListPage の page 範囲外リダイレクト", () => {
-  it("?page=999 を踏むと、最終ページ（totalPages=3）に redirect する", async () => {
-    mockListResponse = {
-      items: [{ id: "p1", title: "x", category: "array", difficulty: "easy" }],
-      total: 50,
-      page: 999,
-      totalPages: 3,
-    };
-
-    await ProblemsListPage({
-      searchParams: Promise.resolve({ page: "999" }),
-    });
-
-    expect(mockRedirect).toHaveBeenCalledWith("/problems?page=3");
-  });
-
-  it("フィルタ付きで範囲外を踏むと、redirect 先 URL にフィルタが保持される", async () => {
-    mockListResponse = {
-      items: [{ id: "p1", title: "x", category: "array", difficulty: "easy" }],
-      total: 5,
-      page: 10,
-      totalPages: 1,
-    };
-
-    await ProblemsListPage({
-      searchParams: Promise.resolve({ category: "array", difficulty: "easy", page: "10" }),
-    });
-
-    // category / difficulty を保持しつつ最終ページに寄せる（page=1 はクエリから省略される）。
-    expect(mockRedirect).toHaveBeenCalledWith("/problems?category=array&difficulty=easy");
-  });
-
-  it("totalPages=0（ヒット無し）の時は redirect しない", async () => {
-    mockListResponse = { items: [], total: 0, page: 999, totalPages: 0 };
-
-    await ProblemsListPage({
-      searchParams: Promise.resolve({ page: "999" }),
-    });
-
-    expect(mockRedirect).not.toHaveBeenCalled();
-  });
-
-  it("範囲内（page=2, totalPages=3）は redirect しない", async () => {
-    mockListResponse = {
-      items: [{ id: "p1", title: "x", category: "array", difficulty: "easy" }],
-      total: 50,
-      page: 2,
-      totalPages: 3,
-    };
-
-    await ProblemsListPage({
-      searchParams: Promise.resolve({ page: "2" }),
-    });
-
-    expect(mockRedirect).not.toHaveBeenCalled();
-  });
+  mockListResponse = { items: [], page: 1, totalPages: 0 };
 });
 
 describe("ProblemsListPage のヘッダー導線", () => {
   it("ヘッダーに /problems/new への新規問題を生成リンクを描画する", async () => {
-    // 要件: problem-display-and-answer.md §受け入れ条件「一覧画面のヘッダー領域に
-    //   新規問題を生成ボタン」/ problem-generation.md §到達経路
-    mockListResponse = { items: [], total: 0, page: 1, totalPages: 0 };
+    mockListResponse = { items: [], page: 1, totalPages: 0 };
 
     const tree = await ProblemsListPage({
       searchParams: Promise.resolve({}),
     });
 
-    // JSX ツリーを再帰探索して href="/problems/new" を含む Link/anchor を探す。
-    //   Server Component なので Testing Library を介さず、戻り値の React ノードを
-    //   そのまま辿る形で確認する（既存テストの直接 await パターンを踏襲）。
-    const found = findHrefInTree(tree, "/problems/new");
-    expect(found).toBe(true);
+    expect(findHrefInTree(tree, "/problems/new")).toBe(true);
   });
 });
 
-// findHrefInTree: React node を再帰的に走査し、props.href === target を含むかを返す。
-//   Server Component の戻り値検証用の小道具。Link / a / Button asChild のいずれでも
-//   最終的に href prop で識別できれば足りる。
+describe("ProblemsListPage のカテゴリ別グルーピング", () => {
+  it("カテゴリ別に並び、各カテゴリ内は難易度昇順（easy → medium → hard）で出る", async () => {
+    // わざと難易度を逆順で渡し、Frontend 側でソートされることを確認する。
+    mockListResponse = {
+      items: [
+        { id: "a1", title: "配列-hard", category: "array", difficulty: "hard" },
+        { id: "a2", title: "配列-easy", category: "array", difficulty: "easy" },
+        { id: "a3", title: "配列-medium", category: "array", difficulty: "medium" },
+        { id: "s1", title: "文字列-easy", category: "string", difficulty: "easy" },
+      ],
+      page: 1,
+      totalPages: 1,
+    };
+
+    const tree = await ProblemsListPage({
+      searchParams: Promise.resolve({}),
+    });
+
+    // ツリー内に出現する problem-id リンクの順序を取り出す。
+    //   ヘッダーの /problems/new リンクは除外（id は UUID 想定なので "new" と一致しない）。
+    const order = collectHrefsByPrefix(tree, "/problems/").filter((h) => h !== "/problems/new");
+    // 期待: string カテゴリ (s1) → array カテゴリ (a2 easy → a3 medium → a1 hard)
+    expect(order).toEqual(["/problems/s1", "/problems/a2", "/problems/a3", "/problems/a1"]);
+  });
+
+  it("同一難易度内は title の日本語昇順（localeCompare ja）で並ぶ", async () => {
+    // 同一カテゴリ・同一難易度の 3 件を、わざとアルファベット順とは違う順序で渡す。
+    //   ja ロケールの localeCompare は仮名・漢字を一定順序でソートする。
+    //   期待: あ < い < う。
+    mockListResponse = {
+      items: [
+        { id: "a3", title: "うえ問題", category: "array", difficulty: "easy" },
+        { id: "a1", title: "あい問題", category: "array", difficulty: "easy" },
+        { id: "a2", title: "いう問題", category: "array", difficulty: "easy" },
+      ],
+      page: 1,
+      totalPages: 1,
+    };
+
+    const tree = await ProblemsListPage({
+      searchParams: Promise.resolve({}),
+    });
+
+    const order = collectHrefsByPrefix(tree, "/problems/").filter((h) => h !== "/problems/new");
+    expect(order).toEqual(["/problems/a1", "/problems/a2", "/problems/a3"]);
+  });
+});
+
 function findHrefInTree(node: unknown, target: string): boolean {
   if (node == null || typeof node !== "object") return false;
   if (Array.isArray(node)) return node.some((n) => findHrefInTree(n, target));
@@ -185,4 +115,20 @@ function findHrefInTree(node: unknown, target: string): boolean {
     }
   }
   return false;
+}
+
+// collectHrefsByPrefix: ツリー走査で出現順に href を集める（prefix で絞り込み）。
+function collectHrefsByPrefix(node: unknown, prefix: string, acc: string[] = []): string[] {
+  if (node == null || typeof node !== "object") return acc;
+  if (Array.isArray(node)) {
+    for (const n of node) collectHrefsByPrefix(n, prefix, acc);
+    return acc;
+  }
+  const el = node as { props?: Record<string, unknown> };
+  if (el.props) {
+    const href = el.props.href;
+    if (typeof href === "string" && href.startsWith(prefix)) acc.push(href);
+    if (el.props.children !== undefined) collectHrefsByPrefix(el.props.children, prefix, acc);
+  }
+  return acc;
 }

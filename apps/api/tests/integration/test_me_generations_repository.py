@@ -1,7 +1,7 @@
 # MeGenerationsRepository の結合テスト（実 Postgres）。
 #
 # テスト方針：
-#   - 実 DB に対して履歴クエリ / cancel UPDATE / WITH RECURSIVE CTE の挙動を直接検証
+#   - 実 DB に対して履歴クエリ / WITH RECURSIVE CTE の挙動を直接検証
 #   - jobs.payload JSONB から prompt_version を引く部分も DISTINCT ON で 1 行に絞れる
 #     ことを確認
 #
@@ -152,59 +152,6 @@ class TestFetchPromptVersions:
     async def test_境界値_空リストは空dict(self, session: AsyncSession) -> None:
         repo = MeGenerationsRepository(session)
         assert await repo.fetch_prompt_versions(generation_request_ids=[]) == {}
-
-
-class TestCancelPending:
-    async def test_正常系_pending_を_canceled_に倒し_jobs_も_dead_に倒す(
-        self, session: AsyncSession
-    ) -> None:
-        user_id = await _create_user(session)
-        gr_id = await _create_gr(session, user_id=user_id, status="pending")
-        job_id = await _create_job(
-            session, generation_request_id=gr_id, state="queued"
-        )
-
-        repo = MeGenerationsRepository(session)
-        async with session.begin():
-            transitioned = await repo.cancel_pending(
-                request_id=gr_id, user_id=user_id
-            )
-        assert transitioned is True
-
-        # 再取得して状態確認
-        async with AsyncSessionLocal() as s2:
-            gr = await s2.get(GenerationRequest, gr_id)
-            job = await s2.get(Job, job_id)
-        assert gr is not None
-        assert gr.status == "canceled"
-        assert gr.completed_at is not None
-        assert job is not None
-        assert job.state == "dead"
-
-    async def test_異常系_pending以外は何も更新しないでFalse(
-        self, session: AsyncSession
-    ) -> None:
-        user_id = await _create_user(session)
-        gr_id = await _create_gr(session, user_id=user_id, status="running")
-        repo = MeGenerationsRepository(session)
-        async with session.begin():
-            transitioned = await repo.cancel_pending(
-                request_id=gr_id, user_id=user_id
-            )
-        assert transitioned is False
-
-    async def test_異常系_他人のリクエストは更新しない(
-        self, session: AsyncSession
-    ) -> None:
-        a = await _create_user(session, name="A")
-        b = await _create_user(session, name="B")
-        gr_id = await _create_gr(session, user_id=a, status="pending")
-        repo = MeGenerationsRepository(session)
-        async with session.begin():
-            transitioned = await repo.cancel_pending(
-                request_id=gr_id, user_id=b
-            )
-        assert transitioned is False
 
 
 class TestComputeRetryDepths:

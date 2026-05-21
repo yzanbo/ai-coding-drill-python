@@ -64,11 +64,13 @@ def _make_problem(
         language="typescript",
         examples=examples or [{"input": "[1,2,3]", "output": "6"}],
         # test_cases は意図的に複数件用意して、レスポンスに漏れないことを別テストで確認。
+        # input は Worker 側 TestCase 契約に合わせて配列で入れる
+        # （文字列を入れると grading Worker が json unmarshal で落ちて即 dead 行きになる）。
         test_cases=test_cases
         or [
-            {"input": "[1,2,3]", "expected": "6"},
-            {"input": "[]", "expected": "0"},
-            {"input": "[-1,1]", "expected": "0"},
+            {"input": [[1, 2, 3]], "expected": 6},
+            {"input": [[]], "expected": 0},
+            {"input": [[-1, 1]], "expected": 0},
         ],
         reference_solution=reference_solution,
         judge_scores={"correctness": 5, "difficulty_fit": 5},
@@ -90,7 +92,9 @@ class TestListProblems:
         # total=45 件 → ceil(45 / 20) = 3 ページ。
         mock_repo.list_paginated.return_value = (problems, 45)
 
-        res = await service.list_problems(category=None, difficulty=None, page=1)
+        res = await service.list_problems(
+            category=None, difficulty=None, page=1, page_size=PROBLEMS_PAGE_SIZE
+        )
 
         mock_repo.list_paginated.assert_called_once_with(
             category=None,
@@ -113,6 +117,7 @@ class TestListProblems:
             category=ProblemCategory.TYPE_PUZZLE,
             difficulty=ProblemDifficulty.HARD,
             page=2,
+            page_size=PROBLEMS_PAGE_SIZE,
         )
 
         mock_repo.list_paginated.assert_called_once_with(
@@ -129,12 +134,37 @@ class TestListProblems:
     ) -> None:
         mock_repo.list_paginated.return_value = ([], 0)
 
-        res = await service.list_problems(category=None, difficulty=None, page=1)
+        res = await service.list_problems(
+            category=None, difficulty=None, page=1, page_size=PROBLEMS_PAGE_SIZE
+        )
 
         assert res.items == []
         assert res.page == 1
         # 0 件 → ceil(0/20) は 0 だが「最低 1 ページ」とは扱わない契約（要件 §API JSON 例）。
         assert res.total_pages == 0
+
+    async def test_正常系_page_size_を渡すと_Repositoryとtotal_pages計算に使われる(
+        self,
+        service: ProblemService,
+        mock_repo: AsyncMock,
+    ) -> None:
+        # 全件取得用途を想定（apps/web の問題一覧画面が大きな page_size を渡す）。
+        problems = [_make_problem() for _ in range(10)]
+        mock_repo.list_paginated.return_value = (problems, 10)
+
+        res = await service.list_problems(
+            category=None, difficulty=None, page=1, page_size=1000
+        )
+
+        mock_repo.list_paginated.assert_called_once_with(
+            category=None,
+            difficulty=None,
+            page=1,
+            page_size=1000,
+        )
+        # total=10 / page_size=1000 → ceil = 1。
+        assert res.total_pages == 1
+        assert len(res.items) == 10
 
 
 class TestGetDetail:

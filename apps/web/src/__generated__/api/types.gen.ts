@@ -29,22 +29,6 @@ export type AttemptError = {
 };
 
 /**
- * GenerationRequestCancelResponse
- *
- * キャンセル後の最終状態。
- */
-export type GenerationRequestCancelResponse = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Status
-     */
-    status: 'canceled';
-};
-
-/**
  * GenerationRequestRetryResponse
  *
  * 再試行で作られた新規 generation_request の最小情報。
@@ -456,7 +440,7 @@ export type SubmissionCreateRequest = {
 /**
  * SubmissionFailureKind
  */
-export type SubmissionFailureKind = 'test_failed' | 'timeout' | 'oom' | 'syntax' | 'runtime';
+export type SubmissionFailureKind = 'test_failed' | 'timeout' | 'oom' | 'syntax' | 'runtime' | 'type_error';
 
 /**
  * SubmissionResultPayload
@@ -684,36 +668,6 @@ export type ListMyGenerationsApiMeGenerationsGetResponses = {
 
 export type ListMyGenerationsApiMeGenerationsGetResponse = ListMyGenerationsApiMeGenerationsGetResponses[keyof ListMyGenerationsApiMeGenerationsGetResponses];
 
-export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostData = {
-    body?: never;
-    path: {
-        /**
-         * Request Id
-         */
-        request_id: string;
-    };
-    query?: never;
-    url: '/api/me/generations/{request_id}/cancel';
-};
-
-export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostError = CancelMyGenerationApiMeGenerationsRequestIdCancelPostErrors[keyof CancelMyGenerationApiMeGenerationsRequestIdCancelPostErrors];
-
-export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponses = {
-    /**
-     * Successful Response
-     */
-    200: GenerationRequestCancelResponse;
-};
-
-export type CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponse = CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponses[keyof CancelMyGenerationApiMeGenerationsRequestIdCancelPostResponses];
-
 export type RetryMyGenerationApiMeGenerationsRequestIdRetryPostData = {
     body?: never;
     path: {
@@ -798,6 +752,12 @@ export type ListProblemsApiProblemsGetData = {
          * ページ番号（1 始まり）
          */
         page?: number;
+        /**
+         * Page Size
+         *
+         * 1 ページあたりの件数（上限 1000）
+         */
+        page_size?: number;
     };
     url: '/api/problems';
 };

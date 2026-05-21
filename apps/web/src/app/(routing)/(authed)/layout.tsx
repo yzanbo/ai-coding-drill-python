@@ -1,14 +1,18 @@
 "use client";
 
 // (authed) ルートグループ共通の layout。
-//   配下の全ページに「未認証なら /login?next=<現在のpath> へリダイレクト」のガードを掛ける。
+//   役割：「Cookie はあるが Redis セッションが失効している」ケースを補完する
+//   client-side ガード。`useGetAuthMe` が `/auth/me` 401 を見て
+//   `/login?next=<現在のpath>` に倒す。
 //   要件: docs/requirements/4-features/authentication.md §1.1 ビジネスルール
 //
-//   サーバ側ガード（middleware）にしない理由:
-//     - Cookie は本機能 MVP では署名検証付きの SID で、ガード本体は API の Depends(get_current_user)
-//       が握っている。FE 側は UX 用の早期リダイレクトで十分（最終判定は API の 401 が SSoT）。
-//     - middleware にすると静的最適化が崩れる範囲が広がり、ルートグループ単位の細かな出し分けが
-//       書きにくくなる。
+//   middleware との二段構え：
+//     - 1 段目（src/middleware.ts、Edge）：Cookie が完全に無いリクエストを RSC
+//       レンダリング前に弾く。`/me/*` `/problems/new` `/problems/generate/:requestId`
+//       はここで先に 307 を返すため、Cookie 無しは本 layout に到達しない。
+//     - 2 段目（本 layout）：Cookie はあるが失効しているケースを API 401 から
+//       拾う。middleware の presence チェックでは検知できない。
+//     - 詳細：docs/requirements/3-cross-cutting/03-page-routing.md §2
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 

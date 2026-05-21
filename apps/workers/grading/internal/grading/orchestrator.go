@@ -86,7 +86,6 @@ type Orchestrator struct {
 // 採点用は NewForGrading を使う。
 func New(ctx context.Context, deps Deps) (*Orchestrator, error) {
 	handler := &problemGenerateHandler{
-		pool:      deps.Pool,
 		store:     newPgGenerationStore(deps.Pool),
 		generator: deps.Generator,
 		sandbox:   deps.Sandbox,

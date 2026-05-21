@@ -18,6 +18,11 @@ const PROBLEM_DIFFICULTY_LABELS: Record<ProblemDifficulty, ProblemDifficultyLabe
   hard: { label: "むずかしい", description: "考え込みが必要な応用問題" },
 };
 
+// PROBLEM_DIFFICULTY_ORDER: 画面で並べる順序（昇順：easy → medium → hard）。
+//   この並びは UI 表示順だけでなく、/problems ページのカテゴリ内ソートキー
+//   （app/(routing)/(public)/problems/page.tsx の DIFFICULTY_RANK）にも使われる。
+//   並び替えるとカテゴリ内のソートも一緒に変わるので、意味を変える時は両方の
+//   挙動を確認すること。
 const PROBLEM_DIFFICULTY_ORDER = [
   "easy",
   "medium",

@@ -33,6 +33,7 @@ from app.deps.auth import get_current_user
 from app.deps.rate_limit import limiter
 from app.models.users import User
 from app.schemas.problems import (
+    PROBLEMS_PAGE_SIZE,
     ProblemCategory,
     ProblemDetailResponse,
     ProblemDifficulty,
@@ -155,6 +156,13 @@ async def list_problems(
         ProblemDifficulty | None, Query(description="難易度で絞り込み")
     ] = None,
     page: Annotated[int, Query(ge=1, description="ページ番号（1 始まり）")] = 1,
+    # page_size: 1 ページあたりの件数。
+    #   既定 20 / 上限 1000（FE 側 ALL_FETCH_PAGE_SIZE と一致）。本エンドポイントは
+    #   未認証で叩けるため、上限を外すと 1 リクエストで Postgres を巨大スキャン＋
+    #   巨大 JSON 生成させられる。FE の全件取得用途と同値で閉じて攻撃面を絞る。
+    page_size: Annotated[
+        int, Query(ge=1, le=1000, description="1 ページあたりの件数（上限 1000）")
+    ] = PROBLEMS_PAGE_SIZE,
 ) -> ProblemListResponse:
     """カテゴリ・難易度フィルタ付きで問題一覧を返す。
 
@@ -167,6 +175,7 @@ async def list_problems(
         category=category,
         difficulty=difficulty,
         page=page,
+        page_size=page_size,
     )
 
 
