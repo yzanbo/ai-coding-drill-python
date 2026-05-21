@@ -116,15 +116,18 @@ class MeGenerationsService:
         - 自分のものだが pending でない → GenerationRequestNotCancelableError（409）
         - cancel 成功 → status='canceled' で返す
         """
-        gr = await self.repo.get_for_user(
-            request_id=request_id, user_id=user_id,
-        )
-        if gr is None:
-            raise GenerationRequestNotFoundError
-        if gr.status != "pending":
-            raise GenerationRequestNotCancelableError(current_status=gr.status)
-
+        # SELECT + UPDATE を 1 トランザクションで行う。
+        #   SELECT の autobegun tx と begin() の二重起動を避けるため、両方を
+        #   begin() ブロックに入れる。例外時は自動で rollback される。
         async with self.db_session.begin():
+            gr = await self.repo.get_for_user(
+                request_id=request_id, user_id=user_id,
+            )
+            if gr is None:
+                raise GenerationRequestNotFoundError
+            if gr.status != "pending":
+                raise GenerationRequestNotCancelableError(current_status=gr.status)
+
             transitioned = await self.repo.cancel_pending(
                 request_id=request_id,
                 user_id=user_id,
@@ -154,24 +157,34 @@ class MeGenerationsService:
         - 自分のものだが failed でない → GenerationRequestNotRetryableError（409）
         - retry 成功 → 新規 generation_request の id + retry_of で返す
         """
-        original = await self.repo.get_for_user(
-            request_id=request_id, user_id=user_id,
-        )
-        if original is None:
-            raise GenerationRequestNotFoundError
-        if original.status != "failed":
-            raise GenerationRequestNotRetryableError(current_status=original.status)
+        # SELECT を独立した tx で実行して閉じる（commit）。enqueue_generation が
+        # 内部で別の begin() を開くため、ここで pending tx を残してはいけない。
+        async with self.db_session.begin():
+            original = await self.repo.get_for_user(
+                request_id=request_id, user_id=user_id,
+            )
+            if original is None:
+                raise GenerationRequestNotFoundError
+            if original.status != "failed":
+                raise GenerationRequestNotRetryableError(
+                    current_status=original.status,
+                )
+            # 後段で使う値を ORM 切り離し前に primitive に取り出しておく
+            # （session 抜けた後の lazy load を避ける）。
+            original_id = original.id
+            original_category = original.category
+            original_difficulty = original.difficulty
 
-        # 既存 enqueue ロジックに retry_of を渡して再利用する（同 tx で
-        # generation_requests INSERT + jobs INSERT + NOTIFY）。
+        # 既存 enqueue ロジックに retry_of を渡して再利用する（内部で別 tx を開いて
+        # generation_requests INSERT + jobs INSERT + NOTIFY を実行）。
         accepted = await self.generation.enqueue_generation(
             user_id=user_id,
-            category=ProblemCategory(original.category),
-            difficulty=ProblemDifficulty(original.difficulty),
-            retry_of=original.id,
+            category=ProblemCategory(original_category),
+            difficulty=ProblemDifficulty(original_difficulty),
+            retry_of=original_id,
         )
         return GenerationRequestRetryResponse(
             id=accepted.request_id,
             status="pending",
-            retry_of=original.id,
+            retry_of=original_id,
         )

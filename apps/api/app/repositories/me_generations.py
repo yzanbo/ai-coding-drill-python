@@ -76,20 +76,21 @@ class MeGenerationsRepository:
 
         # 各 generation_request_id ごとに「最新の jobs.id」を一段で取りたい。
         #   PostgreSQL DISTINCT ON でグループ別に最大 id を 1 行に絞る。
+        #   DISTINCT ON の式と ORDER BY の先頭式が「同じ文字列」になる必要があるため、
+        #   gr_id_expr を 1 度作って使い回す（毎回 .payload[...] を書くと SQLAlchemy が
+        #   バインドを別パラメータで出してしまい "must match" エラーになる）。
+        gr_id_expr = Job.payload["generationRequestId"].astext
         stmt = (
             select(
-                Job.payload["generationRequestId"].astext.label("gr_id"),
+                gr_id_expr.label("gr_id"),
                 Job.payload["promptVersion"].astext.label("prompt_version"),
             )
             .where(
                 Job.type == "problem.generate",
-                Job.payload["generationRequestId"].astext.in_(id_strs),
+                gr_id_expr.in_(id_strs),
             )
-            .order_by(
-                Job.payload["generationRequestId"].astext,
-                desc(Job.id),
-            )
-            .distinct(Job.payload["generationRequestId"].astext)
+            .order_by(gr_id_expr, desc(Job.id))
+            .distinct(gr_id_expr)
         )
         result = await self.session.execute(stmt)
         out: dict[UUID, str | None] = {gid: None for gid in generation_request_ids}
