@@ -79,6 +79,22 @@ describe("ProblemGenerationStatusView", () => {
     await vi.waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/problems/generate/req-new"));
   });
 
+  it("failed: 「条件を変えてやり直す」リンクが /problems/new を指す", async () => {
+    // 二次導線: 主アクション（再試行）と別に、カテゴリ・難易度を変えてやり直したい
+    //   ユーザー / retry race 後の代替経路を確保する。
+    server.use(
+      http.get(`${API_BASE}/api/problems/generate/req-ng2`, () =>
+        HttpResponse.json({ requestId: "req-ng2", status: "failed" }),
+      ),
+    );
+
+    render(<ProblemGenerationStatusView requestId="req-ng2" />, { wrapper: withQueryClient() });
+
+    expect(await screen.findByText("生成に失敗しました")).toBeInTheDocument();
+    const changeLink = screen.getByRole("link", { name: "条件を変えてやり直す" });
+    expect(changeLink).toHaveAttribute("href", "/problems/new");
+  });
+
   it("取得失敗: エラー文言と再読み込みボタンを表示し、押下で再フェッチが走る", async () => {
     // 1 回目は 500、2 回目以降は pending を返すハンドラ。
     //   「再読み込み」を押下したらサーバへの GET 件数が増えることで refetch が発火したと確認する。

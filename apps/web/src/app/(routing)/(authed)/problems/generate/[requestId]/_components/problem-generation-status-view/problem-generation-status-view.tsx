@@ -10,6 +10,7 @@
 //   失敗種別（LLM スキーマ違反 / Sandbox 失敗 / Judge 不合格）はユーザーには区別せず
 //   「生成に失敗しました」とだけ伝える（情報漏洩防止、要件 §画面）。
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -103,10 +104,19 @@ export const ProblemGenerationStatusView = ({ requestId }: ProblemGenerationStat
         {/* 試行ごとのエラー履歴を折りたたみで提示。max_attempts_exceeded でも
             「3 回中、どの試行でどのカテゴリの error が起きたか」が分かる。 */}
         <AttemptErrorList attemptErrors={status.attemptErrors ?? []} />
-        <div className="text-center">
+        <div className="flex flex-col items-center gap-2">
+          {/* 主導線: 同じカテゴリ・難易度で新規 generation_request を作って再試行 */}
           <Button onClick={handleRetry} disabled={retryMutation.isPending}>
             再試行
           </Button>
+          {/* 二次導線: 別のカテゴリ・難易度で作り直したいユーザーの逃げ場。
+              他タブで既に retry 済みで 409 が返った場合の代替経路も兼ねる。 */}
+          <Link
+            href="/problems/new"
+            className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+          >
+            条件を変えてやり直す
+          </Link>
         </div>
       </div>
     );
