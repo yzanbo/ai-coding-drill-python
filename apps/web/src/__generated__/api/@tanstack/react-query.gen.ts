@@ -155,6 +155,7 @@ export const cancelMyGenerationApiMeGenerationsRequestIdCancelPostMutation = (op
  * - 他人のリクエスト / 存在しない → 404
  * - failed 以外 → 409 Conflict
  * - 成功時 → 202 + 新規 id / status='pending' / retry_of
+ * - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す
  */
 export const retryMyGenerationApiMeGenerationsRequestIdRetryPostMutation = (options?: Partial<Options<RetryMyGenerationApiMeGenerationsRequestIdRetryPostData>>): UseMutationOptions<RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponse, RetryMyGenerationApiMeGenerationsRequestIdRetryPostError, Options<RetryMyGenerationApiMeGenerationsRequestIdRetryPostData>> => {
     const mutationOptions: UseMutationOptions<RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponse, RetryMyGenerationApiMeGenerationsRequestIdRetryPostError, Options<RetryMyGenerationApiMeGenerationsRequestIdRetryPostData>> = {

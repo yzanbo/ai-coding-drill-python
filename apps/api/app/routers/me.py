@@ -21,11 +21,12 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
 from app.deps.auth import get_current_user
+from app.deps.rate_limit import limiter
 from app.models.users import User
 from app.schemas.me import MeStatsResponse, MeWeaknessResponse
 from app.schemas.me_generations import (
@@ -139,7 +140,22 @@ async def cancel_my_generation(
     response_model=GenerationRequestRetryResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )
+# @limiter.shared_limit: 1 ユーザー 1 分あたり 5 回まで。
+#   retry は新規 generation_request + jobs を作って LLM ジョブを増やすため、
+#   POST /api/problems/generate と同等の上限で揃える（要件 §ビジネスルール
+#   「回数上限は設けず、レート制限（1 分 5 回）で吸収」）。
+#
+#   shared_limit + scope を使う理由：
+#     slowapi 既定の key_style="url" は URL path（path 変数含む）でバケットを
+#     分けるため、@limiter.limit("5/minute") だと {request_id} が違うだけで
+#     別バケット扱いになる（= failed 行が複数あれば全部に対して 5/min ずつ枠が
+#     復活する＝抜け穴）。scope を固定文字列にしてユーザー単位で 1 本のバケット
+#     を共有させる。
+#   request / response 引数は slowapi が読むため必須（problems.py と同じ）。
+@limiter.shared_limit("5/minute", scope="me_generations_retry")
 async def retry_my_generation(
+    request: Request,
+    response: Response,
     db_session: DbDep,
     user: CurrentUser,
     request_id: Annotated[UUID, Path()],
@@ -149,6 +165,8 @@ async def retry_my_generation(
     - 他人のリクエスト / 存在しない → 404
     - failed 以外 → 409 Conflict
     - 成功時 → 202 + 新規 id / status='pending' / retry_of
+    - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す
     """
+    _ = (request, response)  # slowapi がヘッダ書き込みに使うだけ、本体では未使用
     service = MeGenerationsService(db_session)
     return await service.retry(user_id=user.id, request_id=request_id)

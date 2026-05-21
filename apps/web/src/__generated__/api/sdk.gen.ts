@@ -47,6 +47,7 @@ export const cancelMyGenerationApiMeGenerationsRequestIdCancelPost = <ThrowOnErr
  * - 他人のリクエスト / 存在しない → 404
  * - failed 以外 → 409 Conflict
  * - 成功時 → 202 + 新規 id / status='pending' / retry_of
+ * - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す
  */
 export const retryMyGenerationApiMeGenerationsRequestIdRetryPost = <ThrowOnError extends boolean = false>(options: Options<RetryMyGenerationApiMeGenerationsRequestIdRetryPostData, ThrowOnError>) => (options.client ?? client).post<RetryMyGenerationApiMeGenerationsRequestIdRetryPostResponses, RetryMyGenerationApiMeGenerationsRequestIdRetryPostErrors, ThrowOnError>({ url: '/api/me/generations/{request_id}/retry', ...options });
 
