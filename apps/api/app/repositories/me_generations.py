@@ -8,10 +8,9 @@
 # generation_requests への INSERT は既存 GenerationRequestRepository.create が
 # 持っているため本 Repository では複製しない（retry 時もそちらを呼ぶ）。
 
-from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import desc, func, select, text, update
+from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.generation_requests import GenerationRequest
@@ -146,60 +145,6 @@ class MeGenerationsRepository:
             # JSONB は SQLAlchemy が Python list/dict にして返す。
             out[key] = row.attempt_errors or []
         return out
-
-    async def cancel_pending(
-        self,
-        *,
-        request_id: UUID,
-        user_id: UUID,
-    ) -> bool:
-        """pending の generation_request をキャンセルする。
-
-        振る舞い：
-          - 対象 generation_request が「自分 + 現状 pending」の時のみ status='canceled' /
-            completed_at=NOW() を書く（既に Worker が処理を進めていたら何もしない）
-          - 同時に、対応する jobs を state='queued' → 'dead' に更新（まだ Worker が
-            取っていないジョブを取られないようにする）
-          - 戻り値：実際に状態遷移したかどうか（True なら成功、False なら遷移条件不一致）
-
-        ⚠ 既に Worker がジョブを取って LLM 呼び出しを始めている場合、本関数は
-           jobs を 'dead' に倒せない（既に state='running' 等になっているため）。
-           Worker 側にも実行中のキャンセル機構は無いため、走り始めた LLM 呼び出しは
-           最後まで走り切る。本関数はあくまで「未着手ジョブの起動阻止」専用。
-
-        Service 側でトランザクション境界を握る前提で、本関数内では commit しない。
-        """
-        now = datetime.now(UTC)
-
-        # 1) generation_requests: pending → canceled
-        gr_stmt = (
-            update(GenerationRequest)
-            .where(
-                GenerationRequest.id == request_id,
-                GenerationRequest.user_id == user_id,
-                GenerationRequest.status == "pending",
-            )
-            .values(status="canceled", completed_at=now)
-            .returning(GenerationRequest.id)
-        )
-        gr_result = await self.session.execute(gr_stmt)
-        if gr_result.scalar_one_or_none() is None:
-            return False
-
-        # 2) jobs: queued → dead（同じ generation_request_id を payload に持つもの）
-        #   Worker は state='queued' のみ取るので、'dead' に倒せば取られない。
-        #   payload は JSONB なので ->> 'generationRequestId' で text 比較。
-        job_stmt = (
-            update(Job)
-            .where(
-                Job.type == "problem.generate",
-                Job.state == "queued",
-                Job.payload["generationRequestId"].astext == str(request_id),
-            )
-            .values(state="dead")
-        )
-        await self.session.execute(job_stmt)
-        return True
 
     async def get_for_user(
         self,
