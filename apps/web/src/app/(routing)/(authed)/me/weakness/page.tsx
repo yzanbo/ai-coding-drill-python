@@ -11,12 +11,67 @@
 //   - 弱点候補が無い場合（履歴が薄いケース）は空表示を出す。
 //   - 「練習する」導線は R6 以降（適応型出題）で生やすため MVP では設けない。
 
+import type { MeWeaknessResponse } from "@/__generated__/api/types.gen";
 import { Card, CardContent } from "@/components/ui/card/card";
 import { formatCategoryLabel } from "@/lib/utils/category-label";
 
 import { useGetMyWeakness } from "./_hooks/_fetch/use-get-my-weakness/use-get-my-weakness";
 
 const formatPercent = (n: number): string => `${(n * 100).toFixed(1)}%`;
+
+// renderBody: 4 段の三項ネストを避けるため、本体部分を分岐ロジックとして切り出す。
+//   isLoading / error / 空集計 / リスト の 4 状態を early return で平坦に並べる。
+const renderBody = (
+  isLoading: boolean,
+  error: unknown,
+  weakness: MeWeaknessResponse | undefined,
+) => {
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">読み込み中…</p>;
+  }
+  if (error) {
+    return (
+      <p className="text-sm text-destructive">
+        弱点情報を取得できませんでした。時間を置いて再度お試しください。
+      </p>
+    );
+  }
+  if (!weakness) return null;
+  if (weakness.weakCategories.length === 0) {
+    return (
+      <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+        現時点で弱点と判定されたカテゴリはありません。解答数が増えると判定対象になります。
+      </p>
+    );
+  }
+  return (
+    <ul className="flex flex-col gap-3">
+      {weakness.weakCategories.map((row) => (
+        <li key={row.category}>
+          <Card>
+            <CardContent className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4 text-sm">
+              <span className="font-semibold">{formatCategoryLabel(row.category)}</span>
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground">
+                <span>
+                  解答数 <span className="font-semibold text-foreground">{row.attempts}</span>
+                </span>
+                <span>
+                  正解数 <span className="font-semibold text-foreground">{row.correct}</span>
+                </span>
+                <span>
+                  正答率{" "}
+                  <span className="font-semibold text-destructive">
+                    {formatPercent(row.accuracy)}
+                  </span>
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </li>
+      ))}
+    </ul>
+  );
+};
 
 export default function MyWeaknessPage() {
   const { weakness, isLoading, error } = useGetMyWeakness();
@@ -30,43 +85,7 @@ export default function MyWeaknessPage() {
         </p>
       </header>
 
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">読み込み中…</p>
-      ) : error ? (
-        <p className="text-sm text-destructive">
-          弱点情報を取得できませんでした。時間を置いて再度お試しください。
-        </p>
-      ) : weakness && weakness.weakCategories.length === 0 ? (
-        <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-          現時点で弱点と判定されたカテゴリはありません。解答数が増えると判定対象になります。
-        </p>
-      ) : weakness ? (
-        <ul className="flex flex-col gap-3">
-          {weakness.weakCategories.map((row) => (
-            <li key={row.category}>
-              <Card>
-                <CardContent className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4 text-sm">
-                  <span className="font-semibold">{formatCategoryLabel(row.category)}</span>
-                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground">
-                    <span>
-                      解答数 <span className="font-semibold text-foreground">{row.attempts}</span>
-                    </span>
-                    <span>
-                      正解数 <span className="font-semibold text-foreground">{row.correct}</span>
-                    </span>
-                    <span>
-                      正答率{" "}
-                      <span className="font-semibold text-destructive">
-                        {formatPercent(row.accuracy)}
-                      </span>
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {renderBody(isLoading, error, weakness)}
     </main>
   );
 }
