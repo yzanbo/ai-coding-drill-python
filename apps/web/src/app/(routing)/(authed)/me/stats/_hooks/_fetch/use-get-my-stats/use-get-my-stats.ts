@@ -30,6 +30,10 @@ export const useGetMyStats = (): UseGetMyStatsReturn => {
     // retry: 401 は (authed) layout が捌くため即 error に倒し、それ以外は 1 回だけ retry。
     //   詳細は @/lib/api/query-retry.ts の authAwareRetry。
     retry: authAwareRetry,
+    // ページアクセスのたびに最新化したい（QueryClient 既定の staleTime 60s を上書き）。
+    //   採点完了で正答率・カテゴリ別習熟度が変わるため、戻ってきた時に常に最新を映す。
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   return {

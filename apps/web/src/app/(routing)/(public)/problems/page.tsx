@@ -48,6 +48,12 @@ type ProblemsPageProps = {
   searchParams: SearchParams;
 };
 
+// ページアクセスのたびに最新を取りに行く（採点完了で件数が変わるため）。
+//   - dynamic="force-dynamic": ルートセグメントの静的化を禁止、毎リクエスト再評価
+//   - revalidate=0: フェッチ結果も含めて再利用しない（=データキャッシュ無効）
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // 許可値の機械チェック：API 側 Enum と表示用 OPTIONS を照合する。
 //   不正な値が URL に書かれていたら無視（フィルタ未指定として扱う）。
 const VALID_CATEGORIES = new Set<ProblemCategory>(PROBLEM_CATEGORY_OPTIONS.map((o) => o.value));

@@ -32,6 +32,10 @@ export const useGetMySubmissions = (page: number): UseGetMySubmissionsReturn => 
         }),
       ),
     retry: authAwareRetry,
+    // ページアクセスのたびに最新化したい（QueryClient 既定の staleTime 60s を上書き）。
+    //   採点完了で件数が変わるため、戻ってきた時に常に最新を映す。
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   return {
