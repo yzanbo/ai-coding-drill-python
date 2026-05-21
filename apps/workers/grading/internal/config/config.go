@@ -102,6 +102,12 @@ type Config struct {
 	// Worker を docker run する場合は /app/llm.yaml 等を環境変数で渡す想定。
 	LLMConfigPath string `env:"LLM_CONFIG_PATH" envDefault:"llm.yaml"`
 
+	// HealthAddr: /healthz を listen する net/http のアドレス（例: ":8091"）。
+	// 空文字（既定）の場合は HTTP サーバを起動しない。dev / production では
+	// Worker は単なるジョブ consumer で外部からの health 確認は不要なので default 無効。
+	// Playwright E2E（issue #80）が webServer.url で起動完了を待つために E2E 専用で有効化する。
+	HealthAddr string `env:"WORKER_HEALTH_ADDR"`
+
 	// LLM プロバイダ API キー (provider ごとに別環境変数)。
 	// 空のままでも Load は成功する (実際に該当プロバイダを使わない構成もある)。
 	// 起動時の必須チェックは llm.New / provider.New 側で行う。

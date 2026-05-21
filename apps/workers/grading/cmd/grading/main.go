@@ -16,7 +16,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -207,6 +209,40 @@ func main() {
 		defer wg.Done()
 		genOrch.RunReclaim(ctx)
 	}()
+
+	// HealthAddr が指定されている時のみ /healthz を listen する。
+	// E2E（issue #80）で Playwright の webServer.url が Worker 起動完了を検出するのに使う。
+	// dev / production では未設定（空文字）なので HTTP サーバは起動しない。
+	if cfg.HealthAddr != "" {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok"))
+		})
+		srv := &http.Server{
+			Addr:              cfg.HealthAddr,
+			Handler:           mux,
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			logger.InfoContext(ctx, "health server listening", "addr", cfg.HealthAddr)
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logger.ErrorContext(ctx, "health server", "err", err.Error())
+			}
+		}()
+		// シャットダウン: ctx.Done() でグレースフルに止める。
+		// 最大 5 秒待ってから強制 close。
+		go func() {
+			<-ctx.Done()
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := srv.Shutdown(shutdownCtx); err != nil {
+				logger.WarnContext(ctx, "health server shutdown", "err", err.Error())
+			}
+		}()
+	}
 
 	<-ctx.Done()
 	logger.InfoContext(ctx, "grading worker shutting down, waiting in-flight jobs")
