@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getMeAuthMeGet } from "@/__generated__/api/sdk.gen";
 import type { UserResponse } from "@/__generated__/api/types.gen";
 import { ApiError, throwIfError } from "@/lib/api/api-error";
+import { authAwareRetry } from "@/lib/api/query-retry";
 
 export const AUTH_ME_QUERY_KEY = ["auth", "me"] as const;
 
@@ -29,10 +30,7 @@ export const useGetAuthMe = (): UseGetAuthMeReturn => {
     queryKey: AUTH_ME_QUERY_KEY,
     queryFn: () => throwIfError(getMeAuthMeGet()),
     // 401 を「未認証」として確定させる（retry すると無駄なリクエストになる）。
-    retry: (failureCount, error) => {
-      if (error instanceof ApiError && error.status === 401) return false;
-      return failureCount < 1;
-    },
+    retry: authAwareRetry,
     // グローバル toast から除外（未認証は (authed) layout のリダイレクトで扱う）。
     meta: { silent: true },
   });
