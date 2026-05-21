@@ -154,19 +154,29 @@ class TestGetMyStats:
         client: AsyncClient,
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
+        """ユーザー B 視点の /me/stats に A の解答が混ざらないことを観測する。
+
+        仕掛け：
+          1) ユーザー A としてログインし、passed=True の submission を 1 件作る
+             （A の正解が「もし混ざったら」B の total/correct を増やすはず）
+          2) ユーザー B として再ログインし、passed=False の submission を 2 件作る
+          3) B の view（client は B の Cookie 保持）で /me/stats を叩く
+
+        期待：total=2 / correct=0（B 名義の 2 件のみ）。
+        もし所有権 WHERE が抜けると total=3 / correct=1 になる回帰検出になる。
+        """
         del fake_redis
-        # ユーザー A としてログイン → A の submission を 1 件作る。
+        # 1) ユーザー A として A 名義の submission を 1 件作る（B の view に
+        #    混ざってはいけないノイズ）。
         await login_via_github(client, gh_id=1)
         user_a = await current_user_id(client)
         problem_id = await _insert_problem(category="array")
         await _insert_submission(
             user_id=user_a, problem_id=problem_id, passed=True
         )
-        # ユーザー B の submission を直接 INSERT（B には触らない fake user）。
-        b_id = uuid.uuid4()
-        # FK 制約上 users に B が居ないと INSERT できないため、別 gh_id でログインして
-        # B を作ってから A に戻る、という方が簡潔。
-        # ここでは別 gh_id でログインして user_b を取得 → B の submission を作る。
+        # 2) 別 gh_id でログインして B を作成 → B 名義の submission を 2 件作る。
+        #    FK 制約上 users に行が無いと INSERT できないため、ログイン経由で
+        #    B 行を生やすのが最短。
         await login_via_github(client, gh_id=2)
         user_b = await current_user_id(client)
         await _insert_submission(
@@ -175,13 +185,13 @@ class TestGetMyStats:
         await _insert_submission(
             user_id=user_b, problem_id=problem_id, passed=False
         )
-        # 観測：ユーザー B の視点で /me/stats を叩くと B の 2 件だけが見える。
-        del user_a, b_id
 
+        # 3) この時点で client の Cookie は B のセッション。/me/stats は B 視点。
         res = await client.get("/api/me/stats")
 
         assert res.status_code == 200
         body = res.json()
+        # A の 1 件（passed=True）が混ざっていれば total=3 / correct=1 になる。
         assert body["total"] == 2
         assert body["correct"] == 0
 
