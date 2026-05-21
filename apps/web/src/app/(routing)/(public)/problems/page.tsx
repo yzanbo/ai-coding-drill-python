@@ -30,6 +30,8 @@ import { serverApiClient } from "@/lib/api/server-api-client";
 import { hasSessionCookie } from "@/lib/auth/session-cookie";
 import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
 import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
+import { formatCategoryLabel } from "@/lib/utils/category-label";
+import { formatDifficultyLabel } from "@/lib/utils/difficulty-label";
 
 import { ProblemsFilterForm } from "./_components/problems-filter-form/problems-filter-form";
 
@@ -164,12 +166,10 @@ export default async function ProblemsListPage({ searchParams }: ProblemsPagePro
                   </CardHeader>
                   <CardContent className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <span className="rounded-md border border-border px-2 py-0.5">
-                      {PROBLEM_CATEGORY_OPTIONS.find((o) => o.value === problem.category)?.label ??
-                        problem.category}
+                      {formatCategoryLabel(problem.category)}
                     </span>
                     <span className="rounded-md border border-border px-2 py-0.5">
-                      {PROBLEM_DIFFICULTY_OPTIONS.find((o) => o.value === problem.difficulty)
-                        ?.label ?? problem.difficulty}
+                      {formatDifficultyLabel(problem.difficulty)}
                     </span>
                   </CardContent>
                 </Card>

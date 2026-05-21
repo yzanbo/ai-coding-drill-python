@@ -18,8 +18,8 @@ import { getProblemDetailApiProblemsProblemIdGet } from "@/__generated__/api/sdk
 import { ApiError, throwIfError } from "@/lib/api/api-error";
 import { serverApiClient } from "@/lib/api/server-api-client";
 import { hasSessionCookie } from "@/lib/auth/session-cookie";
-import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
-import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
+import { formatCategoryLabel } from "@/lib/utils/category-label";
+import { formatDifficultyLabel } from "@/lib/utils/difficulty-label";
 
 import { AnswerWorkspace } from "./_components/answer-workspace/answer-workspace";
 
@@ -64,11 +64,8 @@ export default async function ProblemDetailPage({ params }: ProblemDetailPagePro
     throw e;
   }
 
-  const categoryLabel =
-    PROBLEM_CATEGORY_OPTIONS.find((o) => o.value === problem.category)?.label ?? problem.category;
-  const difficultyLabel =
-    PROBLEM_DIFFICULTY_OPTIONS.find((o) => o.value === problem.difficulty)?.label ??
-    problem.difficulty;
+  const categoryLabel = formatCategoryLabel(problem.category);
+  const difficultyLabel = formatDifficultyLabel(problem.difficulty);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">

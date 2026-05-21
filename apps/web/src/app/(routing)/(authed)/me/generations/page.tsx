@@ -20,6 +20,7 @@ import type { GenerationRequestSummary } from "@/__generated__/api/types.gen";
 import { Button } from "@/components/ui/button/button";
 import { Card, CardContent } from "@/components/ui/card/card";
 import { formatCategoryLabel } from "@/lib/utils/category-label";
+import { formatDifficultyLabel } from "@/lib/utils/difficulty-label";
 
 import { LiveDuration } from "./_components/live-duration/live-duration";
 import { useCancelMyGeneration } from "./_hooks/_fetch/use-cancel-my-generation/use-cancel-my-generation";
@@ -210,7 +211,7 @@ const GenerationRow = ({
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold">{formatCategoryLabel(item.category)}</span>
             <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
-              {item.difficulty}
+              {formatDifficultyLabel(item.difficulty)}
             </span>
             <span className={TONE_CLASS[status.tone]}>{status.label}</span>
             {item.retryCount > 0 ? (
