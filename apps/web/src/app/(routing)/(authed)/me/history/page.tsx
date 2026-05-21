@@ -17,7 +17,7 @@
 //   - status='failed'  → "失敗"（インフラ起因の採点失敗）
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
 import type { SubmissionStatus, SubmissionSummary } from "@/__generated__/api/types.gen";
@@ -69,7 +69,6 @@ const buildHref = (page: number): string =>
   page === 1 ? "/me/history" : `/me/history?page=${page}`;
 
 export default function MyHistoryPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const page = useMemo(() => parsePage(searchParams.get("page")), [searchParams]);
 
@@ -105,12 +104,12 @@ export default function MyHistoryPage() {
                 const status = formatStatus(sub);
                 return (
                   <li key={sub.id}>
-                    <button
-                      type="button"
-                      // 行クリックで該当問題へ遷移（要件: §主要インタラクション）。
-                      // Link でラップしないのは status バッジ等の内側に他の Link を
-                      // 入れる可能性に備えるため。今は単純化のため button + push。
-                      onClick={() => router.push(`/problems/${sub.problemId}`)}
+                    {/* 行クリックで該当問題へ遷移（要件: §主要インタラクション）。
+                        Link を使うことで Cmd+クリックの新規タブ開きと prefetch
+                        が効き、screen reader にも role=link として正しく
+                        伝わる。 */}
+                    <Link
+                      href={`/problems/${sub.problemId}`}
                       className="block w-full text-left transition-all duration-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
                     >
                       <Card>
@@ -134,7 +133,7 @@ export default function MyHistoryPage() {
                           </span>
                         </CardContent>
                       </Card>
-                    </button>
+                    </Link>
                   </li>
                 );
               })}
