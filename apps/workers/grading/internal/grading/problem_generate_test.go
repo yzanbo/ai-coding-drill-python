@@ -251,14 +251,25 @@ func (g *fakeGenerator) Generate(_ context.Context, _, _ string) (*ProblemDraft,
 
 type fakeSandbox struct {
 	result *sandbox.Result
-	err    error
-	calls  int
+	// results: 連続呼び出しで返したい結果列。設定すると 1 回目に results[0]、
+	// 2 回目に results[1]…を返す（issue #79 で type-puzzle 経路が tsc → vitest と
+	// 2 回 Run するため）。未設定なら従来通り単一の result を毎回返す。
+	results []*sandbox.Result
+	err     error
+	calls   int
 }
 
 func (sb *fakeSandbox) Run(_ context.Context, _ []sandbox.FileSource, _ []string) (*sandbox.Result, error) {
 	sb.calls++
 	if sb.err != nil {
 		return nil, sb.err
+	}
+	if len(sb.results) > 0 {
+		idx := sb.calls - 1
+		if idx >= len(sb.results) {
+			idx = len(sb.results) - 1
+		}
+		return sb.results[idx], nil
 	}
 	return sb.result, nil
 }

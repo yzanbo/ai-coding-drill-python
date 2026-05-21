@@ -46,29 +46,34 @@ func newPgGradingStore(pool *pgxpool.Pool) *pgGradingStore {
 	return &pgGradingStore{pool: pool}
 }
 
-// GetProblemForGrading: 採点に必要な test_cases JSONB と reference_solution を取る。
+// GetProblemForGrading: 採点に必要な test_cases JSONB と category を取る。
+// category は type-puzzle のとき採点前に tsc --noEmit を走らせる分岐に使う
+// (issue #79、grading.md §受け入れ条件)。
 // soft delete 済 (deleted_at IS NOT NULL) の問題は ErrProblemNotFound を返す。
 // row 自体が無い場合も同じく ErrProblemNotFound (リトライしても直らないため
 // orchestrator が dead に流す)。
-func (s *pgGradingStore) GetProblemForGrading(ctx context.Context, problemID uuid.UUID) ([]TestCase, error) {
-	var testCasesJSON []byte
+func (s *pgGradingStore) GetProblemForGrading(ctx context.Context, problemID uuid.UUID) ([]TestCase, string, error) {
+	var (
+		testCasesJSON []byte
+		category      string
+	)
 	err := s.pool.QueryRow(ctx, `
-SELECT test_cases
+SELECT test_cases, category
   FROM problems
  WHERE id = $1
    AND deleted_at IS NULL;
-`, problemID).Scan(&testCasesJSON)
+`, problemID).Scan(&testCasesJSON, &category)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("%w: id=%s", ErrProblemNotFound, problemID)
+			return nil, "", fmt.Errorf("%w: id=%s", ErrProblemNotFound, problemID)
 		}
-		return nil, fmt.Errorf("grading: lookup problem %s: %w", problemID, err)
+		return nil, "", fmt.Errorf("grading: lookup problem %s: %w", problemID, err)
 	}
 	var cases []TestCase
 	if err := json.Unmarshal(testCasesJSON, &cases); err != nil {
-		return nil, fmt.Errorf("grading: parse test_cases for %s: %w", problemID, err)
+		return nil, "", fmt.Errorf("grading: parse test_cases for %s: %w", problemID, err)
 	}
-	return cases, nil
+	return cases, category, nil
 }
 
 // UpdateSubmissionGraded: 採点完了 (status='graded') を submissions に書き戻す。

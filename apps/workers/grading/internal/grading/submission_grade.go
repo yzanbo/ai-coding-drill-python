@@ -37,8 +37,11 @@ import (
 
 // gradingStore: 採点ハンドラが触る業務テーブル (problems / submissions) の
 // 抽象境界。本番では *pgGradingStore (repository.go)、テストは in-memory fake。
+//
+// GetProblemForGrading は test_cases に加えて category も返す。category は
+// "type-puzzle" のときに採点前へ tsc --noEmit を挟む分岐に使う (issue #79)。
 type gradingStore interface {
-	GetProblemForGrading(ctx context.Context, problemID uuid.UUID) ([]TestCase, error)
+	GetProblemForGrading(ctx context.Context, problemID uuid.UUID) ([]TestCase, string, error)
 	UpdateSubmissionGraded(ctx context.Context, submissionID uuid.UUID, score int, result []byte) error
 	UpdateSubmissionFailed(ctx context.Context, submissionID uuid.UUID) error
 }
@@ -126,9 +129,10 @@ func (h *submissionGradeHandler) Handle(ctx context.Context, j *job.Job) error {
 		"problem_id", problemID,
 	)
 
-	// 1. 問題の test_cases を取得 (problems.test_cases JSONB を [] TestCase に展開)。
+	// 1. 問題の test_cases と category を取得。
+	//    category は "type-puzzle" のとき採点前に tsc --noEmit を挟むかの分岐に使う。
 	//    soft delete / 存在しない問題は ErrProblemNotFound → 永続失敗 (即 dead)。
-	testCases, err := h.store.GetProblemForGrading(ctx, problemID)
+	testCases, category, err := h.store.GetProblemForGrading(ctx, problemID)
 	if err != nil {
 		// ErrProblemNotFound は bare のまま返す (orchestrator が dead 経路に)。
 		return err
@@ -142,13 +146,28 @@ func (h *submissionGradeHandler) Handle(ctx context.Context, j *job.Job) error {
 		return fmt.Errorf("grading: build spec for submission %s: %w", submissionID, err)
 	}
 
-	// 3. sandbox 実行。
-	//    sandbox.Run 自体の error は docker daemon 由来の transient 障害なので
-	//    classifyHandlerError で ErrInvalidProblem に詰め替えて retryable にする。
-	res, err := h.sandbox.Run(ctx, []sandbox.FileSource{
+	files := []sandbox.FileSource{
 		{Name: SolutionFileName, Content: payload.Code},
 		{Name: SpecFileName, Content: specBody},
-	}, vitestCmd)
+	}
+
+	// 3a. 型パズル系カテゴリのみ tsc --noEmit を先に走らせる (issue #79)。
+	//     type エラーがあれば failureKind=type_error で確定し、Vitest 実行をスキップ。
+	//     他カテゴリは型チェックを採点に組み込まない (実行コストを最小化)。
+	if category == categoryTypePuzzle {
+		tscRes, err := h.sandbox.Run(ctx, files, tscCmd)
+		if err != nil {
+			return classifyHandlerError(fmt.Errorf("grading: sandbox tsc run: %w", err))
+		}
+		if typeErrPayload := classifyTscOutcome(tscRes); typeErrPayload != nil {
+			return h.persistResult(ctx, j, submissionID, typeErrPayload)
+		}
+	}
+
+	// 3b. sandbox 実行 (Vitest)。
+	//    sandbox.Run 自体の error は docker daemon 由来の transient 障害なので
+	//    classifyHandlerError で ErrInvalidProblem に詰め替えて retryable にする。
+	res, err := h.sandbox.Run(ctx, files, vitestCmd)
 	if err != nil {
 		return classifyHandlerError(fmt.Errorf("grading: sandbox run: %w", err))
 	}
@@ -157,9 +176,22 @@ func (h *submissionGradeHandler) Handle(ctx context.Context, j *job.Job) error {
 	//    classifySandboxOutcome で failure_kind / score / testResults を確定。
 	resultPayload := classifySandboxOutcome(res)
 
-	// 5. submissions UPDATE。score は通過テスト件数を入れる。
-	//    UpdateSubmissionGraded は status='pending' の行のみを対象にする冪等契約
-	//    (at-least-once 配送で 2 回流れてきても 2 回目は ErrSubmissionAlreadyFinalized)。
+	// 5. submissions UPDATE (persistResult に委譲)。
+	return h.persistResult(ctx, j, submissionID, resultPayload)
+}
+
+// persistResult: 採点結果 payload を submissions に書き戻し、完了ログを出す共通処理。
+//
+// 通常の Vitest 経路と、型パズル系の早期 type_error 確定経路の両方から呼ばれる。
+//
+// UpdateSubmissionGraded は status='pending' の行のみを対象にする冪等契約
+// (at-least-once 配送で 2 回流れてきても 2 回目は ErrSubmissionAlreadyFinalized)。
+func (h *submissionGradeHandler) persistResult(
+	ctx context.Context,
+	j *job.Job,
+	submissionID uuid.UUID,
+	resultPayload *SubmissionResultPayload,
+) error {
 	resultJSON, err := json.Marshal(resultPayload)
 	if err != nil {
 		return fmt.Errorf("grading: marshal result for submission %s: %w", submissionID, err)
@@ -221,7 +253,98 @@ const (
 	failureKindOOM        = "oom"
 	failureKindSyntax     = "syntax"
 	failureKindRuntime    = "runtime"
+	failureKindTypeError  = "type_error"
 )
+
+// categoryTypePuzzle: 型パズル系カテゴリの識別子。
+// Backend 側 ProblemCategory.TYPE_PUZZLE と一致 (apps/api/app/schemas/problems.py)。
+// problems.category カラムにこの値が入っていれば採点前に tsc --noEmit を走らせる。
+const categoryTypePuzzle = "type-puzzle"
+
+// tscCmd: 型パズル系カテゴリ向けの型チェックコマンド (issue #79)。
+// sandbox 内で solution.ts と solution.spec.ts を tsc --noEmit にかけて
+// 型エラーの有無だけを検出する。実行ファイルは出さない (--noEmit)。
+//
+//   - --strict          : null 安全 / 暗黙 any 等の型パズルで本質的な検査を有効化
+//   - --skipLibCheck    : node_modules 配下の .d.ts のエラーで採点が壊れるのを防ぐ
+//   - --target es2022   : Node 24 (sandbox/Dockerfile) と合わせる
+//   - --module esnext   : import/export 文法を許容
+//   - --moduleResolution bundler : node_modules への解決を緩める (vitest 由来の型を拾う)
+//   - --types vitest/globals : describe/it/expect のグローバル型を有効化
+//
+// 終了コード 0 = 型 OK、それ以外 = 型エラー (= failureKind=type_error)。
+var tscCmd = []string{
+	"tsc",
+	"--noEmit",
+	"--strict",
+	"--skipLibCheck",
+	"--target", "es2022",
+	"--module", "esnext",
+	"--moduleResolution", "bundler",
+	"--types", "vitest/globals",
+	SolutionFileName,
+	SpecFileName,
+}
+
+// classifyTscOutcome: 型パズル系カテゴリで先行実行した tsc --noEmit の結果を解釈する。
+//
+// 戻り値:
+//   - nil       : 型 OK (ExitCode=0)。呼び出し側はそのまま Vitest 経路に進む。
+//   - non-nil   : 型エラー or 異常終了。failureKind=type_error として確定し、
+//     Vitest は走らせず persistResult に直行する。
+//
+// timeout / OOM は型チェックでは通常起きないが、起きたら採点ジョブとしても
+// 続行不能なので Vitest 経路と同じ分類 (timeout/oom) を返す。
+func classifyTscOutcome(res *sandbox.Result) *SubmissionResultPayload {
+	durationMs := int(res.Duration.Milliseconds())
+
+	if res.TimedOut {
+		return &SubmissionResultPayload{
+			Passed:      false,
+			DurationMs:  durationMs,
+			FailureKind: failureKindTimeout,
+			TestResults: []SubmissionTestResultItem{},
+			Score:       0,
+		}
+	}
+	const exitOOMKilled = 137
+	if res.OOMKilled || res.ExitCode == exitOOMKilled {
+		return &SubmissionResultPayload{
+			Passed:      false,
+			DurationMs:  durationMs,
+			FailureKind: failureKindOOM,
+			TestResults: []SubmissionTestResultItem{},
+			Score:       0,
+		}
+	}
+	// 型 OK: そのまま Vitest 経路へ続行。
+	if res.ExitCode == 0 {
+		return nil
+	}
+	// 型エラー (or tsc 自体の異常終了 = ユーザコード起因の不正 import 等)。
+	// stderr / stdout の tsc 出力をユーザー向けメッセージ 1 件として保持する
+	// (UI の「失敗テストの詳細」と同じ場所に出す、grading-result.tsx は
+	//  failureKind=type_error のときも testResults を読む拡張で対応)。
+	msg := strings.TrimSpace(res.Stdout)
+	if msg == "" {
+		msg = strings.TrimSpace(res.Stderr)
+	}
+	items := []SubmissionTestResultItem{}
+	if msg != "" {
+		items = append(items, SubmissionTestResultItem{
+			Name:    "tsc",
+			Passed:  false,
+			Message: msg,
+		})
+	}
+	return &SubmissionResultPayload{
+		Passed:      false,
+		DurationMs:  durationMs,
+		FailureKind: failureKindTypeError,
+		TestResults: items,
+		Score:       0,
+	}
+}
 
 // classifySandboxOutcome: sandbox.Result を SubmissionResultPayload に整形する。
 //
