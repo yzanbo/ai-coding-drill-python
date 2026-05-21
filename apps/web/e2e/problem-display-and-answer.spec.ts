@@ -91,11 +91,14 @@ test.describe("認証ユーザー：解答送信", () => {
       difficulty: "easy",
     });
 
-    // ログイン → 一覧で seed した問題タイトルが見える → 詳細へ遷移。
+    // ログイン → 一覧の「配列」アコーディオンを開いて seed した問題タイトルへ進む。
+    //   /problems はカテゴリ別アコーディオンで初期は全て閉じているため、
+    //   問題リンクを表示するには該当カテゴリの開閉トリガーを先に押す必要がある。
     //   "/" は /problems にサーバ side redirect されるため、終端着地は /problems。
     await loginViaMockGithub(page);
     await page.waitForURL("/problems");
     await expect(page.getByRole("heading", { name: "問題一覧" })).toBeVisible();
+    await page.getByRole("button", { name: /配列/ }).click();
     const card = page.getByRole("link", { name: /E2E 配列の合計/ });
     await expect(card).toBeVisible();
     await card.click();
