@@ -22,8 +22,9 @@ import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
 // DISABLED_CATEGORIES: 採点 Worker がまだ対応していないカテゴリ。
 //   - "recursion": 再帰問題（未対応）
 //   - "async": 非同期問題（未対応）
+//   - "type-puzzle": 型パズル（未対応、issue #79 で対応中）
 //   Worker 側が対応したら配列を空にして元に戻す。
-const DISABLED_CATEGORIES = ["recursion", "async"] as const;
+const DISABLED_CATEGORIES = ["recursion", "async", "type-puzzle"] as const;
 
 import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
 import {
