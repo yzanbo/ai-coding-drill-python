@@ -97,7 +97,7 @@ test.describe("問題生成フォームのバリデーション", () => {
 });
 
 test.describe("問題生成 failed 時の再試行", () => {
-  test("生成が失敗するとエラー表示 + 「もう一度生成する」で /problems/new に戻る", async ({
+  test("生成が失敗するとエラー表示 + 「再試行」で新しい /problems/generate/:id に遷移する", async ({
     page,
   }) => {
     await loginAndGoto(page, "/problems/new");
@@ -121,11 +121,20 @@ test.describe("問題生成 failed 時の再試行", () => {
 
     // failed の表示と再試行ボタンが出る。
     await expect(page.getByText("生成に失敗しました")).toBeVisible();
-    const retryButton = page.getByRole("button", { name: "もう一度生成する" });
+    const retryButton = page.getByRole("button", { name: "再試行" });
     await expect(retryButton).toBeVisible();
 
-    // ボタン押下で /problems/new に戻る。
+    // ボタン押下で新しい generation_request の生成中画面に遷移する
+    //   （/problems/generate/<新 id> に replace、旧 id と異なる）。
+    //   waitForURL に REQUEST_ID_PATTERN だけ渡すと、まだ replace 前で旧 id の URL
+    //   にいる時点で即マッチして抜けてしまい新 id 待ちにならない。コールバック形式で
+    //   「pathname がパターンに合致し、かつ旧 id を含まない」まで待つ。
     await retryButton.click();
-    await expect(page).toHaveURL(/\/problems\/new$/);
+    await page.waitForURL(
+      (url) => REQUEST_ID_PATTERN.test(url.pathname) && !url.pathname.includes(requestId ?? ""),
+    );
+    const newRequestId = page.url().match(REQUEST_ID_PATTERN)?.[1];
+    expect(newRequestId).toBeDefined();
+    expect(newRequestId).not.toBe(requestId);
   });
 });

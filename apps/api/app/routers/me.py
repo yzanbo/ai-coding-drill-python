@@ -4,7 +4,6 @@
 #   - GET  /api/me/stats                  : 全期間の正答率 + カテゴリ別習熟度
 #   - GET  /api/me/weakness               : 正答率の低いカテゴリ Top N
 #   - GET  /api/me/generations            : 自分の生成リクエスト履歴一覧
-#   - POST /api/me/generations/:id/cancel : pending のキャンセル
 #   - POST /api/me/generations/:id/retry  : failed の再試行
 #
 #   `/me` 系は「現在の認証ユーザー自身のリソース」を指す慣例パス。
@@ -30,7 +29,6 @@ from app.deps.rate_limit import limiter
 from app.models.users import User
 from app.schemas.me import MeStatsResponse, MeWeaknessResponse
 from app.schemas.me_generations import (
-    GenerationRequestCancelResponse,
     GenerationRequestRetryResponse,
     MeGenerationsListResponse,
 )
@@ -111,27 +109,6 @@ async def list_my_generations(
     """
     service = MeGenerationsService(db_session)
     return await service.list_history(user_id=user.id, page=page)
-
-
-# ----------------------------------------------------------------------------
-# POST /api/me/generations/:id/cancel : pending のキャンセル
-# ----------------------------------------------------------------------------
-@router.post(
-    "/generations/{request_id}/cancel",
-    response_model=GenerationRequestCancelResponse,
-)
-async def cancel_my_generation(
-    db_session: DbDep,
-    user: CurrentUser,
-    request_id: Annotated[UUID, Path()],
-) -> GenerationRequestCancelResponse:
-    """pending のリクエストを canceled に倒す（Worker は state='dead' にして無効化）。
-
-    - 他人のリクエスト / 存在しない → 404
-    - pending 以外 → 409 Conflict
-    """
-    service = MeGenerationsService(db_session)
-    return await service.cancel(user_id=user.id, request_id=request_id)
 
 
 # ----------------------------------------------------------------------------
