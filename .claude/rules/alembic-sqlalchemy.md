@@ -65,6 +65,11 @@ class Job(Base):
     locked_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     locked_by: Mapped[str | None] = mapped_column(String)
     last_error: Mapped[str | None] = mapped_column(String)
+    # attempt_errors: 各試行のエラー履歴を JSONB array で保持
+    # （Worker が MarkFailed/MarkDead で 1 要素ずつ append、UI のデバッグ詳細用）
+    attempt_errors: Mapped[list] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
     result: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()")

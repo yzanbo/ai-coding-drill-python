@@ -308,6 +308,34 @@ resp, err := cli.ContainerCreate(ctx, &container.Config{
 - リトライ可能なエラー（DB 接続エラー等）と不可（コードのコンパイルエラー等）を区別
 - パニックは `recover()` で吸収しジョブを `failed` 状態に遷移、Worker 本体は継続稼働
 
+### `jobHandler` interface 契約
+
+orchestrator が dispatch する各ジョブ種別ハンドラが実装するべきメソッド：
+
+| メソッド | 役割 |
+|---|---|
+| `Type() string` | dispatch のキー（`job.TypeProblemGenerate` 等） |
+| `Handle(ctx, j) error` | 1 ジョブの本処理。retryable な error は `ErrInvalidProblem` を `%w` で wrap して返す |
+| `OnDead(ctx, j, lastErr)` | dead 確定時の後処理（関連ドメイン行を `failed` に遷移）。`lastErr` は dead を引き起こした最後の Handle エラー |
+| `ClassifyFailureReason(err) string` | 1 試行の error を `jobs.attempt_errors` 用のタグに分類。`""` 返しなら `unclassified` フォールバック |
+
+orchestrator は `MarkFailed` / `MarkDead` を呼ぶ前に `ClassifyFailureReason` を呼んで `jobs.attempt_errors` JSONB array に `{attempt, failureReason, message, failedAt}` を append する。**この append 経路により、`max_attempts_exceeded` の中身（rate_limit / sandbox 失敗 等）を試行単位で追える**。
+
+### sentinel error の使い分け（problem.generate の例）
+
+`classifyHandlerError` 経由で `ErrInvalidProblem` を `%w` で被せる時、原因 sentinel も一緒に `%w` で 2 重 wrap する（Go 1.20+）：
+
+```go
+return fmt.Errorf("%w: %w: judge score %d below threshold %d",
+    ErrInvalidProblem, ErrJudgeBelowThreshold, total, threshold)
+```
+
+これで `errors.Is(err, ErrInvalidProblem)`（orchestrator の retry 判定）と `errors.Is(err, ErrJudgeBelowThreshold)`（`classifyFailureReason` の タグ判定）の両方が 1 つの error で成立する。新しい失敗カテゴリを追加する時は **(1) sentinel を新設、(2) emit 箇所で 2 重 wrap、(3) `classifyFailureReason` の switch に追加、(4) API 側 `FailureReasonTag` enum に追加、(5) FE 側文言マップに追加** の 5 点を 1 PR でまとめる。
+
+### `progress_step` UPDATE パターン
+
+長時間ジョブ（LLM 呼び出し系）は各処理ステップの開始時に**関連ドメイン行**の `progress_step` 列を UPDATE する（UI の進捗インジケータ用）。失敗は `slog.WarnContext` のみで握り潰し、本筋の処理を止めない（best-effort）。例：`apps/workers/grading/internal/grading/problem_generate.go` の `Handle` で 4 ステップ（`llm_generating` → `sandbox_verifying` → `judging` → `persisting`）を順に書く。
+
 ## 構造化ログ
 
 ```go
