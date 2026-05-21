@@ -134,9 +134,15 @@ class MeGenerationsService:
             )
             if not transitioned:
                 # race: 取得時点では pending だったが、cancel UPDATE 直前に
-                # Worker が拾って running に進めた場合などはここに来る。
-                # その時点で「キャンセル不可」を返すのが意味的に正しい。
-                raise GenerationRequestNotCancelableError(current_status="running")
+                # Worker が拾って completed / failed に進めた場合などはここに来る。
+                # Worker は pending → completed / failed の 1 ステップ遷移しか書かない
+                # ため、実際の current_status を再取得して 409 に乗せる
+                # （ハードコードだと FE 側のメッセージが事実と食い違う）。
+                refetched = await self.repo.get_for_user(
+                    request_id=request_id, user_id=user_id,
+                )
+                actual = refetched.status if refetched is not None else "unknown"
+                raise GenerationRequestNotCancelableError(current_status=actual)
 
         logger.info(
             "Generation request canceled: user_id=%s request_id=%s",

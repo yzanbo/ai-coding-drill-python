@@ -155,14 +155,32 @@ class TestCancel:
         assert res.status == "canceled"
         mock_repo.cancel_pending.assert_awaited_once()
 
-    async def test_異常系_race_でUPDATEが0行なら409(
+    async def test_異常系_race_でUPDATEが0行なら409_実状態を返す(
         self, service: MeGenerationsService, mock_repo: AsyncMock
     ) -> None:
-        # 取得時点では pending だったが、UPDATE 直前に Worker が running に進めた。
-        mock_repo.get_for_user.return_value = _gr(status="pending")
+        # 取得時点では pending だったが、UPDATE 直前に Worker が completed に進めた。
+        # 再 SELECT で取れた実状態（completed）が 409 detail に乗ることを確認。
+        mock_repo.get_for_user.side_effect = [
+            _gr(status="pending"),    # cancel 本体の SELECT
+            _gr(status="completed"),  # race 検知後の再 SELECT
+        ]
         mock_repo.cancel_pending.return_value = False
-        with pytest.raises(GenerationRequestNotCancelableError):
+        with pytest.raises(GenerationRequestNotCancelableError) as ei:
             await service.cancel(user_id=uuid.uuid4(), request_id=uuid.uuid4())
+        assert ei.value.current_status == "completed"
+
+    async def test_異常系_race_で再SELECTが消えていたらunknown(
+        self, service: MeGenerationsService, mock_repo: AsyncMock
+    ) -> None:
+        # 再 SELECT で None（極端ケース：TTL 削除等）が返った時の保険。
+        mock_repo.get_for_user.side_effect = [
+            _gr(status="pending"),
+            None,
+        ]
+        mock_repo.cancel_pending.return_value = False
+        with pytest.raises(GenerationRequestNotCancelableError) as ei:
+            await service.cancel(user_id=uuid.uuid4(), request_id=uuid.uuid4())
+        assert ei.value.current_status == "unknown"
 
 
 class TestRetry:
