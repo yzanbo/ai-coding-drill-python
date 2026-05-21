@@ -113,6 +113,23 @@
             ],
             "title": "Producedproblemid"
           },
+          "progressStep": {
+            "anyOf": [
+              {
+                "enum": [
+                  "llm_generating",
+                  "sandbox_verifying",
+                  "judging",
+                  "persisting"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progressstep"
+          },
           "promptVersion": {
             "anyOf": [
               {
@@ -480,6 +497,49 @@
       "ProblemGenerateStatusResponse": {
         "description": "生成リクエストの現在ステータス。completed の時のみ problemId を含む。",
         "properties": {
+          "completedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completedat"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "failureReason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "llm_unauthorized",
+                  "llm_cost_exceeded",
+                  "judge_below_threshold",
+                  "sandbox_failed",
+                  "llm_invalid_output",
+                  "max_attempts_exceeded"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failurereason"
+          },
           "problemId": {
             "anyOf": [
               {
@@ -491,6 +551,23 @@
               }
             ],
             "title": "Problemid"
+          },
+          "progressStep": {
+            "anyOf": [
+              {
+                "enum": [
+                  "llm_generating",
+                  "sandbox_verifying",
+                  "judging",
+                  "persisting"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progressstep"
           },
           "requestId": {
             "format": "uuid",

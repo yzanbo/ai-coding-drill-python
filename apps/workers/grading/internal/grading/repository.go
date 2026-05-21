@@ -143,6 +143,28 @@ func (s *pgGenerationStore) SelectStatus(ctx context.Context, requestID uuid.UUI
 	return selectGenerationRequestStatus(ctx, s.pool, requestID)
 }
 
+// UpdateProgressStep: pending 行に「現在処理中のステップ」を書く。
+//
+// step は schemas/me_generations.py の ProgressStep enum と 1:1：
+// "llm_generating" / "sandbox_verifying" / "judging" / "persisting"。
+//
+// WHERE status='pending' で守ることで、terminal 行（completed/failed/canceled）に
+// 後から step が混入するのを防ぐ。0 行更新時は警告のみで握り潰す（step 書き込みは
+// 観測性向上のための best-effort で、本筋の処理を止めない）。
+func (s *pgGenerationStore) UpdateProgressStep(ctx context.Context, requestID uuid.UUID, step string) error {
+	_, err := s.pool.Exec(ctx, `
+UPDATE generation_requests
+   SET progress_step = $2,
+       updated_at = NOW()
+ WHERE id = $1
+   AND status = 'pending';
+`, requestID, step)
+	if err != nil {
+		return fmt.Errorf("grading: update generation_request progress_step: %w", err)
+	}
+	return nil
+}
+
 // InsertProblemAndCompleteRequest: generationStore interface 実装。
 // problems INSERT と generation_requests UPDATE を 1 tx に閉じる
 // (ADR 0046 冪等性契約)。失敗時は WithTx が自動 rollback するため、

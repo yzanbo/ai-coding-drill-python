@@ -43,6 +43,12 @@ export const zGenerationRequestSummary = z.object({
     ]).nullish(),
     id: z.uuid(),
     producedProblemId: z.uuid().nullish(),
+    progressStep: z.enum([
+        'llm_generating',
+        'sandbox_verifying',
+        'judging',
+        'persisting'
+    ]).nullish(),
     promptVersion: z.string().nullish(),
     retryCount: z.int().gte(0),
     retryOf: z.uuid().nullish(),
@@ -201,7 +207,23 @@ export const zProblemGenerateRequest = z.object({
  * 生成リクエストの現在ステータス。completed の時のみ problemId を含む。
  */
 export const zProblemGenerateStatusResponse = z.object({
+    completedAt: z.iso.datetime().nullish(),
+    createdAt: z.iso.datetime().nullish(),
+    failureReason: z.enum([
+        'llm_unauthorized',
+        'llm_cost_exceeded',
+        'judge_below_threshold',
+        'sandbox_failed',
+        'llm_invalid_output',
+        'max_attempts_exceeded'
+    ]).nullish(),
     problemId: z.uuid().nullish(),
+    progressStep: z.enum([
+        'llm_generating',
+        'sandbox_verifying',
+        'judging',
+        'persisting'
+    ]).nullish(),
     requestId: z.uuid(),
     status: zGenerationStatus
 });

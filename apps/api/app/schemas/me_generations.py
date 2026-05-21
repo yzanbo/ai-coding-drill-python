@@ -39,6 +39,27 @@ FailureReasonTag = Literal[
     "max_attempts_exceeded",
 ]
 
+
+# ProgressStep: pending 行で Worker が現在どのステップを処理中かを表す。
+#   Worker (apps/workers/grading/internal/grading/problem_generate.go の Handle) が
+#   各ステップ開始時に generation_requests.progress_step を UPDATE する。
+#   terminal 行（completed / failed / canceled）では NULL（status から終了状態が
+#   分かるため、ステップ列は不要）。
+#
+#   ステップ意味：
+#     - llm_generating    : LLM に問題生成を依頼中
+#     - sandbox_verifying : 生成された reference_solution を sandbox で実行検証中
+#     - judging           : judge LLM で問題品質を評価中
+#     - persisting        : problems INSERT + generation_requests 完了処理中
+#
+#   FE はこの enum を switch して進捗インジケータの「現在ステップ」を描画する。
+ProgressStep = Literal[
+    "llm_generating",
+    "sandbox_verifying",
+    "judging",
+    "persisting",
+]
+
 # ME_GENERATIONS_PAGE_SIZE: 履歴 1 ページあたりの行数。
 #   要件 .md にはサイズ指定が無いため、解答履歴 (/me/history) と同じ 20 に揃える。
 ME_GENERATIONS_PAGE_SIZE = 20
@@ -87,6 +108,10 @@ class GenerationRequestSummary(_CamelModel):
     retry_of: UUID | None = None
     retry_count: int = Field(ge=0)
     failure_reason: FailureReasonTag | None = None
+    # progress_step: pending 行の現在ステップ。pending 以外では None。
+    #   Service 側で status=='pending' の時だけ詰める（completed/failed/canceled では
+    #   ステップ列が残っていても返さない）。
+    progress_step: ProgressStep | None = None
     created_at: datetime
     completed_at: datetime | None = None
 

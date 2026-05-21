@@ -85,6 +85,11 @@ class GenerationRequest(Base):
     # failure_reason: Worker が failed 遷移時に書く短い文字列（例: "judge_below_threshold"
     #   / "sandbox_failed" / "llm_invalid_output"）。ユーザー UI には丸めて表示する。
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # progress_step: Worker が pending 中の現在ステップを書く文字列。
+    #   "llm_generating" / "sandbox_verifying" / "judging" / "persisting"
+    #   の 4 値（schemas/me_generations.py の ProgressStep Literal が SSoT）。
+    #   terminal 遷移時は NULL（status を見れば終了状態が分かるため）。
+    progress_step: Mapped[str | None] = mapped_column(Text, nullable=True)
     # completed_at: completed / failed / canceled 遷移時の確定時刻。
     #   履歴画面の「所要時間」表示と SLA 集計に使う。pending / running 中は NULL。
     completed_at: Mapped[datetime | None] = mapped_column(

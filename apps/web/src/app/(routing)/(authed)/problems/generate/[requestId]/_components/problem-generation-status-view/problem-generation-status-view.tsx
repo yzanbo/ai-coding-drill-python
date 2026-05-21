@@ -12,7 +12,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+import { GenerationProgress } from "@/components/parts/generation-progress/generation-progress";
+import { LiveDuration } from "@/components/parts/live-duration/live-duration";
 import { Button } from "@/components/ui/button/button";
+import { formatDate } from "@/lib/utils/format-date";
 
 import { useGetProblemGenerationStatus } from "../../_hooks/_fetch/use-get-problem-generation-status/use-get-problem-generation-status";
 
@@ -65,11 +68,17 @@ export const ProblemGenerationStatusView = ({ requestId }: ProblemGenerationStat
 
   if (status?.status === "failed") {
     return (
-      <div className="flex flex-col items-center gap-3 py-12 text-center">
+      <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-12 text-center">
         <p className="text-base font-semibold">生成に失敗しました</p>
         <p className="text-sm text-muted-foreground">
           条件を変えるかしばらく時間を置いて、もう一度お試しください。
         </p>
+        {status.createdAt ? (
+          <p className="text-xs text-muted-foreground">
+            開始: {formatDate(status.createdAt)} ／ 所要{" "}
+            <LiveDuration createdAt={status.createdAt} completedAt={status.completedAt} />
+          </p>
+        ) : null}
         <Button onClick={() => router.replace("/problems/new")}>もう一度生成する</Button>
       </div>
     );
@@ -80,14 +89,24 @@ export const ProblemGenerationStatusView = ({ requestId }: ProblemGenerationStat
     return null;
   }
 
-  // pending（ポーリング継続中）
+  // pending（ポーリング継続中）：ステップインジケータ + 開始時刻 + 経過時間。
+  //   経過時間は LiveDuration が setInterval で 1 秒ごとに自分だけ再描画する
+  //   （ポーリング fetch 周期 1.5 秒に左右されない）。
   return (
-    <div className="flex flex-col items-center gap-3 py-12 text-center">
-      <p className="text-base font-semibold">生成中…</p>
-      <p className="text-sm text-muted-foreground">
-        AI
-        が問題本文・テストケース・模範解答を生成しています。完了すると自動的に問題ページに移動します。
-      </p>
+    <div className="mx-auto flex max-w-md flex-col gap-6 py-12">
+      <div className="text-center">
+        <p className="text-base font-semibold">生成中…</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          完了すると自動的に問題ページに移動します。
+        </p>
+      </div>
+      <GenerationProgress currentStep={status?.progressStep} variant="full" />
+      {status?.createdAt ? (
+        <p className="text-center text-xs text-muted-foreground">
+          開始: {formatDate(status.createdAt)} ／ 経過{" "}
+          <LiveDuration createdAt={status.createdAt} completedAt={status.completedAt} />
+        </p>
+      ) : null}
     </div>
   );
 };

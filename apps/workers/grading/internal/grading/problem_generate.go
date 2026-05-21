@@ -60,6 +60,9 @@ type generationStore interface {
 	// 1 tx で completed に遷移。先に finalized 済みなら
 	// ErrGenerationRequestAlreadyFinalized を返す (handler 側で nil 扱いに変換)。
 	InsertProblemAndCompleteRequest(ctx context.Context, draft *ProblemDraft, category, difficulty string, scores JudgeScoresPayload, requestID uuid.UUID) (*CreatedProblem, error)
+	// UpdateProgressStep: pending 行の現在ステップを書く (R1-7-2)。
+	// 失敗は handler 側で警告ログのみで握り潰す (本筋を止めない)。
+	UpdateProgressStep(ctx context.Context, requestID uuid.UUID, step string) error
 }
 
 // classifyHandlerError: handler が外部 (LLM / sandbox / judge) 呼び出しで受け取った
@@ -250,10 +253,21 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 		return nil
 	}
 
+	// 各ステップ開始時に generation_requests.progress_step を UPDATE する。
+	// 失敗時はログのみで握り潰す（観測性向上のための best-effort で、
+	// step 書き込みエラーで本筋を止めない）。
+	updateStep := func(step string) {
+		if err := h.store.UpdateProgressStep(ctx, requestID, step); err != nil {
+			slog.WarnContext(ctx, "problem.generate: update progress_step failed",
+				"job_id", j.ID, "step", step, "err", err.Error())
+		}
+	}
+
 	// 1. LLM 生成
 	// classifyHandlerError: provider 由来の transient error (429 / timeout /
 	// schema 違反 / NW エラー) を ErrInvalidProblem に詰め替えて retryable 化する。
 	// ErrUnauthorized / ErrCostExceeded は bare のままで即 dead 経路へ。
+	updateStep("llm_generating")
 	draft, err := h.generator.Generate(ctx, category, difficulty)
 	if err != nil {
 		return classifyHandlerError(err)
@@ -278,12 +292,14 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 	// 2. サンドボックス検証
 	// verifyInSandbox は内部で大半を ErrInvalidProblem wrap 済みだが、
 	// Docker daemon 由来の bare error を ErrInvalidProblem に詰め替える。
+	updateStep("sandbox_verifying")
 	if err := h.verifyInSandbox(ctx, draft); err != nil {
 		return classifyHandlerError(err)
 	}
 
 	// 3. judge 評価
 	// classifyHandlerError: judge LLM の transient error を retryable に倒す。
+	updateStep("judging")
 	judgeRes, err := h.evaluateQuality(ctx, draft, category, difficulty)
 	if err != nil {
 		return classifyHandlerError(err)
@@ -291,6 +307,9 @@ func (h *problemGenerateHandler) Handle(ctx context.Context, j *job.Job) error {
 	if !judgeRes.Passed() {
 		return fmt.Errorf("%w: %w: judge score %d below threshold %d", ErrInvalidProblem, ErrJudgeBelowThreshold, judgeRes.Total, judgeRes.Threshold)
 	}
+
+	// 4. 永続化
+	updateStep("persisting")
 
 	// 4. problems INSERT + generation_requests completed
 	scores := JudgeScoresPayload{

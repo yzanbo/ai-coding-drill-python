@@ -181,6 +181,10 @@ type fakeStore struct {
 	insertCalls        int
 	lastInsertRequest  uuid.UUID
 	lastInsertCategory string
+	// progressSteps: UpdateProgressStep が呼ばれた順に step 文字列を記録。
+	//   Handle が "llm_generating" → "sandbox_verifying" → "judging" → "persisting"
+	//   の順序でステップ遷移を書いていることを確認する用。
+	progressSteps []string
 }
 
 func (s *fakeStore) SelectStatus(_ context.Context, _ uuid.UUID) (string, *uuid.UUID, error) {
@@ -203,6 +207,14 @@ func (s *fakeStore) InsertProblemAndCompleteRequest(_ context.Context, _ *Proble
 		return nil, s.insertErr
 	}
 	return &CreatedProblem{ID: s.insertReturnedID}, nil
+}
+
+// UpdateProgressStep: Worker が各ステップ開始時に呼ぶ progress_step UPDATE。
+// テストでは呼ばれたステップ列を順番に記録して、Handle が想定順序で
+// ステップ遷移を書いているかを後段で assertion できるようにする。
+func (s *fakeStore) UpdateProgressStep(_ context.Context, _ uuid.UUID, step string) error {
+	s.progressSteps = append(s.progressSteps, step)
+	return nil
 }
 
 // fakeGenerator / fakeSandbox / fakeJudge: 各 interface を in-memory で実装。
@@ -412,6 +424,15 @@ func TestHandle_HappyPath(t *testing.T) {
 	err := h.Handle(context.Background(), makeJob(t))
 	require.NoError(t, err)
 	assert.Equal(t, 1, store.insertCalls, "insert が 1 回呼ばれるべき")
+	// R1-7-2: 各ステップ開始時に progress_step が UPDATE される順序を pin。
+	//   FE のステップインジケータがこの順序前提で描画されるので、Handle 内の
+	//   updateStep 呼び出し順序が壊れたら即気付けるようにする。
+	assert.Equal(
+		t,
+		[]string{"llm_generating", "sandbox_verifying", "judging", "persisting"},
+		store.progressSteps,
+		"progress_step が想定順序で UPDATE されるべき",
+	)
 }
 
 // TestHandle_JudgeBelowThreshold: judge スコアが threshold 未満なら

@@ -7,6 +7,7 @@
 #   - docs/requirements/4-features/problem-generation.md
 #     §API / §JSON 例 / §バリデーション
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 from uuid import UUID
@@ -16,6 +17,11 @@ from uuid import UUID
 # alias_generators.to_camel: snake_case → camelCase 自動変換。
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
+
+# 生成ステータス画面で使う enum を履歴側 schema から再利用する。
+#   FailureReasonTag / ProgressStep は schemas/me_generations.py が SSoT
+#   （Worker classifyFailureReason / progress_step UPDATE と 1:1 対応）。
+from app.schemas.me_generations import FailureReasonTag, ProgressStep
 
 
 # ProblemCategory: 問題のカテゴリ。
@@ -80,9 +86,13 @@ class ProblemGenerateAcceptedResponse(_CamelModel):
 
 # ProblemGenerateStatusResponse: GET /api/problems/generate/:requestId の 200 レスポンス。
 #   要件側 JSON 例（pending / completed / failed の 3 形）：
-#     { "requestId": "<uuid>", "status": "pending" }
-#     { "requestId": "<uuid>", "status": "completed", "problemId": "<uuid>" }
-#     { "requestId": "<uuid>", "status": "failed" }
+#     { "requestId": "<uuid>", "status": "pending", "progressStep": "llm_generating", ... }
+#     { "requestId": "<uuid>", "status": "completed", "problemId": "<uuid>", ... }
+#     { "requestId": "<uuid>", "status": "failed", "failureReason": "judge_below_threshold", ... }
+#
+#   R1-7-2 で created_at / completed_at / progress_step / failure_reason を追加。
+#   生成ステータス画面で「開始時刻 / 所要時間 / 現在ステップ / 失敗理由」を表示するため。
+#   履歴画面 (GenerationRequestSummary) と同じ enum を再利用する。
 class ProblemGenerateStatusResponse(_CamelModel):
     """生成リクエストの現在ステータス。completed の時のみ problemId を含む。"""
 
@@ -90,6 +100,16 @@ class ProblemGenerateStatusResponse(_CamelModel):
     status: GenerationStatus
     # problem_id: completed の時のみ非 None。pending / failed では None（JSON では省略される）。
     problem_id: UUID | None = None
+    # progress_step: pending 行の現在処理ステップ。Service 側で status=='pending'
+    #   の時だけ詰める。詳細は schemas/me_generations.py の ProgressStep 参照。
+    progress_step: ProgressStep | None = None
+    # failure_reason: failed 行のみ enum 値を返す。同じく schemas/me_generations.py
+    #   の FailureReasonTag を再利用する（情報漏洩懸念は固定 enum で構造的に解消済み）。
+    failure_reason: FailureReasonTag | None = None
+    # created_at / completed_at: 開始時刻 / 終了時刻。所要時間表示に使う。
+    #   pending の間は completed_at=None（FE 側で「now との差分」を出す）。
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
 
 
 # ----------------------------------------------------------------------------

@@ -30,6 +30,7 @@ from app.schemas.me_generations import (
     GenerationRequestRetryResponse,
     GenerationRequestSummary,
     MeGenerationsListResponse,
+    ProgressStep,
 )
 from app.schemas.problems import (
     ProblemCategory,
@@ -64,6 +65,33 @@ def _coerce_failure_reason(raw: str | None) -> FailureReasonTag | None:
     if raw is None:
         return None
     if raw in _KNOWN_FAILURE_REASONS:
+        return raw  # type: ignore[return-value]
+    return None
+
+
+# _KNOWN_PROGRESS_STEPS: Worker が書く想定のステップ集合。
+#   Worker (apps/workers/grading/internal/grading/problem_generate.go の Handle で
+#   updateProgressStep が書く 4 値) と 1:1。集合に無い値は API レスポンスから
+#   除外し、FE 側でステップ未確定（≒ キュー待ち or 起動直後）の表示にフォールバック。
+_KNOWN_PROGRESS_STEPS: frozenset[str] = frozenset(
+    [
+        "llm_generating",
+        "sandbox_verifying",
+        "judging",
+        "persisting",
+    ]
+)
+
+
+def _coerce_progress_step(raw: str | None) -> ProgressStep | None:
+    """DB の生 string を ProgressStep に絞り込む。想定外値は None。
+
+    Worker が pending 中に書く 4 タグ以外（旧データ / 手動修正 / 将来追加されたが
+    API 側が追従していない値）は除外する。FailureReasonTag と同じ防御線パターン。
+    """
+    if raw is None:
+        return None
+    if raw in _KNOWN_PROGRESS_STEPS:
         return raw  # type: ignore[return-value]
     return None
 
@@ -124,6 +152,12 @@ class MeGenerationsService:
                 #   以外の値（旧データ / 想定外）は _coerce_failure_reason で None に倒す。
                 failure_reason=(
                     _coerce_failure_reason(r.failure_reason) if r.status == "failed" else None
+                ),
+                # progress_step: pending 行のみ enum 値を返す。pending 以外では
+                #   ステップ列が NULL でない場合もあるが（古い遷移残り）、API では
+                #   None に倒す（ステップ表示は pending 中だけの関心）。
+                progress_step=(
+                    _coerce_progress_step(r.progress_step) if r.status == "pending" else None
                 ),
                 created_at=r.created_at,
                 completed_at=r.completed_at,

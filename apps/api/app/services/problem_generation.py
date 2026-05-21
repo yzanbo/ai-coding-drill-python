@@ -164,8 +164,28 @@ class ProblemGenerationService:
             )
             raise
 
+        # progress_step / failure_reason: pending と failed それぞれの時だけ詰める。
+        #   生 string を返す前に MeGenerationsService と同じ防御線
+        #   (_coerce_progress_step / _coerce_failure_reason) を通す。
+        from app.services.me_generations import (
+            _coerce_failure_reason,
+            _coerce_progress_step,
+        )
+
         return ProblemGenerateStatusResponse(
             request_id=gr.id,
             status=status,
             problem_id=gr.produced_problem_id if status is GenerationStatus.COMPLETED else None,
+            progress_step=(
+                _coerce_progress_step(gr.progress_step)
+                if status is GenerationStatus.PENDING
+                else None
+            ),
+            failure_reason=(
+                _coerce_failure_reason(gr.failure_reason)
+                if status is GenerationStatus.FAILED
+                else None
+            ),
+            created_at=gr.created_at,
+            completed_at=gr.completed_at,
         )

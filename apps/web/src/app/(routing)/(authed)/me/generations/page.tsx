@@ -17,14 +17,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
 import type { GenerationRequestSummary } from "@/__generated__/api/types.gen";
+import { GenerationProgress } from "@/components/parts/generation-progress/generation-progress";
+import { LiveDuration } from "@/components/parts/live-duration/live-duration";
 import { StatusBadge, type StatusTone } from "@/components/parts/status-badge/status-badge";
 import { Button } from "@/components/ui/button/button";
 import { Card, CardContent } from "@/components/ui/card/card";
 import { formatCategoryLabel } from "@/lib/utils/category-label";
 import { formatDifficultyLabel } from "@/lib/utils/difficulty-label";
 import { formatDate } from "@/lib/utils/format-date";
-
-import { LiveDuration } from "./_components/live-duration/live-duration";
 import { useCancelMyGeneration } from "./_hooks/_fetch/use-cancel-my-generation/use-cancel-my-generation";
 import { useGetMyGenerations } from "./_hooks/_fetch/use-get-my-generations/use-get-my-generations";
 import { useRetryMyGeneration } from "./_hooks/_fetch/use-retry-my-generation/use-retry-my-generation";
@@ -217,6 +217,9 @@ const GenerationRow = ({
               失敗理由:{" "}
               {item.failureReason ? FAILURE_MESSAGES[item.failureReason] : FAILURE_MESSAGE_FALLBACK}
             </span>
+          ) : null}
+          {item.status === "pending" ? (
+            <GenerationProgress currentStep={item.progressStep} variant="compact" />
           ) : null}
         </div>
         <div className="flex items-center gap-2">

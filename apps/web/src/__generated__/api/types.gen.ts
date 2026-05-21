@@ -75,6 +75,10 @@ export type GenerationRequestSummary = {
      */
     producedProblemId?: string | null;
     /**
+     * Progressstep
+     */
+    progressStep?: 'llm_generating' | 'sandbox_verifying' | 'judging' | 'persisting' | null;
+    /**
      * Promptversion
      */
     promptVersion?: string | null;
@@ -317,9 +321,25 @@ export type ProblemGenerateRequest = {
  */
 export type ProblemGenerateStatusResponse = {
     /**
+     * Completedat
+     */
+    completedAt?: string | null;
+    /**
+     * Createdat
+     */
+    createdAt?: string | null;
+    /**
+     * Failurereason
+     */
+    failureReason?: 'llm_unauthorized' | 'llm_cost_exceeded' | 'judge_below_threshold' | 'sandbox_failed' | 'llm_invalid_output' | 'max_attempts_exceeded' | null;
+    /**
      * Problemid
      */
     problemId?: string | null;
+    /**
+     * Progressstep
+     */
+    progressStep?: 'llm_generating' | 'sandbox_verifying' | 'judging' | 'persisting' | null;
     /**
      * Requestid
      */
