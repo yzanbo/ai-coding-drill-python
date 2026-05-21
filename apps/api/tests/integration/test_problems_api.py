@@ -49,11 +49,13 @@ async def _insert_problem(
             difficulty=difficulty,
             language="typescript",
             examples=examples or [{"input": "[1,2,3]", "output": "6"}],
+            # test_cases.input は Worker 側 TestCase 契約に合わせて配列で入れる
+            # （文字列を入れると grading Worker が json unmarshal で落ちて即 dead 行きになる）。
             test_cases=test_cases
             or [
-                {"input": "[1,2,3]", "expected": "6"},
-                {"input": "[]", "expected": "0"},
-                {"input": "[-1,1]", "expected": "0"},
+                {"input": [[1, 2, 3]], "expected": 6},
+                {"input": [[]], "expected": 0},
+                {"input": [[-1, 1]], "expected": 0},
             ],
             reference_solution="const solve = (a: number[]) => a.reduce((s, n) => s + n, 0);",
             judge_scores={"correctness": 5, "difficulty_fit": 5},
@@ -239,9 +241,9 @@ class TestGetProblemDetail:
         problem_id = await _insert_problem(
             examples=[{"input": "[1,2,3]", "output": "6"}],
             test_cases=[
-                {"input": "[1,2,3]", "expected": "6"},
-                {"input": "[]", "expected": "0"},
-                {"input": "[-1,1]", "expected": "0"},
+                {"input": [[1, 2, 3]], "expected": 6},
+                {"input": [[]], "expected": 0},
+                {"input": [[-1, 1]], "expected": 0},
             ],
         )
 

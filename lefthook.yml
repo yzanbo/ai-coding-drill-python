@@ -241,6 +241,42 @@ pre-push:
       root: apps/web
       run: mise exec -- pnpm exec vitest run
 
+    # Playwright E2E（実 Postgres + Redis + mock-github + Next.js + FastAPI を立てて
+    # ブラウザで叩く）。webServer は playwright.config.ts が自動で起動する。
+    # `mise exec -- mise run web:e2e` 経由で起動する理由：web:e2e タスクが depends で
+    # test:up を呼ぶため、テスト用 Postgres / Redis が未起動でも自動で立てる。
+    # CI 側の web-e2e ジョブとほぼ同じ経路をローカルでも踏ませて、push 前に dead 行きの
+    # grading ジョブ等を観測できるようにする（issue #82 で test_cases seed shape を
+    # Worker 契約に揃えた regression が pre-push でも自動で守られる）。
+    # glob: apps/web 変更 + e2e ヘルパ（apps/web/e2e/**）変更 + API 側 schemas 変更で発火。
+    # apps/api 側の変更でも発火する理由：OpenAPI 経由で web の生成型に伝播するため、
+    # API の breaking change を push する時に E2E を一緒に回したい。
+    # glob: lefthook の glob は単一 glob 文字列で、ブレース展開 `{a,b,c}` のみ複数候補に
+    # 展開される。**トップレベルのカンマ区切りはサポートされず**、リテラル `,` として扱われて
+    # 何にもマッチしない silent skip になる（過去に他フックでこのバグを踏んだ）。
+    # 複数パターンを OR したい時は外側のブレースで包んで `{p1,p2,p3}` の形にする。
+    web-e2e:
+      glob: "{apps/web/**/*.ts,apps/web/**/*.tsx,apps/web/**/*.css,apps/web/**/*.json,apps/web/e2e/**/*,apps/api/app/**/*.py}"
+      run: mise exec -- mise run web:e2e
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  Playwright E2E が失敗しました（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        失敗の詳細は上の playwright ログを確認してください。
+
+        【よくある原因】
+          ・テスト用 Postgres / Redis 未起動（webServer が DB 接続できない）
+              → mise run test:up してから再 push（web:e2e は depends で自動起動するが
+                 Docker 本体が落ちている時はここで失敗する）
+          ・ブラウザ未インストール（"Executable doesn't exist"）
+              → cd apps/web && pnpm exec playwright install --with-deps chromium
+          ・port 競合（dev サーバが 3000 / 8000 を握ったまま）
+              → mise run dev:restart で kill してから再 push
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     web-next-build:
       glob: "apps/web/**/*.{ts,tsx,css,json}"
       root: apps/web
@@ -317,8 +353,9 @@ pre-push:
     # silently に古い型で通ってしまうリスクを潰す。Pydantic（apps/api/app/schemas/jobs/）
     # 変更も trigger 対象に含めて、Worker .go を一切触らない変更でも検証を回す。
     worker-grading-go-test:
-      # lefthook の glob はカンマ区切り文字列で複数パターンを指定する。
-      glob: "apps/workers/grading/**/*.go,apps/api/app/schemas/jobs/**"
+      # glob: トップレベルのカンマ区切りは未サポートのため、外側のブレースで包んで OR を表現する
+      # （web-e2e の glob コメント参照）。
+      glob: "{apps/workers/grading/**/*.go,apps/api/app/schemas/jobs/**/*}"
       run: |
         set -e
         mise exec -- mise run worker:grading:types-gen
@@ -339,7 +376,8 @@ pre-push:
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     worker-generation-go-test:
-      glob: "apps/workers/generation/**/*.go,apps/api/app/schemas/jobs/**"
+      # glob: web-e2e の glob コメント参照（top-level カンマ未サポートのため外側ブレースで OR）。
+      glob: "{apps/workers/generation/**/*.go,apps/api/app/schemas/jobs/**/*}"
       run: |
         set -e
         mise exec -- mise run worker:generation:types-gen
@@ -427,7 +465,9 @@ pre-push:
     #
     # 独立 Go module (ADR 0040) のため Worker ごとに hook を分ける。
     worker-grading-deps-check:
-      glob: "apps/workers/grading/{go.mod,go.sum},apps/api/app/schemas/jobs/**"
+      # glob: web-e2e の glob コメント参照（top-level カンマ未サポートのため外側ブレースで OR）。
+      # 元の `apps/workers/grading/{go.mod,go.sum}` を平坦化して `go.mod / go.sum` を別パターンに展開。
+      glob: "{apps/workers/grading/go.mod,apps/workers/grading/go.sum,apps/api/app/schemas/jobs/**/*}"
       run: |
         set -e
         mise exec -- mise run worker:grading:types-gen
@@ -450,7 +490,8 @@ pre-push:
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     worker-generation-deps-check:
-      glob: "apps/workers/generation/{go.mod,go.sum},apps/api/app/schemas/jobs/**"
+      # glob: web-e2e の glob コメント参照（top-level カンマ未サポートのため外側ブレースで OR）。
+      glob: "{apps/workers/generation/go.mod,apps/workers/generation/go.sum,apps/api/app/schemas/jobs/**/*}"
       run: |
         set -e
         mise exec -- mise run worker:generation:types-gen
