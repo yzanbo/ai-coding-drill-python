@@ -33,6 +33,7 @@ from app.deps.auth import get_current_user
 from app.deps.rate_limit import limiter
 from app.models.users import User
 from app.schemas.problems import (
+    PROBLEMS_PAGE_SIZE,
     ProblemCategory,
     ProblemDetailResponse,
     ProblemDifficulty,
@@ -155,6 +156,11 @@ async def list_problems(
         ProblemDifficulty | None, Query(description="難易度で絞り込み")
     ] = None,
     page: Annotated[int, Query(ge=1, description="ページ番号（1 始まり）")] = 1,
+    # page_size: 1 ページあたりの件数。
+    #   既定 20 / 上限なし（クライアント側で全件取得したい時に大きい値を渡せるように）。
+    page_size: Annotated[
+        int, Query(ge=1, description="1 ページあたりの件数（上限なし）")
+    ] = PROBLEMS_PAGE_SIZE,
 ) -> ProblemListResponse:
     """カテゴリ・難易度フィルタ付きで問題一覧を返す。
 
@@ -167,6 +173,7 @@ async def list_problems(
         category=category,
         difficulty=difficulty,
         page=page,
+        page_size=page_size,
     )
 
 

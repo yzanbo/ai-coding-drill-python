@@ -11,18 +11,23 @@
 //     SSoT は Backend の Depends(get_current_user)、本判定は UX 用ガード
 //     （3-cross-cutting/03-page-routing.md §2 の server-side cookie + redirect()
 //      パターン）。
-//
-// route group：
-//   (public) 配下に置く。(authed)/problems/new と (authed)/problems/generate/:requestId は
-//   既存だが、URL は /problems/new / /problems/generate/:requestId で literal segment
-//   先勝ちのため、本ページの /problems/[id] とは衝突しない（Next.js のルーティング
-//   優先度：static > dynamic）。本ページは server-side cookie redirect で認証ガード
-//   するため (authed) layout の useGetAuthMe には乗らず、(public) に置いたまま。
+//   - 表示は「カテゴリ別アコーディオン（初期は全て閉じる）+ 難易度昇順」。
+//     ページネーションは廃止し、大きい page_size で 1 回 fetch する全件取得方式。
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { listProblemsApiProblemsGet } from "@/__generated__/api/sdk.gen";
-import type { ProblemCategory, ProblemDifficulty } from "@/__generated__/api/types.gen";
+import type {
+  ProblemCategory,
+  ProblemDifficulty,
+  ProblemSummaryResponse,
+} from "@/__generated__/api/types.gen";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion/accordion";
 import { Button } from "@/components/ui/button/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card/card";
 import { throwIfError } from "@/lib/api/api-error";
@@ -30,17 +35,16 @@ import { serverApiClient } from "@/lib/api/server-api-client";
 import { hasSessionCookie } from "@/lib/auth/session-cookie";
 import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
 import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
-import { formatCategoryLabel } from "@/lib/utils/category-label";
 import { formatDifficultyLabel } from "@/lib/utils/difficulty-label";
 
 import { ProblemsFilterForm } from "./_components/problems-filter-form/problems-filter-form";
 
 // SearchParams: Next.js 16 で page に渡る searchParams は Promise 型。
-//   問題一覧で扱うのは category / difficulty / page の 3 種類のみ。
+//   問題一覧で扱うのは category / difficulty の 2 種類のみ
+//   （ページネーション撤去のため page は使わない）。
 type SearchParams = Promise<{
   category?: string;
   difficulty?: string;
-  page?: string;
 }>;
 
 type ProblemsPageProps = {
@@ -54,81 +58,64 @@ const VALID_DIFFICULTIES = new Set<ProblemDifficulty>(
   PROBLEM_DIFFICULTY_OPTIONS.map((o) => o.value),
 );
 
-function parseCategory(raw: string | undefined): ProblemCategory | undefined {
-  if (raw && (VALID_CATEGORIES as Set<string>).has(raw)) {
-    return raw as ProblemCategory;
-  }
-  return undefined;
-}
+// DIFFICULTY_RANK: 難易度の並び順（easy=0, medium=1, hard=2）。
+//   カテゴリ枠内でソートする時の比較キーに使う。
+const DIFFICULTY_RANK: Record<ProblemDifficulty, number> = Object.fromEntries(
+  PROBLEM_DIFFICULTY_OPTIONS.map((o, i) => [o.value, i]),
+) as Record<ProblemDifficulty, number>;
 
-function parseDifficulty(raw: string | undefined): ProblemDifficulty | undefined {
-  if (raw && (VALID_DIFFICULTIES as Set<string>).has(raw)) {
-    return raw as ProblemDifficulty;
-  }
-  return undefined;
-}
-
-function parsePage(raw: string | undefined): number {
-  const n = Number(raw);
-  // 数値以外 / 0 以下 / 小数は 1 にフォールバック（Backend に 422 を投げない）。
-  if (!Number.isFinite(n) || n < 1 || !Number.isInteger(n)) return 1;
-  return n;
-}
-
-// buildHref: フィルタ + ページ番号から URL クエリ文字列を組み立てる。
-//   ページネーションのリンク（前 / 次）で使う。
-function buildHref(
-  category: ProblemCategory | undefined,
-  difficulty: ProblemDifficulty | undefined,
-  page: number,
-): string {
-  const params = new URLSearchParams();
-  if (category) params.set("category", category);
-  if (difficulty) params.set("difficulty", difficulty);
-  if (page !== 1) params.set("page", String(page));
-  const qs = params.toString();
-  return qs ? `/problems?${qs}` : "/problems";
-}
+// ALL_FETCH_PAGE_SIZE: 全件取得のために渡す page_size。
+//   Backend 側に上限は無く（routers/problems.py）、MVP 規模では 1000 で十分。
+//   将来この数を超えたら戦略を見直す（YAGNI、CLAUDE.md §設計原則）。
+const ALL_FETCH_PAGE_SIZE = 1000;
 
 export default async function ProblemsListPage({ searchParams }: ProblemsPageProps) {
   // 認証ガード：session_id Cookie が無ければ /login?next=/problems に飛ばす。
-  //   フィルタやページ番号を保持して戻したいので、現在の URL（クエリ含む）を
-  //   組み立てて next に渡す。
+  //   フィルタを保持して戻したいので、現在の URL（クエリ含む）を組み立てて next に渡す。
   const isLoggedIn = await hasSessionCookie();
   const sp = await searchParams;
   if (!isLoggedIn) {
     const nextParams = new URLSearchParams();
     if (typeof sp.category === "string") nextParams.set("category", sp.category);
     if (typeof sp.difficulty === "string") nextParams.set("difficulty", sp.difficulty);
-    if (typeof sp.page === "string") nextParams.set("page", sp.page);
     const qs = nextParams.toString();
     const nextUrl = qs ? `/problems?${qs}` : "/problems";
     redirect(`/login?next=${encodeURIComponent(nextUrl)}`);
   }
 
-  const category = parseCategory(sp.category);
-  const difficulty = parseDifficulty(sp.difficulty);
-  const page = parsePage(sp.page);
+  const category =
+    sp.category && (VALID_CATEGORIES as Set<string>).has(sp.category)
+      ? (sp.category as ProblemCategory)
+      : undefined;
+  const difficulty =
+    sp.difficulty && (VALID_DIFFICULTIES as Set<string>).has(sp.difficulty)
+      ? (sp.difficulty as ProblemDifficulty)
+      : undefined;
 
-  // Backend を直接 fetch（serverApiClient は絶対 URL ベース）。
-  //   throwIfError は ApiError を投げるが、本ページは error boundary で拾う想定
-  //   （MVP では error.tsx を置かないので Next.js デフォルト error 画面に倒れる）。
+  // 全件取得。page_size を大きくして 1 回の fetch で全部取る。
   const data = await throwIfError(
     listProblemsApiProblemsGet({
       client: serverApiClient,
-      query: { category, difficulty, page },
+      query: { category, difficulty, page: 1, page_size: ALL_FETCH_PAGE_SIZE },
     }),
   );
 
-  // ページ範囲外：?page=999 を直接踏んだ時に最終ページへ寄せる。
-  //   items=[] と「条件に合う問題がありません」の表示が重複して出るのを防ぎ、
-  //   URL とユーザーの認識を一致させる（totalPages=0 のときは寄せ先がないので無視）。
-  if (data.totalPages > 0 && page > data.totalPages) {
-    redirect(buildHref(category, difficulty, data.totalPages));
+  // カテゴリ別にグルーピング。category フィルタが効いている時は該当 1 つだけが出る。
+  //   キーは PROBLEM_CATEGORY_OPTIONS の順（string / array / recursion / async / type-puzzle）。
+  const grouped = new Map<ProblemCategory, ProblemSummaryResponse[]>();
+  for (const item of data.items) {
+    const list = grouped.get(item.category) ?? [];
+    list.push(item);
+    grouped.set(item.category, list);
   }
-
-  const hasPrev = page > 1;
-  const hasNext = page < data.totalPages;
+  // 各グループ内を難易度昇順（easy → medium → hard）にソート。
+  //   tie-break は title（同じ難易度内は名前順）。
+  for (const list of grouped.values()) {
+    list.sort((a, b) => {
+      const r = DIFFICULTY_RANK[a.difficulty] - DIFFICULTY_RANK[b.difficulty];
+      return r !== 0 ? r : a.title.localeCompare(b.title, "ja");
+    });
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
@@ -139,11 +126,16 @@ export default async function ProblemsListPage({ searchParams }: ProblemsPagePro
             解いてみたい問題をカテゴリ・難易度で絞り込めます。
           </p>
         </div>
-        {/* 新規問題を生成: /problems/new への主動線。本ページ自体が認証必須に
-            なったため、ここを踏むユーザーは必ずログイン済み。 */}
-        <Button asChild size="sm" className="sm:self-start">
-          <Link href="/problems/new">新規問題を生成</Link>
-        </Button>
+        {/* 右側の動線。ヘッダーの「生成履歴」リンクをこちらに集約し、
+            「生成 → 履歴」が同じ場所で完結するようにする。 */}
+        <div className="flex items-center gap-2 sm:self-start">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/me/generations">生成履歴</Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link href="/problems/new">新規問題を生成</Link>
+          </Button>
+        </div>
       </header>
 
       <ProblemsFilterForm category={category} difficulty={difficulty} />
@@ -153,53 +145,56 @@ export default async function ProblemsListPage({ searchParams }: ProblemsPagePro
           条件に合う問題が見つかりませんでした。フィルタを外すか、別のカテゴリを試してください。
         </p>
       ) : (
-        <ul className="flex flex-col gap-4">
-          {data.items.map((problem) => (
-            <li key={problem.id}>
-              <Link
-                href={`/problems/${problem.id}`}
-                className="block transition-all duration-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
+        // カテゴリ別アコーディオン。
+        //   type="multiple": 複数カテゴリを同時に開ける。
+        //   defaultValue={[]}: 初期表示は全て閉じた状態。
+        //   PROBLEM_CATEGORY_OPTIONS の順序で固定（string → array → recursion → async → type-puzzle）。
+        <Accordion type="multiple" defaultValue={[]} className="flex flex-col gap-3">
+          {PROBLEM_CATEGORY_OPTIONS.map((opt) => {
+            const list = grouped.get(opt.value) ?? [];
+            if (list.length === 0) return null;
+            return (
+              <AccordionItem
+                key={opt.value}
+                value={opt.value}
+                className="rounded-xl border border-border bg-card px-4"
               >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base font-semibold">{problem.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span className="rounded-md border border-border px-2 py-0.5">
-                      {formatCategoryLabel(problem.category)}
-                    </span>
-                    <span className="rounded-md border border-border px-2 py-0.5">
-                      {formatDifficultyLabel(problem.difficulty)}
-                    </span>
-                  </CardContent>
-                </Card>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                <AccordionTrigger className="text-base">
+                  <span className="flex items-center gap-3">
+                    <span className="font-semibold">{opt.label}</span>
+                    <span className="text-xs text-muted-foreground">{list.length} 問</span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <ul className="flex flex-col gap-3">
+                    {list.map((problem) => (
+                      <li key={problem.id}>
+                        <Link
+                          href={`/problems/${problem.id}`}
+                          className="block rounded-lg transition-all duration-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-sm font-semibold">
+                                {problem.title}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <span className="rounded-md border border-border px-2 py-0.5">
+                                {formatDifficultyLabel(problem.difficulty)}
+                              </span>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
       )}
-
-      {data.totalPages > 1 ? (
-        <nav className="flex items-center justify-between gap-4" aria-label="ページネーション">
-          <Button asChild variant="outline" size="sm" disabled={!hasPrev}>
-            {hasPrev ? (
-              <Link href={buildHref(category, difficulty, page - 1)}>前のページ</Link>
-            ) : (
-              <span aria-disabled="true">前のページ</span>
-            )}
-          </Button>
-          <span className="text-xs text-muted-foreground">
-            {page} / {data.totalPages}
-          </span>
-          <Button asChild variant="outline" size="sm" disabled={!hasNext}>
-            {hasNext ? (
-              <Link href={buildHref(category, difficulty, page + 1)}>次のページ</Link>
-            ) : (
-              <span aria-disabled="true">次のページ</span>
-            )}
-          </Button>
-        </nav>
-      ) : null}
     </main>
   );
 }

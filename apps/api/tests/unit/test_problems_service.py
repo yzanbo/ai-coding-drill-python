@@ -136,6 +136,29 @@ class TestListProblems:
         # 0 件 → ceil(0/20) は 0 だが「最低 1 ページ」とは扱わない契約（要件 §API JSON 例）。
         assert res.total_pages == 0
 
+    async def test_正常系_page_size_を渡すと_Repositoryとtotal_pages計算に使われる(
+        self,
+        service: ProblemService,
+        mock_repo: AsyncMock,
+    ) -> None:
+        # 全件取得用途を想定（apps/web の問題一覧画面が大きな page_size を渡す）。
+        problems = [_make_problem() for _ in range(10)]
+        mock_repo.list_paginated.return_value = (problems, 10)
+
+        res = await service.list_problems(
+            category=None, difficulty=None, page=1, page_size=1000
+        )
+
+        mock_repo.list_paginated.assert_called_once_with(
+            category=None,
+            difficulty=None,
+            page=1,
+            page_size=1000,
+        )
+        # total=10 / page_size=1000 → ceil = 1。
+        assert res.total_pages == 1
+        assert len(res.items) == 10
+
 
 class TestGetDetail:
     async def test_正常系_詳細が返り_test_cases_は含まれない(

@@ -25,7 +25,7 @@ const GLOBAL_NAV_LINKS: { href: string; label: string }[] = [
   { href: "/me/history", label: "解答履歴" },
   { href: "/me/stats", label: "学習統計" },
   { href: "/me/weakness", label: "弱点" },
-  { href: "/me/generations", label: "生成履歴" },
+  // 生成履歴は問題一覧ページの右上に動線を集約（生成 → 履歴の流れがそこで完結するため）。
 ];
 
 export const SiteHeader = () => {
