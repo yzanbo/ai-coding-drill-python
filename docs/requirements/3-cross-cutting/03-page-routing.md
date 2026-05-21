@@ -19,12 +19,17 @@
 - ルートは **3 系統**：完全公開（`/`、`/login`）/ 認証必須（`/problems`、
   `/problems/:id`、`/problems/new`、`/problems/generate/:requestId`、`/me/*`）/
   特殊（`404`）。
-- 認証必須画面の **未ログイン挙動は全て `/login?next=...` への redirect に統一**：
-  - server-side cookie + `redirect()`：`/problems`、`/problems/:id`
-  - `(authed)` layout（client-side `useGetAuthMe` + `router.replace`）：
-    `/problems/new`、`/problems/generate/:requestId`、`/me/*`
+- 認証必須画面の **未ログイン → `/login?next=...` redirect は Next.js middleware
+  に集約**（[apps/web/src/middleware.ts](../../../apps/web/src/middleware.ts)）。
+  Cookie が無いリクエストを RSC レンダリングより一段早く弾く。
+- `(authed)` ルートグループには **加えて** client-side `useGetAuthMe` ガードが
+  残る。これは「Cookie はあるが Redis セッションが失効している」ケースを
+  API 401 から拾うための二段目で、middleware の presence チェックだけでは
+  代替できない。
 - `/` は **認証状態で挙動が分岐**：ログイン済みは `/problems` へリダイレクト、
-  未ログインはランディング画面を表示。
+  未ログインはランディング画面を表示（Server Component の cookie 判定）。
+- `/login` も同様に、ログイン済アクセスを `?next=` / `/problems` に倒す
+  （Server Component の cookie 判定）。
 - `404` も認証状態で分岐：ログイン済みは `/problems` に、未ログインは `/` に
   server-side `redirect()` する（`app/not-found.tsx`）。
 
@@ -46,16 +51,16 @@
 
 | 画面名 | 経路 | 認証済 | 未認証 | ガード方法 |
 |---|---|---|---|---|
-| ランディング | `/` | 非公開<br>→ `/problems` | 公開 | server-side cookie + `redirect()` |
-| ログイン | `/login` | 非公開<br>→ `?next` または `/` | 公開 | server-side cookie + `redirect()` |
-| 問題一覧 | `/problems` | 公開 | 非公開<br>→ `/login?next=/problems` | server-side cookie + `redirect()` |
-| 問題詳細 + 解答エディタ | `/problems/:id` | 公開 | 非公開<br>→ `/login?next=/problems/:id` | server-side cookie + `redirect()` |
-| 問題生成リクエスト | `/problems/new` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
-| 生成ステータス | `/problems/generate/:requestId` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
-| 解答履歴 | `/me/history` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
-| 学習統計 | `/me/stats` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
-| 弱点カテゴリ | `/me/weakness` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
-| 生成履歴 | `/me/generations` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
+| ランディング | `/` | 非公開<br>→ `/problems` | 公開 | server-side cookie + `redirect()`（guest-only） |
+| ログイン | `/login` | 非公開<br>→ `?next` または `/` | 公開 | server-side cookie + `redirect()`（guest-only） |
+| 問題一覧 | `/problems` | 公開 | 非公開<br>→ `/login?next=/problems` | middleware |
+| 問題詳細 + 解答エディタ | `/problems/:id` | 公開 | 非公開<br>→ `/login?next=/problems/:id` | middleware |
+| 問題生成リクエスト | `/problems/new` | 公開 | 非公開<br>→ `/login?next=...` | middleware + `(authed)` layout |
+| 生成ステータス | `/problems/generate/:requestId` | 公開 | 非公開<br>→ `/login?next=...` | middleware + `(authed)` layout |
+| 解答履歴 | `/me/history` | 公開 | 非公開<br>→ `/login?next=...` | middleware + `(authed)` layout |
+| 学習統計 | `/me/stats` | 公開 | 非公開<br>→ `/login?next=...` | middleware + `(authed)` layout |
+| 弱点カテゴリ | `/me/weakness` | 公開 | 非公開<br>→ `/login?next=...` | middleware + `(authed)` layout |
+| 生成履歴 | `/me/generations` | 公開 | 非公開<br>→ `/login?next=...` | middleware + `(authed)` layout |
 | —（存在しないパス） | `404` | 非公開<br>→ `/problems` | 非公開<br>→ `/` | `app/not-found.tsx` + server-side `redirect()` |
 
 ### 補足：`/auth/*`（OAuth 経路）
@@ -69,41 +74,48 @@ FastAPI に転送される）。本表の対象外。詳細は
 
 ## 2. ガード方法の使い分け
 
-認証必須画面は **未ログインを `/login?next=...` に redirect する点で統一**だが、
-実装手段は **2 通り**に分かれる。判断軸はページが Server / Client のどちらで
-書かれているかと一致する。
+認証必須画面のガードは **3 階層**に分かれる。すべて未ログインの最終着地は
+`/login?next=...` で揃うが、果たす責務がそれぞれ異なる。
 
-### 2.1 server-side cookie + `redirect()`（Server Component 経路）
+### 2.1 middleware（Edge Runtime、全認証必須パスの 1 段目）
 
-- **使う画面**：`/`、`/login`、`/problems`、`/problems/:id`
-- **挙動**：Server Component で [`cookies()`](https://nextjs.org/docs/app/api-reference/functions/cookies) から
-  `session_id` の有無を確認し、判定に応じて [`redirect()`](https://nextjs.org/docs/app/api-reference/functions/redirect) を呼ぶ。
-  ネットワーク層で 307 が返り、JS 起動前に遷移が確定する。
+- **使う画面**：`/problems`、`/problems/:id`、`/problems/new`、
+  `/problems/generate/:requestId`、`/me/*`
+- **実装**：[apps/web/src/middleware.ts](../../../apps/web/src/middleware.ts)。
+  `req.cookies.has("session_id")` で presence チェックし、無ければ
+  `/login?next=<pathname+search>` に 307 redirect する。
 - **採用理由**：
-  - JS 無効環境・低速回線でも即座に正しい URL に着地（チラ見せゼロ）
-  - cookies() は Next.js の Server-only API なので、判定ロジックを Server に閉じ込められる
-  - フィルタやページ番号などの searchParams を含む完全な URL を `next` に詰めて、
-    ログイン後の戻り先が崩れない
+  - RSC レンダリングが始まる前に Edge 層で確定する（コスト・レイテンシ最小）
+  - 認証必須画面の追加コストが「`PROTECTED_PATTERNS` に正規表現を 1 行足す」だけ
+  - 画面ごとの冒頭ガード（`if (!await hasSessionCookie()) redirect(...)`）の
+    重複が消える
+- **境界**：「Cookie の有無」しか見ない。Redis セッション失効は `(authed)` layout
+  または ApiErrorProvider が拾う。
 
-### 2.2 `(authed)` layout（Client Component 経路）
+### 2.2 `(authed)` layout（Client Component 経路の 2 段目）
 
 - **使う画面**：`/problems/new`、`/problems/generate/:requestId`、`/me/*`
-- **挙動**：[`apps/web/src/app/(routing)/(authed)/layout.tsx`](../../../apps/web/src/app/(routing)/(authed)/layout.tsx) が
-  `useGetAuthMe` で認証状態を見て、`isUnauthenticated` なら
-  `router.replace("/login?next=<元の path>")` を発火する。判定中は空表示
-  （チラ見せ防止）。
-- **採用理由**：これらの画面は Client Component + TanStack Query で API を叩く
-  経路（fetch に Cookie を載せる必要があるため Server fetch の `credentials: 'omit'`
-  では機能しない）。すでに `useGetAuthMe` を持っているため、layout で集約して
-  判定するのが素直。
+- **実装**：[`apps/web/src/app/(routing)/(authed)/layout.tsx`](../../../apps/web/src/app/(routing)/(authed)/layout.tsx)。
+  `useGetAuthMe` で `/auth/me` を呼び、`isUnauthenticated` なら
+  `router.replace("/login?next=<pathname>")` を発火。判定中は空表示。
+- **採用理由**：middleware の presence チェックでは「Cookie はあるが Redis 側で
+  失効」を検知できない。`useGetAuthMe` が API 401 を見て補完する。
+- **middleware との関係**：middleware が `/me/*` 等で先に 307 を返すため、
+  Cookie の無い純粋な未ログインは layout に到達しない。layout で見るのは
+  Cookie あり + 失効 / 通信障害のケースのみ。
 
-### 2.3 どちらを使うかの判断軸
+### 2.3 server-side cookie + `redirect()`（guest-only 系の Server Component）
 
-- ページが Server Component で書ける（fetch を Server fetch で済ませられる）なら **§2.1**
-- ページが Client Component（TanStack Query / 認証 fetch / インタラクション）必須なら **§2.2**
-
-両者とも未ログイン挙動は同じ（`/login?next=...` へ redirect）なので、UX 上の
-違いは「JS 起動前に遷移するか / 起動後に遷移するか」の体感速度のみ。
+- **使う画面**：`/`、`/login`、`app/not-found.tsx`
+- **挙動**：Server Component で [`cookies()`](https://nextjs.org/docs/app/api-reference/functions/cookies) から
+  `session_id` の有無を見て、ログイン済なら別画面に倒す（`/` / `/login` →
+  `/problems`、not-found → `/problems` or `/`）。
+- **middleware に乗せない理由**：これらは「ログイン済を別画面に倒す」逆方向
+  の分岐。`/login` を middleware で「Cookie あり → /problems」に倒すと、
+  `(authed)` layout の 401 → `/login?next=/me/*` → `/problems` → /me/* の
+  ループが発生しうる。`/login` の Cookie→redirect は Server Component に
+  閉じ込めることで、middleware の責務を「未ログインを `/login` へ寄せる」
+  一方向に保ち、ループを構造的に断ち切る。
 
 ---
 
@@ -113,8 +125,11 @@ FastAPI に転送される）。本表の対象外。詳細は
   認証が必要な API エンドポイントは 401 を返す。
 - **FE 側のガード** は **UX 用の早期分岐**であり、ネットワーク帯域・チラ見せ
   防止・動線整流のために置く。
-  - server-side cookie presence チェック（`/`、`/login`、`/problems`、`/problems/:id`）
-  - client-side `useGetAuthMe` 判定（`(authed)` layout）
+  - middleware の Cookie presence チェック（`/problems` / `/problems/:id` /
+    `/problems/new` / `/problems/generate/:requestId` / `/me/*`）
+  - client-side `useGetAuthMe` 判定（`(authed)` layout、Cookie 失効を補完）
+  - server-side cookie presence チェック（`/`、`/login`、`not-found.tsx` の
+    guest-only / 認証分岐）
 - **Cookie の有効性チェックは行わない**。Cookie が存在するが Redis 側で
   セッションが失効しているケースは、API 呼び出しで 401 が返り、それを
   `ApiErrorProvider` がトーストで通知 + `/login` リダイレクトに繋ぐ

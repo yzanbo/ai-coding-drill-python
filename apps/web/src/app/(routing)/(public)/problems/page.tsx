@@ -7,15 +7,13 @@
 //     の fetch で行う」方針）。
 //   - フィルタ UI のみ Client Component（URL クエリを書き換えるためにナビゲートが必要）。
 //     リンク遷移で本ページが再 render され、再 fetch される。
-//   - **認証必須**：未ログイン時は server-side で /login?next=/problems に redirect。
-//     SSoT は Backend の Depends(get_current_user)、本判定は UX 用ガード
-//     （3-cross-cutting/03-page-routing.md §2 の server-side cookie + redirect()
-//      パターン）。
+//   - **認証必須**：未ログイン時は src/middleware.ts が /login?next=... に倒す。
+//     本ファイルではガードを持たない（middleware が presence チェックを一手に
+//     引き受けるため、3-cross-cutting/03-page-routing.md §2 参照）。
 //   - 表示は「カテゴリ別アコーディオン（初期は全て閉じる）+ 難易度昇順」。
 //     ページネーションは廃止し、大きい page_size で 1 回 fetch する全件取得方式。
 
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { listProblemsApiProblemsGet } from "@/__generated__/api/sdk.gen";
 import type {
   ProblemCategory,
@@ -32,7 +30,6 @@ import { Button } from "@/components/ui/button/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card/card";
 import { throwIfError } from "@/lib/api/api-error";
 import { serverApiClient } from "@/lib/api/server-api-client";
-import { hasSessionCookie } from "@/lib/auth/session-cookie";
 import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
 import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
 import { formatDifficultyLabel } from "@/lib/utils/difficulty-label";
@@ -70,18 +67,9 @@ const DIFFICULTY_RANK: Record<ProblemDifficulty, number> = Object.fromEntries(
 const ALL_FETCH_PAGE_SIZE = 1000;
 
 export default async function ProblemsListPage({ searchParams }: ProblemsPageProps) {
-  // 認証ガード：session_id Cookie が無ければ /login?next=/problems に飛ばす。
-  //   フィルタを保持して戻したいので、現在の URL（クエリ含む）を組み立てて next に渡す。
-  const isLoggedIn = await hasSessionCookie();
+  // 認証ガードは src/middleware.ts に集約済み。未ログインは middleware が
+  // /login?next=... に倒すため、ここに来た時点でログイン済 Cookie ありを前提にできる。
   const sp = await searchParams;
-  if (!isLoggedIn) {
-    const nextParams = new URLSearchParams();
-    if (typeof sp.category === "string") nextParams.set("category", sp.category);
-    if (typeof sp.difficulty === "string") nextParams.set("difficulty", sp.difficulty);
-    const qs = nextParams.toString();
-    const nextUrl = qs ? `/problems?${qs}` : "/problems";
-    redirect(`/login?next=${encodeURIComponent(nextUrl)}`);
-  }
 
   const category =
     sp.category && (VALID_CATEGORIES as Set<string>).has(sp.category)

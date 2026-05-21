@@ -1,32 +1,19 @@
 // /problems ページ（Server Component）のロジック単体テスト。
 //
 // 何を担保するか：
-//   - 未ログイン時は /login?next=/problems に redirect する。
-//   - フィルタ値（category / difficulty）は next クエリに保持される。
-//   - ヘッダーに「新規問題を生成」「生成履歴」リンクが描画される。
+//   - ヘッダーに「新規問題を生成」リンクが描画される。
 //   - 取得した items はカテゴリ別にグルーピングされ、難易度昇順で並ぶ。
 //
 // 仕組み：
 //   ProblemsListPage は async な Server Component なので、Testing Library で
-//   render するのではなく、関数を直接 await して呼び出し、`redirect()` モック
-//   呼び出しや戻り値の React ツリーを観測する。
+//   render するのではなく、関数を直接 await して呼び出し、戻り値の React
+//   ツリーを観測する。
+//
+//   認証ガード（未ログイン → /login?next=/problems）の検証は本ファイルでは
+//   行わず、src/middleware.test.ts に移譲した。middleware にガードを寄せた
+//   ため、本ページは常にログイン済前提で render される。
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const mockRedirect = vi.fn();
-vi.mock("next/navigation", () => ({
-  redirect: (...args: unknown[]) => mockRedirect(...args),
-}));
-
-// next/headers: cookies() を差し替える。テストごとに「Cookie あり / なし」を切替。
-let mockCookieGetReturn: { value: string } | undefined;
-vi.mock("next/headers", () => ({
-  cookies: () =>
-    Promise.resolve({
-      get: () => mockCookieGetReturn,
-      has: () => mockCookieGetReturn !== undefined,
-    }),
-}));
 
 // listProblemsApiProblemsGet: 一覧 API クライアント。
 //   テストでは items を差し替えてグルーピング / ソートを検証する。
@@ -54,31 +41,7 @@ vi.mock("./_components/problems-filter-form/problems-filter-form", () => ({
 const { default: ProblemsListPage } = await import("./page");
 
 beforeEach(() => {
-  mockRedirect.mockReset();
   mockListResponse = { items: [], page: 1, totalPages: 0 };
-  mockCookieGetReturn = { value: "dummy-session" };
-});
-
-describe("ProblemsListPage の認証ガード", () => {
-  it("Cookie 無し（未ログイン）なら /login?next=/problems に redirect する", async () => {
-    mockCookieGetReturn = undefined;
-
-    await ProblemsListPage({ searchParams: Promise.resolve({}) });
-
-    expect(mockRedirect).toHaveBeenCalledWith("/login?next=%2Fproblems");
-  });
-
-  it("Cookie 無し + フィルタは next に保持される", async () => {
-    mockCookieGetReturn = undefined;
-
-    await ProblemsListPage({
-      searchParams: Promise.resolve({ category: "array", difficulty: "easy" }),
-    });
-
-    expect(mockRedirect).toHaveBeenCalledWith(
-      `/login?next=${encodeURIComponent("/problems?category=array&difficulty=easy")}`,
-    );
-  });
 });
 
 describe("ProblemsListPage のヘッダー導線", () => {
