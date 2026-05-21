@@ -121,8 +121,10 @@ FastAPI に転送される）。本表の対象外。詳細は
 - **Cookie 名 SSoT** は [`apps/api/app/core/config.py`](../../../apps/api/app/core/config.py) の
   `session_cookie_name`（既定 `session_id`）。FE 側は
   [`apps/web/src/lib/auth/session-cookie.ts`](../../../apps/web/src/lib/auth/session-cookie.ts) に
-  `SESSION_COOKIE_NAME` 定数として集約し、すべての server-side ガード経路で
-  この定数を import して使う。
+  `hasSessionCookie()` ヘルパとして集約し、すべての server-side ガード経路
+  （`/` / `/login` / `/problems` / `/problems/:id` / `not-found.tsx`）で
+  このヘルパを import して使う。Cookie 名そのものは内部実装に隠蔽（呼び出し側で
+  cookie 名や `.has()` / `.get()` の使い分けを意識しないで済むようにする）。
 
 ---
 
