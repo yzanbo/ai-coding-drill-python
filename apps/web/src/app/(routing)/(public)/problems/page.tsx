@@ -19,7 +19,6 @@
 //   優先度：static > dynamic）。本ページは server-side cookie redirect で認証ガード
 //   するため (authed) layout の useGetAuthMe には乗らず、(public) に置いたまま。
 
-import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { listProblemsApiProblemsGet } from "@/__generated__/api/sdk.gen";
@@ -28,7 +27,7 @@ import { Button } from "@/components/ui/button/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card/card";
 import { throwIfError } from "@/lib/api/api-error";
 import { serverApiClient } from "@/lib/api/server-api-client";
-import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
+import { hasSessionCookie } from "@/lib/auth/session-cookie";
 import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
 import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
 
@@ -93,9 +92,9 @@ export default async function ProblemsListPage({ searchParams }: ProblemsPagePro
   // 認証ガード：session_id Cookie が無ければ /login?next=/problems に飛ばす。
   //   フィルタやページ番号を保持して戻したいので、現在の URL（クエリ含む）を
   //   組み立てて next に渡す。
-  const sessionCookie = (await cookies()).get(SESSION_COOKIE_NAME);
+  const isLoggedIn = await hasSessionCookie();
   const sp = await searchParams;
-  if (!sessionCookie) {
+  if (!isLoggedIn) {
     const nextParams = new URLSearchParams();
     if (typeof sp.category === "string") nextParams.set("category", sp.category);
     if (typeof sp.difficulty === "string") nextParams.set("difficulty", sp.difficulty);

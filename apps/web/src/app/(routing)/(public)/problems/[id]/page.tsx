@@ -12,13 +12,12 @@
 //   - 存在しない / ソフトデリート済みの問題は API が 404 を返し、本ページは
 //     notFound() で Next.js の 404 画面に倒す。
 
-import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
 import { getProblemDetailApiProblemsProblemIdGet } from "@/__generated__/api/sdk.gen";
 import { ApiError, throwIfError } from "@/lib/api/api-error";
 import { serverApiClient } from "@/lib/api/server-api-client";
-import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
+import { hasSessionCookie } from "@/lib/auth/session-cookie";
 import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
 import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
 
@@ -36,8 +35,7 @@ export default async function ProblemDetailPage({ params }: ProblemDetailPagePro
   //   Cookie 検証は Backend が SSoT のため、ここでは presence チェックに留める。
   //   問題一覧と同じ server-side redirect 方式で揃える
   //   （3-cross-cutting/03-page-routing.md §2）。
-  const sessionCookie = (await cookies()).get(SESSION_COOKIE_NAME);
-  if (!sessionCookie) {
+  if (!(await hasSessionCookie())) {
     redirect(`/login?next=${encodeURIComponent(`/problems/${id}`)}`);
   }
 

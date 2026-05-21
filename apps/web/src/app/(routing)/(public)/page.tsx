@@ -5,16 +5,14 @@
 //     セッションの実有効性は Backend の Depends(get_current_user) が SSoT で、
 //     ここはあくまで UX 用の早期分岐。
 
-import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button/button";
-import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
+import { hasSessionCookie } from "@/lib/auth/session-cookie";
 
 export default async function RootPage() {
-  const sessionCookie = (await cookies()).get(SESSION_COOKIE_NAME);
-  if (sessionCookie) {
+  if (await hasSessionCookie()) {
     redirect("/problems");
   }
 

@@ -14,10 +14,9 @@
 //   ?next= は同一オリジン相対パスのみ許容（safeNextPath が外部 URL を弾く）。
 //   ?auth_error= の扱いは Client 側（state を持つ必要があるため）。
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
+import { hasSessionCookie } from "@/lib/auth/session-cookie";
 import { safeNextPath } from "@/lib/utils/safe-next-path";
 
 import { LoginForm } from "./_components/login-form/login-form";
@@ -39,8 +38,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   //   Cookie 有効性の最終判定は Backend の Depends(get_current_user) が SSoT で、
   //   ここは UX 用の早期分岐（チラ見せ防止）。失効した Cookie が残っている場合は
   //   遷移先で API 401 が出てログアウト相当に倒れる。
-  const sessionCookie = (await cookies()).get(SESSION_COOKIE_NAME);
-  if (sessionCookie) {
+  if (await hasSessionCookie()) {
     redirect(nextPath);
   }
 

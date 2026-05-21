@@ -23,11 +23,13 @@ vi.mock("next/navigation", () => ({
 }));
 
 // next/headers: cookies() を差し替える。テストごとに「Cookie あり / なし」を切替。
+//   hasSessionCookie ヘルパは内部で .has() を呼ぶため、get と連動させて両方差し替える。
 let mockCookieGetReturn: { value: string } | undefined;
 vi.mock("next/headers", () => ({
   cookies: () =>
     Promise.resolve({
       get: () => mockCookieGetReturn,
+      has: () => mockCookieGetReturn !== undefined,
     }),
 }));
 

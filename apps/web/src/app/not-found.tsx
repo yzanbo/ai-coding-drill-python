@@ -12,14 +12,12 @@
 //       「ガード方法は server-side cookie + redirect() に揃える」と書いており、
 //       not-found もこれに揃える
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
+import { hasSessionCookie } from "@/lib/auth/session-cookie";
 
 export default async function NotFound() {
-  const sessionCookie = (await cookies()).get(SESSION_COOKIE_NAME);
-  if (sessionCookie) {
+  if (await hasSessionCookie()) {
     redirect("/problems");
   }
   redirect("/");
