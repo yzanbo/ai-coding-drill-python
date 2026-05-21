@@ -20,6 +20,8 @@ from sqlalchemy import delete
 from app.db.session import AsyncSessionLocal
 from app.models.problems import Problem
 
+from ._factories import create_problem
+
 
 @pytest.fixture(autouse=True)
 async def reset_problems_table() -> AsyncIterator[None]:
@@ -28,46 +30,6 @@ async def reset_problems_table() -> AsyncIterator[None]:
         await session.execute(delete(Problem))
         await session.commit()
     yield
-
-
-async def _insert_problem(
-    *,
-    title: str = "配列の合計を返す",
-    category: str = "array",
-    difficulty: str = "easy",
-    description: str = "数値配列を受け取り、その合計を返す関数 solve を実装してください。",
-    examples: list[dict] | None = None,
-    test_cases: list[dict] | None = None,
-    deleted: bool = False,
-) -> uuid.UUID:
-    """テスト用に problems に 1 行 INSERT して id を返す。"""
-    async with AsyncSessionLocal() as session:
-        problem = Problem(
-            title=title,
-            description=description,
-            category=category,
-            difficulty=difficulty,
-            language="typescript",
-            examples=examples or [{"input": "[1,2,3]", "output": "6"}],
-            test_cases=test_cases
-            or [
-                {"input": "[1,2,3]", "expected": "6"},
-                {"input": "[]", "expected": "0"},
-                {"input": "[-1,1]", "expected": "0"},
-            ],
-            reference_solution="const solve = (a: number[]) => a.reduce((s, n) => s + n, 0);",
-            judge_scores={"correctness": 5, "difficulty_fit": 5},
-        )
-        session.add(problem)
-        await session.flush()
-        problem_id = problem.id
-        if deleted:
-            # ソフトデリート印を立てる（updated_at 等は server_default に任せる）。
-            from datetime import UTC, datetime
-
-            problem.deleted_at = datetime.now(UTC)
-        await session.commit()
-    return problem_id
 
 
 # ----------------------------------------------------------------------------
@@ -83,8 +45,9 @@ class TestListProblems:
         Cookie / 認証ヘッダなしでも 401 にならず 200 が返る。
         """
         del fake_redis
-        await _insert_problem(title="A", category="array", difficulty="easy")
-        await _insert_problem(title="B", category="string", difficulty="hard")
+        async with AsyncSessionLocal() as session:
+            await create_problem(session, title="A", category="array", difficulty="easy")
+            await create_problem(session, title="B", category="string", difficulty="hard")
 
         res = await client.get("/api/problems")
 
@@ -104,9 +67,10 @@ class TestListProblems:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        await _insert_problem(title="A", category="array", difficulty="easy")
-        await _insert_problem(title="B", category="array", difficulty="hard")
-        await _insert_problem(title="C", category="string", difficulty="easy")
+        async with AsyncSessionLocal() as session:
+            await create_problem(session, title="A", category="array", difficulty="easy")
+            await create_problem(session, title="B", category="array", difficulty="hard")
+            await create_problem(session, title="C", category="string", difficulty="easy")
 
         res = await client.get("/api/problems?category=array&difficulty=easy")
 
@@ -121,10 +85,11 @@ class TestListProblems:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        await _insert_problem(title="生きてる", category="array", difficulty="easy")
-        await _insert_problem(
-            title="削除済み", category="array", difficulty="easy", deleted=True
-        )
+        async with AsyncSessionLocal() as session:
+            await create_problem(session, title="生きてる", category="array", difficulty="easy")
+            await create_problem(
+                session, title="削除済み", category="array", difficulty="easy", deleted=True
+            )
 
         res = await client.get("/api/problems")
 
@@ -156,8 +121,11 @@ class TestListProblems:
         最終ページに items が確実に返る契約を担保する。
         """
         del fake_redis
-        for i in range(21):
-            await _insert_problem(title=f"P{i:02d}", category="array", difficulty="easy")
+        async with AsyncSessionLocal() as session:
+            for i in range(21):
+                await create_problem(
+                    session, title=f"P{i:02d}", category="array", difficulty="easy"
+                )
 
         res = await client.get("/api/problems?page=2")
 
@@ -181,8 +149,11 @@ class TestListProblems:
         前提を失い、無限 redirect / 真っ白画面の事故になる。
         """
         del fake_redis
-        for i in range(5):
-            await _insert_problem(title=f"P{i:02d}", category="array", difficulty="easy")
+        async with AsyncSessionLocal() as session:
+            for i in range(5):
+                await create_problem(
+                    session, title=f"P{i:02d}", category="array", difficulty="easy"
+                )
 
         res = await client.get("/api/problems?page=999")
 
@@ -236,14 +207,16 @@ class TestGetProblemDetail:
         """
         del fake_redis
         # examples は 1 件のみ、test_cases は 3 件用意 → レスポンスには examples だけ。
-        problem_id = await _insert_problem(
-            examples=[{"input": "[1,2,3]", "output": "6"}],
-            test_cases=[
-                {"input": "[1,2,3]", "expected": "6"},
-                {"input": "[]", "expected": "0"},
-                {"input": "[-1,1]", "expected": "0"},
-            ],
-        )
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(
+                session,
+                examples=[{"input": "[1,2,3]", "output": "6"}],
+                test_cases=[
+                    {"input": "[1,2,3]", "expected": "6"},
+                    {"input": "[]", "expected": "0"},
+                    {"input": "[-1,1]", "expected": "0"},
+                ],
+            )
 
         res = await client.get(f"/api/problems/{problem_id}")
 
@@ -277,7 +250,8 @@ class TestGetProblemDetail:
         fake_redis: fakeredis.aioredis.FakeRedis,
     ) -> None:
         del fake_redis
-        problem_id = await _insert_problem(deleted=True)
+        async with AsyncSessionLocal() as session:
+            problem_id = await create_problem(session, deleted=True)
         res = await client.get(f"/api/problems/{problem_id}")
         assert res.status_code == 404
 
