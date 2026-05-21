@@ -9,8 +9,8 @@
 //     - 未ログイン   → / に遷移（ランディング画面を表示）
 //
 // なぜ E2E が要るか：
-//   /（Server Component の redirect）と not-found.tsx（Client Component の
-//   useEffect 経由 router.replace）は実装手段が異なる。ブラウザ越しに
+//   / と not-found.tsx はどちらも Server Component で cookies() を見て
+//   redirect() するが、Next.js の 404 ハンドリング経路は別系統。ブラウザ越しに
 //   「最終 URL がどこに着地するか」を観測しないと回帰が拾えない。
 
 import { expect, loginViaMockGithub, test } from "./_helpers/test-fixtures";
@@ -38,8 +38,8 @@ test.describe("/ の挙動", () => {
 
 test.describe("404（存在しない URL）のリダイレクト", () => {
   test("未ログインで存在しない URL を踏むと / に着地する", async ({ page }) => {
-    // not-found.tsx の useEffect が router.replace("/") を呼ぶ。
-    // 未ログインなので / 側のサーバ side redirect は発火せず、ランディングが表示される。
+    // not-found.tsx が server-side で redirect("/") を返し、未ログインなので
+    // / 側でも redirect が起きずランディングが表示される。
     await page.goto("/this-route-does-not-exist");
     await expect(page).toHaveURL("/");
     await expect(page.getByRole("heading", { name: "AI Coding Drill" })).toBeVisible();

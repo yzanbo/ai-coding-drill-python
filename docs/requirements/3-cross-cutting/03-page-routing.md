@@ -27,7 +27,7 @@
 - `/` は **認証状態で挙動が分岐**：ログイン済みは `/problems` へリダイレクト、
   未ログインはランディング画面を表示。
 - `404` も認証状態で分岐：ログイン済みは `/problems` に、未ログインは `/` に
-  `router.replace` する（`app/not-found.tsx`）。
+  server-side `redirect()` する（`app/not-found.tsx`）。
 
 ---
 
@@ -57,7 +57,7 @@
 | 解答履歴 | `/me/history` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
 | 学習統計 | `/me/stats` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
 | 弱点カテゴリ | `/me/weakness` | 公開 | 非公開<br>→ `/login?next=...` | `(authed)` layout |
-| —（存在しないパス） | `404` | 非公開<br>→ `/problems` | 非公開<br>→ `/` | `app/not-found.tsx` + `router.replace` |
+| —（存在しないパス） | `404` | 非公開<br>→ `/problems` | 非公開<br>→ `/` | `app/not-found.tsx` + server-side `redirect()` |
 
 ### 補足：`/auth/*`（OAuth 経路）
 
