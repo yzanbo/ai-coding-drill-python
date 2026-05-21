@@ -63,8 +63,11 @@ class MeGenerationsRepository:
 
         - jobs は type='problem.generate' のもの。payload JSONB に
           generation_request_id（camelCase）と prompt_version（camelCase）を持つ
-        - 同じ generation_request_id に対して jobs が複数ある場合（retry 投入で
-          再生成されたケース）は最新 jobs.id を採用する
+        - 通常 1 generation_request : 1 jobs。retry は新規 generation_request を
+          作る設計のため payload の generationRequestId は 1 対 1
+          （MeGenerationsService.retry → enqueue_generation の経路）
+        - 上記前提が崩れた場合（重複 INSERT 等の事故）の防御として DISTINCT ON で
+          最新 jobs.id を採用する
         - jobs が TTL で消えていれば該当キーは {id: None} を返す
         """
         if not generation_request_ids:

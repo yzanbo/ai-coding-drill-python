@@ -162,9 +162,20 @@ class MeGenerationsService:
         - 自分のものでない / 存在しない → GenerationRequestNotFoundError（404）
         - 自分のものだが failed でない → GenerationRequestNotRetryableError（409）
         - retry 成功 → 新規 generation_request の id + retry_of で返す
+
+        ## 冪等性について
+        本エンドポイントは冪等保証なし。同一 request_id への 2 回の呼び出しは
+        2 つの新規 generation_request を生み、いずれも有効な pending として
+        enqueue される。多重 retry の防御は以下に依存：
+          - FE 側のボタン isPending 抑止（連打防止）
+          - enqueue_generation の rate limit（1 分 5 回、要件 §ビジネスルール）
+        将来 idempotency-key 受け取りに拡張する場合は API 仕様変更を伴うため、
+        本実装は MVP 範囲として「rate limit が backstop」前提に留める。
         """
-        # SELECT を独立した tx で実行して閉じる（commit）。enqueue_generation が
-        # 内部で別の begin() を開くため、ここで pending tx を残してはいけない。
+        # SELECT を独立した tx で実行して閉じる（commit）。SQLAlchemy は SELECT 時に
+        # tx を autobegin するため、ここで begin() で明示的に閉じておかないと
+        # enqueue_generation が開く後段の begin() と「A transaction is already
+        # begun on this Session」で衝突する。
         async with self.db_session.begin():
             original = await self.repo.get_for_user(
                 request_id=request_id, user_id=user_id,
@@ -181,8 +192,7 @@ class MeGenerationsService:
             original_category = original.category
             original_difficulty = original.difficulty
 
-        # 既存 enqueue ロジックに retry_of を渡して再利用する（内部で別 tx を開いて
-        # generation_requests INSERT + jobs INSERT + NOTIFY を実行）。
+        # 既存 enqueue ロジックに retry_of を渡して再利用する。
         accepted = await self.generation.enqueue_generation(
             user_id=user_id,
             category=ProblemCategory(original_category),
