@@ -15,8 +15,25 @@
 //   - これで Backend (FastAPI) と Frontend (Next.js) の API 越しの実フローは
 //     そのまま動かしつつ、Worker 不在を回避できる
 
+import type { ProblemCategory, ProblemDifficulty } from "@/__generated__/api/types.gen";
+import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
+import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
 import { MOCK_GITHUB_ORIGIN } from "./_helpers/constants";
 import { expect, loginAndGoto, test } from "./_helpers/test-fixtures";
+
+// categoryLabel / difficultyLabel: spec から表示文言を直書きすると、
+//   ラベル変更で spec が壊れる。constants/ の SSoT から value で引いて使う。
+//   value が見つからなければ即座に落としてテスト失敗にする（typo 検知）。
+const categoryLabel = (value: ProblemCategory): string => {
+  const option = PROBLEM_CATEGORY_OPTIONS.find((c) => c.value === value);
+  if (!option) throw new Error(`未知のカテゴリ value: ${value}`);
+  return option.label;
+};
+const difficultyLabel = (value: ProblemDifficulty): string => {
+  const option = PROBLEM_DIFFICULTY_OPTIONS.find((d) => d.value === value);
+  if (!option) throw new Error(`未知の難易度 value: ${value}`);
+  return option.label;
+};
 
 // 本 spec 内のテストを serial（順次）に倒す。並列で走らせると beforeEach の
 // resetState が他テストの DB / Redis を消してログイン直後にセッションが
@@ -49,8 +66,8 @@ test.describe("問題生成フロー (正常系)", () => {
 
     // 2. カテゴリ「配列」と難易度「やさしい」を選んで送信する。
     //    ラジオは label で囲ってあるので、表示文言クリックで選択できる。
-    await page.getByText("配列", { exact: true }).click();
-    await page.getByText("やさしい", { exact: true }).click();
+    await page.getByText(categoryLabel("array"), { exact: true }).click();
+    await page.getByText(difficultyLabel("easy"), { exact: true }).click();
     await page.getByRole("button", { name: "問題を生成する" }).click();
 
     // 3. /problems/generate/:requestId に遷移して「生成中…」が見える。
@@ -103,8 +120,8 @@ test.describe("問題生成 failed 時の再試行", () => {
     await loginAndGoto(page, "/problems/new");
 
     // フォーム送信までは正常系と同じ。
-    await page.getByText("再帰", { exact: true }).click();
-    await page.getByText("ふつう", { exact: true }).click();
+    await page.getByText(categoryLabel("recursion"), { exact: true }).click();
+    await page.getByText(difficultyLabel("medium"), { exact: true }).click();
     await page.getByRole("button", { name: "問題を生成する" }).click();
 
     await page.waitForURL(REQUEST_ID_PATTERN);
