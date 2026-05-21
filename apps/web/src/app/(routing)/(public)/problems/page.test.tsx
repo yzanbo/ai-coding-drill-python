@@ -22,6 +22,16 @@ vi.mock("next/navigation", () => ({
   redirect: (...args: unknown[]) => mockRedirect(...args),
 }));
 
+// next/headers: cookies() を差し替える。テストごとに「Cookie あり / なし」を切替。
+//   既定はログイン済み（cookie あり）にしておく。未ログイン分岐は専用ブロックで上書き。
+let mockCookieGetReturn: { value: string } | undefined;
+vi.mock("next/headers", () => ({
+  cookies: () =>
+    Promise.resolve({
+      get: () => mockCookieGetReturn,
+    }),
+}));
+
 // listProblemsApiProblemsGet: 一覧 API クライアント。
 //   各テストで totalPages / items を差し替えてページネーション分岐を再現する。
 let mockListResponse: {
@@ -56,6 +66,31 @@ const { default: ProblemsListPage } = await import("./page");
 beforeEach(() => {
   mockRedirect.mockReset();
   mockListResponse = { items: [], total: 0, page: 1, totalPages: 0 };
+  // 既定はログイン済み（cookie あり）。未ログインの認証ガード分岐は
+  // 別 describe で明示的に undefined に上書きする。
+  mockCookieGetReturn = { value: "dummy-session" };
+});
+
+describe("ProblemsListPage の認証ガード", () => {
+  it("Cookie 無し（未ログイン）なら /login?next=/problems に redirect する", async () => {
+    mockCookieGetReturn = undefined;
+
+    await ProblemsListPage({ searchParams: Promise.resolve({}) });
+
+    expect(mockRedirect).toHaveBeenCalledWith("/login?next=%2Fproblems");
+  });
+
+  it("Cookie 無し + フィルタ / ページ番号は next に保持される", async () => {
+    mockCookieGetReturn = undefined;
+
+    await ProblemsListPage({
+      searchParams: Promise.resolve({ category: "array", difficulty: "easy", page: "2" }),
+    });
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      `/login?next=${encodeURIComponent("/problems?category=array&difficulty=easy&page=2")}`,
+    );
+  });
 });
 
 describe("ProblemsListPage の page 範囲外リダイレクト", () => {

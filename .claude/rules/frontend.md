@@ -179,9 +179,9 @@ import { ProblemCard } from "@/components/parts/problem-card/problem-card";  // 
 |---|---|---|
 | `/` | ランディング | 不要 |
 | `/login` | GitHub OAuth ログイン | 不要 |
-| `/problems` | 問題一覧（カテゴリ・難易度フィルタ） | 推奨 |
+| `/problems` | 問題一覧（カテゴリ・難易度フィルタ） | 必須 |
 | `/problems/:id` | 問題詳細・解答画面（CodeMirror、採点ポーリング） | 必須 |
-| `/history` | 学習履歴・正答率 | 必須 |
+| `/me/history` / `/me/stats` / `/me/weakness` | 学習履歴・統計・弱点 | 必須 |
 
 → 詳細は [01-overview.md](../../docs/requirements/1-vision/01-overview.md)
 

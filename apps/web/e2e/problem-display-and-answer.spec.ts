@@ -1,8 +1,9 @@
-// R1-4 / R1-5 問題表示・解答入力フローの E2E テスト（Playwright）。
+// R1-4 / R1-5 / R1-6 問題表示・解答入力フローの E2E テスト（Playwright）。
 //
 // テスト方針（problem-display-and-answer.md / grading.md）：
-//   - ゲスト：問題一覧 / 問題詳細を 401 なく閲覧できることを保証
-//   - ゲスト：「実行」ボタン → /login?next=/problems/:id へのリダイレクト
+//   - 未ログイン：/problems / /problems/:id どちらも /login?next=... に
+//     server-side redirect される（R1-6 で認証必須化）
+//   - 認証ユーザー：/problems 一覧 → /problems/:id 詳細遷移
 //   - 認証ユーザー：「実行」ボタン → POST /api/submissions が受け付けられ、
 //     GradingResult が mount されて「採点中」表示まで遷移する
 //   - フィルタ：URL クエリと <select> の双方向同期
@@ -47,55 +48,59 @@ test.beforeEach(async ({ resetState }) => {
   await resetState();
 });
 
-test.describe("ゲスト閲覧", () => {
-  test("ゲストでも /problems が 200 で開き、シードした問題が一覧に出る", async ({ page }) => {
+test.describe("未ログインガード", () => {
+  test("未ログインで /problems を踏むと /login?next=/problems に server-side redirect される", async ({
+    page,
+  }) => {
+    // /problems 自体が認証必須（R1-6 で変更）。フィルタやページ番号も next に
+    // 保持される実装だが、本テストはクエリ無しで挙動の存在保証だけ取る。
+    await page.goto("/problems");
+
+    await expect(page).toHaveURL(/\/login\?next=/);
+    expect(page.url()).toContain("/login?next=%2Fproblems");
+  });
+
+  test("未ログインで /problems?category=array&page=2 を踏むとクエリが保持される", async ({
+    page,
+  }) => {
+    await page.goto("/problems?category=array&page=2");
+
+    await expect(page).toHaveURL(/\/login\?next=/);
+    // category / page もまとめて next に詰めて redirect されること。
+    expect(page.url()).toContain(
+      `/login?next=${encodeURIComponent("/problems?category=array&page=2")}`,
+    );
+  });
+
+  test("未ログインで /problems/:id を踏むと /login?next=/problems/:id に server-side redirect される", async ({
+    page,
+  }) => {
+    const problemId = await seedProblem(page.request);
+
+    await page.goto(`/problems/${problemId}`);
+
+    await expect(page).toHaveURL(/\/login\?next=/);
+    expect(page.url()).toContain(`/login?next=${encodeURIComponent(`/problems/${problemId}`)}`);
+  });
+});
+
+test.describe("認証ユーザー：解答送信", () => {
+  test("ログイン後に /problems → 詳細 → 「実行」で採点中表示になる (R1-5)", async ({ page }) => {
     const problemId = await seedProblem(page.request, {
       title: "E2E 配列の合計",
       category: "array",
       difficulty: "easy",
     });
 
-    // ゲストのまま /problems を直接踏む（loginせず）。
-    await page.goto("/problems");
-
+    // ログイン → 一覧で seed した問題タイトルが見える → 詳細へ遷移。
+    //   "/" は /problems にサーバ side redirect されるため、終端着地は /problems。
+    await loginViaMockGithub(page);
+    await page.waitForURL("/problems");
     await expect(page.getByRole("heading", { name: "問題一覧" })).toBeVisible();
-    // タイトルがカードとして見える。クリックで詳細に進める。
     const card = page.getByRole("link", { name: /E2E 配列の合計/ });
     await expect(card).toBeVisible();
     await card.click();
     await expect(page).toHaveURL(new RegExp(`/problems/${problemId}$`));
-  });
-
-  test("ゲストが /problems/:id を開くと「ログインが必要です」案内ページが出る", async ({
-    page,
-  }) => {
-    const problemId = await seedProblem(page.request);
-
-    await page.goto(`/problems/${problemId}`);
-
-    // 認証必須化（R1-6 ユーザー指示）：未ログインは問題本文を見せず案内ページに置き換える。
-    await expect(page.getByRole("heading", { name: "ログインが必要です" })).toBeVisible();
-    // 問題本文 / 解答エディタは表示されない（ガード越し）。
-    await expect(page.getByLabel("解答コードエディタ")).not.toBeVisible();
-    // CTA から next= 付き /login に進める。
-    const loginCta = page.getByRole("link", { name: "GitHub でログイン" });
-    await expect(loginCta).toBeVisible();
-    const href = await loginCta.getAttribute("href");
-    expect(href).toBe(`/login?next=${encodeURIComponent(`/problems/${problemId}`)}`);
-  });
-});
-
-test.describe("認証ユーザー：解答送信", () => {
-  test("ログイン後に「実行」を押すと submit が受け付けられ採点中表示になる (R1-5)", async ({
-    page,
-  }) => {
-    const problemId = await seedProblem(page.request);
-
-    // ログイン → 詳細ページ。
-    //   "/" は /problems にサーバ side redirect されるため、終端着地は /problems。
-    await loginViaMockGithub(page);
-    await page.waitForURL("/problems");
-    await page.goto(`/problems/${problemId}`);
 
     // 認証 me 完了を待つ：ボタンが enabled になるはず。
     const runButton = page.getByRole("button", { name: "実行" });
@@ -114,8 +119,8 @@ test.describe("localStorage 復元", () => {
   test("エディタに書いた内容はリロード後も復元される", async ({ page }) => {
     const problemId = await seedProblem(page.request);
 
-    // /problems/:id は認証必須化（R1-6）。未ログインだと LoginRequiredMessage
-    //   が出てエディタが描画されないため、ログイン後に詳細ページへ進む。
+    // /problems/:id は認証必須化（R1-6）。未ログインだと /login に redirect される
+    //   ためエディタが描画されない。ログイン後に詳細ページへ進む。
     //   "/" は /problems にサーバ side redirect されるため、終端着地は /problems。
     await loginViaMockGithub(page);
     await page.waitForURL("/problems");
@@ -155,6 +160,10 @@ test.describe("一覧フィルタ", () => {
     await seedProblem(page.request, { title: "配列の問題A", category: "array" });
     await seedProblem(page.request, { title: "文字列の問題B", category: "string" });
 
+    // /problems は認証必須化（R1-6）。ログイン後にフィルタ URL に直接遷移する。
+    //   "/" は /problems にサーバ side redirect されるため、終端着地は /problems。
+    await loginViaMockGithub(page);
+    await page.waitForURL("/problems");
     await page.goto("/problems?category=array");
 
     await expect(page.getByText("配列の問題A")).toBeVisible();

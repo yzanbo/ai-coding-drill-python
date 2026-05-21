@@ -1,4 +1,4 @@
-// /problems: 問題一覧画面（ゲスト閲覧可、R1-4）。
+// /problems: 問題一覧画面（R1-4、R1-6 で認証必須化）。
 //   要件: docs/requirements/4-features/problem-display-and-answer.md §問題一覧画面
 //
 // 設計：
@@ -7,15 +7,19 @@
 //     の fetch で行う」方針）。
 //   - フィルタ UI のみ Client Component（URL クエリを書き換えるためにナビゲートが必要）。
 //     リンク遷移で本ページが再 render され、再 fetch される。
-//   - 認証不要（ゲストでも 401 にならず一覧が返る、Backend 側で /api/problems を
-//     CurrentUser に依存させていない）。
+//   - **認証必須**：未ログイン時は server-side で /login?next=/problems に redirect。
+//     SSoT は Backend の Depends(get_current_user)、本判定は UX 用ガード
+//     （3-cross-cutting/03-page-routing.md §2 の server-side cookie + redirect()
+//      パターン）。
 //
 // route group：
 //   (public) 配下に置く。(authed)/problems/new と (authed)/problems/generate/:requestId は
 //   既存だが、URL は /problems/new / /problems/generate/:requestId で literal segment
 //   先勝ちのため、本ページの /problems/[id] とは衝突しない（Next.js のルーティング
-//   優先度：static > dynamic）。
+//   優先度：static > dynamic）。本ページは server-side cookie redirect で認証ガード
+//   するため (authed) layout の useGetAuthMe には乗らず、(public) に置いたまま。
 
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { listProblemsApiProblemsGet } from "@/__generated__/api/sdk.gen";
@@ -24,6 +28,7 @@ import { Button } from "@/components/ui/button/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card/card";
 import { throwIfError } from "@/lib/api/api-error";
 import { serverApiClient } from "@/lib/api/server-api-client";
+import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
 import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
 import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
 
@@ -85,7 +90,21 @@ function buildHref(
 }
 
 export default async function ProblemsListPage({ searchParams }: ProblemsPageProps) {
+  // 認証ガード：session_id Cookie が無ければ /login?next=/problems に飛ばす。
+  //   フィルタやページ番号を保持して戻したいので、現在の URL（クエリ含む）を
+  //   組み立てて next に渡す。
+  const sessionCookie = (await cookies()).get(SESSION_COOKIE_NAME);
   const sp = await searchParams;
+  if (!sessionCookie) {
+    const nextParams = new URLSearchParams();
+    if (typeof sp.category === "string") nextParams.set("category", sp.category);
+    if (typeof sp.difficulty === "string") nextParams.set("difficulty", sp.difficulty);
+    if (typeof sp.page === "string") nextParams.set("page", sp.page);
+    const qs = nextParams.toString();
+    const nextUrl = qs ? `/problems?${qs}` : "/problems";
+    redirect(`/login?next=${encodeURIComponent(nextUrl)}`);
+  }
+
   const category = parseCategory(sp.category);
   const difficulty = parseDifficulty(sp.difficulty);
   const page = parsePage(sp.page);
@@ -116,14 +135,11 @@ export default async function ProblemsListPage({ searchParams }: ProblemsPagePro
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold">問題一覧</h1>
           <p className="text-sm text-muted-foreground">
-            解いてみたい問題をカテゴリ・難易度で絞り込めます。ゲストでも閲覧できますが、
-            解答送信にはログインが必要です。
+            解いてみたい問題をカテゴリ・難易度で絞り込めます。
           </p>
         </div>
-        {/* 新規問題を生成: /problems/new への主動線。
-            (authed) 配下のページのため、ゲストが押すと layout が
-            /login?next=/problems/new に自動リダイレクトする
-            (要件 problem-generation.md §到達経路)。 */}
+        {/* 新規問題を生成: /problems/new への主動線。本ページ自体が認証必須に
+            なったため、ここを踏むユーザーは必ずログイン済み。 */}
         <Button asChild size="sm" className="sm:self-start">
           <Link href="/problems/new">新規問題を生成</Link>
         </Button>

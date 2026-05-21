@@ -25,12 +25,12 @@
 
 ## 概要
 
-問題の閲覧と解答入力に特化した画面群。**問題一覧（`/problems`）はゲスト含む全員が閲覧可能**、**問題詳細（`/problems/:id`）と解答送信はログインユーザー専用**。コードエディタはサーバ採点前に**ブラウザ内で型診断・補完**を提供し、UX を向上させる。
+問題の閲覧と解答入力に特化した画面群。**問題一覧（`/problems`）も問題詳細（`/problems/:id`）も認証必須**。未ログインで踏むと `/login?next=...` に server-side redirect される（[3-cross-cutting/03-page-routing.md](../3-cross-cutting/03-page-routing.md) §2.1）。コードエディタはサーバ採点前に**ブラウザ内で型診断・補完**を提供し、UX を向上させる。
 
 ## ビジネスルール
 
-- **問題一覧（`/problems`）はゲストでも閲覧可**：ポートフォリオとして「触ってみる」体験を妨げないため
-- **問題詳細（`/problems/:id`）と解答送信は認証必須**：解答送信と一体の UX に揃え、未ログインアクセス時は `LoginRequiredMessage` 案内ページを表示する。履歴・統計の前提として認証が必要なため、詳細画面まで踏み込ませる前にログイン誘導する
+- **問題一覧（`/problems`）は認証必須**：解答 / 履歴 / 統計までを一体の動線とし、未ログインで触れる導線をランディング（`/`）+ ログイン（`/login`）に絞る。未ログインで踏んだ場合は server-side で `/login?next=/problems` に redirect する（フィルタ / ページ番号も保持して戻る）
+- **問題詳細（`/problems/:id`）と解答送信は認証必須**：解答送信と一体の UX に揃え、未ログインアクセス時は server-side で `/login?next=/problems/:id` に redirect する。履歴・統計の前提として認証が必要なため、詳細画面まで踏み込ませる前にログイン誘導する
 - **テストケースの一部をマスク**：「入出力例」として一部を見せ、残りは隠す。完全公開すると LLM やコピペで簡単に通せてしまう
 - **コードエディタはサーバ採点前にブラウザ内で型診断**：構文エラーレベルのコードがサーバに送られるのを減らし、サンドボックスコストを節約（CodeMirror 6 + `@typescript/vfs`、→ [ADR 0015](../../adr/0015-codemirror-over-monaco.md)）
 - **エディタ内容はローカルストレージに自動保存**：誤遷移時の復元（任意機能）
@@ -49,8 +49,8 @@
 
 | 操作 | 対象ロール | 認証 | 概要 | 詳細 |
 |---|---|---|---|---|
-| 問題一覧表示 | ゲスト / 認証ユーザー | 任意 | `GET /problems` でカテゴリ・難易度フィルタ付きリストを取得 | [#問題一覧画面対象ゲスト--認証ユーザー](#問題一覧画面対象ゲスト--認証ユーザー) |
-| 問題詳細表示 | 認証ユーザー | 必須 | `GET /problems/:id` で問題文・入出力例を取得（テストケースの一部はマスク）。未ログインは案内ページ | [#問題詳細解答画面対象認証ユーザー](#問題詳細解答画面対象認証ユーザー) |
+| 問題一覧表示 | 認証ユーザー | 必須 | `GET /problems` でカテゴリ・難易度フィルタ付きリストを取得。未ログインは `/login?next=/problems` に server-side redirect | [#問題一覧画面対象認証ユーザー](#問題一覧画面対象認証ユーザー) |
+| 問題詳細表示 | 認証ユーザー | 必須 | `GET /problems/:id` で問題文・入出力例を取得（テストケースの一部はマスク）。未ログインは `/login?next=/problems/:id` に server-side redirect | [#問題詳細解答画面対象認証ユーザー](#問題詳細解答画面対象認証ユーザー) |
 | 解答送信（実行ボタン） | 認証ユーザー | 必須 | [`POST /submissions`](./grading.md#post-submissions) で解答を送信 → 採点フローへ（API 詳細は [grading.md](./grading.md#post-submissions) が所有） | [#問題閲覧--解答送信フロー対象認証ユーザー](#問題閲覧--解答送信フロー対象認証ユーザー) |
 
 ## データモデル
@@ -61,32 +61,33 @@
 
 ## 画面
 
-### 問題一覧画面（対象：ゲスト / 認証ユーザー）
+### 問題一覧画面（対象：認証ユーザー）
 
 - **ルート**：`/problems`
 - **目的**：カテゴリ・難易度でフィルタしながら問題を探す
+- **認証**：**必須**。未ログインで踏むと server-side で `/login?next=/problems`
+  （フィルタやページ番号があれば `?next=/problems?category=...&page=...` の形で
+  クエリ保持）に redirect する。ガード方法は [3-cross-cutting/03-page-routing.md §2.1](../3-cross-cutting/03-page-routing.md)。
 - **使用 API**：
   - `GET /problems?category=...&difficulty=...&page=...` — 一覧取得（フィルタ・ページネーション）
 - **主要インタラクション**：
   - フィルタ変更で URL クエリが書き換わり、リロード・共有しても同じ絞り込み結果に戻れる
-  - ページ上部に「新規問題を生成」ボタンを常設し、`/problems/new`（[問題生成リクエスト](./problem-generation.md#問題生成画面対象認証ユーザー)）への入口とする。ゲストが押した場合は `/login?next=/problems/new` にリダイレクト
+  - ページ上部に「新規問題を生成」ボタンを常設し、`/problems/new`（[問題生成リクエスト](./problem-generation.md#問題生成画面対象認証ユーザー)）への入口とする。本画面自体が認証必須のため、ここを踏むユーザーは必ずログイン済み
 
 ### 問題詳細・解答画面（対象：認証ユーザー）
 
 - **ルート**：`/problems/:id`
 - **目的**：問題文・入出力例を読みながらコードを書いて解答送信する
-- **認証**：**必須**。未ログインでアクセスした場合は「ログインが必要です」案内ページ
-  （`LoginRequiredMessage`）を表示し、`/login?next=/problems/:id` への CTA を提示する。
-  問題一覧（`/problems`）はゲストにも見せるが、詳細画面は解答送信と一体のため
-  ログインを前提とする UX に揃える。
+- **認証**：**必須**。未ログインでアクセスした場合は server-side で
+  `/login?next=/problems/:id` に redirect する。問題一覧（`/problems`）と
+  同じ server-side cookie redirect 方式で揃える
+  （[3-cross-cutting/03-page-routing.md §2.1](../3-cross-cutting/03-page-routing.md)）。
 - **使用 API**：
   - `GET /problems/:id` — 問題詳細取得（テストケース一部マスク）
   - [`POST /submissions`](./grading.md#post-submissions) — 解答送信（[grading.md](./grading.md#post-submissions) が所有）
 - **主要インタラクション**：
   - エディタ内容はローカルストレージに自動保存（誤遷移時に復元）
   - ブラウザ内の型診断がインラインに表示される（CodeMirror 6 + `@typescript/vfs`）
-  - 「実行」押下時、未認証なら `/login?next=...` にリダイレクトしてから戻る
-    （未認証時は本画面自体が出ないため通常は発火しないが、セッション失効中の保険）
   - 採点結果は同画面下部の領域に表示される（[自動採点](./grading.md) のポーリングフロー）
   - テストケースの一部のみ「入出力例」として表示し、残りはレスポンス上もマスクされる
 
@@ -106,11 +107,12 @@
 8. 採点結果をポーリングしながら待つ — 問題詳細・解答画面
 9. 結果表示（全通過 = 正解 / 一部失敗 = 失敗ケース表示）— 問題詳細・解答画面
 
-### ゲストが解答送信を試みた場合（対象：ゲスト）
+### 未ログインユーザーが `/problems` 系を踏んだ場合（対象：ゲスト）
 
-1. 「実行」ボタンを押下 — 問題詳細・解答画面（`/problems/:id`）
-2. [`GET /auth/me`](./authentication.md#get-authme) で未認証を確認し、`/login?next=/problems/:id` にリダイレクトされる — ログイン画面
-3. ログイン完了後、元の問題画面に戻って解答送信を続行できる — 問題詳細・解答画面
+1. `/problems` または `/problems/:id` を直接踏む（外部リンク / リロード等）
+2. Server Component が session_id Cookie 不在を検知し、`/login?next=<元の URL>`
+   に server-side で redirect — ログイン画面
+3. ログイン完了後、元の URL（フィルタやページ番号を含む）に戻って続行できる — 問題一覧 / 詳細画面
 
 ## API
 
@@ -129,8 +131,15 @@
 
 | メソッド | パス | 用途 | 認証 | 詳細 |
 |---|---|---|---|---|
-| GET | `/problems` | 問題一覧（カテゴリ・難易度フィルタ可） | 任意 | [#get-problems](#get-problems) |
-| GET | `/problems/:id` | 問題詳細（テストケースの一部はマスク） | 任意 | [#get-problemsid](#get-problemsid) |
+| GET | `/problems` | 問題一覧（カテゴリ・難易度フィルタ可） | 任意（Backend 側）／FE は必須 | [#get-problems](#get-problems) |
+| GET | `/problems/:id` | 問題詳細（テストケースの一部はマスク） | 任意（Backend 側）／FE は必須 | [#get-problemsid](#get-problemsid) |
+
+> **API の認証要否と FE 画面の認証要否は別物**：Backend API（`GET /problems` /
+> `GET /problems/:id`）は `Depends(get_current_user)` を**着けない**まま 200 を
+> 返す設計のままにする。FE 画面側で server-side cookie redirect により未ログイン
+> を排除する。これは「将来 Web 外（CLI / 外部統合等）から API を叩く時に
+> 公開できるよう余地を残す」「画面の認証要否はプロダクト UX 判断、API の
+> 認証要否はリソース秘匿性で決まる」という分離方針による。
 
 機械可読の最新仕様は OpenAPI（`apps/api/openapi.json`、ランタイムは FastAPI の `/openapi.json`）が SSoT。`POST /submissions` は [grading.md#post-submissions](./grading.md#post-submissions) を参照（本ファイルでは重複させない）。
 
@@ -183,18 +192,17 @@
 >
 > **長期運用**：機能の振る舞い仕様の累積。機能が育つほど条件は**追加されていく**し、既存条件も仕様変更で**更新される**。**変更・追加された条件は再検証が必要なので未チェックに戻す**（既存で変わってない条件はチェック維持、全リセットはしない）。観測可能な振る舞いが変わったらここを直すのが SSoT 更新の第一歩。過去版の履歴は git log で辿る。
 
-- [x] `/problems` で問題一覧（タイトル / カテゴリ / 難易度）が表示される
+- [ ] ログイン済みで `/problems` を踏むと問題一覧（タイトル / カテゴリ / 難易度）が表示される
 - [x] カテゴリ・難易度でフィルタした結果が表示される
-- [x] ゲストでも問題一覧（`/problems`）を閲覧できる（401 にならない）
-- [x] 未ログインで `/problems/:id` を踏むと「ログインが必要です」案内ページが表示される（問題本文は読めない）
-- [x] 一覧画面のヘッダー領域に「新規問題を生成」ボタンがあり、`/problems/new`（[問題生成リクエスト](./problem-generation.md)）に遷移できる（ゲストの場合はログイン経由）
+- [ ] 未ログインで `/problems` を踏むと `/login?next=/problems` に server-side redirect される（フィルタ / ページ番号があれば `?next=/problems?category=...&page=...` の形で保持）
+- [ ] 未ログインで `/problems/:id` を踏むと `/login?next=/problems/:id` に server-side redirect される
+- [x] 一覧画面のヘッダー領域に「新規問題を生成」ボタンがあり、`/problems/new`（[問題生成リクエスト](./problem-generation.md)）に遷移できる（本画面自体が認証必須なのでここを踏むユーザーは必ずログイン済み）
 - [x] `/problems/:id` で問題詳細（問題文・入出力例）が表示される
 - [x] **問題詳細レスポンスでテストケースの一部はマスクされる**（API レスポンスから完全な test_cases が読み出せないこと）
 - [x] コードエディタで TypeScript コードを入力できる
 - [ ] エディタにインライン型診断・補完が出る（構文・型エラーがハイライトされる）<!-- R1-4 では構文ハイライトのみ。`@typescript/vfs` を使った型診断・補完は別途実装、→ [5-roadmap/01-roadmap.md: Next バックログ](../5-roadmap/01-roadmap.md#next次スプリント候補すべて-r2) -->
-- [x] 「実行」ボタン押下で解答を送信できる<!-- R1-4 で POST /api/submissions の最小実装（status='pending' で 202）まで。jobs INSERT + NOTIFY による採点ジョブ enqueue は R1-5。 -->
-- [x] ゲストが `/problems/:id` を直接踏むと案内ページが出て、`/login?next=/problems/:id` の CTA からログインへ進める（「実行」ボタン経由のフォールバックは案内ページが上流で吸収）
-- [x] 解答送信後、同画面で採点結果が表示される（→ [自動採点](./grading.md)）<!-- R1-5 で GradingResult のポーリング表示まで完了。 -->
+- [x] 「実行」ボタン押下で解答を送信できる
+- [x] 解答送信後、同画面で採点結果が表示される（→ [自動採点](./grading.md)）
 
 ## ステータス
 

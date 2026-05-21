@@ -6,17 +6,16 @@
 //     （ADR 0042 §Decision「問題詳細の単純取得は Server Component の fetch」）。
 //   - 解答入力 + 「実行」ボタンは Client Component（AnswerWorkspace）に閉じ込め、
 //     props で problemId だけ渡す。
-//   - **認証必須**：未ログイン時は LoginRequiredMessage を表示する。
-//     判定は session_id Cookie の有無で行う（軽量、API 検証は不要）。
-//     SSoT は Backend の Depends(get_current_user)、本判定は UX 用ガード。
+//   - **認証必須**：未ログイン時は server-side で /login?next=/problems/:id に
+//     redirect する。問題一覧と同じガード方式で揃える
+//     （3-cross-cutting/03-page-routing.md §2）。
 //   - 存在しない / ソフトデリート済みの問題は API が 404 を返し、本ページは
 //     notFound() で Next.js の 404 画面に倒す。
 
 import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { getProblemDetailApiProblemsProblemIdGet } from "@/__generated__/api/sdk.gen";
-import { LoginRequiredMessage } from "@/components/parts/login-required-message/login-required-message";
 import { ApiError, throwIfError } from "@/lib/api/api-error";
 import { serverApiClient } from "@/lib/api/server-api-client";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session-cookie";
@@ -33,13 +32,13 @@ type ProblemDetailPageProps = {
 export default async function ProblemDetailPage({ params }: ProblemDetailPageProps) {
   const { id } = await params;
 
-  // 認証ガード：session_id Cookie が無ければ「ログインしてください」案内を返す。
+  // 認証ガード：session_id Cookie が無ければ /login?next=/problems/:id に飛ばす。
   //   Cookie 検証は Backend が SSoT のため、ここでは presence チェックに留める。
-  //   API 呼び出しでセッション検証する必要が出たら server-api-client に
-  //   credentials 設定を加える（現状は credentials='omit' のためゲスト用途のみ）。
+  //   問題一覧と同じ server-side redirect 方式で揃える
+  //   （3-cross-cutting/03-page-routing.md §2）。
   const sessionCookie = (await cookies()).get(SESSION_COOKIE_NAME);
   if (!sessionCookie) {
-    return <LoginRequiredMessage next={`/problems/${id}`} />;
+    redirect(`/login?next=${encodeURIComponent(`/problems/${id}`)}`);
   }
 
   // 不正な UUID は API 側で 422 が返るが、UI 上は単に「見つかりません」で
