@@ -138,12 +138,12 @@ pre-push:
     # API コード変更時（glob: apps/api/**/*.py）にのみ発火。integration テストは Postgres
     # 必須なので、DB 未起動なら fail させて push をブロックする（graceful skip は採用しない、
     # "ローカル緑 = 全テスト通過" の保証を強くするため）。fail 時は fail_text に従い
-    # mise run e2e:up してから再 push すればよい。
+    # mise run test:up してから再 push すればよい。
     #
     # `mise run api:test` を経由する理由（issue #86 の延長 / dev DB 保護）：
     #   pytest の integration テストは reset_* fixture で実テーブルを DELETE するため、
-    #   必ず E2E 専用 DB (:5433/ai_coding_drill_e2e) に向ける必要がある。api:test タスクは
-    #   depends で e2e:up を呼び、env で DATABASE_URL / REDIS_URL を強制上書きする。
+    #   必ず テスト用 DB (:5433/ai_coding_drill_test) に向ける必要がある。api:test タスクは
+    #   depends で test:up を呼び、env で DATABASE_URL / REDIS_URL を強制上書きする。
     #   直接 `uv run pytest` を呼ぶと .env の dev DSN がそのまま使われて作業データが消える
     #   事故が起きるため、必ずタスク経由で起動する。
     api-pytest:
@@ -160,10 +160,10 @@ pre-push:
         【よくある原因】
           ・テストの修正漏れ / 実装変更の取り込み忘れ
               → 上のエラーに従ってテスト or 実装を修正
-          ・E2E 用 Postgres / Redis 未起動（asyncpg ConnectionRefusedError 等）
-              → mise run e2e:up してから再 push（api:test は depends で自動起動するが
+          ・テスト用 Postgres / Redis 未起動（asyncpg ConnectionRefusedError 等）
+              → mise run test:up してから再 push（api:test は depends で自動起動するが
                  Docker 本体が落ちている時はここで失敗する）
-          ・"E2E 専用 DB (DB 名末尾 '_e2e') に対してのみ実行できます" が出た
+          ・"テスト用 DB (DB 名末尾 '_test') に対してのみ実行できます" が出た
               → PYTEST_DATABASE_URL で dev DSN を指していないか確認
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

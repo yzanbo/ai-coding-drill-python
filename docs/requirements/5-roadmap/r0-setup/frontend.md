@@ -152,15 +152,15 @@ Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲー
   - MSW サーバ実体は `src/test/msw-server.ts` に `setupServer()` で置き、テストからは `server.use(...)` で都度 handler を差し替える運用
   - QueryClient のテスト用 wrapper は `src/test/render-with-query.tsx` に `withQueryClient()` / `createTestQueryClient()` として用意（`retry: false` / `retryDelay: 0`）
 
-### 4-5. `apps/web/playwright.config.ts` + E2E 専用 DB 接続定数
+### 4-5. `apps/web/playwright.config.ts` + テスト用 DB 接続定数
 
 - R0 では雛形のみ、R5 で本格利用。R1 以降で `webServer` を本格構成化する際の前提として、以下を最初から固定しておく
 - `testDir: "./e2e"`（Vitest と分離）/ `baseURL: "http://localhost:${WEB_PORT}"` / `forbidOnly: !!process.env.CI` / `retries: process.env.CI ? 2 : 0`
 - **dev と完全に分離した port / DB に固定**（`apps/web/e2e/_helpers/constants.ts` に集約）：
   - `API_PORT = 8001` / `WEB_PORT = 3001` / `MOCK_GITHUB_PORT = 18001`（dev の `:3000` / `:8000` と並行起動可能）
-  - `DATABASE_URL`：env 上書き可、fallback `postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_e2e`（backend.md step 3 で配置した `docker-compose.e2e.yml` の専用 Postgres に向ける）
-  - `REDIS_URL`：env 上書き可、fallback `redis://localhost:6380/0`（同じく E2E 専用 Redis）
-- **dev 干渉の構造的回避**：`/_test/reset` の TRUNCATE / FLUSHDB が dev DB を巻き添えで消す事故を、DB 名末尾 `_e2e` allowlist で防ぐ。詳細は backend.md の docker-compose 配置 step を参照
+  - `DATABASE_URL`：env 上書き可、fallback `postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_test`（backend.md step 3 で配置した `docker-compose.test.yml` の専用 Postgres に向ける）
+  - `REDIS_URL`：env 上書き可、fallback `redis://localhost:6380/0`（同じくテスト用 Redis）
+- **dev 干渉の構造的回避**：`/_test/reset` の TRUNCATE / FLUSHDB が dev DB を巻き添えで消す事故を、DB 名末尾 `_test` allowlist で防ぐ。詳細は backend.md の docker-compose 配置 step を参照
 
 **完了確認**：
 ```bash
@@ -184,10 +184,10 @@ mise run web:syncpack       # syncpack 緑
 **前提済の登録タスク**（[mise.toml](../../../../mise.toml) の `[tasks."web:*"]`、本 step では追記しない）：
 - `web:dev` — `pnpm dev`（next dev）
 - `web:test` — `pnpm test:run`（vitest run、watch なし。watch は `cd apps/web && pnpm test` を直接叩く）
-- `web:e2e` — `pnpm exec playwright test`（R5 で本格使用、`depends = ["e2e:up"]` で先に E2E 専用 DB を起動）
-- `e2e:up` — `docker compose -f docker-compose.e2e.yml up -d --wait` → `mise run api:db-migrate:e2e`（E2E 専用 Postgres + Redis 起動 + Alembic 適用）
-- `e2e:down` — `docker compose -f docker-compose.e2e.yml down -v`（E2E 専用ミドルウェア停止 + tmpfs ボリューム破棄）
-- `api:db-migrate:e2e` — `:5433/ai_coding_drill_e2e` を上書き env で渡して `alembic upgrade head`
+- `web:e2e` — `pnpm exec playwright test`（R5 で本格使用、`depends = ["test:up"]` で先に テスト用 DB を起動）
+- `test:up` — `docker compose -f docker-compose.test.yml up -d --wait` → `mise run api:db-migrate:test`（テスト用 Postgres + Redis 起動 + Alembic 適用）
+- `test:down` — `docker compose -f docker-compose.test.yml down -v`（テスト用ミドルウェア停止 + tmpfs ボリューム破棄）
+- `api:db-migrate:test` — `:5433/ai_coding_drill_test` を上書き env で渡して `alembic upgrade head`
 - `web:lint` / `web:format` — `pnpm lint` / `pnpm lint:fix`（= `biome check [--write]`、scripts に委譲）
 - `web:typecheck` — `pnpm exec tsc --noEmit`
 - `web:knip` / `web:knip-fix` — `pnpm exec knip --no-config-hints [--fix]`
@@ -282,7 +282,7 @@ git restore --staged apps/web/src/app/_test/ && rm -rf apps/web/src/app/_test/
 - 新規ジョブ 6 種：`web-lint` / `web-typecheck` / `web-knip` / `web-syncpack` / `web-test` / `web-e2e`
   - 各ジョブで `actions/checkout` → `jdx/mise-action`（SHA pin、内部で `mise install` 実行）→ `mise run web:<task>`
   - `mise install` が pnpm を入れるため `pnpm/action-setup` は **不要**（pnpm の cache が欲しい場合は別途検討）
-  - **`web-e2e` ジョブのみ**：Postgres / Redis を **GitHub Actions の `services` 機能**で立て、`alembic upgrade head` 後に Playwright を起動する。services の port / DB 名は **local の `docker-compose.e2e.yml` と完全一致**させる（`postgres-e2e :5433` / `redis-e2e :6380` / DB 名 `ai_coding_drill_e2e`）。これにより local と CI で `DATABASE_URL` / `REDIS_URL` が同一文字列になり、`/_test/reset` の安全ガード（DB 名末尾 `_e2e` allowlist）が両環境で同じ挙動を取る
+  - **`web-e2e` ジョブのみ**：Postgres / Redis を **GitHub Actions の `services` 機能**で立て、`alembic upgrade head` 後に Playwright を起動する。services の port / DB 名は **local の `docker-compose.test.yml` と完全一致**させる（`postgres-test :5433` / `redis-test :6380` / DB 名 `ai_coding_drill_test`）。これにより local と CI で `DATABASE_URL` / `REDIS_URL` が同一文字列になり、`/_test/reset` の安全ガード（DB 名末尾 `_test` allowlist）が両環境で同じ挙動を取る
   - **`web-e2e` の起動条件**：`web` / `api` / `worker:grading` / `shared` のいずれか変更時のみ発火（path filter、`changes` ジョブの outputs で判定）
   - **`web-e2e` は Playwright のブラウザバイナリをキャッシュ**（cache key に `playwright --version` を含めて自動失効）
 - `ci-success` の `needs:` に上記 6 ジョブを追加

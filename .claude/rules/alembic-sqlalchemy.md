@@ -262,9 +262,9 @@ docker compose exec postgres createdb -U postgres ai_coding_drill
 mise run api:db-migrate
 # シードは別途スクリプト：cd apps/api && uv run python -m app.db.seeds
 
-# E2E DB（docker-compose.e2e.yml、tmpfs なので down -v が最速）
-mise run e2e:down       # tmpfs ボリュームごと破棄
-mise run e2e:up         # 再起動 + alembic upgrade head
+# E2E DB（docker-compose.test.yml、tmpfs なので down -v が最速）
+mise run test:down       # tmpfs ボリュームごと破棄
+mise run test:up         # 再起動 + alembic upgrade head
 ```
 
 ## シードデータの管理

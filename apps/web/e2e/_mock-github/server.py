@@ -65,12 +65,12 @@ def _parse_db_url(db_url: str) -> tuple[str | None, str]:
     return parsed.hostname, db_name
 
 
-def _ensure_e2e_db_url(db_url: str) -> None:
+def _ensure_test_db_url(db_url: str) -> None:
     """E2E 用エンドポイントが触ってよい DB か検証する（issue #86 の積極的 allowlist）。
 
     二重ガード:
       1. ホストが localhost / 127.0.0.1 / ::1 のいずれかであること
-      2. DB 名が `_e2e` で終わること（dev DB `ai_coding_drill` を絶対に消さない）
+      2. DB 名が `_test` で終わること（dev DB `ai_coding_drill` を絶対に消さない）
 
     これにより、誤って dev の DATABASE_URL を E2E プロセスに渡しても TRUNCATE が
     走らない構造にする。
@@ -81,12 +81,12 @@ def _ensure_e2e_db_url(db_url: str) -> None:
             status_code=403,
             detail="DATABASE_URL のホストが localhost / 127.0.0.1 / ::1 以外は拒否",
         )
-    if not db_name.endswith("_e2e"):
+    if not db_name.endswith("_test"):
         raise HTTPException(
             status_code=403,
             detail=(
-                f"DATABASE_URL の DB 名 '{db_name}' は _e2e で終わっていないため拒否"
-                "（E2E は専用 DB ai_coding_drill_e2e でのみ実行可、issue #86）"
+                f"DATABASE_URL の DB 名 '{db_name}' は _test で終わっていないため拒否"
+                "（E2E は専用 DB ai_coding_drill_test でのみ実行可、issue #86）"
             ),
         )
 
@@ -94,11 +94,11 @@ def _ensure_e2e_db_url(db_url: str) -> None:
 async def _connect_local_db() -> asyncpg.Connection:
     """E2E 用テストエンドポイントから Postgres に繋ぐためのヘルパー。
 
-    - DATABASE_URL が localhost 系 + DB 名末尾 `_e2e` 以外なら 403 を投げて誤接続を防ぐ
+    - DATABASE_URL が localhost 系 + DB 名末尾 `_test` 以外なら 403 を投げて誤接続を防ぐ
     - SQLAlchemy 形式（postgresql+asyncpg://...）を asyncpg 用の素の形式に直す
     """
     db_url = os.environ.get("DATABASE_URL", "")
-    _ensure_e2e_db_url(db_url)
+    _ensure_test_db_url(db_url)
     pg_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
     return await asyncpg.connect(pg_url)
 
@@ -221,7 +221,7 @@ def _build_app() -> FastAPI:
         破壊的操作のため三重ガード:
           1. 環境変数 E2E_RESET_ENABLED=true を必須にする（誤起動防止）
           2. DATABASE_URL のホストが localhost 系であること
-          3. DATABASE_URL の DB 名が `_e2e` で終わること
+          3. DATABASE_URL の DB 名が `_test` で終わること
              （dev DB `ai_coding_drill` の TRUNCATE を構造的に防ぐ、issue #86）
 
         対象:
@@ -248,7 +248,7 @@ def _build_app() -> FastAPI:
         finally:
             await conn.close()
 
-        # E2E 用 Redis は docker-compose.e2e.yml で 6380 に立てる（dev の 6379 とポート分離）。
+        # E2E 用 Redis は docker-compose.test.yml で 6380 に立てる（dev の 6379 とポート分離）。
         # ポートで分かれているため DB index は /0 で十分
         # （apps/web/e2e/_helpers/constants.ts と同じ既定値）。
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6380/0")

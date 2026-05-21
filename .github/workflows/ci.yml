@@ -361,23 +361,23 @@ jobs:
           needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     services:
-      # E2E 専用 Postgres。docker-compose.e2e.yml と同じ「ホスト :5433 / DB 名末尾 _e2e」に揃える。
+      # テスト用 Postgres。docker-compose.test.yml と同じ「ホスト :5433 / DB 名末尾 _test」に揃える。
       # これにより local と CI で DATABASE_URL が完全一致し、/_test/reset の安全ガード
-      # （DB 名 `_e2e` allowlist）が両環境で同じ挙動を取る（issue #86）。
-      postgres-e2e:
+      # （DB 名 `_test` allowlist）が両環境で同じ挙動を取る（issue #86）。
+      postgres-test:
         image: postgres:18.3-alpine
         env:
-          POSTGRES_DB: ai_coding_drill_e2e
+          POSTGRES_DB: ai_coding_drill_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
           - 5433:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d ai_coding_drill_e2e"
+          --health-cmd "pg_isready -U postgres -d ai_coding_drill_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-      redis-e2e:
+      redis-test:
         image: redis:8.6-alpine
         ports:
           - 6380:6379
@@ -389,8 +389,8 @@ jobs:
     env:
       # api / worker / mock サーバが共有する DB 接続文字列。
       # playwright.config.ts の webServer.env は workflow env を引き継がず明示注入する。
-      # local の docker-compose.e2e.yml と同じ port / DB 名（issue #86）。
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_e2e
+      # local の docker-compose.test.yml と同じ port / DB 名（issue #86）。
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_test
       # Redis は port 6380 でポート分離済みなので DB index は /0 で十分。
       # local 既定値（apps/web/e2e/_helpers/constants.ts）と揃えて設定の二重管理を避ける。
       REDIS_URL: redis://localhost:6380/0

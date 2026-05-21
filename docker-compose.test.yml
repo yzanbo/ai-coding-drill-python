@@ -1,4 +1,4 @@
-# E2E 専用ミドルウェア（Postgres + Redis、dev から完全分離）
+# テスト用ミドルウェア（Postgres + Redis、dev から完全分離）
 #
 # 役割：
 #   - issue #86 の長期 fix。dev DB（docker-compose.yml）と物理的に分離した
@@ -10,19 +10,19 @@
 #     E2E run を高速化する（永続化不要のため）。
 #
 # 起動：
-#   docker compose -f docker-compose.e2e.yml up -d --wait   # ヘルスチェック通過まで待つ
-#   docker compose -f docker-compose.e2e.yml down -v        # コンテナ + tmpfs を破棄
+#   docker compose -f docker-compose.test.yml up -d --wait   # ヘルスチェック通過まで待つ
+#   docker compose -f docker-compose.test.yml down -v        # コンテナ + tmpfs を破棄
 #
 # mise から：
-#   mise run e2e:up      # 起動 + Alembic 適用
-#   mise run e2e:down    # 停止 + ボリューム破棄
+#   mise run test:up      # 起動 + Alembic 適用
+#   mise run test:down    # 停止 + ボリューム破棄
 
 services:
-  postgres-e2e:
+  postgres-test:
     image: postgres:18.3-alpine
-    container_name: ai-coding-drill-postgres-e2e
+    container_name: ai-coding-drill-postgres-test
     environment:
-      POSTGRES_DB: ai_coding_drill_e2e
+      POSTGRES_DB: ai_coding_drill_test
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       # PGDATA を tmpfs 内の **サブディレクトリ** に明示。
@@ -43,14 +43,14 @@ services:
       # initdb される（PGDATA env で指定）。
       - /var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_coding_drill_e2e"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_coding_drill_test"]
       interval: 2s
       timeout: 5s
       retries: 30
 
-  redis-e2e:
+  redis-test:
     image: redis:8.6-alpine
-    container_name: ai-coding-drill-redis-e2e
+    container_name: ai-coding-drill-redis-test
     ports:
       - "6380:6379"
     tmpfs:
