@@ -60,7 +60,7 @@ export default function MyStatsPage() {
 
           <section className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold">カテゴリ別</h2>
-            {stats.byCategory && stats.byCategory.length > 0 ? (
+            {stats.byCategory.length > 0 ? (
               <ul className="flex flex-col gap-3">
                 {stats.byCategory.map((row) => (
                   <li key={row.category}>

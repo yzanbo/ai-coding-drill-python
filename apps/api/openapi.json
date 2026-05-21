@@ -106,7 +106,8 @@
         "required": [
           "total",
           "correct",
-          "accuracy"
+          "accuracy",
+          "byCategory"
         ],
         "title": "MeStatsResponse",
         "type": "object"
@@ -155,6 +156,9 @@
             "type": "array"
           }
         },
+        "required": [
+          "weakCategories"
+        ],
         "title": "MeWeaknessResponse",
         "type": "object"
       },

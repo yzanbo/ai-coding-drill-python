@@ -70,7 +70,7 @@ export type MeStatsResponse = {
     /**
      * Bycategory
      */
-    byCategory?: Array<MeCategoryStat>;
+    byCategory: Array<MeCategoryStat>;
     /**
      * Correct
      */
@@ -114,7 +114,7 @@ export type MeWeaknessResponse = {
     /**
      * Weakcategories
      */
-    weakCategories?: Array<MeWeakCategoryItem>;
+    weakCategories: Array<MeWeakCategoryItem>;
 };
 
 /**

@@ -44,13 +44,16 @@ class MeCategoryStat(_CamelModel):
 #   total / correct: 全期間・全カテゴリ合計（採点完了行のみカウント）。
 #   accuracy: total > 0 の時は correct/total、total = 0 の時は 0.0 を返す
 #             （初心者ユーザーで履歴ゼロのケースに 422 / NaN を返さない）。
+#   by_category: 履歴ゼロでも空 list を返す契約（required）。OpenAPI 上 required
+#                にしておくと、TS 型生成側で `byCategory: Array<...>` となり
+#                `?? []` フォールバックが不要になる。
 class MeStatsResponse(_CamelModel):
     """全期間の正答率 + カテゴリ別習熟度。"""
 
     total: int = Field(ge=0)
     correct: int = Field(ge=0)
     accuracy: float = Field(ge=0.0, le=1.0)
-    by_category: list[MeCategoryStat] = Field(default_factory=list)
+    by_category: list[MeCategoryStat]
 
 
 # MeWeakCategoryItem: 弱点カテゴリ 1 件。
@@ -82,7 +85,10 @@ class MeWeakCategoryItem(_CamelModel):
 class MeWeaknessResponse(_CamelModel):
     """弱点カテゴリ Top N。"""
 
-    weak_categories: list[MeWeakCategoryItem] = Field(default_factory=list)
+    # weak_categories: 候補ゼロでも空 list を返す契約（required）。
+    #   MeStatsResponse.by_category と同じ理由で required にして、FE 側の
+    #   `?? []` フォールバックを排除する。
+    weak_categories: list[MeWeakCategoryItem]
 
 
 # しきい値定数（learning.md §ビジネスルール）。

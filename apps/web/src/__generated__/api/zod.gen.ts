@@ -38,7 +38,7 @@ export const zMeCategoryStat = z.object({
  */
 export const zMeStatsResponse = z.object({
     accuracy: z.number().gte(0).lte(1),
-    byCategory: z.array(zMeCategoryStat).optional(),
+    byCategory: z.array(zMeCategoryStat),
     correct: z.int().gte(0),
     total: z.int().gte(0)
 });
@@ -61,7 +61,7 @@ export const zMeWeakCategoryItem = z.object({
  * 弱点カテゴリ Top N。
  */
 export const zMeWeaknessResponse = z.object({
-    weakCategories: z.array(zMeWeakCategoryItem).optional()
+    weakCategories: z.array(zMeWeakCategoryItem)
 });
 
 /**

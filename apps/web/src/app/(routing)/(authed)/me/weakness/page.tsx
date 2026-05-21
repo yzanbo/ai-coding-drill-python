@@ -20,7 +20,6 @@ const formatPercent = (n: number): string => `${(n * 100).toFixed(1)}%`;
 
 export default function MyWeaknessPage() {
   const { weakness, isLoading, error } = useGetMyWeakness();
-  const weakCategories = weakness?.weakCategories ?? [];
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-12">
@@ -37,13 +36,13 @@ export default function MyWeaknessPage() {
         <p className="text-sm text-destructive">
           弱点情報を取得できませんでした。時間を置いて再度お試しください。
         </p>
-      ) : weakCategories.length === 0 ? (
+      ) : weakness && weakness.weakCategories.length === 0 ? (
         <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
           現時点で弱点と判定されたカテゴリはありません。解答数が増えると判定対象になります。
         </p>
-      ) : (
+      ) : weakness ? (
         <ul className="flex flex-col gap-3">
-          {weakCategories.map((row) => (
+          {weakness.weakCategories.map((row) => (
             <li key={row.category}>
               <Card>
                 <CardContent className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4 text-sm">
@@ -67,7 +66,7 @@ export default function MyWeaknessPage() {
             </li>
           ))}
         </ul>
-      )}
+      ) : null}
     </main>
   );
 }
