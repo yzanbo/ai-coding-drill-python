@@ -1,312 +1,279 @@
 # AI Coding Drill（Python 版）
 
-> LLM が自動生成したプログラミング問題を、サンドボックス環境で検証・採点する学習サイト。
-> 「LLM の出力を信用せず、サンドボックスで動作保証する」設計思想を実装したポートフォリオプロジェクト。
+LLM が自動生成したプログラミング問題を、サンドボックス環境で検証・採点する学習サイト。
 
-> **このリポジトリは Python 版です**。TS 版（[`yzanbo/ai-coding-drill`](https://github.com/yzanbo/ai-coding-drill)）を [`v1.0.0-typescript`](https://github.com/yzanbo/ai-coding-drill/releases/tag/v1.0.0-typescript) タグ時点で fork し、バックエンド API を Python に pivot した派生版です。Frontend (Next.js) と採点ワーカー (Go) は維持し、バックエンドのみ言語を切り替えます。判断の背景は [ADR 0033](docs/adr/0033-backend-language-pivot-to-python.md) を参照。
->
-> なお TS 版（`v1.0.0-typescript`）では共有データ型を `packages/shared-types/` に集約していましたが、Python pivot に伴い **Pydantic を SSoT に統一**し（→ [ADR 0006](docs/adr/0006-json-schema-as-single-source-of-truth.md)）、`packages/shared-types/` は廃止しました。
-
-🚀 **デモ**：_（デプロイ後に追記予定。R5 完了時に公開）_
-📊 **ステータス**：**設計フェーズ完了・実装着手前**（Python pivot に伴う ADR 0033〜0041 起票完了、R0 ツーリング着手前）
-📚 **設計判断**：[ADR](docs/adr/) として体系的に記録（最新件数は [索引](docs/adr/README.md) を参照）
-🛠️ **セットアップして動かしたい場合**：[CONTRIBUTING.md](CONTRIBUTING.md) を参照
+ローカルで動かすための手順を以下に示します。プロジェクトの概観・設計判断・差別化軸については [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
 
 ---
 
-## 📊 現在の進捗（2026-05 時点）
+## 現在の進捗（2026-05 時点）
 
 | フェーズ | 状態 | 内容 |
 |---|---|---|
-| **設計フェーズ（TS 版）** | ✅ **完了** | ADR / 要件定義書 5 バケット / アーキテクチャ図 3 種 / プロダクトバックログ — `v1.0.0-typescript` タグで凍結 |
-| **Python pivot 設計** | ✅ **完了** | バックエンド言語切替（[ADR 0033](docs/adr/0033-backend-language-pivot-to-python.md)）/ FastAPI（[0034](docs/adr/0034-fastapi-for-backend.md)）/ uv（[0035](docs/adr/0035-uv-for-python-package-management.md)）/ pnpm 単独運用（[0036](docs/adr/0036-frontend-monorepo-pnpm-only.md)）/ SQLAlchemy + Alembic（[0037](docs/adr/0037-sqlalchemy-alembic-for-database.md)）/ テストフレームワーク（[0038](docs/adr/0038-test-frameworks.md)）/ mise（[0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）/ Worker 分割 + LLM in Worker（[0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)）/ 観測性スタック Grafana 系 + Sentry（[0041](docs/adr/0041-observability-stack-grafana-and-sentry.md)）/ ADR 0006 を Pydantic SSoT + 境界別 2 伝送路に再設計 / 要件定義書 5 バケット同期 |
-| **R0**〜実装フェーズ | ⏳ 未着手 | R0 基盤立ち上げ（mise / uv / pnpm / Docker Compose / CI / 補完ツール一式）から順次着手 |
+| 設計フェーズ（TS 版） | ✅ 完了 | ADR / 要件定義書 / アーキテクチャ図 / バックログ — `v1.0.0-typescript` で凍結 |
+| Python pivot 設計 | ✅ 完了 | ADR 0033〜0049 起票、Pydantic SSoT + 境界別 2 伝送路に再設計 |
+| **R0 基盤構築** | ✅ 完了 | mise / uv / pnpm / Docker Compose / CI / Backend・Frontend・Worker レイヤ分割 / 型同期パイプライン / MCP（11 項目すべて完了） |
+| **R1 MVP** | ✅ 完了 | R1-1 GitHub OAuth / R1-2 LLM プロバイダ抽象化 / R1-3 問題生成 / R1-4 問題表示・解答入力 / R1-5 自動採点 / R1-6 学習履歴・統計 / R1-7 問題生成履歴・状態管理（すべて完了） |
+| **R2 品質保証パイプライン** ★ | ⏳ 着手前（次フェーズ） | LLM-as-a-Judge（grading worker 内）/ ミューテーションテスト / プロンプトキャッシュ + Redis レスポンスキャッシュ / 構造化出力厳密化 / 非同期ジョブ化（リトライ・DLQ・スタックジョブ回収・180 秒タイムアウト・コスト上限）。**ポートフォリオ評価の核**（「LLM 出力を信用しない」設計思想を動作で示す） |
+| **R3 サンドボックス強化** ★ | ⏳ 未着手 | gVisor 対応 + Docker vs gVisor ベンチマーク / セキュリティドキュメント化 |
+| **R4 観測性** ★ | ⏳ 未着手 | OpenTelemetry SDK（FastAPI / Go 両側）/ プロセス境界トレース連携（W3C Trace Context 実値化）/ Grafana ダッシュボード / Sentry 接続 + PII マスキング / アラート整備 / 管理ダッシュボード |
+| **R5 仕上げ・公開** | ⏳ 未着手 | IaC（Terraform）/ 本番デプロイパイプライン / E2E テスト主要フロー（Playwright）/ README に設計判断・ベンチマーク・デモ動画を整備 |
+| R6〜R9（任意） | ⏸️ 後回し | R6 適応型出題 + LLM ヒント / R7 apps/workers/generation 機能実装 + RAG / R8 多言語化（Python / React）/ R9 Firecracker microVM |
 
-> **ポートフォリオとしての位置づけ**：
-> 現時点では **設計力・ドキュメント力**が成果物の中心です。Python pivot により、同じ設計を 2 言語で実装した経験そのものを差別化軸にしていきます。実装フェーズが進むにつれ、動くサービス・スクリーンショット・デモ動画・ベンチマーク結果を順次追加します。
->
-> - **設計シニア / アーキテクト枠**：現時点で十分に評価可能（[ADR](docs/adr/) を中心に閲覧推奨。設計の言語非依存性は TS 版（`v1.0.0-typescript`）と本リポジトリの差分で確認可能）
-> - **フルスタック枠（Python）**：実装着手・MVP 動作完成までお待ちいただくか、設計判断の議論を中心に評価をお願いします
->
-> 進捗は [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) で更新します。
-
----
-
-## 🎯 ポートフォリオとして見てほしいもの
-
-採用担当者・面接官の方は、以下の順で読むと短時間で評価できます：
-
-1. **[本 README のハイライト](#ハイライト)** ← 今ここ（差別化軸の概要）
-2. **[ADR（設計判断の記録）](docs/adr/)** ← 設計力アピールの中核
-3. **[要件定義書 5 バケット構造](docs/requirements/)** ← ドキュメント設計力
-4. **個別機能の詳細仕様**：[GitHub OAuth ログイン](docs/requirements/4-features/authentication.md) 〜 [学習履歴](docs/requirements/4-features/learning.md)
-5. **動くデモ** ← R5 公開後
-
-### 評価軸別の見どころマップ
-
-| 評価したい観点 | 推奨閲覧 |
-|---|---|
-| 設計判断・トレードオフの言語化能力 | [docs/adr/](docs/adr/) — 全 ADR の索引 |
-| アーキテクチャ設計力 | [02-architecture.md](docs/requirements/2-foundation/02-architecture.md) + [ADR 0004](docs/adr/0004-postgres-as-job-queue.md) / [0009](docs/adr/0009-disposable-sandbox-container.md) / [0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) |
-| LLM アプリ設計力 | [03-llm-pipeline.md](docs/requirements/2-foundation/03-llm-pipeline.md) + [ADR 0008](docs/adr/0008-custom-llm-judge.md) / [0007](docs/adr/0007-llm-provider-abstraction.md) |
-| セキュリティ・サンドボックス設計 | [ADR 0009](docs/adr/0009-disposable-sandbox-container.md) + [自動採点](docs/requirements/4-features/grading.md) |
-| 観測性設計（分散トレース連携・Grafana 系統合） | [04-observability.md](docs/requirements/2-foundation/04-observability.md) + [ADR 0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) / [ADR 0041](docs/adr/0041-observability-stack-grafana-and-sentry.md) |
-| ドキュメント設計力 | [docs/requirements/README.md](docs/requirements/README.md)（5 バケット時系列構造） |
-| アジャイル運用力 | [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md)（DoR / DoD / バックログ / リスクレジスタ） |
+> ★ = ポートフォリオ評価の核となるフェーズ（[01-roadmap.md: ロードマップ](docs/requirements/5-roadmap/01-roadmap.md#ロードマップリリース単位) より）。期間目安：R0〜R5 で 専業 6〜8 週 / 兼業 2〜3 ヶ月。
 
 ---
 
-## ハイライト
+## 必要ツール
 
-このプロジェクトの差別化軸：
+`mise` を入れれば残りは `mise install` で揃う（→ [ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)）。
 
-1. **LLM 生成 × サンドボックス検証 × 多層品質保証パイプライン**
-   生成された問題は、模範解答がサンドボックスで動作することを確認するまで DB に保存されない。「動かないコードが混入する」既存サービスの根本問題を構造的に解決。
-   → 詳細：[03-llm-pipeline.md](docs/requirements/2-foundation/03-llm-pipeline.md) / [ADR 0009](docs/adr/0009-disposable-sandbox-container.md)
+| ツール | 用途 | 取得方法 |
+|---|---|---|
+| `mise` | 言語ランタイム + パッケージマネージャ + タスクランナー | `curl https://mise.run \| sh` または `brew install mise`（macOS） |
+| Docker | サンドボックス + ローカル DB / Redis | Docker Desktop / Engine |
+| psql | DB クライアント（任意） | `brew install postgresql` 等 |
 
-2. **品質評価の 4 レイヤ防御**（決定論チェック / LLM-as-a-Judge / ユーザー行動シグナル / 集合的評価）
-   ミューテーションテスト・複数モデルによる多軸評価・人間評価との相関分析を組み合わせ、LLM 生成物の品質を継続的に担保。
-   → 詳細：[ADR 0008: LLM-as-a-Judge を自前実装](docs/adr/0008-custom-llm-judge.md)
-
-3. **Python + Go + TypeScript のポリグロット構成**
-   バックエンド API（Python / FastAPI）・採点ワーカー（Go）・フロントエンド（TypeScript / Next.js）を、レイヤごとに適材適所で導入。
-   → 詳細：[ADR 0033: バックエンドを Python に pivot](docs/adr/0033-backend-language-pivot-to-python.md) / [ADR 0003: 言語の段階導入](docs/adr/0003-phased-language-introduction.md)
-
-4. **Postgres ジョブキュー**（`SELECT FOR UPDATE SKIP LOCKED` + `LISTEN/NOTIFY`）
-   外部キューミドルウェア不要、解答登録とジョブ登録を同一トランザクションで処理。Outbox パターン回避。
-   → 詳細：[ADR 0004: Postgres をジョブキューに採用](docs/adr/0004-postgres-as-job-queue.md) / [ADR 0005](docs/adr/0005-redis-not-for-job-queue.md)
-
-5. **使い捨てコンテナによるサンドボックス**（Docker → gVisor → Firecracker の段階強化）
-   ジョブごとにコンテナを生成・破棄。前回実行の影響が原理的に残らない強い隔離。
-   → 詳細：[ADR 0009: 使い捨てサンドボックスコンテナ](docs/adr/0009-disposable-sandbox-container.md)
-
-6. **LLM プロバイダ抽象化レイヤ**（Anthropic / Google / OpenAI / OpenRouter を差し替え可能）
-   モデル選定はベンチマークに基づき適時更新。「アーキテクチャ判断とモデル選定を分離する」設計原則を実装。
-   → 詳細：[ADR 0007: LLM プロバイダ抽象化戦略](docs/adr/0007-llm-provider-abstraction.md)
-
-7. **W3C Trace Context をジョブペイロードに埋め込んだプロセス境界トレース連携**
-   FastAPI（Producer）→ Postgres → Go Worker 群（採点 / 問題生成、Consumer）が単一 trace_id で連結可視化。標準仕様準拠でベンダー非依存。
-   → 詳細：[ADR 0010: W3C Trace Context をジョブペイロードに埋め込む](docs/adr/0010-w3c-trace-context-in-job-payload.md)
-
-8. **Pydantic を SSoT に置いた境界別 2 伝送路型生成**（TS / Go）
-   HTTP API 境界は FastAPI 自動 OpenAPI 3.1 → Hey API（TS 型 + Zod + クライアント生成）、Job キュー境界は Pydantic から JSON Schema 出力 → quicktype（Go struct 生成）。Python は Pydantic そのものが型なので追加生成不要。
-   → 詳細：[ADR 0006: Pydantic SSoT + 境界別 2 伝送路](docs/adr/0006-json-schema-as-single-source-of-truth.md)
-
-9. **AWS 単独 + IaC（Terraform）+ 観測性（OTel + Grafana 系（Loki / Tempo / Prometheus）+ Sentry）**
-   コスト最適化（月 $10〜30）・無料枠活用・運用設計まで含めたエンドツーエンドの構成。3 系統（ログ / トレース / メトリクス）を Grafana 1 画面に統合。
-   → 詳細：[ADR 0002: AWS 単独](docs/adr/0002-aws-single-cloud.md) / [ADR 0041: 観測性スタック](docs/adr/0041-observability-stack-grafana-and-sentry.md) / [04-observability.md](docs/requirements/2-foundation/04-observability.md)
+`mise install` が `mise.toml` から Python / Node.js / Go / uv / pnpm / lefthook / commitlint を自動投入する。具体版数の SSoT は [mise.toml](mise.toml)。
 
 ---
 
-## 📚 設計判断（ADR）索引
+## セットアップ
 
-複数案を検討して 1 つを選んだ判断は、すべて [docs/adr/](docs/adr/) に **1 ファイル 1 決定**で記録しています。判断が変わった場合は ADR 本文を直接書き換えて最新状態に保ち、変更経緯は git log で辿ります。
+```bash
+# 1. リポジトリ取得
+git clone https://github.com/yzanbo/ai-coding-drill-python.git
+cd ai-coding-drill-python
 
-### 🌐 戦略判断（Python pivot）
+# 2. mise でツール一括インストール + Git フック登録
+mise run bootstrap
+# 内部で `mise install` + `lefthook install` を実行
 
-| ADR | タイトル | キーワード |
-|---|---|---|
-| [0033](docs/adr/0033-backend-language-pivot-to-python.md) | バックエンドを Python に pivot（NestJS → Python） | 言語切替 / 設計の言語非依存性 / 採用面接駆動 |
+# 3. 環境変数を設定（ルート .env は不要、各 app に配置する）
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+cp apps/workers/grading/.env.example apps/workers/grading/.env
+# 各 .env を編集：DATABASE_URL / REDIS_URL / GitHub OAuth Secret / LLM API Key 等
 
-### 🏗️ アーキテクチャ判断
+# 4. ローカル DB / Redis を起動
+docker compose up -d
 
-| ADR | タイトル | キーワード |
-|---|---|---|
-| [0004](docs/adr/0004-postgres-as-job-queue.md) | Postgres をジョブキューに採用 | SKIP LOCKED / LISTEN/NOTIFY / Outbox 不要 |
-| [0005](docs/adr/0005-redis-not-for-job-queue.md) | Redis をジョブキューでは使わない | 役割の明確化 |
-| [0009](docs/adr/0009-disposable-sandbox-container.md) | 使い捨てサンドボックスコンテナ | セキュリティ × スループット |
-| [0008](docs/adr/0008-custom-llm-judge.md) | LLM-as-a-Judge を自前実装 | DeepEval / Ragas 不採用 |
-| [0003](docs/adr/0003-phased-language-introduction.md) | レイヤ別ポリグロット構成（Python + Go + TypeScript） | ポリグロット戦略 / 役割別配置 |
-| [0007](docs/adr/0007-llm-provider-abstraction.md) | LLM プロバイダ抽象化戦略 | ベンダーロックイン回避 |
-| [0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) | W3C Trace Context をジョブペイロードに埋め込む | プロセス境界トレース連携 |
+# 5. DB マイグレーション
+mise run api:db-migrate
 
-### 🔧 技術スタック判断
+# 6. シードデータ投入（任意、apps/api 着手後）
+cd apps/api && uv run python -m app.db.seeds
 
-| ADR | タイトル | キーワード |
-|---|---|---|
-| [0015](docs/adr/0015-codemirror-over-monaco.md) | CodeMirror 6 採用（Monaco 不採用） | バンドル軽量化 |
-| [0034](docs/adr/0034-fastapi-for-backend.md) | バックエンド API に FastAPI 採用 | Python / 型ヒント駆動 / OpenAPI 自動生成 |
-| [0014](docs/adr/0014-nestjs-for-backend.md) | バックエンドに NestJS 採用 *(Superseded by 0033, 0034)* | DI / Module / レイヤード設計（移行判断軌跡として保持） |
-| [0016](docs/adr/0016-go-for-grading-worker.md) | 採点ワーカーを Go で実装 | シングルバイナリ / goroutine |
-| [0011](docs/adr/0011-github-oauth-with-extensible-design.md) | GitHub OAuth + 拡張可能設計 | Strategy パターン |
-| [0037](docs/adr/0037-sqlalchemy-alembic-for-database.md) | ORM / マイグレーションに SQLAlchemy 2.0 + Alembic | async / Pydantic 連携 / 標準ツール |
-| [0017](docs/adr/0017-drizzle-orm-over-prisma.md) | ORM に Drizzle 採用（Prisma 不採用）*(Superseded by 0033, 0037)* | 型推論 / 生 SQL 親和性（移行判断軌跡として保持） |
-| [0041](docs/adr/0041-observability-stack-grafana-and-sentry.md) | 観測性スタックに Grafana 系（Loki / Tempo / Prometheus / Grafana）+ Sentry を採用 | OSS / 3 系統 1 画面統合 / Grafana Cloud 無料枠 / OTLP ネイティブ |
-
-### ☁️ インフラ判断
-
-| ADR | タイトル | キーワード |
-|---|---|---|
-| [0002](docs/adr/0002-aws-single-cloud.md) | クラウドは AWS 単独 | マルチクラウド不採用 |
-| [0012](docs/adr/0012-upstash-redis-over-elasticache.md) | Upstash Redis 採用 | サーバレス / 無料枠 |
-| [0013](docs/adr/0013-vercel-for-frontend-hosting.md) | Frontend ホスティングに Vercel を採用 | Next.js ファーストパーティ統合 / 無料枠 |
-
-### 📋 開発規律判断
-
-| ADR | タイトル | キーワード |
-|---|---|---|
-| [0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md) | タスクランナー / tool 版数管理に mise を採用 | Turborepo 不採用 / 3 言語横断 |
-| [0036](docs/adr/0036-frontend-monorepo-pnpm-only.md) | Frontend ツーリングを `apps/web/` 内に閉じる（Turborepo + pnpm workspaces 不採用） | root を orchestration 専用層に / Biome / Knip / syncpack も apps/web 内 |
-| [0035](docs/adr/0035-uv-for-python-package-management.md) | Python パッケージ管理に uv を採用 | Astral 統合 / lockfile / workspace |
-| [0020](docs/adr/0020-python-code-quality.md) | Python のコード品質ツール（ruff + pyright + pip-audit + deptry） | Astral 統合 / 可逆な判断の遅延 |
-| [0023](docs/adr/0023-turborepo-pnpm-monorepo.md) | Turborepo + pnpm workspaces *(Superseded by 0033, 0036)* | モノレポ運用（軌跡として保持。Python 側は [ADR 0035](docs/adr/0035-uv-for-python-package-management.md)、タスクランナーは [ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md) で代替） |
-| [0018](docs/adr/0018-biome-for-tooling.md) | TS のコード品質ツールに Biome を採用、設定は `apps/web/` 配下に直接配置 *(Accepted, Amended by 0033 / 0036)* | Rust 製 / 高速 / 単一設定（Frontend 用途として継続採用） |
-| [0006](docs/adr/0006-json-schema-as-single-source-of-truth.md) | Pydantic を SSoT に、境界別 2 伝送路で各言語に展開 | Pydantic-first / FastAPI 自動 OpenAPI / Hey API + quicktype |
-| [0021](docs/adr/0021-r0-tooling-discipline.md) | 補完ツールを R0 から導入 | lefthook / commitlint / Knip / syncpack / ruff / pyright / pip-audit / deptry |
-| [0001](docs/adr/0001-requirements-as-5-buckets.md) | 要件定義書を 5 バケット時系列構造に再編 | ドキュメント設計 / SSoT / 読む順序 vs 書く順序 |
-| [0019](docs/adr/0019-go-code-quality.md) | Go のコード品質ツール（gofmt + golangci-lint） | Go 標準 / メタリンター |
-| [0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md) | Worker を `apps/workers/<name>/` で系統別に分割、LLM 呼び出しは Worker 側に集約 | judge プロンプトは `apps/workers/grading/prompts/judge/`、generation プロンプトは `apps/workers/generation/prompts/generation/` に同居 |
-| [0038](docs/adr/0038-test-frameworks.md) | テストフレームワーク（pytest / Vitest + Playwright / Go testing + testify） | 言語ごとに標準ツール |
-| [0026](docs/adr/0026-github-actions-incremental-scope.md) | GitHub Actions のスコープを段階的に拡張（R0 は最小） | YAGNI / 段階拡張 / 無料枠節約 |
-| [0025](docs/adr/0025-github-actions-as-ci-cd.md) | CI/CD ツールに GitHub Actions を採用 | コードホスト統合 / OIDC キーレス |
-| [0028](docs/adr/0028-dependabot-auto-update-policy.md) | 依存関係の自動更新ポリシー（Dependabot） | 週次 / メジャー除外 / グループ化 |
-| [0029](docs/adr/0029-commit-scope-convention.md) | コミット scope 規約（モノレポ領域 + 自動更新用 deps / deps-dev） | scope-enum / Dependabot 連携 |
-| [0027](docs/adr/0027-github-actions-sha-pinning.md) | サードパーティアクションを SHA でピン止め | サプライチェーン攻撃耐性 |
-| [0030](docs/adr/0030-commitlint-base-commit-fetch.md) | commitlint の base コミット取得を iterative deepen 方式で | shallow-exclude 不可 / `--deepen=20` |
-| [0022](docs/adr/0022-config-file-format-priority.md) | 設定ファイル形式の選定方針（TS > JSONC > YAML） | ツール強制 / ecosystem 慣習 |
-| [0024](docs/adr/0024-syncpack-package-json-consistency.md) | syncpack による `package.json` 整合性ゲート *(Accepted, Amended by 0033 / 0036)* | apps/web 配下に再配置 + 単一 package.json 用 3 ルールに縮小 |
-| [0031](docs/adr/0031-ci-success-umbrella-job.md) | CI Required status checks を集約ジョブ `ci-success` で 1 本化 | umbrella job / `needs.*.result` |
-| [0032](docs/adr/0032-github-repository-settings.md) | GitHub リポジトリ設定の方針（Ruleset / マージ動作 / Actions / Security） | デフォルト変更項目の棚卸し |
-
-→ 索引一覧：[docs/adr/README.md](docs/adr/README.md)
-→ ADR 運用ルール：1 決定 1 ファイル / 判断更新時は本文を直接書き換えて最新状態に保つ（履歴は git log）/ 代替案・トレードオフ・将来見直しトリガーを必ず記録
-→ Status の読み方：***Amended by NNNN*** = 採用判断は維持しつつ前提（言語スタック・配置範囲等）が後続 ADR で更新された / ***Superseded by NNNN*** = 採用判断そのものが取り消され別 ADR に置き換えられた（詳細は [docs/adr/README.md: ステータス](docs/adr/README.md#ステータス)）
-
----
-
-## 技術スタック概要
-
-> **バージョン方針**：言語ランタイム・ミドルウェア・ライブラリは新規導入時もアップデート時も**常に最新安定版（stable / LTS）を採用**する（RC / beta は採用しない）。具体版数の SSoT 配置は [.claude/CLAUDE.md: バージョン方針](.claude/CLAUDE.md#バージョン方針) を参照。本表の数値は本 README が SSoT のサマリ層。
-
-| レイヤ | 採用技術 |
-|---|---|
-| **言語ランタイム** | Python 3.14 / Node.js 24 / Go 1.26（mise で固定、[ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)） |
-| **フロントエンド** | Next.js 16+（App Router）+ Tailwind CSS v4 + shadcn/ui + React Hook Form + Zod + CodeMirror 6 + TanStack Query（[ADR 0043](docs/adr/0043-frontend-ui-styling-stack.md)） |
-| **バックエンド API** | Python + **FastAPI**（[ADR 0034](docs/adr/0034-fastapi-for-backend.md)） |
-| **ORM / マイグレーション** | SQLAlchemy 2.0（async）+ Alembic（[ADR 0037](docs/adr/0037-sqlalchemy-alembic-for-database.md)） |
-| **Python パッケージ管理** | uv（lockfile / workspace、[ADR 0035](docs/adr/0035-uv-for-python-package-management.md)） |
-| **Python Lint / Format** | ruff（[ADR 0020](docs/adr/0020-python-code-quality.md)） |
-| **Python 型チェッカー** | pyright（[ADR 0020](docs/adr/0020-python-code-quality.md)） |
-| **Python 依存衛生 / 脆弱性** | deptry / pip-audit（[ADR 0020](docs/adr/0020-python-code-quality.md)） |
-| **採点ワーカー** | Go（`apps/workers/grading/`）+ Docker クライアント（公式）+ pgx（[ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)） |
-| **問題生成ワーカー** | Go（`apps/workers/generation/`、将来追加、[ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)） |
-| **データストア** | PostgreSQL 18（DB + ジョブキュー兼任、ローカル版数 SSoT は `docker-compose.yml`）+ Upstash Redis（キャッシュ・セッション） |
-| **LLM** | プロバイダ抽象化（Anthropic / Google / OpenAI / OpenRouter 差し替え可、[ADR 0007](docs/adr/0007-llm-provider-abstraction.md)） |
-| **サンドボックス** | Docker（使い捨てコンテナ）→ R3 で gVisor → R9 で Firecracker |
-| **タスクランナー / 版数管理** | mise（3 言語横断、Turborepo 不採用、[ADR 0039](docs/adr/0039-mise-for-task-runner-and-tool-versions.md)） |
-| **モノレポ管理** | apps 配下で言語ごとに完結：pnpm（`apps/web/`）+ uv workspace（`apps/api/`）+ go modules（`apps/workers/<name>/` ごとに独立）（[ADR 0036](docs/adr/0036-frontend-monorepo-pnpm-only.md) / [ADR 0040](docs/adr/0040-worker-grouping-and-llm-in-worker.md)） |
-| **テスト** | pytest（API）/ Vitest + Playwright（Web）/ Go testing + testify（Worker）（[ADR 0038](docs/adr/0038-test-frameworks.md)） |
-| **TS コード品質** | Biome（[ADR 0018](docs/adr/0018-biome-for-tooling.md)） |
-| **Go コード品質** | gofmt + golangci-lint（[ADR 0019](docs/adr/0019-go-code-quality.md)） |
-| **インフラ** | AWS（ECS Fargate + EC2 + RDS + ECR + Route 53）+ Terraform |
-| **観測性** | OpenTelemetry + Grafana + Loki + Tempo + Prometheus + Sentry（[ADR 0041](docs/adr/0041-observability-stack-grafana-and-sentry.md)） |
-| **CI/CD** | GitHub Actions |
-
-> Python スタックは [ADR 0033](docs/adr/0033-backend-language-pivot-to-python.md) で方針確定 → ADR 0034〜0040 で個別技術を順次起票し、現時点で全主要スタックを確定済み。
-
-詳細は [2-foundation/05-runtime-stack.md](docs/requirements/2-foundation/05-runtime-stack.md) を参照。
-
----
-
-## アーキテクチャ概要
-
-```
-[User Browser]
-     ↓
-[Next.js (Vercel)]
-     ↓
-[Python API (FastAPI, ECS Fargate)]
-     ├── PostgreSQL (RDS)
-     │     └── jobs テーブル（LISTEN/NOTIFY で Worker 群に通知、Backend は enqueue のみ）
-     └── Upstash Redis（キャッシュ・セッション）
-
-LLM 呼び出しは Worker 側に集約（ADR 0040）：
-     ↓ jobs テーブル経由
-[Go Worker 群 (apps/workers/<name>/, 独立 Go module 群)]
- ├─ apps/workers/grading/ (EC2)
- │   ├── Docker Engine + 使い捨て採点コンテナ（初期 TS = tsx + Vitest 実行、将来多言語対応）
- │   └── judge LLM 呼び出し（プロバイダ抽象化レイヤ経由）
- └─ apps/workers/generation/ (EC2、将来追加)
-     └── 問題生成 LLM 呼び出し
+# 7. 各アプリを起動
+mise run dev:all               # FastAPI + Next.js を並行起動（推奨、Ctrl-C で両方止まる）
+mise run dev:restart           # :3000 / :8000 を listen 中のプロセスを kill して dev:all
+# 個別に動かしたい場合は別ターミナルで:
+mise run api:dev               # FastAPI のみ
+mise run web:dev               # Next.js のみ
+mise run worker:grading:dev    # 採点 Worker
 ```
 
-詳細は [2-foundation/02-architecture.md](docs/requirements/2-foundation/02-architecture.md) を参照。
+### 動作確認
 
----
-
-## リリース計画
-
-| リリース | アウトカム | 状態 |
-|---|---|---|
-| R0 | 基盤立ち上げ（mise / uv / pnpm / Docker Compose / CI 雛形 / 補完ツール一式） | _設計完了・着手前_ |
-| R1 | MVP（認証・問題生成・採点・最低限フロント・一気通貫動作） | _未着手_ |
-| R2 | 品質保証パイプライン（Judge・ミューテーションテスト・非同期ジョブ完成） | _未着手_ |
-| R3 | サンドボックス強化（gVisor + ベンチマーク） | _未着手_ |
-| R4 | 観測性（OTel・Grafana 系（Loki / Tempo / Prometheus）・Sentry・管理ダッシュボード、[ADR 0041](docs/adr/0041-observability-stack-grafana-and-sentry.md)） | _未着手_ |
-| R5 | 仕上げ（IaC・E2E・本番デプロイ・README 完成） | _未着手_ |
-| R7 以降 | 任意（適応型出題・`apps/workers/generation/` 切り出し・多言語化・Firecracker 等） | _任意_ |
-
-詳細は [5-roadmap/01-roadmap.md](docs/requirements/5-roadmap/01-roadmap.md) を参照。
-
----
-
-## ドキュメント索引
-
-### 要件定義書（5 バケット時系列構造）
-
-| # | バケット | 役割 | 変更頻度 |
-|---|---|---|---|
-| 1 | [1-vision/](docs/requirements/1-vision/) | プロジェクトビジョン・ペルソナ・ユーザーストーリー | 極小 |
-| 2 | [2-foundation/](docs/requirements/2-foundation/) | 非機能・アーキテクチャ・LLM パイプライン・観測性・実装技術・開発フロー | 小 |
-| 3 | [3-cross-cutting/](docs/requirements/3-cross-cutting/) | ER 図・API 共通仕様 | 中 |
-| 4 | [4-features/](docs/requirements/4-features/) | 個別機能の詳細仕様 | 大 |
-| 5 | [5-roadmap/](docs/requirements/5-roadmap/) | ロードマップ・プロダクトバックログ・スプリント運用 | 大 |
-
-→ 全体マップ：[docs/requirements/README.md](docs/requirements/README.md)
-
-### 個別機能（4-features/）
-
-| ID | 機能名 |
+| サービス | URL |
 |---|---|
-| [GitHub OAuth ログイン](docs/requirements/4-features/authentication.md) | GitHub OAuth ログイン |
-| [問題生成](docs/requirements/4-features/problem-generation.md) | 問題生成リクエスト |
-| [問題表示・解答入力](docs/requirements/4-features/problem-display-and-answer.md) | 問題表示・解答入力 |
-| [自動採点](docs/requirements/4-features/grading.md) | 自動採点 |
-| [学習履歴](docs/requirements/4-features/learning.md) | 学習履歴・統計 |
+| Web | http://localhost:3000 |
+| API ヘルスチェック | http://localhost:8000/healthz |
+| Swagger UI | http://localhost:8000/docs |
+| Redoc | http://localhost:8000/redoc |
+| OpenAPI 3.1 JSON | http://localhost:8000/openapi.json |
 
-### その他
+### データモデル（ER 図）
 
-- [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md) — 物理配置・コンポーネントの責務・ジョブの流れ
-- [docs/runbook/](docs/runbook/) — 運用 Runbook（R4 以降で整備）
-
----
-
-## 設計原則
-
-このプロジェクトで一貫している設計判断の哲学：
-
-- **可逆な判断は遅延させる**：LLM モデル選定・Python 型チェッカー選定など、市場が変化する領域は実装着手時に決定
-- **過剰設計を避ける**：使うか分からない抽象化を先取りで作らない（YAGNI）
-- **ただし拡張容易性は構造的に確保**：認証プロバイダ・LLM プロバイダ・サンドボックスランタイムは差し替え可能に
-- **遅延の不可逆性が高い判断には YAGNI を適用しない**：プロセス境界トレース連携や補完ツールは R0 から導入（[ADR 0010](docs/adr/0010-w3c-trace-context-in-job-payload.md) / [ADR 0021](docs/adr/0021-r0-tooling-discipline.md)）
-- **規模に応じた選定**：このプロジェクト規模（小〜中）に最適なツールを選ぶ。Bazel・Kafka・Nx 等の "本格派" は不採用
-- **設計判断を ADR で記録**：「なぜそう決めたか」「他案は何だったか」を残す（判断更新時は ADR 本文を直接書き換え、変更経緯は git log で辿る）
+- [docs/requirements/3-cross-cutting/01-data-model.md](docs/requirements/3-cross-cutting/01-data-model.md) — Mermaid 形式の全体俯瞰 ER 図 + 命名規則 / ID 戦略 / 削除方針 / インデックス設計
+- GitHub 上で開くと Mermaid が自動レンダリングされます
 
 ---
 
-## 開発参加・セットアップ
+## 主要な環境変数
 
-このプロジェクトをローカルで動かしたい場合は **[CONTRIBUTING.md](CONTRIBUTING.md)** を参照してください。
-セットアップ手順 / 環境変数 / 開発コマンド / トラブルシューティング / カスタムコマンド一覧 が掲載されています。
+3 種類に分類されます。色付きで区別：
+
+- 🟢 **コピーだけで動く**：`.env.example` をコピーすれば既定値で起動可能（編集不要）
+- 🟡 **自分で取得して設定が必要**：外部サービスでキー発行などが要る（**未設定だと該当機能が動かない**）
+- ⚪ **任意の上書き**：通常は既定値のままで OK、必要に応じて変更
+
+### `apps/api/.env`（FastAPI）
+
+| | 変数 | 既定値 / 説明 |
+|---|---|---|
+| 🟡 | `GITHUB_CLIENT_ID` | **要設定**。[GitHub Developer Settings](https://github.com/settings/developers) で OAuth App を作成して取得 |
+| 🟡 | `GITHUB_CLIENT_SECRET` | **要設定**。同上 |
+| 🟢 | `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill` |
+| 🟢 | `REDIS_URL` | `redis://localhost:6379/0` |
+| 🟢 | `APP_ENV` | `dev`（本番は `production` で安全装置が有効化される） |
+| 🟢 | `GITHUB_REDIRECT_URI` | `http://localhost:8000/auth/github/callback`（GitHub OAuth App の Authorization callback URL と一致させる） |
+| 🟢 | `SESSION_SIGNING_SECRET` | `dev-only-change-me`（dev はこのまま、**本番は必ず差し替え**。例：`python -c "import secrets; print(secrets.token_urlsafe(48))"`） |
+| 🟢 | `COOKIE_SECURE` / `SESSION_TTL_SECONDS` / `FRONTEND_BASE_URL` 等 | 既定値で動作（詳細は `.env.example` のコメント） |
+
+### `apps/web/.env`（Next.js）
+
+| | 変数 | 既定値 / 説明 |
+|---|---|---|
+| 🟢 | `API_PROXY_TARGET` | `http://localhost:8000`（FastAPI への rewrites 転送先） |
+
+### `apps/workers/grading/.env`（採点 Worker）
+
+| | 変数 | 既定値 / 説明 |
+|---|---|---|
+| 🟡 | `GOOGLE_API_KEY` | **要設定**。Google Gemini API キー。[Google AI Studio](https://aistudio.google.com/apikey) で取得（無料枠あり、MVP は Gemini 単独運用、[ADR 0049](docs/adr/0049-initial-llm-model-selection.md)） |
+| 🟢 | `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5432/ai_coding_drill`（pgx 用） |
+| 🟢 | `WORKER_CONCURRENCY` | `4`（並列 goroutine 数） |
+| 🟢 | `JOB_TIMEOUT_SECONDS` | `5`（1 ジョブのタイムアウト秒） |
+| 🟢 | `RECLAIM_AFTER_MINUTES` | `5`（スタックジョブを `queued` に戻す閾値） |
+| 🟢 | `SANDBOX_IMAGE` | `ai-coding-drill-sandbox:latest` |
+| 🟢 | `LLM_CONFIG_PATH` | `llm.yaml`（プロバイダ / モデル割り当て YAML、再ビルド不要で差し替え可能、[ADR 0007](docs/adr/0007-llm-provider-abstraction.md)） |
+| ⚪ | `WORKER_ID` | 空欄なら `os.Hostname()` にフォールバック |
+| ⚪ | `SANDBOX_TMP_DIR` | 空欄なら OS 既定 `$TMPDIR`。macOS Docker Desktop の File Sharing 制限時のみ `/tmp` 等を明示 |
+| ⚪ | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | R2 ベンチマーク開始時のみ設定。MVP は空欄で構わない |
+
+> 要するに、ローカルで動かすために**自分で取得が必要な値は `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `GOOGLE_API_KEY` の 3 つだけ**。残りはコピーで起動できます。
+
+---
+
+## トラブルシューティング
+
+| 症状 | 対処 |
+|---|---|
+| `docker compose up` で Postgres ポート衝突 | ホストの 5432 を使う既存 Postgres を停止、または `docker-compose.yml` のポートを変更 |
+| `mise install` がツールを取得できない | shell を再起動して mise の activation を反映、または `mise doctor` で診断 |
+| Alembic マイグレーション失敗 | `docker compose ps` で DB 起動確認、ローカル限定で `dropdb`/`createdb` で初期化 |
+| API が GitHub OAuth で 500 を返す | `.env` の `GITHUB_CLIENT_*` と `SESSION_SECRET` を確認 |
+| 採点 Worker が Docker に接続できない | `docker.sock` の権限と Docker Desktop の起動を確認 |
+
+---
+
+## 開発コマンド
+
+タスク命名は `<scope>:<sub>:<verb>`。定義の SSoT は [mise.toml](mise.toml)。
+
+### 横断（全言語）
+
+```bash
+mise run lint             # 全言語 lint
+mise run test             # 全言語 test
+mise run typecheck        # 全言語 typecheck（api + web）
+mise run dev:all          # web + api を並行起動
+mise run dev:restart      # :3000 / :8000 を kill してから dev:all
+mise run types-gen        # 両境界の型を一括再生成（OpenAPI + Job Schema + Hey API + quicktype）
+```
+
+### Backend（apps/api、Python / FastAPI）
+
+```bash
+mise run api:dev                  # FastAPI 開発サーバ
+mise run api:test                 # pytest
+mise run api:lint                 # ruff check
+mise run api:format               # ruff format
+mise run api:typecheck            # pyright
+mise run api:audit                # pip-audit（脆弱性スキャン）
+mise run api:deps-check           # deptry（依存衛生）
+mise run api:db-migrate           # alembic upgrade head
+mise run api:db-revision -- "<msg>"  # alembic revision --autogenerate
+mise run api:openapi-export       # OpenAPI 3.1 JSON を apps/api/openapi.json に書き出し
+```
+
+### Frontend（apps/web、Next.js / TS）
+
+```bash
+mise run web:dev          # next dev
+mise run web:test         # vitest
+mise run web:lint         # biome check
+mise run web:format       # biome check --write
+mise run web:typecheck    # tsc --noEmit
+mise run web:knip         # 未使用検出
+mise run web:syncpack     # package.json 整合性
+mise run web:types-gen    # Hey API で OpenAPI から TS / Zod / クライアント生成
+mise run web:e2e          # Playwright E2E（先に test:up が動く）
+mise run test:up          # テスト用 Postgres :5433 + Redis :6380 を起動して migrations 適用
+mise run test:down        # テスト用 Postgres + Redis を停止 + ボリューム破棄
+```
+
+> E2E は dev DB と物理分離（issue #86）。専用 Postgres :5433 / `ai_coding_drill_test` + 専用 Redis :6380 に接続するため、`dev:all` と並行起動可。
+
+### Workers（apps/workers/*、Go）
+
+```bash
+# 採点 Worker
+mise run worker:grading:dev          # apps/workers/grading の go run
+mise run worker:grading:test         # go test ./...
+mise run worker:grading:lint         # golangci-lint run
+mise run worker:grading:audit        # govulncheck ./...
+mise run worker:grading:deps-check   # go mod tidy 後の差分チェック
+mise run worker:grading:types-gen    # quicktype で Go struct 生成
+
+# 問題生成 Worker（R7 以降、現状はスタブ）
+mise run worker:generation:dev
+mise run worker:generation:test
+
+# 横断
+mise run worker:test      # 全 Worker の go test
+mise run worker:lint      # 全 Worker の golangci-lint
+mise run worker:types-gen # 全 Worker の Go struct 生成
+```
+
+### Git 作業の補助
+
+```bash
+mise run git:clean        # マージ済みでリモートが消えたローカルブランチを一括削除
+```
+
+### サンドボックスイメージ（R1 以降）
+
+```bash
+docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
+```
+
+---
+
+## Claude Code MCP サーバー
+
+リポジトリ root の [`.mcp.json`](.mcp.json) により、Claude Code 拡張起動時に Context7 / shadcn / next-devtools / playwright の 4 サーバーが自動接続される。初回は `npx` のダウンロードで `/mcp` が `connected` になるまで 1〜2 分かかる。詳細は [docs/requirements/5-roadmap/r0-setup/mcp-servers.md](docs/requirements/5-roadmap/r0-setup/mcp-servers.md)。
+
+---
+
+## ディレクトリ構成
+
+```
+apps/
+├── web/                       Next.js（ADR 0036）
+├── api/                       FastAPI + SQLAlchemy 2.0 + Alembic（ADR 0034 / 0037）
+└── workers/
+    ├── grading/               採点 Worker（Go、ADR 0016 / 0040）
+    └── generation/            問題生成 Worker（Go、将来追加、ADR 0040）
+infra/                         Terraform
+docs/                          要件定義書（5 バケット）+ ADR + Runbook
+.github/workflows/             GitHub Actions
+docker-compose.yml             ローカル開発環境
+mise.toml                      mise 設定（tool 版数 + タスク定義 SSoT）
+lefthook.yml                   Git フック設定
+commitlint.config.mjs          コミットメッセージ規約
+```
+
+詳細は [docs/requirements/2-foundation/02-architecture.md](docs/requirements/2-foundation/02-architecture.md)。
+
+---
+
+## ブランチ・コミット
+
+- Trunk-based + `feature/<scope>/<short-name>`、リリースはタグ管理
+- コミットは Conventional Commits 形式（`feat(api): ...` 等）、commitlint で機械検証（[ADR 0029](docs/adr/0029-commit-scope-convention.md)）
+- `mise run bootstrap` で lefthook が pre-commit / commit-msg を自動セットアップ
+- 詳細は [.claude/CLAUDE.md](.claude/CLAUDE.md)
+
+---
+
+## カスタムコマンド
+
+`.claude/skills/` に要件駆動開発フローのコマンド一式（`/new-requirements` / `/backend-implement` / `/frontend-implement` / `/worker-implement` / `/*-test` 等）を用意。詳細は各 `SKILL.md`（[.claude/skills/](.claude/skills/)）。
 
 ---
 
 ## ライセンス
 
 [MIT License](LICENSE) © 2026 Yohei Jinbo
-
----
-
-## 著者
-
-神保 陽平 — Backend / AI Engineer 候補
