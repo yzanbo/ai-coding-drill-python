@@ -21,6 +21,11 @@ from app.repositories.generation_requests import GenerationRequestRepository
 from app.repositories.jobs import JobRepository
 from app.schemas.jobs.common import TraceContext
 from app.schemas.jobs.problem_generation import ProblemGenerationJobPayload
+from app.schemas.me_generations import (
+    coerce_attempt_errors,
+    coerce_failure_reason,
+    coerce_progress_step,
+)
 from app.schemas.problems import (
     GenerationStatus,
     ProblemCategory,
@@ -48,9 +53,14 @@ class ProblemGenerationService:
     """
 
     def __init__(self, db_session: AsyncSession) -> None:
+        # me_repo は failed 行の attempt_errors JSONB をフェッチするためだけに
+        # 持つ（生成履歴ドメインの repository を一部間借りする形）。
+        from app.repositories.me_generations import MeGenerationsRepository
+
         self.db_session = db_session
         self.requests = GenerationRequestRepository(db_session)
         self.jobs = JobRepository(db_session)
+        self.me_repo = MeGenerationsRepository(db_session)
 
     async def enqueue_generation(
         self,
@@ -58,14 +68,18 @@ class ProblemGenerationService:
         user_id: UUID,
         category: ProblemCategory,
         difficulty: ProblemDifficulty,
+        retry_of: UUID | None = None,
     ) -> ProblemGenerateAcceptedResponse:
         """生成リクエストを受付けてジョブを enqueue する。
 
         振る舞い：
-          1. generation_requests に 1 行 INSERT（status='pending'）
+          1. generation_requests に 1 行 INSERT（status='pending'、retry_of は任意）
           2. ジョブ payload を組み立て（W3C Trace Context を埋め込む、ADR 0010）
           3. jobs に 1 行 INSERT + NOTIFY new_job を同一トランザクション内で実行
           4. 202 用の Pydantic を返す
+
+        retry_of: /api/me/generations/:id/retry から呼ばれた時に元 ID を指す。
+                  本 Service は履歴の意味付けを意識せず、Repository に素通しで渡す。
         """
         # async with session.begin():
         #   このブロック内で行われた DB 変更（generation_requests INSERT +
@@ -80,6 +94,7 @@ class ProblemGenerationService:
                 user_id=user_id,
                 category=category.value,
                 difficulty=difficulty.value,
+                retry_of=retry_of,
             )
 
             # W3C Trace Context（ADR 0010）を payload に埋める箱。
@@ -159,8 +174,30 @@ class ProblemGenerationService:
             )
             raise
 
+        # progress_step / failure_reason / attempt_errors:
+        #   生 string / list[dict] を返す前に schemas/me_generations 配下の
+        #   coerce_* 関数を通して未知値を None / 空配列に倒す。
+        # attempt_errors は failed 時のみフェッチ（無駄な JOIN を避ける）。
+        attempt_errors = []
+        if status is GenerationStatus.FAILED:
+            raw = await self.me_repo.fetch_attempt_errors(generation_request_ids=[gr.id])
+            attempt_errors = coerce_attempt_errors(raw.get(gr.id))
+
         return ProblemGenerateStatusResponse(
             request_id=gr.id,
             status=status,
             problem_id=gr.produced_problem_id if status is GenerationStatus.COMPLETED else None,
+            progress_step=(
+                coerce_progress_step(gr.progress_step)
+                if status is GenerationStatus.PENDING
+                else None
+            ),
+            failure_reason=(
+                coerce_failure_reason(gr.failure_reason)
+                if status is GenerationStatus.FAILED
+                else None
+            ),
+            attempt_errors=attempt_errors,
+            created_at=gr.created_at,
+            completed_at=gr.completed_at,
         )

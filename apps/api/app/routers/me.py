@@ -1,0 +1,174 @@
+# このファイルの役割：
+#   /me 系の APIRouter。R1-6 で学習統計、R1-7 で生成履歴・状態管理が追加。
+#
+#   - GET  /api/me/stats                  : 全期間の正答率 + カテゴリ別習熟度
+#   - GET  /api/me/weakness               : 正答率の低いカテゴリ Top N
+#   - GET  /api/me/generations            : 自分の生成リクエスト履歴一覧
+#   - POST /api/me/generations/:id/cancel : pending のキャンセル
+#   - POST /api/me/generations/:id/retry  : failed の再試行
+#
+#   `/me` 系は「現在の認証ユーザー自身のリソース」を指す慣例パス。
+#   `/api` prefix は routers/problems.py 冒頭コメントと同じ
+#   （Next.js ページパスとの衝突回避）。
+#
+#   GET /api/submissions（自分の解答履歴一覧）は grading.md / routers/submissions.py
+#   が所有しているため本 router には載せない（learning.md §API 所有権ルール）。
+#
+# 関わる要件：
+#   - docs/requirements/4-features/learning.md §API
+#   - docs/requirements/4-features/problem-generation.md §履歴・状態管理
+
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.session import get_async_session
+from app.deps.auth import get_current_user
+from app.deps.rate_limit import limiter
+from app.models.users import User
+from app.schemas.me import MeStatsResponse, MeWeaknessResponse
+from app.schemas.me_generations import (
+    GenerationRequestCancelResponse,
+    GenerationRequestRetryResponse,
+    MeGenerationsListResponse,
+)
+from app.services.me import MeService
+from app.services.me_generations import MeGenerationsService
+
+router = APIRouter(
+    prefix="/api/me",
+    tags=["me"],
+)
+
+DbDep = Annotated[AsyncSession, Depends(get_async_session)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+# ----------------------------------------------------------------------------
+# GET /api/me/stats : 全期間の正答率 + カテゴリ別習熟度
+# ----------------------------------------------------------------------------
+@router.get(
+    "/stats",
+    response_model=MeStatsResponse,
+)
+async def get_my_stats(
+    db_session: DbDep,
+    user: CurrentUser,
+) -> MeStatsResponse:
+    """全期間・全カテゴリの正答率を返す（取得時点でリアルタイム集計）。
+
+    - 採点完了行（status='graded'）のみカウント
+    - 履歴ゼロのユーザーには total=0 / accuracy=0.0 / byCategory=[] を返す
+    - ソフトデリートは無視（履歴永続保存、learning.md §ビジネスルール）
+    """
+    service = MeService(db_session)
+    return await service.get_stats(user_id=user.id)
+
+
+# ----------------------------------------------------------------------------
+# GET /api/me/weakness : 弱点カテゴリ Top N
+# ----------------------------------------------------------------------------
+@router.get(
+    "/weakness",
+    response_model=MeWeaknessResponse,
+)
+async def get_my_weakness(
+    db_session: DbDep,
+    user: CurrentUser,
+) -> MeWeaknessResponse:
+    """正答率の低いカテゴリ Top N を返す。
+
+    抽出ルール（learning.md §ビジネスルール）：
+      - 3 問以上解答かつ正答率 50% 未満のカテゴリのみ対象
+      - accuracy 昇順、tie-break で attempts 降順
+      - Top 5 まで返す
+    """
+    service = MeService(db_session)
+    return await service.get_weakness(user_id=user.id)
+
+
+# ----------------------------------------------------------------------------
+# GET /api/me/generations : 自分の生成リクエスト履歴一覧（ページネーション）
+# ----------------------------------------------------------------------------
+@router.get(
+    "/generations",
+    response_model=MeGenerationsListResponse,
+)
+async def list_my_generations(
+    db_session: DbDep,
+    user: CurrentUser,
+    page: Annotated[int, Query(ge=1)] = 1,
+) -> MeGenerationsListResponse:
+    """自分の generation_requests を created_at DESC でページネーション付きで返す。
+
+    - 履歴ゼロは items=[] / totalPages=0（200 のまま）
+    - page が totalPages を超えても 200 + items=[] を返す（404 にはしない、
+      FE 側で前ページにクランプする運用）
+    - prompt_version は jobs.payload から JOIN 取得、消えていれば null
+    - retry_count は retry_of チェーンの深さ
+    """
+    service = MeGenerationsService(db_session)
+    return await service.list_history(user_id=user.id, page=page)
+
+
+# ----------------------------------------------------------------------------
+# POST /api/me/generations/:id/cancel : pending のキャンセル
+# ----------------------------------------------------------------------------
+@router.post(
+    "/generations/{request_id}/cancel",
+    response_model=GenerationRequestCancelResponse,
+)
+async def cancel_my_generation(
+    db_session: DbDep,
+    user: CurrentUser,
+    request_id: Annotated[UUID, Path()],
+) -> GenerationRequestCancelResponse:
+    """pending のリクエストを canceled に倒す（Worker は state='dead' にして無効化）。
+
+    - 他人のリクエスト / 存在しない → 404
+    - pending 以外 → 409 Conflict
+    """
+    service = MeGenerationsService(db_session)
+    return await service.cancel(user_id=user.id, request_id=request_id)
+
+
+# ----------------------------------------------------------------------------
+# POST /api/me/generations/:id/retry : failed の再試行
+# ----------------------------------------------------------------------------
+@router.post(
+    "/generations/{request_id}/retry",
+    response_model=GenerationRequestRetryResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+# @limiter.shared_limit: 1 ユーザー 1 分あたり 5 回まで。
+#   retry は新規 generation_request + jobs を作って LLM ジョブを増やすため、
+#   POST /api/problems/generate と同等の上限で揃える（要件 §ビジネスルール
+#   「回数上限は設けず、レート制限（1 分 5 回）で吸収」）。
+#
+#   shared_limit + scope を使う理由：
+#     slowapi 既定の key_style="url" は URL path（path 変数含む）でバケットを
+#     分けるため、@limiter.limit("5/minute") だと {request_id} が違うだけで
+#     別バケット扱いになる（= failed 行が複数あれば全部に対して 5/min ずつ枠が
+#     復活する＝抜け穴）。scope を固定文字列にしてユーザー単位で 1 本のバケット
+#     を共有させる。
+#   request / response 引数は slowapi が読むため必須（problems.py と同じ）。
+@limiter.shared_limit("5/minute", scope="me_generations_retry")
+async def retry_my_generation(
+    request: Request,
+    response: Response,
+    db_session: DbDep,
+    user: CurrentUser,
+    request_id: Annotated[UUID, Path()],
+) -> GenerationRequestRetryResponse:
+    """failed のリクエストを新規 generation_request として複製する（retry_of リンク付き）。
+
+    - 他人のリクエスト / 存在しない → 404
+    - failed 以外 → 409 Conflict
+    - 成功時 → 202 + 新規 id / status='pending' / retry_of
+    - レート制限: 同一ユーザーで 1 分 / 5 回を超えると 429 を返す
+    """
+    _ = (request, response)  # slowapi がヘッダ書き込みに使うだけ、本体では未使用
+    service = MeGenerationsService(db_session)
+    return await service.retry(user_id=user.id, request_id=request_id)

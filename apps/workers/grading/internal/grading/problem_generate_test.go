@@ -101,6 +101,86 @@ func TestClassifyHandlerError(t *testing.T) {
 	}
 }
 
+// TestClassifyFailureReason: dead 確定時の最後の error から
+// generation_requests.failure_reason に書くタグを決める分類規則を網羅する（R1-7）。
+//
+// 期待されるタグは 6 種（problem-generation.md §失敗理由タグ）。
+// 順序は LLM 系（即 dead）→ retryable 具体タグ → 分類不能フォールバックの順で
+// 評価される（classifyFailureReason 本体の switch と一致）。
+func TestClassifyFailureReason(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		in   error
+		want string
+	}{
+		{
+			name: "nil は max_attempts_exceeded（防御、本来到達しない）",
+			in:   nil,
+			want: "max_attempts_exceeded",
+		},
+		{
+			name: "llm.ErrUnauthorized は llm_unauthorized（即 dead）",
+			in:   fmt.Errorf("provider: %w", llm.ErrUnauthorized),
+			want: "llm_unauthorized",
+		},
+		{
+			name: "llm.ErrCostExceeded は llm_cost_exceeded（即 dead）",
+			in:   fmt.Errorf("provider: %w", llm.ErrCostExceeded),
+			want: "llm_cost_exceeded",
+		},
+		{
+			name: "ErrJudgeBelowThreshold + ErrInvalidProblem は judge_below_threshold",
+			in:   fmt.Errorf("%w: %w: judge score 60 below threshold 70", ErrInvalidProblem, ErrJudgeBelowThreshold),
+			want: "judge_below_threshold",
+		},
+		{
+			name: "ErrSandboxFailed + ErrInvalidProblem は sandbox_failed",
+			in:   fmt.Errorf("%w: %w: 3/10 tests failed", ErrInvalidProblem, ErrSandboxFailed),
+			want: "sandbox_failed",
+		},
+		{
+			name: "ErrLLMInvalidOutput + ErrInvalidProblem は llm_invalid_output",
+			in:   fmt.Errorf("%w: %w: json unmarshal", ErrInvalidProblem, ErrLLMInvalidOutput),
+			want: "llm_invalid_output",
+		},
+		{
+			name: "llm.ErrRateLimit (transient 累積) は llm_rate_limit に分類",
+			in:   fmt.Errorf("%w: transient external error: %w", ErrInvalidProblem, llm.ErrRateLimit),
+			want: "llm_rate_limit",
+		},
+		{
+			name: "llm.ErrTimeout (transient 累積) は llm_timeout に分類",
+			in:   fmt.Errorf("%w: transient external error: %w", ErrInvalidProblem, llm.ErrTimeout),
+			want: "llm_timeout",
+		},
+		{
+			name: "llm.ErrInvalidSchema (transient 累積) は llm_schema_invalid に分類",
+			in:   fmt.Errorf("%w: transient external error: %w", ErrInvalidProblem, llm.ErrInvalidSchema),
+			want: "llm_schema_invalid",
+		},
+		{
+			name: "ErrSandboxInfra (Docker daemon / image 不在) は sandbox_infrastructure に分類",
+			in:   fmt.Errorf("%w: transient external error: %w", ErrInvalidProblem, fmt.Errorf("%w: %w", ErrSandboxInfra, errors.New("docker daemon connection refused"))),
+			want: "sandbox_infrastructure",
+		},
+		{
+			name: "真に未知の bare error は max_attempts_exceeded fallback",
+			in:   errors.New("something unexpected happened"),
+			want: "max_attempts_exceeded",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := classifyFailureReason(tc.in)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 // --- Handle 経路を pin するための fake / helper 群 ---
 
 // fakeStore: generationStore を in-memory で実装する。
@@ -116,6 +196,10 @@ type fakeStore struct {
 	insertCalls        int
 	lastInsertRequest  uuid.UUID
 	lastInsertCategory string
+	// progressSteps: UpdateProgressStep が呼ばれた順に step 文字列を記録。
+	//   Handle が "llm_generating" → "sandbox_verifying" → "judging" → "persisting"
+	//   の順序でステップ遷移を書いていることを確認する用。
+	progressSteps []string
 }
 
 func (s *fakeStore) SelectStatus(_ context.Context, _ uuid.UUID) (string, *uuid.UUID, error) {
@@ -138,6 +222,14 @@ func (s *fakeStore) InsertProblemAndCompleteRequest(_ context.Context, _ *Proble
 		return nil, s.insertErr
 	}
 	return &CreatedProblem{ID: s.insertReturnedID}, nil
+}
+
+// UpdateProgressStep: Worker が各ステップ開始時に呼ぶ progress_step UPDATE。
+// テストでは呼ばれたステップ列を順番に記録して、Handle が想定順序で
+// ステップ遷移を書いているかを後段で assertion できるようにする。
+func (s *fakeStore) UpdateProgressStep(_ context.Context, _ uuid.UUID, step string) error {
+	s.progressSteps = append(s.progressSteps, step)
+	return nil
 }
 
 // fakeGenerator / fakeSandbox / fakeJudge: 各 interface を in-memory で実装。
@@ -347,6 +439,15 @@ func TestHandle_HappyPath(t *testing.T) {
 	err := h.Handle(context.Background(), makeJob(t))
 	require.NoError(t, err)
 	assert.Equal(t, 1, store.insertCalls, "insert が 1 回呼ばれるべき")
+	// R1-7-2: 各ステップ開始時に progress_step が UPDATE される順序を pin。
+	//   FE のステップインジケータがこの順序前提で描画されるので、Handle 内の
+	//   updateStep 呼び出し順序が壊れたら即気付けるようにする。
+	assert.Equal(
+		t,
+		[]string{"llm_generating", "sandbox_verifying", "judging", "persisting"},
+		store.progressSteps,
+		"progress_step が想定順序で UPDATE されるべき",
+	)
 }
 
 // TestHandle_JudgeBelowThreshold: judge スコアが threshold 未満なら

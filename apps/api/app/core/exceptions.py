@@ -56,6 +56,31 @@ class SubmissionNotFoundError(DomainError):
     """
 
 
+class GenerationRequestNotCancelableError(DomainError):
+    """generation_request の cancel が許されない状態（pending 以外）で呼ばれた時に投げる。
+
+    HTTP では 409 Conflict に変換する。理由：
+      - 404 は「リソース不存在」を意味し、所有権チェックは別途 404 で行うため
+        混同しないようにする
+      - 状態遷移の許容性を返す API のため 409（Conflict）が意味的に正しい
+    """
+
+    def __init__(self, current_status: str) -> None:
+        super().__init__()
+        self.current_status = current_status
+
+
+class GenerationRequestNotRetryableError(DomainError):
+    """generation_request の retry が許されない状態（failed 以外）で呼ばれた時に投げる。
+
+    HTTP では 409 Conflict に変換する。理由は NotCancelable と同じ。
+    """
+
+    def __init__(self, current_status: str) -> None:
+        super().__init__()
+        self.current_status = current_status
+
+
 # ----------------------------------------------------------------------------
 # handler 群
 # ----------------------------------------------------------------------------
@@ -97,6 +122,36 @@ async def _submission_not_found_handler(
     )
 
 
+async def _generation_request_not_cancelable_handler(
+    _request: Request,
+    exc: GenerationRequestNotCancelableError,
+) -> JSONResponse:
+    """NotCancelable → 409 Conflict に変換。detail に現状 status を含める。"""
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={
+            "detail": (
+                f"generation request is not cancelable (status={exc.current_status})"
+            ),
+        },
+    )
+
+
+async def _generation_request_not_retryable_handler(
+    _request: Request,
+    exc: GenerationRequestNotRetryableError,
+) -> JSONResponse:
+    """NotRetryable → 409 Conflict に変換。detail に現状 status を含める。"""
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={
+            "detail": (
+                f"generation request is not retryable (status={exc.current_status})"
+            ),
+        },
+    )
+
+
 # ----------------------------------------------------------------------------
 # 一括登録
 # ----------------------------------------------------------------------------
@@ -119,4 +174,12 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(
         SubmissionNotFoundError,
         _submission_not_found_handler,  # type: ignore[arg-type]
+    )
+    app.add_exception_handler(
+        GenerationRequestNotCancelableError,
+        _generation_request_not_cancelable_handler,  # type: ignore[arg-type]
+    )
+    app.add_exception_handler(
+        GenerationRequestNotRetryableError,
+        _generation_request_not_retryable_handler,  # type: ignore[arg-type]
     )

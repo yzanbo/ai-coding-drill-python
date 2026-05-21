@@ -1,4 +1,4 @@
-// /problems/:id: 問題詳細・解答画面（ゲスト閲覧可、R1-4）。
+// /problems/:id: 問題詳細・解答画面（R1-4、R1-6 で認証必須化）。
 //   要件: docs/requirements/4-features/problem-display-and-answer.md §問題詳細・解答画面
 //
 // 設計：
@@ -6,18 +6,20 @@
 //     （ADR 0042 §Decision「問題詳細の単純取得は Server Component の fetch」）。
 //   - 解答入力 + 「実行」ボタンは Client Component（AnswerWorkspace）に閉じ込め、
 //     props で problemId だけ渡す。
-//   - 認証不要で閲覧可能。実行ボタン押下時にゲストなら /login?next=... へ遷移するのは
-//     AnswerWorkspace 側の責務。
+//   - **認証必須**：未ログイン時は server-side で /login?next=/problems/:id に
+//     redirect する。問題一覧と同じガード方式で揃える
+//     （3-cross-cutting/03-page-routing.md §2）。
 //   - 存在しない / ソフトデリート済みの問題は API が 404 を返し、本ページは
 //     notFound() で Next.js の 404 画面に倒す。
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { getProblemDetailApiProblemsProblemIdGet } from "@/__generated__/api/sdk.gen";
 import { ApiError, throwIfError } from "@/lib/api/api-error";
 import { serverApiClient } from "@/lib/api/server-api-client";
-import { PROBLEM_CATEGORY_OPTIONS } from "@/lib/constants/problem-categories";
-import { PROBLEM_DIFFICULTY_OPTIONS } from "@/lib/constants/problem-difficulties";
+import { hasSessionCookie } from "@/lib/auth/session-cookie";
+import { formatCategoryLabel } from "@/lib/utils/category-label";
+import { formatDifficultyLabel } from "@/lib/utils/difficulty-label";
 
 import { AnswerWorkspace } from "./_components/answer-workspace/answer-workspace";
 
@@ -28,6 +30,14 @@ type ProblemDetailPageProps = {
 
 export default async function ProblemDetailPage({ params }: ProblemDetailPageProps) {
   const { id } = await params;
+
+  // 認証ガード：session_id Cookie が無ければ /login?next=/problems/:id に飛ばす。
+  //   Cookie 検証は Backend が SSoT のため、ここでは presence チェックに留める。
+  //   問題一覧と同じ server-side redirect 方式で揃える
+  //   （3-cross-cutting/03-page-routing.md §2）。
+  if (!(await hasSessionCookie())) {
+    redirect(`/login?next=${encodeURIComponent(`/problems/${id}`)}`);
+  }
 
   // 不正な UUID は API 側で 422 が返るが、UI 上は単に「見つかりません」で
   // 統一した方が情報量が少なくて UX が安定するため、ここで 404 に倒す。
@@ -54,11 +64,8 @@ export default async function ProblemDetailPage({ params }: ProblemDetailPagePro
     throw e;
   }
 
-  const categoryLabel =
-    PROBLEM_CATEGORY_OPTIONS.find((o) => o.value === problem.category)?.label ?? problem.category;
-  const difficultyLabel =
-    PROBLEM_DIFFICULTY_OPTIONS.find((o) => o.value === problem.difficulty)?.label ??
-    problem.difficulty;
+  const categoryLabel = formatCategoryLabel(problem.category);
+  const difficultyLabel = formatDifficultyLabel(problem.difficulty);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
