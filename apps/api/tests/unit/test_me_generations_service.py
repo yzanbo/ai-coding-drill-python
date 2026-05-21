@@ -111,7 +111,10 @@ class TestListHistory:
         assert res.items[0].retry_count == 0
         assert res.items[1].prompt_version is None
         assert res.items[1].retry_count == 2
-        assert res.items[1].failure_reason == "judge_below_threshold"
+        # failure_reason は API 境界で意図的に隠す（schemas 側参照）。DB の内部タグ
+        # （judge_below_threshold 等）は ops 用途で残るが、Pydantic レスポンスには
+        # 出さない。レスポンスモデルに該当フィールドが無いことを確認する。
+        assert not hasattr(res.items[1], "failure_reason")
 
     async def test_境界値_total25_pageSize20_でtotalPages2(
         self, service: MeGenerationsService, mock_repo: AsyncMock

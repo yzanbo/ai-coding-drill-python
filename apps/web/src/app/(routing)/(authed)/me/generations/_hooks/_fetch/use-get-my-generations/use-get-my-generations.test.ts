@@ -33,7 +33,6 @@ describe("useGetMyGenerations", () => {
               promptVersion: "v1",
               retryOf: null,
               retryCount: 0,
-              failureReason: null,
               createdAt: "2026-05-21T00:00:00Z",
               completedAt: "2026-05-21T00:01:30Z",
             },

@@ -63,10 +63,6 @@ export type GenerationRequestSummary = {
      */
     difficulty: string;
     /**
-     * Failurereason
-     */
-    failureReason?: string | null;
-    /**
      * Id
      */
     id: string;

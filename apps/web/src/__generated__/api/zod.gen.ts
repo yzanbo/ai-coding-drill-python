@@ -33,7 +33,6 @@ export const zGenerationRequestSummary = z.object({
     completedAt: z.iso.datetime().nullish(),
     createdAt: z.iso.datetime(),
     difficulty: z.string(),
-    failureReason: z.string().nullish(),
     id: z.uuid(),
     producedProblemId: z.uuid().nullish(),
     promptVersion: z.string().nullish(),

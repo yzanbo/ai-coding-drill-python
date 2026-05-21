@@ -91,7 +91,8 @@ class MeGenerationsService:
                 prompt_version=prompt_versions.get(r.id),
                 retry_of=r.retry_of,
                 retry_count=retry_depths.get(r.id, 0),
-                failure_reason=r.failure_reason,
+                # failure_reason は意図的に詰めない（schemas/me_generations.py 参照、
+                #   情報漏洩防止のため API では返さず、DB の内部タグは ops 用途に閉じる）
                 created_at=r.created_at,
                 completed_at=r.completed_at,
             )

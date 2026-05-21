@@ -62,15 +62,12 @@ const formatDuration = (createdAt: string, completedAt: string | null | undefine
   return `${Math.floor(sec / 60)} 分 ${sec % 60} 秒`;
 };
 
-// formatFailureReason: Worker が書き込む内部タグ（"max_attempts_exceeded" /
-//   "judge_below_threshold" / "sandbox_failed" 等）を、ユーザー向けの短文に丸める。
+// FAILURE_MESSAGE: failed 行に出すユーザー向け汎用文言。
 //   要件 problem-generation.md §ビジネスルール「内部の失敗種別はユーザーには
-//   区別せず『生成に失敗しました』と表示する（情報漏洩防止）」に従い、原則は
-//   汎用文言を返す。タグ別に細かい表示を出す方針に変えた時はここを差し替える。
-const formatFailureReason = (raw: string | null | undefined): string => {
-  if (!raw) return "—";
-  return "問題を生成できませんでした。もう一度お試しください。";
-};
+//   区別せず『生成に失敗しました』と表示する（情報漏洩防止）」に従い、固定文言。
+//   API は内部タグ（failureReason）を返さない設計（apps/api/app/schemas/
+//   me_generations.py 参照）なので、FE は status==='failed' だけ見て本文言を出す。
+const FAILURE_MESSAGE = "問題を生成できませんでした。もう一度お試しください。";
 
 // STATUS_LABEL: 状態文字列 → 表示ラベル + 色トーン。
 const STATUS_LABEL: Record<
@@ -229,10 +226,8 @@ const GenerationRow = ({
           <span className="text-xs text-muted-foreground">
             {formatDate(item.createdAt)} ／ 所要 {formatDuration(item.createdAt, item.completedAt)}
           </span>
-          {item.status === "failed" && item.failureReason ? (
-            <span className="text-xs text-destructive">
-              失敗理由: {formatFailureReason(item.failureReason)}
-            </span>
+          {item.status === "failed" ? (
+            <span className="text-xs text-destructive">失敗理由: {FAILURE_MESSAGE}</span>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
