@@ -114,6 +114,7 @@ class TestEnqueueGeneration:
             user_id=user_id,
             category="array",
             difficulty="easy",
+            retry_of=None,
         )
 
         # jobs.enqueue が generation キュー + problem.generate type で呼ばれる。
@@ -160,6 +161,7 @@ class TestEnqueueGeneration:
             user_id=user_id,
             category="type-puzzle",
             difficulty="hard",
+            retry_of=None,
         )
         payload = mock_jobs_repo.enqueue.call_args.kwargs["payload"]
         assert payload["category"] == "type-puzzle"
