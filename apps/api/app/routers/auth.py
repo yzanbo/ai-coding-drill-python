@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import session as session_store
 from app.core import state_store
 from app.core.config import get_settings
-from app.core.cookies import sign_sid, unsign_sid
+from app.core.cookies import clear_session_cookies, sign_sid, unsign_sid
 from app.core.redis import get_redis
 from app.core.session import Session
 from app.db.session import get_async_session
@@ -108,29 +108,6 @@ def _set_session_cookies(
         secure=settings.cookie_secure,
         samesite="lax",
         path="/",
-        domain=settings.cookie_domain,
-    )
-
-
-def _clear_session_cookies(response: Response) -> None:
-    """ログアウト時に両 Cookie を Max-Age=0 で消す。"""
-    settings = get_settings()
-    # set_cookie 側と domain= を揃える（揃わないとブラウザが別 Cookie と判定して
-    # 古い値が残る）。
-    response.delete_cookie(
-        key=settings.session_cookie_name,
-        path="/",
-        secure=settings.cookie_secure,
-        httponly=True,
-        samesite="lax",
-        domain=settings.cookie_domain,
-    )
-    response.delete_cookie(
-        key=settings.csrf_cookie_name,
-        path="/",
-        secure=settings.cookie_secure,
-        httponly=False,
-        samesite="lax",
         domain=settings.cookie_domain,
     )
 
@@ -309,6 +286,6 @@ async def logout(
         await service.logout(current_session.sid)
 
     # 念のため Redis 側で消えなかった場合も Cookie はクリアする。
-    _clear_session_cookies(response)
+    clear_session_cookies(response)
     response.status_code = status.HTTP_204_NO_CONTENT
     return response
