@@ -9,7 +9,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, text
+from sqlalchemy import ForeignKey, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,7 +30,12 @@ class AuthProvider(Base):
     ## 設計メモ
     - 複合主キー (provider, provider_id) で「同じプロバイダの同一外部 ID = 同一ユーザー」を
       DB レベルで保証（authentication.md §1.1）
+    - UNIQUE (provider, user_id) で「1 user × 1 provider = 1 アカウント」を保証。
+      同じユーザーが同じ provider で複数の外部アカウントを紐付けることを禁止する
+      （個人 GitHub と会社 GitHub の併用などは要件外）
     - user_id に index を付けて「あるユーザーがどのプロバイダで紐づくか」の逆引きを高速化
+      （UNIQUE (provider, user_id) があれば user_id 単独の検索もこの index で賄えるが、
+      既存の user_id 単独 index を残しても害は無く、明示性のため両方残す）
     - updated_at は不要：プロバイダ ↔ ユーザーの紐付けは作成後に変更しない
       （変更したくなった = 別人なので新規 INSERT が筋）
     """
@@ -53,4 +58,14 @@ class AuthProvider(Base):
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+    )
+
+    # UNIQUE (provider, user_id): 1 user × 1 provider = 1 アカウントを DB で強制。
+    #   同じユーザーが同じ provider で複数の外部アカウントを紐付けることを禁止する。
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "user_id",
+            name="uq_auth_providers_provider_user_id",
+        ),
     )

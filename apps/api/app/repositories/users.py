@@ -24,8 +24,15 @@ class UserRepository:
         self.session = session
 
     async def get_by_id(self, id_: UUID) -> User | None:
-        """主キーで 1 件取得。存在しなければ None。"""
-        stmt = select(User).where(User.id == id_)
+        """主キーで 1 件取得。存在しなければ None。
+
+        ソフトデリート済み（deleted_at IS NOT NULL）も None として扱う
+        （ADR 0048、暗黙フィルタは使わずクエリで明示）。
+        """
+        stmt = select(User).where(
+            User.id == id_,
+            User.deleted_at.is_(None),
+        )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -63,7 +70,11 @@ class UserRepository:
         """
         stmt = (
             update(User)
-            .where(User.id == user_id)
+            .where(
+                User.id == user_id,
+                # ソフトデリート済みは更新対象外（ADR 0048）。
+                User.deleted_at.is_(None),
+            )
             .values(
                 display_name=display_name,
                 email=email,
