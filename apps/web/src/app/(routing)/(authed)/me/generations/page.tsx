@@ -175,6 +175,11 @@ type GenerationRowProps = {
 //     - completed: /problems/:id（生成された問題本体）
 //     - pending: /problems/generate/:requestId（ステータス画面）
 //     - failed / canceled: 遷移なし（行内に失敗理由 / キャンセル済を表示）
+//
+//   a11y 上、<a> の中に <button> を入れる nested interactive にしないため、
+//   カード内の情報部分（左カラム）だけを Link で包み、操作ボタン（右カラム）は
+//   Link の外に並べる。pending は本文クリックで生成ステータス画面に遷移しつつ、
+//   隣でキャンセルできる。
 const GenerationRow = ({
   item,
   onCancel,
@@ -193,91 +198,89 @@ const GenerationRow = ({
     return null;
   })();
 
-  const inner = (
-    <Card>
-      <CardContent className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 py-4 text-sm">
-        <div className="flex flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold">{formatCategoryLabel(item.category)}</span>
-            <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
-              {formatDifficultyLabel(item.difficulty)}
-            </span>
-            <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
-            {item.retryCount > 0 ? (
-              <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                再試行 {item.retryCount} 回目
-              </span>
-            ) : null}
-            {item.promptVersion ? (
-              <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                prompt {item.promptVersion}
-              </span>
-            ) : null}
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {formatDate(item.createdAt)} ／ 所要{" "}
-            <LiveDuration createdAt={item.createdAt} completedAt={item.completedAt} />
+  const summary = (
+    <div className="flex flex-1 flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold">{formatCategoryLabel(item.category)}</span>
+        <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
+          {formatDifficultyLabel(item.difficulty)}
+        </span>
+        <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+        {item.retryCount > 0 ? (
+          <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
+            再試行 {item.retryCount} 回目
           </span>
-          {item.status === "failed" ? (
-            <>
-              <span className="text-xs text-destructive">
-                失敗理由:{" "}
-                {item.failureReason
-                  ? FAILURE_MESSAGES[item.failureReason]
-                  : FAILURE_MESSAGE_FALLBACK}
-              </span>
-              <AttemptErrorList attemptErrors={item.attemptErrors ?? []} />
-            </>
-          ) : null}
-          {item.status === "pending" ? (
-            <GenerationProgress currentStep={item.progressStep} variant="compact" />
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2">
-          {item.status === "pending" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isCancelPending}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                void onCancel(item.id);
-              }}
-            >
-              キャンセル
-            </Button>
-          ) : null}
-          {item.status === "failed" ? (
-            <Button
-              size="sm"
-              disabled={isRetryPending}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                void onRetry(item.id);
-              }}
-            >
-              再試行
-            </Button>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
+        ) : null}
+        {item.promptVersion ? (
+          <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
+            prompt {item.promptVersion}
+          </span>
+        ) : null}
+      </div>
+      <span className="text-xs text-muted-foreground">
+        {formatDate(item.createdAt)} ／ 所要{" "}
+        <LiveDuration createdAt={item.createdAt} completedAt={item.completedAt} />
+      </span>
+      {item.status === "failed" ? (
+        <>
+          <span className="text-xs text-destructive">
+            失敗理由:{" "}
+            {item.failureReason ? FAILURE_MESSAGES[item.failureReason] : FAILURE_MESSAGE_FALLBACK}
+          </span>
+          <AttemptErrorList attemptErrors={item.attemptErrors ?? []} />
+        </>
+      ) : null}
+      {item.status === "pending" ? (
+        <GenerationProgress currentStep={item.progressStep} variant="compact" />
+      ) : null}
+    </div>
+  );
+
+  const actions = (
+    <div className="flex items-center gap-2">
+      {item.status === "pending" ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={isCancelPending}
+          onClick={() => {
+            void onCancel(item.id);
+          }}
+        >
+          キャンセル
+        </Button>
+      ) : null}
+      {item.status === "failed" ? (
+        <Button
+          size="sm"
+          disabled={isRetryPending}
+          onClick={() => {
+            void onRetry(item.id);
+          }}
+        >
+          再試行
+        </Button>
+      ) : null}
+    </div>
   );
 
   return (
     <li>
-      {linkHref ? (
-        <Link
-          href={linkHref}
-          className="block w-full text-left transition-all duration-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
-        >
-          {inner}
-        </Link>
-      ) : (
-        inner
-      )}
+      <Card>
+        <CardContent className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 py-4 text-sm">
+          {linkHref ? (
+            <Link
+              href={linkHref}
+              className="flex flex-1 flex-col gap-1 transition-all duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
+            >
+              {summary}
+            </Link>
+          ) : (
+            summary
+          )}
+          {actions}
+        </CardContent>
+      </Card>
     </li>
   );
 };
