@@ -28,6 +28,9 @@ class User(Base):
     - created_at   : 作成時刻（UTC、TIMESTAMP(timezone=True)）
     - updated_at   : 最終更新時刻。再ログイン時に display_name / email を
                      最新値で上書きする方針のため updated_at を持つ（authentication.md §2.1）
+    - deleted_at   : ソフトデリート印（ADR 0048）。NULL = 生きている / 非 NULL = 削除済。
+                     退会時に deleted_at をセット + PII（email / display_name）を NULL に
+                     クリアする運用。クエリ側で WHERE deleted_at IS NULL を明示的に書く。
     """
 
     __tablename__ = "users"
@@ -52,4 +55,10 @@ class User(Base):
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+    )
+    # deleted_at: NULL = 生きている / 非 NULL = 削除済（ADR 0048 のソフトデリート）。
+    #   クエリ側で WHERE deleted_at IS NULL を明示的に書く（暗黙フィルタは使わない）。
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
     )
