@@ -148,7 +148,11 @@ pre-push:
     #   事故が起きるため、必ずタスク経由で起動する。
     api-pytest:
       glob: "apps/api/**/*.py"
-      run: mise run api:test
+      # `mise exec --` で囲む理由：他フック（api-ruff / api-pyright / web-biome 等）と
+      # 一貫性を取るため。Git フックは非対話シェルで起動され ~/.zshrc 等の mise activate を
+      # 読まないため、mise 自体が PATH にあっても shims（uv / pnpm 等）が解決できない環境がある。
+      # `mise exec --` で明示的に mise の shim 解決パスを通してから `mise run` を呼ぶ。
+      run: mise exec -- mise run api:test
       fail_text: |
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -76,6 +76,18 @@ experimental = true
 # 両者で同じ環境変数名 (DATABASE_URL 等) を持つと「後勝ち」で衝突する事故が
 # 起きたため、global load を廃止し各 app が自前で .env を読む形に揃えた。
 
+[env]
+# テスト用ミドルウェアの接続 DSN (SSoT、issue #86 / dev DB 保護)。
+#   ここを 1 箇所変えれば全経路 (mise task の env / conftest.py のフォールバック /
+#   CI / Playwright) に伝播する。
+#   - api:test / api:db-migrate:test の env で {{ env.TEST_DATABASE_URL }} を参照
+#   - apps/api/tests/conftest.py が os.environ["TEST_DATABASE_URL"] を読む
+#   ※ DATABASE_URL / REDIS_URL ではなく独自名 (TEST_*) を使う理由：
+#     dev/api の .env が DATABASE_URL を別の値に設定するため、global env で
+#     DATABASE_URL を埋めると app 起動経路で衝突する。テスト経路だけで読む独自名を立てる。
+TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_test"
+TEST_REDIS_URL = "redis://localhost:6380/0"
+
 # ============================================================================
 # Backend tasks（Python / FastAPI、ADR 0034 / 0035 / 0037 / 0038）
 # ----------------------------------------------------------------------------
@@ -89,16 +101,42 @@ dir = "apps/api"
 run = "uv run fastapi dev"
 
 [tasks."api:test"]
-description = "Backend テスト（pytest + httpx + asyncio）。テスト用 DB :5433/ai_coding_drill_test に向ける（dev DB 保護、issue #86）"
+description = "Backend テスト全部（unit + integration、test:up で DB を自動起動、dev DB 保護、issue #86）"
 dir = "apps/api"
-# depends に test:up を並べる：pytest の integration テストは reset_* fixture で
-#   実テーブルを DELETE するため、必ず テスト用 Postgres / Redis に対して走らせる。
+# depends に test:up を並べる：integration テストは reset_* fixture で実テーブルを DELETE
+#   するため、必ずテスト用 Postgres / Redis に対して走らせる。
 #   docker compose up --wait + alembic は idempotent なので毎回呼んでも数秒で完了。
+#   unit テストだけ走らせたい時は api:test:unit を使う（docker 不要）。
 depends = ["test:up"]
 # env で DATABASE_URL / REDIS_URL を強制上書き。conftest.py 側にも安全ガードを置いているが、
-# こちらでも明示しておくことで「mise 経由で起動した時に何に向くか」を SSoT として残す。
-env = { DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_test", REDIS_URL = "redis://localhost:6380/0" }
+# こちらでも明示しておくことで「mise 経由で起動した時に何に向くか」が task 定義から読み取れる。
+# DSN 文字列リテラルは [env] セクションの TEST_DATABASE_URL / TEST_REDIS_URL が SSoT。
+env = { DATABASE_URL = "{{ env.TEST_DATABASE_URL }}", REDIS_URL = "{{ env.TEST_REDIS_URL }}" }
 run = "uv run pytest"
+
+[tasks."api:test:unit"]
+description = "Backend unit テストのみ（DB 不要、tests/unit/ + DB を触らない直下テスト、docker 起動を要求しない）"
+dir = "apps/api"
+# unit テストは Pydantic / service ロジック / mock 主体で DB 接続を行わない。
+# depends を持たないため docker compose up を要求せず、TDD の高速ループや
+# docker レス環境 (最小 CI ランナー / Codespaces 一部) でも走らせられる。
+# 注意: conftest.py が import 時に app.main を読み込むため SQLAlchemy エンジンは
+# 構築されるが接続はしない。conftest の suffix guard は常に走るので dev DSN は
+# 事故的に渡しても弾かれる。
+# 対象パス:
+#   - tests/unit/         : 純粋 unit
+#   - tests/test_probes.py: liveness /healthz で DB を一切触らない（test_probes.py 冒頭参照）
+# 新規 .py を tests/ 直下に追加する時は、DB を触るなら api:test:integration 側に入れる。
+run = "uv run pytest tests/unit tests/test_probes.py"
+
+[tasks."api:test:integration"]
+description = "Backend integration テストのみ（実 Postgres + Redis 必須、test:up で自動起動）"
+dir = "apps/api"
+depends = ["test:up"]
+env = { DATABASE_URL = "{{ env.TEST_DATABASE_URL }}", REDIS_URL = "{{ env.TEST_REDIS_URL }}" }
+# tests/integration/ に加えて tests/test_health.py も DB を触る (readiness probe + DB 接続確認)
+# ため integration 側に含める。新規追加の DB を触るテストはこの list に追加する。
+run = "uv run pytest tests/integration tests/test_health.py"
 
 [tasks."api:lint"]
 description = "Python lint + format 検証（ruff check）"
@@ -146,11 +184,12 @@ dir = "apps/api"
 run = "uv run alembic upgrade head"
 
 [tasks."api:db-migrate:test"]
-description = "E2E DB マイグレーション適用（docker-compose.test.yml の Postgres :5433/ai_coding_drill_test に alembic upgrade head、issue #86）"
+description = "テスト用 DB マイグレーション適用（docker-compose.test.yml の Postgres :5433/ai_coding_drill_test に alembic upgrade head、pytest + Playwright 共用、issue #86）"
 dir = "apps/api"
 # テスト用 DB に対して同じ Alembic を流す。dev DB の DATABASE_URL は触らず、
 # このタスク単体で起動した時だけ env で上書きする。
-env = { DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_test" }
+# DSN 文字列リテラルは [env] セクションの TEST_DATABASE_URL が SSoT。
+env = { DATABASE_URL = "{{ env.TEST_DATABASE_URL }}" }
 run = "uv run alembic upgrade head"
 
 [tasks."api:db-revision"]

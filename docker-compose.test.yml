@@ -1,13 +1,13 @@
-# テスト用ミドルウェア（Postgres + Redis、dev から完全分離）
+# テスト用ミドルウェア（Postgres + Redis、dev から完全分離、pytest + Playwright 共用）
 #
 # 役割：
 #   - issue #86 の長期 fix。dev DB（docker-compose.yml）と物理的に分離した
-#     Postgres / Redis を立てて、E2E の /_test/reset が dev データを巻き添えで
-#     消す事故を構造的に防ぐ。
+#     Postgres / Redis を立てて、pytest の reset_* fixture と E2E の /_test/reset が
+#     dev データを巻き添えで消す事故を構造的に防ぐ。
 #   - ホスト側のポートを dev (5432 / 6379) と被らない 5433 / 6380 にして
-#     dev:all と E2E を並行起動できるようにする。
+#     dev:all と テスト（pytest / Playwright）を並行起動できるようにする。
 #   - tmpfs で /var/lib/postgresql/data / /data をメモリ上に展開して
-#     E2E run を高速化する（永続化不要のため）。
+#     テスト実行を高速化する（永続化不要のため）。
 #
 # 起動：
 #   docker compose -f docker-compose.test.yml up -d --wait   # ヘルスチェック通過まで待つ
@@ -38,7 +38,7 @@ services:
       # ホスト側 5433 → コンテナ 5432。dev の 5432 と並行起動可能。
       - "5433:5432"
     tmpfs:
-      # E2E は揮発でよい。tmpfs にすることで I/O が速くなる + 後始末不要。
+      # テストデータは揮発でよい。tmpfs にすることで I/O が速くなる + 後始末不要。
       # tmpfs の根 (/var/lib/postgresql/data) は空のまま、その下の pgdata/ サブディレクトリに
       # initdb される（PGDATA env で指定）。
       - /var/lib/postgresql/data
