@@ -392,10 +392,6 @@ def _build_app() -> FastAPI:
     @app.post("/_test/seed-submission")
     async def seed_submission(
         problem_id: str = Query(..., description="対象問題の id（seed-problem の戻り値）"),
-        user_email: str = Query(
-            _DEFAULT_USER["email"],
-            description="解答主のメール。既定は OAuth mock の e2e-testuser",
-        ),
         status: str = Query("graded", description="submissions.status: pending / graded / failed"),
         passed: bool = Query(True, description="result.passed: 全テスト通過したか"),
         score: int = Query(2, description="採点スコア（passed テスト数）"),
@@ -406,6 +402,11 @@ def _build_app() -> FastAPI:
         R1-6 の /me/history / /me/stats / /me/weakness を E2E で叩くために、
         Worker 未起動でも graded まで遷移した行を即座に用意できるショートカット。
         jobs は介在させない（最短ルートで submissions を生やすだけ）。
+
+        user_id 解決：直近 created_at の users 行を引く（OAuth mock で作った
+        ログイン直後ユーザーが該当）。E2E では beforeEach の resetState で
+        毎テスト 1 ユーザーに揃うため、この経路で確実に「呼び出し元の view から
+        見える submission」を作れる。
 
         SSoT は apps/api/app/models/submissions.py。NOT NULL 列・result JSONB の
         スキーマが変わったら本関数も更新する。
@@ -441,12 +442,11 @@ def _build_app() -> FastAPI:
 
         conn = await _connect_local_db()
         try:
-            # user_id 解決：mock OAuth で作られた users 行を最新 created_at で引く。
+            # user_id 解決：直近 created_at の users 行を引く。
             #   beforeEach の resetState で毎テスト 1 ユーザーに揃うため
-            #   ORDER BY created_at DESC LIMIT 1 で OAuth で作った直近の行が取れる。
-            #   email カラムは GitHub 側で非公開設定の場合 NULL になるため、
-            #   email 一致引きより堅牢な経路を選ぶ。
-            del user_email  # 互換のため引数だけ残し、内部では使わない
+            #   ORDER BY created_at DESC LIMIT 1 で OAuth mock で作った直近の
+            #   ログインユーザーが取れる。email 一致引きは GitHub 側で email を
+            #   非公開設定にしているユーザーで NULL になりうるため使わない。
             user_row = await conn.fetchrow(
                 "SELECT id FROM users ORDER BY created_at DESC LIMIT 1",
             )
