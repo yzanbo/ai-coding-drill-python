@@ -44,38 +44,61 @@ from fastapi.responses import JSONResponse, RedirectResponse
 _LOCAL_DB_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
-def _is_local_db_url(db_url: str) -> bool:
-    """DATABASE_URL のホスト部が localhost 系か判定する。
+def _parse_db_url(db_url: str) -> tuple[str | None, str]:
+    """DATABASE_URL からホストと DB 名（パス先頭の "/" を除いた部分）を返す。
 
     sqlalchemy 形式 (postgresql+asyncpg://...) もそのまま受け取れるよう、
     "+driver" を取り除いてから urlparse する。
     """
     if not db_url:
-        return False
+        return None, ""
     normalized = db_url
     if normalized.startswith("postgresql+"):
         idx = normalized.find("://")
         if idx > 0:
             normalized = "postgresql" + normalized[idx:]
     try:
-        host = urlparse(normalized).hostname
+        parsed = urlparse(normalized)
     except ValueError:
-        return False
-    return host in _LOCAL_DB_HOSTS
+        return None, ""
+    db_name = parsed.path.lstrip("/") if parsed.path else ""
+    return parsed.hostname, db_name
+
+
+def _ensure_e2e_db_url(db_url: str) -> None:
+    """E2E 用エンドポイントが触ってよい DB か検証する（issue #86 の積極的 allowlist）。
+
+    二重ガード:
+      1. ホストが localhost / 127.0.0.1 / ::1 のいずれかであること
+      2. DB 名が `_e2e` で終わること（dev DB `ai_coding_drill` を絶対に消さない）
+
+    これにより、誤って dev の DATABASE_URL を E2E プロセスに渡しても TRUNCATE が
+    走らない構造にする。
+    """
+    host, db_name = _parse_db_url(db_url)
+    if host not in _LOCAL_DB_HOSTS:
+        raise HTTPException(
+            status_code=403,
+            detail="DATABASE_URL のホストが localhost / 127.0.0.1 / ::1 以外は拒否",
+        )
+    if not db_name.endswith("_e2e"):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"DATABASE_URL の DB 名 '{db_name}' は _e2e で終わっていないため拒否"
+                "（E2E は専用 DB ai_coding_drill_e2e でのみ実行可、issue #86）"
+            ),
+        )
 
 
 async def _connect_local_db() -> asyncpg.Connection:
     """E2E 用テストエンドポイントから Postgres に繋ぐためのヘルパー。
 
-    - DATABASE_URL が localhost / 127.0.0.1 以外なら 403 を投げて誤接続を防ぐ
+    - DATABASE_URL が localhost 系 + DB 名末尾 `_e2e` 以外なら 403 を投げて誤接続を防ぐ
     - SQLAlchemy 形式（postgresql+asyncpg://...）を asyncpg 用の素の形式に直す
     """
     db_url = os.environ.get("DATABASE_URL", "")
-    if not _is_local_db_url(db_url):
-        raise HTTPException(
-            status_code=403,
-            detail="DATABASE_URL のホストが localhost / 127.0.0.1 以外は拒否",
-        )
+    _ensure_e2e_db_url(db_url)
     pg_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
     return await asyncpg.connect(pg_url)
 
@@ -195,15 +218,16 @@ def _build_app() -> FastAPI:
     async def reset_state() -> dict[str, str]:
         """E2E テスト間で DB / Redis を初期化する。
 
-        破壊的操作のため二重ガード:
-          1. 環境変数 E2E_RESET_ENABLED=true を必須にする (誤起動防止)
-          2. DATABASE_URL に "production" / "staging" が含まれていたら拒否
+        破壊的操作のため三重ガード:
+          1. 環境変数 E2E_RESET_ENABLED=true を必須にする（誤起動防止）
+          2. DATABASE_URL のホストが localhost 系であること
+          3. DATABASE_URL の DB 名が `_e2e` で終わること
+             （dev DB `ai_coding_drill` の TRUNCATE を構造的に防ぐ、issue #86）
 
         対象:
-          - Postgres: users / auth_providers を TRUNCATE CASCADE
-            (users が deleted_at を持つソフトデリート設計だが E2E では完全消去)
-          - Redis:    DB 0 (アプリのデフォルト DB) を FLUSHDB
-            (session / state / rate limit すべて wipe)
+          - Postgres: users / auth_providers / generation_requests / problems /
+                      submissions / jobs を TRUNCATE CASCADE
+          - Redis:    FLUSHDB（接続先 DB index は REDIS_URL に従う）
         """
         _ensure_test_reset_enabled()
 
@@ -224,9 +248,10 @@ def _build_app() -> FastAPI:
         finally:
             await conn.close()
 
-        # E2E 既定の Redis DB index は /1（dev:all の /0 と分離して FLUSHDB 巻き添えを防ぐ。
-        # apps/web/e2e/_helpers/constants.ts の REDIS_URL と同じ既定値）。
-        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/1")
+        # E2E 用 Redis は docker-compose.e2e.yml で 6380 に立てる（dev の 6379 とポート分離）。
+        # ポートで分かれているため DB index は /0 で十分
+        # （apps/web/e2e/_helpers/constants.ts と同じ既定値）。
+        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6380/0")
         r: redis.Redis = redis.from_url(redis_url)
         try:
             await r.flushdb()

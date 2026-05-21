@@ -361,23 +361,26 @@ jobs:
           needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     services:
-      postgres:
+      # E2E 専用 Postgres。docker-compose.e2e.yml と同じ「ホスト :5433 / DB 名末尾 _e2e」に揃える。
+      # これにより local と CI で DATABASE_URL が完全一致し、/_test/reset の安全ガード
+      # （DB 名 `_e2e` allowlist）が両環境で同じ挙動を取る（issue #86）。
+      postgres-e2e:
         image: postgres:18.3-alpine
         env:
-          POSTGRES_DB: ai_coding_drill
+          POSTGRES_DB: ai_coding_drill_e2e
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
-          - 5432:5432
+          - 5433:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d ai_coding_drill"
+          --health-cmd "pg_isready -U postgres -d ai_coding_drill_e2e"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-      redis:
+      redis-e2e:
         image: redis:8.6-alpine
         ports:
-          - 6379:6379
+          - 6380:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s
@@ -386,15 +389,16 @@ jobs:
     env:
       # api / worker / mock サーバが共有する DB 接続文字列。
       # playwright.config.ts の webServer.env は workflow env を引き継がず明示注入する。
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ai_coding_drill
-      # Redis の DB index は E2E 専用の /1 を使う (apps/web/e2e/_helpers/constants.ts と同じ)。
-      # CI の Redis コンテナは E2E 専用で他から触られないが、local 既定値と揃えて
-      # 設定の二重管理を避ける。
-      REDIS_URL: redis://localhost:6379/1
+      # local の docker-compose.e2e.yml と同じ port / DB 名（issue #86）。
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_e2e
+      # Redis は port 6380 でポート分離済みなので DB index は /0 で十分。
+      # local 既定値（apps/web/e2e/_helpers/constants.ts）と揃えて設定の二重管理を避ける。
+      REDIS_URL: redis://localhost:6380/0
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
       # DB schema を Alembic で作成（api / mock の /_test/reset が users テーブルを参照）。
+      # workflow env の DATABASE_URL を Alembic env.py が読む。
       - run: mise run api:db-migrate
       # Playwright のブラウザバイナリをキャッシュする。
       # cache key には Playwright 自身の version を含めて、version 上がった時に
