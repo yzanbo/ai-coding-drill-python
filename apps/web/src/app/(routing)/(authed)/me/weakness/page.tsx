@@ -14,10 +14,9 @@
 import type { MeWeaknessResponse } from "@/__generated__/api/types.gen";
 import { Card, CardContent } from "@/components/ui/card/card";
 import { formatCategoryLabel } from "@/lib/utils/category-label";
+import { formatPercent } from "@/lib/utils/format-percent";
 
 import { useGetMyWeakness } from "./_hooks/_fetch/use-get-my-weakness/use-get-my-weakness";
-
-const formatPercent = (n: number): string => `${(n * 100).toFixed(1)}%`;
 
 // renderBody: 4 段の三項ネストを避けるため、本体部分を分岐ロジックとして切り出す。
 //   isLoading / error / 空集計 / リスト の 4 状態を early return で平坦に並べる。

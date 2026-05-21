@@ -17,10 +17,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
 import type { GenerationRequestSummary } from "@/__generated__/api/types.gen";
+import { StatusBadge, type StatusTone } from "@/components/parts/status-badge/status-badge";
 import { Button } from "@/components/ui/button/button";
 import { Card, CardContent } from "@/components/ui/card/card";
 import { formatCategoryLabel } from "@/lib/utils/category-label";
 import { formatDifficultyLabel } from "@/lib/utils/difficulty-label";
+import { formatDate } from "@/lib/utils/format-date";
 
 import { LiveDuration } from "./_components/live-duration/live-duration";
 import { useCancelMyGeneration } from "./_hooks/_fetch/use-cancel-my-generation/use-cancel-my-generation";
@@ -37,19 +39,6 @@ const parsePage = (raw: string | null): number => {
 
 const buildHref = (page: number): string =>
   page === 1 ? "/me/generations" : `/me/generations?page=${page}`;
-
-// formatDate: ISO → "YYYY/MM/DD HH:mm"。
-const formatDate = (iso: string | null | undefined): string => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
-};
 
 // FAILURE_MESSAGES: failed 行の failureReason タグを日本語文言に変換する辞書。
 //   API は Worker の classifyFailureReason が書く 6 タグ（enum）を返す
@@ -72,22 +61,16 @@ const FAILURE_MESSAGES: Record<NonNullable<GenerationRequestSummary["failureReas
 const FAILURE_MESSAGE_FALLBACK = FAILURE_MESSAGES.max_attempts_exceeded;
 
 // STATUS_LABEL: 状態文字列 → 表示ラベル + 色トーン。
+//   tone -> 色クラスへの変換は StatusBadge (components/parts/status-badge) に集約。
 const STATUS_LABEL: Record<
   GenerationRequestSummary["status"],
-  { label: string; tone: "ok" | "ng" | "muted" | "warn" }
+  { label: string; tone: StatusTone }
 > = {
   pending: { label: "生成中…", tone: "warn" },
   completed: { label: "成功", tone: "ok" },
   failed: { label: "失敗", tone: "ng" },
   canceled: { label: "キャンセル済", tone: "muted" },
 };
-
-const TONE_CLASS = {
-  ok: "rounded-md border border-border bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary",
-  ng: "rounded-md border border-border bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive",
-  warn: "rounded-md border border-border bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600",
-  muted: "rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground",
-} as const;
 
 export default function MyGenerationsPage() {
   const searchParams = useSearchParams();
@@ -213,7 +196,7 @@ const GenerationRow = ({
             <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
               {formatDifficultyLabel(item.difficulty)}
             </span>
-            <span className={TONE_CLASS[status.tone]}>{status.label}</span>
+            <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
             {item.retryCount > 0 ? (
               <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
                 再試行 {item.retryCount} 回目

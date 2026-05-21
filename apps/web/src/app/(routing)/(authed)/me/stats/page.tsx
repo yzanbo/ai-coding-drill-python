@@ -12,11 +12,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card/card";
 import { formatCategoryLabel } from "@/lib/utils/category-label";
+import { formatPercent } from "@/lib/utils/format-percent";
 
 import { useGetMyStats } from "./_hooks/_fetch/use-get-my-stats/use-get-my-stats";
-
-// formatPercent: 0.7142 → "71.4%"。小数 1 桁固定で揺れを抑える。
-const formatPercent = (n: number): string => `${(n * 100).toFixed(1)}%`;
 
 export default function MyStatsPage() {
   const { stats, isLoading, error } = useGetMyStats();

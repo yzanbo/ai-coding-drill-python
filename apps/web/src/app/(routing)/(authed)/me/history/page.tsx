@@ -21,8 +21,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
 import type { SubmissionStatus, SubmissionSummary } from "@/__generated__/api/types.gen";
+import { StatusBadge, type StatusTone } from "@/components/parts/status-badge/status-badge";
 import { Button } from "@/components/ui/button/button";
 import { Card, CardContent } from "@/components/ui/card/card";
+import { formatDate } from "@/lib/utils/format-date";
 
 import { useGetMySubmissions } from "./_hooks/_fetch/use-get-my-submissions/use-get-my-submissions";
 
@@ -36,7 +38,8 @@ const parsePage = (raw: string | null): number => {
 
 // formatStatus: 採点状態 + スコアを UI 用文字列に整形する。
 //   pending / failed は score / totalCount が NULL のため別表記にする。
-const formatStatus = (sub: SubmissionSummary): { label: string; tone: "ok" | "ng" | "muted" } => {
+//   tone -> 色クラスへの変換は StatusBadge (components/parts/status-badge) に集約。
+const formatStatus = (sub: SubmissionSummary): { label: string; tone: StatusTone } => {
   const status: SubmissionStatus = sub.status;
   if (status === "graded") {
     const total = sub.totalCount ?? 0;
@@ -49,20 +52,6 @@ const formatStatus = (sub: SubmissionSummary): { label: string; tone: "ok" | "ng
   }
   if (status === "failed") return { label: "失敗", tone: "ng" };
   return { label: "採点中", tone: "muted" };
-};
-
-// formatDate: ISO 文字列を "YYYY/MM/DD HH:mm" に整形（ローカルタイムゾーン）。
-//   履歴一覧の縦並びで読みやすい固定桁表記にする。
-const formatDate = (iso: string | null | undefined): string => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
 };
 
 const buildHref = (page: number): string =>
@@ -133,17 +122,7 @@ export default function MyHistoryPage() {
                               {formatDate(sub.gradedAt)}
                             </span>
                           </div>
-                          <span
-                            className={
-                              status.tone === "ok"
-                                ? "rounded-md border border-border bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary"
-                                : status.tone === "ng"
-                                  ? "rounded-md border border-border bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive"
-                                  : "rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground"
-                            }
-                          >
-                            {status.label}
-                          </span>
+                          <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
                         </CardContent>
                       </Card>
                     </Link>
