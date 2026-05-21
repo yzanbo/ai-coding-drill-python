@@ -24,6 +24,24 @@ import (
 	"github.com/yzanbo/ai-coding-drill-python/apps/workers/grading/internal/llm"
 )
 
+// 失敗理由分類用 sentinel（R1-7）：
+//   - dead 確定後に handler.OnDead が generation_requests.failure_reason に書く
+//     タグ（"judge_below_threshold" / "sandbox_failed" / "llm_invalid_output"）の
+//     判定キーに使う。各 sentinel は ErrInvalidProblem と一緒に 2 重 wrap して
+//     emit する（Go 1.20+ の fmt.Errorf 複数 %w）。これにより
+//     errors.Is(err, ErrInvalidProblem) と errors.Is(err, ErrJudgeBelowThreshold)
+//     の両方が同じ error 1 つで成り立ち、orchestrator は ErrInvalidProblem だけ
+//     見て retry 判定し、handler.OnDead は具体タグを見て failure_reason に
+//     書く、と責務が綺麗に分かれる。
+//   - 詳細種別を持たないケース（LLM 一過性エラーの累積、Docker daemon ハング 等）は
+//     どの sentinel も背負わず、classifyFailureReason の default で
+//     "max_attempts_exceeded" に倒れる。
+var (
+	ErrLLMInvalidOutput    = fmt.Errorf("grading: llm output schema invalid")
+	ErrSandboxFailed       = fmt.Errorf("grading: sandbox verification failed")
+	ErrJudgeBelowThreshold = fmt.Errorf("grading: judge score below threshold")
+)
+
 // ErrInvalidProblem: LLM 応答が ProblemDraft として parse できない or
 // 必須フィールド (title / description / test_cases / reference_solution)
 // が欠落している場合に返す。orchestrator はこれを「再生成」候補として扱う。
@@ -116,17 +134,19 @@ type ProblemDraft struct {
 // validate: 必須フィールドが揃っているかを確認する。
 // LLM が一部だけ返す / 空文字を返すケースを早期に弾く。
 func (p *ProblemDraft) validate() error {
+	// 各 emit は ErrInvalidProblem (retry 判定用) と ErrLLMInvalidOutput
+	// (failure_reason タグ判定用) を 2 重 wrap する。
 	if strings.TrimSpace(p.Title) == "" {
-		return fmt.Errorf("%w: title is empty", ErrInvalidProblem)
+		return fmt.Errorf("%w: %w: title is empty", ErrInvalidProblem, ErrLLMInvalidOutput)
 	}
 	if strings.TrimSpace(p.Description) == "" {
-		return fmt.Errorf("%w: description is empty", ErrInvalidProblem)
+		return fmt.Errorf("%w: %w: description is empty", ErrInvalidProblem, ErrLLMInvalidOutput)
 	}
 	if len(p.TestCases) == 0 {
-		return fmt.Errorf("%w: test_cases is empty", ErrInvalidProblem)
+		return fmt.Errorf("%w: %w: test_cases is empty", ErrInvalidProblem, ErrLLMInvalidOutput)
 	}
 	if strings.TrimSpace(p.ReferenceSolution) == "" {
-		return fmt.Errorf("%w: reference_solution is empty", ErrInvalidProblem)
+		return fmt.Errorf("%w: %w: reference_solution is empty", ErrInvalidProblem, ErrLLMInvalidOutput)
 	}
 	return nil
 }
@@ -181,7 +201,7 @@ func (g *ProblemGenerator) Generate(ctx context.Context, category, difficulty st
 
 	var draft ProblemDraft
 	if err := json.Unmarshal([]byte(resp.Content), &draft); err != nil {
-		return nil, fmt.Errorf("%w: json unmarshal: %v (raw=%s)", ErrInvalidProblem, err, truncate(resp.Content, 200))
+		return nil, fmt.Errorf("%w: %w: json unmarshal: %v (raw=%s)", ErrInvalidProblem, ErrLLMInvalidOutput, err, truncate(resp.Content, 200))
 	}
 	if err := draft.validate(); err != nil {
 		return nil, err

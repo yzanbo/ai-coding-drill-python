@@ -55,7 +55,7 @@ func (f *fakeJobHandler) Handle(_ context.Context, _ *job.Job) error {
 	return f.err
 }
 
-func (f *fakeJobHandler) OnDead(_ context.Context, _ *job.Job) {
+func (f *fakeJobHandler) OnDead(_ context.Context, _ *job.Job, _ error) {
 	f.onDeadCalls++
 }
 

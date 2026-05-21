@@ -101,6 +101,71 @@ func TestClassifyHandlerError(t *testing.T) {
 	}
 }
 
+// TestClassifyFailureReason: dead 確定時の最後の error から
+// generation_requests.failure_reason に書くタグを決める分類規則を網羅する（R1-7）。
+//
+// 期待されるタグは 6 種（problem-generation.md §失敗理由タグ）。
+// 順序は LLM 系（即 dead）→ retryable 具体タグ → 分類不能フォールバックの順で
+// 評価される（classifyFailureReason 本体の switch と一致）。
+func TestClassifyFailureReason(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		in   error
+		want string
+	}{
+		{
+			name: "nil は max_attempts_exceeded（防御、本来到達しない）",
+			in:   nil,
+			want: "max_attempts_exceeded",
+		},
+		{
+			name: "llm.ErrUnauthorized は llm_unauthorized（即 dead）",
+			in:   fmt.Errorf("provider: %w", llm.ErrUnauthorized),
+			want: "llm_unauthorized",
+		},
+		{
+			name: "llm.ErrCostExceeded は llm_cost_exceeded（即 dead）",
+			in:   fmt.Errorf("provider: %w", llm.ErrCostExceeded),
+			want: "llm_cost_exceeded",
+		},
+		{
+			name: "ErrJudgeBelowThreshold + ErrInvalidProblem は judge_below_threshold",
+			in:   fmt.Errorf("%w: %w: judge score 60 below threshold 70", ErrInvalidProblem, ErrJudgeBelowThreshold),
+			want: "judge_below_threshold",
+		},
+		{
+			name: "ErrSandboxFailed + ErrInvalidProblem は sandbox_failed",
+			in:   fmt.Errorf("%w: %w: 3/10 tests failed", ErrInvalidProblem, ErrSandboxFailed),
+			want: "sandbox_failed",
+		},
+		{
+			name: "ErrLLMInvalidOutput + ErrInvalidProblem は llm_invalid_output",
+			in:   fmt.Errorf("%w: %w: json unmarshal", ErrInvalidProblem, ErrLLMInvalidOutput),
+			want: "llm_invalid_output",
+		},
+		{
+			name: "具体 sentinel 無し（LLM 一過性エラー累積）は max_attempts_exceeded",
+			in:   fmt.Errorf("%w: transient external error: %w", ErrInvalidProblem, llm.ErrRateLimit),
+			want: "max_attempts_exceeded",
+		},
+		{
+			name: "Docker daemon hang 由来の bare error も max_attempts_exceeded",
+			in:   errors.New("sandbox: docker daemon connection refused"),
+			want: "max_attempts_exceeded",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := classifyFailureReason(tc.in)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 // --- Handle 経路を pin するための fake / helper 群 ---
 
 // fakeStore: generationStore を in-memory で実装する。
