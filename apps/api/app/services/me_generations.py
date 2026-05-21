@@ -25,6 +25,7 @@ from app.core.exceptions import (
 from app.repositories.me_generations import MeGenerationsRepository
 from app.schemas.me_generations import (
     ME_GENERATIONS_PAGE_SIZE,
+    FailureReasonTag,
     GenerationRequestCancelResponse,
     GenerationRequestRetryResponse,
     GenerationRequestSummary,
@@ -37,6 +38,34 @@ from app.schemas.problems import (
 from app.services.problem_generation import ProblemGenerationService
 
 logger = logging.getLogger(__name__)
+
+# _KNOWN_FAILURE_REASONS: Worker が書く想定の失敗理由タグ集合。
+#   Worker (apps/workers/grading/internal/grading/problem_generate.go の
+#   classifyFailureReason) と 1:1 で揃える。集合に無い値（旧データ / 手動修正）
+#   は API レスポンスから除外し、FE 側のデフォルト文言にフォールバックさせる。
+_KNOWN_FAILURE_REASONS: frozenset[str] = frozenset(
+    [
+        "llm_unauthorized",
+        "llm_cost_exceeded",
+        "judge_below_threshold",
+        "sandbox_failed",
+        "llm_invalid_output",
+        "max_attempts_exceeded",
+    ]
+)
+
+
+def _coerce_failure_reason(raw: str | None) -> FailureReasonTag | None:
+    """DB の生 string を FailureReasonTag に絞り込む。想定外値は None。
+
+    failed 以外の状態で値が紛れていた場合 / 旧データの未知タグ / NULL を
+    一括で None に倒し、API レスポンスからは除外する。
+    """
+    if raw is None:
+        return None
+    if raw in _KNOWN_FAILURE_REASONS:
+        return raw  # type: ignore[return-value]
+    return None
 
 
 class MeGenerationsService:
@@ -91,8 +120,11 @@ class MeGenerationsService:
                 prompt_version=prompt_versions.get(r.id),
                 retry_of=r.retry_of,
                 retry_count=retry_depths.get(r.id, 0),
-                # failure_reason は意図的に詰めない（schemas/me_generations.py 参照、
-                #   情報漏洩防止のため API では返さず、DB の内部タグは ops 用途に閉じる）
+                # failure_reason: failed 行のみ enum 値を返す。Worker が書く 6 タグ
+                #   以外の値（旧データ / 想定外）は _coerce_failure_reason で None に倒す。
+                failure_reason=(
+                    _coerce_failure_reason(r.failure_reason) if r.status == "failed" else None
+                ),
                 created_at=r.created_at,
                 completed_at=r.completed_at,
             )

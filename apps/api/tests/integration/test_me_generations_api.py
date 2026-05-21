@@ -127,6 +127,31 @@ class TestGetGenerationsHistory:
         assert item["promptVersion"] == "v3"
         assert item["retryCount"] == 0
         assert item["completedAt"] is not None
+        # completed 行は failureReason が常に null
+        assert item["failureReason"] is None
+
+    @respx.mock
+    async def test_正常系_failed行はfailureReasonタグが返る(
+        self, client: AsyncClient, fake_redis: fakeredis.aioredis.FakeRedis
+    ) -> None:
+        # Worker が classifyFailureReason で書く 6 タグの 1 つ
+        # （judge_below_threshold）が API 境界で enum 値として返ることを確認。
+        # FE 側は本タグを switch して日本語文言に変換する。
+        del fake_redis
+        await login_via_github(client)
+        user_id = await current_user_id(client)
+
+        await _insert_gr(
+            user_id=user_id,
+            status="failed",
+            failure_reason="judge_below_threshold",
+        )
+
+        res = await client.get("/api/me/generations")
+        assert res.status_code == 200
+        item = res.json()["items"][0]
+        assert item["status"] == "failed"
+        assert item["failureReason"] == "judge_below_threshold"
 
     @respx.mock
     async def test_正常系_他人の履歴は混ざらない(

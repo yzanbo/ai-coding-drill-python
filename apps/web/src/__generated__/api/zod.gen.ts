@@ -33,6 +33,14 @@ export const zGenerationRequestSummary = z.object({
     completedAt: z.iso.datetime().nullish(),
     createdAt: z.iso.datetime(),
     difficulty: z.string(),
+    failureReason: z.enum([
+        'llm_unauthorized',
+        'llm_cost_exceeded',
+        'judge_below_threshold',
+        'sandbox_failed',
+        'llm_invalid_output',
+        'max_attempts_exceeded'
+    ]).nullish(),
     id: z.uuid(),
     producedProblemId: z.uuid().nullish(),
     promptVersion: z.string().nullish(),

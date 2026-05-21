@@ -80,9 +80,10 @@ test.describe("認証ユーザー: 各状態の行が表示される", () => {
     await page.goto("/me/generations");
 
     await expect(page.getByText("失敗").first()).toBeVisible();
-    // 内部タグ（judge_below_threshold）は出さず、丸めた汎用文言を出す。
-    //   要件 §ビジネスルール「内部の失敗種別はユーザーには区別せず表示」に従う。
-    await expect(page.getByText("問題を生成できませんでした")).toBeVisible();
+    // failureReason=judge_below_threshold は FE の FAILURE_MESSAGES マップで
+    // 「品質チェックを通過する問題を生成できませんでした。…」に変換される。
+    // 内部タグ文字列そのものは UI には出さない（生 string を露出させない方針）。
+    await expect(page.getByText("品質チェックを通過する問題を生成できませんでした")).toBeVisible();
     await expect(page.getByText("judge_below_threshold")).not.toBeVisible();
     await expect(page.getByRole("button", { name: "再試行" })).toBeVisible();
   });

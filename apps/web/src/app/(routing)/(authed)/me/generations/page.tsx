@@ -50,12 +50,25 @@ const formatDate = (iso: string | null | undefined): string => {
   return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
 };
 
-// FAILURE_MESSAGE: failed 行に出すユーザー向け汎用文言。
-//   要件 problem-generation.md §ビジネスルール「内部の失敗種別はユーザーには
-//   区別せず『生成に失敗しました』と表示する（情報漏洩防止）」に従い、固定文言。
-//   API は内部タグ（failureReason）を返さない設計（apps/api/app/schemas/
-//   me_generations.py 参照）なので、FE は status==='failed' だけ見て本文言を出す。
-const FAILURE_MESSAGE = "問題を生成できませんでした。もう一度お試しください。";
+// FAILURE_MESSAGES: failed 行の failureReason タグを日本語文言に変換する辞書。
+//   API は Worker の classifyFailureReason が書く 6 タグ（enum）を返す
+//   （apps/api/app/schemas/me_generations.py の FailureReasonTag 参照）。
+//   FE はその enum を switch して、ユーザーが次にすべきことが伝わる文言に変える。
+//   タグそのものは UI に出さない（生 string ではなく enum なので「内部状態漏洩」
+//   懸念は無く、固定 6 値に絞ることで API 境界での安全性を担保している）。
+//
+//   null（タグ無し）はサーバ側で想定外値を倒した時 / 旧データのケース。
+//   max_attempts_exceeded と同じ汎用文言にフォールバックする。
+const FAILURE_MESSAGES: Record<NonNullable<GenerationRequestSummary["failureReason"]>, string> = {
+  llm_unauthorized: "AI サービスとの認証に失敗しました。管理者にお問い合わせください。",
+  llm_cost_exceeded: "AI 利用上限に達しました。しばらく時間を置いてお試しください。",
+  judge_below_threshold:
+    "品質チェックを通過する問題を生成できませんでした。もう一度お試しください。",
+  sandbox_failed: "生成された問題の動作検証に失敗しました。もう一度お試しください。",
+  llm_invalid_output: "AI の応答形式が想定外でした。もう一度お試しください。",
+  max_attempts_exceeded: "問題を生成できませんでした。もう一度お試しください。",
+};
+const FAILURE_MESSAGE_FALLBACK = FAILURE_MESSAGES.max_attempts_exceeded;
 
 // STATUS_LABEL: 状態文字列 → 表示ラベル + 色トーン。
 const STATUS_LABEL: Record<
@@ -216,7 +229,10 @@ const GenerationRow = ({
             <LiveDuration createdAt={item.createdAt} completedAt={item.completedAt} />
           </span>
           {item.status === "failed" ? (
-            <span className="text-xs text-destructive">失敗理由: {FAILURE_MESSAGE}</span>
+            <span className="text-xs text-destructive">
+              失敗理由:{" "}
+              {item.failureReason ? FAILURE_MESSAGES[item.failureReason] : FAILURE_MESSAGE_FALLBACK}
+            </span>
           ) : null}
         </div>
         <div className="flex items-center gap-2">

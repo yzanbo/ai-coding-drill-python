@@ -63,6 +63,10 @@ export type GenerationRequestSummary = {
      */
     difficulty: string;
     /**
+     * Failurereason
+     */
+    failureReason?: 'llm_unauthorized' | 'llm_cost_exceeded' | 'judge_below_threshold' | 'sandbox_failed' | 'llm_invalid_output' | 'max_attempts_exceeded' | null;
+    /**
      * Id
      */
     id: string;

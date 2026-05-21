@@ -77,6 +77,25 @@
             "title": "Difficulty",
             "type": "string"
           },
+          "failureReason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "llm_unauthorized",
+                  "llm_cost_exceeded",
+                  "judge_below_threshold",
+                  "sandbox_failed",
+                  "llm_invalid_output",
+                  "max_attempts_exceeded"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failurereason"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",

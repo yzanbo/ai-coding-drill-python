@@ -19,6 +19,26 @@ from pydantic.alias_generators import to_camel
 #   既存 3 値 (pending / completed / failed) に R1-7 で canceled を追加した。
 GenerationStatus = Literal["pending", "completed", "failed", "canceled"]
 
+
+# FailureReasonTag: failed 行で API が返す失敗理由カテゴリ。
+#   Worker (apps/workers/grading/internal/grading/problem_generate.go の
+#   classifyFailureReason) が dead 確定時に generation_requests.failure_reason に
+#   書く 6 タグと 1:1 対応。FE はこの enum を switch して日本語文言に変換する
+#   (apps/web/src/app/(routing)/(authed)/me/generations/page.tsx の
+#   FAILURE_MESSAGES)。
+#
+#   生エラー文字列ではなく固定の enum に絞ることで、API 境界での「内部状態漏洩」
+#   懸念を解消しつつ、ユーザーには有用な分類情報を渡せる（例: 認証エラーなら
+#   「もう一度試す」ではなく管理者連絡を促す等、文言を最適化できる）。
+FailureReasonTag = Literal[
+    "llm_unauthorized",
+    "llm_cost_exceeded",
+    "judge_below_threshold",
+    "sandbox_failed",
+    "llm_invalid_output",
+    "max_attempts_exceeded",
+]
+
 # ME_GENERATIONS_PAGE_SIZE: 履歴 1 ページあたりの行数。
 #   要件 .md にはサイズ指定が無いため、解答履歴 (/me/history) と同じ 20 に揃える。
 ME_GENERATIONS_PAGE_SIZE = 20
@@ -46,14 +66,15 @@ class _CamelModel(BaseModel):
 #   prompt_version: jobs.payload.prompt_version を JOIN で取得した値。
 #                   jobs が TTL で物理削除された後は NULL を返す（履歴永続化はしない方針）。
 #
-#   failure_reason は API 境界で意図的に露出しない：
-#     - DB の generation_requests.failure_reason は内部タグ（"judge_below_threshold"
-#       / "sandbox_failed" / "llm_invalid_output" 等）を持ち、運用ログ・ops 用途
-#     - 要件 problem-generation.md §94 / §122 で「内部の失敗種別はユーザーには
-#       区別せず表示」と定めており、API レスポンス JSON で生タグを返すと
-#       DevTools / curl 経由で内部状態が漏れるため、フィールド自体を返さない
-#     - UI が見せるべきは「失敗した」事実のみで、FE は status==='failed' を
-#       見て固定文言を出す（formatFailureReason は不要）
+#   failure_reason:
+#     - failed 行のみ FailureReasonTag を返す（completed/pending/canceled では None）。
+#     - DB の generation_requests.failure_reason 列は生 string だが、Worker が書く
+#       値は classifyFailureReason の 6 タグに正規化されている。Service 側で
+#       enum 範囲チェックを挟んで、想定外値が紛れ込んだ場合は None に倒す
+#       （旧データや手動修正に対する防御線）。
+#     - FE は本フィールドを switch して日本語文言に変換する（page.tsx の
+#       FAILURE_MESSAGES）。生タグ文字列を画面に出さないので「内部状態漏洩」
+#       懸念は固定 enum + FE マップで解消される。
 class GenerationRequestSummary(_CamelModel):
     """生成リクエスト履歴の 1 行分。"""
 
@@ -65,6 +86,7 @@ class GenerationRequestSummary(_CamelModel):
     prompt_version: str | None = None
     retry_of: UUID | None = None
     retry_count: int = Field(ge=0)
+    failure_reason: FailureReasonTag | None = None
     created_at: datetime
     completed_at: datetime | None = None
 

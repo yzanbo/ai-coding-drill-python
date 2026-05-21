@@ -111,10 +111,28 @@ class TestListHistory:
         assert res.items[0].retry_count == 0
         assert res.items[1].prompt_version is None
         assert res.items[1].retry_count == 2
-        # failure_reason は API 境界で意図的に隠す（schemas 側参照）。DB の内部タグ
-        # （judge_below_threshold 等）は ops 用途で残るが、Pydantic レスポンスには
-        # 出さない。レスポンスモデルに該当フィールドが無いことを確認する。
-        assert not hasattr(res.items[1], "failure_reason")
+        # failure_reason: failed 行は Worker が書く 6 タグ (classifyFailureReason)
+        # の中から enum で返る。FE は本タグを switch して日本語文言に変換する。
+        assert res.items[1].failure_reason == "judge_below_threshold"
+        # completed 行 (gr1) は failure_reason が常に None。
+        assert res.items[0].failure_reason is None
+
+    async def test_正常系_failure_reasonが想定外値ならNoneに倒す(
+        self, service: MeGenerationsService, mock_repo: AsyncMock
+    ) -> None:
+        # _coerce_failure_reason の防御線テスト：Worker の 6 タグ以外（旧データ /
+        # 手動修正 / 将来追加されたが API 側が追従していない値）は API レスポンス
+        # から除外し None に倒す。FE 側は None → 「max_attempts_exceeded」相当の
+        # フォールバック文言にする運用。
+        gr = _gr(status="failed", failure_reason="unknown_legacy_tag")
+        mock_repo.list_for_user.return_value = [gr]
+        mock_repo.count_for_user.return_value = 1
+        mock_repo.fetch_prompt_versions.return_value = {gr.id: None}
+        mock_repo.compute_retry_depths.return_value = {gr.id: 0}
+
+        res = await service.list_history(user_id=uuid.uuid4(), page=1)
+
+        assert res.items[0].failure_reason is None
 
     async def test_境界値_total25_pageSize20_でtotalPages2(
         self, service: MeGenerationsService, mock_repo: AsyncMock
