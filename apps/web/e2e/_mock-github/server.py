@@ -397,10 +397,14 @@ def _build_app() -> FastAPI:
                 difficulty,
                 "typescript",
                 json.dumps([{"input": "[1,2,3]", "output": "6"}]),
+                # test_cases.input は Worker 側 TestCase 契約に合わせて配列で入れる。
+                # Worker 側 Vitest harness は solve(...input) と spread するため、
+                # solve(a: number[]) を呼ぶ時は input = 引数 1 個を配列で包んだ `[[1,2,3]]` / `[[]]`。
+                # 文字列を入れると grading Worker が json unmarshal で落ちて即 dead 行きになる。
                 json.dumps(
                     [
-                        {"input": "[1,2,3]", "expected": "6"},
-                        {"input": "[]", "expected": "0"},
+                        {"input": [[1, 2, 3]], "expected": 6},
+                        {"input": [[]], "expected": 0},
                     ]
                 ),
                 "export const solve = (a: number[]) => a.reduce((s, n) => s + n, 0);",

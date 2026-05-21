@@ -118,13 +118,16 @@ func TestMarkGenerationRequestCompleted_SetsStatusAndProblemID(t *testing.T) {
 	assert.Equal(t, created.ID, *producedProblemID)
 }
 
-func TestMarkGenerationRequestCompleted_NotFoundReturnsError(t *testing.T) {
+func TestMarkGenerationRequestCompleted_VanishedReturnsSentinel(t *testing.T) {
 	pool := testsupport.StartPostgres(t)
 	ctx := context.Background()
 
 	err := markGenerationRequestCompleted(ctx, pool, uuid.New(), uuid.New())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	// issue #83: 行不在は ErrGenerationRequestVanished sentinel に統一。
+	//   handler 側で errors.Is で識別して INFO + nil 返却に倒すため、
+	//   文字列マッチではなく sentinel チェックで pin する。
+	assert.ErrorIs(t, err, ErrGenerationRequestVanished)
 }
 
 func TestMarkGenerationRequestFailed_SetsStatusFailed(t *testing.T) {
@@ -152,13 +155,14 @@ func TestMarkGenerationRequestFailed_SetsStatusFailed(t *testing.T) {
 	assert.NotNil(t, completedAt)
 }
 
-func TestMarkGenerationRequestFailed_NotFoundReturnsError(t *testing.T) {
+func TestMarkGenerationRequestFailed_VanishedReturnsSentinel(t *testing.T) {
 	pool := testsupport.StartPostgres(t)
 	ctx := context.Background()
 
 	err := markGenerationRequestFailed(ctx, pool, uuid.New(), "test_reason")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	// issue #83: 行不在は ErrGenerationRequestVanished sentinel に統一。
+	assert.ErrorIs(t, err, ErrGenerationRequestVanished)
 }
 
 // ----------------------------------------------------------------------------
@@ -215,6 +219,33 @@ func TestPgGradingStore_GetProblemForGrading_ReturnsTestCases(t *testing.T) {
 	assert.Equal(t, 3.0, cases[0].Expected, "1 番目の expected は 3")
 	assert.Equal(t, 5.0, cases[1].Expected, "2 番目の expected は 5")
 	assert.Equal(t, "array", category, "insertTestProblem は category='array' で挿入する")
+}
+
+// TestPgGradingStore_GetProblemForGrading_ParsesSeedHelperShape:
+// API / Web 側の seed helper が作る test_cases JSON shape を、Worker 側で
+// そのままパースできることを pin する regression test (issue #82)。
+//
+// 過去に seed が input="[1,2,3]" のような文字列で作られていて、Worker 側
+// TestCase (Input []any) と shape が合わずに json unmarshal で即 dead に
+// 流れていた。本 test は seed と同じ shape を直接埋めて、unmarshal 経路で
+// "cannot unmarshal string into Go struct field TestCase.input" が出ない
+// ことを確認する。seed の shape を再び壊した時にここで気付ける。
+func TestPgGradingStore_GetProblemForGrading_ParsesSeedHelperShape(t *testing.T) {
+	pool := testsupport.StartPostgres(t)
+	ctx := context.Background()
+
+	// solve(a: number[]) を Vitest harness が solve(...input) と spread する設計に
+	// 合わせ、input は引数 1 つを配列で包んだ `[[1,2,3]]` / `[[]]` になる。
+	// API / Web 側の seed helper はこれと完全一致した shape を吐く契約。
+	problemID := insertTestProblem(t, ctx, pool,
+		`[{"input":[[1,2,3]],"expected":6},{"input":[[]],"expected":0}]`, false)
+
+	store := newPgGradingStore(pool)
+	cases, err := store.GetProblemForGrading(ctx, problemID)
+	require.NoError(t, err, "seed helper shape は TestCase.input ([]any) と互換でなければならない")
+	require.Len(t, cases, 2)
+	assert.Equal(t, 6.0, cases[0].Expected)
+	assert.Equal(t, 0.0, cases[1].Expected)
 }
 
 func TestPgGradingStore_GetProblemForGrading_NotFound(t *testing.T) {

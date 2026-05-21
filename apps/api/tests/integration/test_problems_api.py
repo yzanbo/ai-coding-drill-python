@@ -212,9 +212,9 @@ class TestGetProblemDetail:
                 session,
                 examples=[{"input": "[1,2,3]", "output": "6"}],
                 test_cases=[
-                    {"input": "[1,2,3]", "expected": "6"},
-                    {"input": "[]", "expected": "0"},
-                    {"input": "[-1,1]", "expected": "0"},
+                    {"input": [[1, 2, 3]], "expected": 6},
+                    {"input": [[]], "expected": 0},
+                    {"input": [[-1, 1]], "expected": 0},
                 ],
             )
 

@@ -170,6 +170,14 @@ UPDATE generation_requests
 	return nil
 }
 
+// MarkFailed: generationStore interface 実装。dead 確定時の
+// generation_requests を failed に遷移する。OnDead からのみ呼ばれる。
+// 行が物理削除されていた場合は ErrGenerationRequestVanished を wrap して
+// 返し、OnDead 側で INFO 扱いに倒せるようにする（issue #83）。
+func (s *pgGenerationStore) MarkFailed(ctx context.Context, requestID uuid.UUID, reason string) error {
+	return markGenerationRequestFailed(ctx, s.pool, requestID, reason)
+}
+
 // InsertProblemAndCompleteRequest: generationStore interface 実装。
 // problems INSERT と generation_requests UPDATE を 1 tx に閉じる
 // (ADR 0046 冪等性契約)。失敗時は WithTx が自動 rollback するため、
@@ -210,6 +218,18 @@ type dbExecutor interface {
 // at-least-once 配送で同一ジョブが 2 回処理された場合のうち、後発側は
 // この sentinel を errors.Is で判定してログのみで握り潰す。
 var ErrGenerationRequestAlreadyFinalized = errors.New("grading: generation_request already finalized")
+
+// ErrGenerationRequestVanished: ジョブ処理中に対応する generation_requests 行が
+// DB から物理削除されていた時の sentinel。発生源：
+//   - E2E `/_test/reset` のレース（dev 環境で頻発、issue #83 の主動機）
+//   - 将来の管理画面 / GDPR 退会等での generation_requests 物理削除
+//   - R7+ で running 状態キャンセルが入った時の同様の経路（issue #89 / #90）
+//
+// 「エラーではなくキャンセル相当の正常イベント」として扱う方針（issue #83）：
+// handler 側で errors.Is(..., ErrGenerationRequestVanished) で識別し、INFO ログを
+// 出して nil 返却 → jobs を MarkSucceeded に流す。これにより WARN ノイズが
+// 抑えられ、本番の本物の WARN が埋もれる練度低下を避ける。
+var ErrGenerationRequestVanished = errors.New("grading: generation_request vanished")
 
 // JudgeScoresPayload: problems.judge_scores カラムに JSONB で保存する形。
 // 5 軸スコア + 合計 + 閾値 + 評価コストを 1 record で残す (運用ログ用)。
@@ -340,12 +360,15 @@ UPDATE generation_requests
 // finalizeMissOrAlreadyDone: status='pending' 制約付き UPDATE が 0 行を返した時の
 // 後処理。「行が存在しない」と「行はあるが既に completed/failed」を区別して
 // 別の error を返す。
+//
+// 行不在は ErrGenerationRequestVanished を wrap して返し、呼び出し側で
+// errors.Is で識別して INFO ログ + 正常終了に倒せるようにする（issue #83）。
 func finalizeMissOrAlreadyDone(ctx context.Context, exec dbExecutor, requestID uuid.UUID) error {
 	var status string
 	err := exec.QueryRow(ctx, `SELECT status FROM generation_requests WHERE id = $1`, requestID).Scan(&status)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("grading: generation_request %s not found", requestID)
+			return fmt.Errorf("%w: id=%s", ErrGenerationRequestVanished, requestID)
 		}
 		return fmt.Errorf("grading: lookup generation_request %s: %w", requestID, err)
 	}

@@ -61,10 +61,12 @@ async def create_problem(
         examples=(
             examples if examples is not None else [{"input": "[1,2,3]", "output": "6"}]
         ),
+        # test_cases.input は Worker 側 TestCase 契約に合わせて配列で入れる
+        # （文字列を入れると grading Worker が json unmarshal で落ちて即 dead 行きになる）。
         test_cases=(
             test_cases
             if test_cases is not None
-            else [{"input": "[1,2,3]", "expected": "6"}]
+            else [{"input": [[1, 2, 3]], "expected": 6}]
         ),
         reference_solution=reference_solution,
         judge_scores=judge_scores if judge_scores is not None else {},
