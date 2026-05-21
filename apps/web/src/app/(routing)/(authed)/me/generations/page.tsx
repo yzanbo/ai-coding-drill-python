@@ -8,7 +8,7 @@
 //   - 全件終端なら停止、タブ非アクティブで停止
 //   - 行クリックの遷移は状態別（completed → /problems/:id、pending →
 //     /problems/generate/:requestId、failed/canceled は遷移なし + インライン表示）
-//   - キャンセル / 再試行ボタンは pending / failed の行にのみ表示
+//   - 再試行ボタンは failed の行にのみ表示（キャンセル機構は廃止）
 //   - 失敗理由は Worker の内部タグをそのまま見せず、ユーザー向け短文に丸める
 //     （要件 §ビジネスルール: 「内部の失敗種別はユーザーには区別せず表示」）
 
@@ -23,12 +23,11 @@ import { LiveDuration } from "@/components/parts/live-duration/live-duration";
 import { StatusBadge, type StatusTone } from "@/components/parts/status-badge/status-badge";
 import { Button } from "@/components/ui/button/button";
 import { Card, CardContent } from "@/components/ui/card/card";
+import { useRetryMyGeneration } from "@/hooks/use-retry-my-generation/use-retry-my-generation";
 import { formatCategoryLabel } from "@/lib/utils/category-label";
 import { formatDifficultyLabel } from "@/lib/utils/difficulty-label";
 import { formatDate } from "@/lib/utils/format-date";
-import { useCancelMyGeneration } from "./_hooks/_fetch/use-cancel-my-generation/use-cancel-my-generation";
 import { useGetMyGenerations } from "./_hooks/_fetch/use-get-my-generations/use-get-my-generations";
-import { useRetryMyGeneration } from "./_hooks/_fetch/use-retry-my-generation/use-retry-my-generation";
 
 // parsePage: ?page= をパース。数値以外 / 0 以下は 1 にフォールバック。
 const parsePage = (raw: string | null): number => {
@@ -84,7 +83,6 @@ export default function MyGenerationsPage() {
   const page = useMemo(() => parsePage(searchParams.get("page")), [searchParams]);
 
   const { generations, isLoading, error } = useGetMyGenerations(page);
-  const cancelMutation = useCancelMyGeneration();
   const retryMutation = useRetryMyGeneration();
 
   // 範囲外 page は最終ページに寄せる（/me/history と同じ挙動、UX 一貫性）。
@@ -126,9 +124,7 @@ export default function MyGenerationsPage() {
                 <GenerationRow
                   key={item.id}
                   item={item}
-                  onCancel={(id) => cancelMutation.cancel(id)}
                   onRetry={(id) => retryMutation.retry(id)}
-                  isCancelPending={cancelMutation.isPending}
                   isRetryPending={retryMutation.isPending}
                 />
               ))}
@@ -164,9 +160,7 @@ export default function MyGenerationsPage() {
 
 type GenerationRowProps = {
   item: GenerationRequestSummary;
-  onCancel: (id: string) => Promise<unknown>;
   onRetry: (id: string) => Promise<unknown>;
-  isCancelPending: boolean;
   isRetryPending: boolean;
 };
 
@@ -178,15 +172,8 @@ type GenerationRowProps = {
 //
 //   a11y 上、<a> の中に <button> を入れる nested interactive にしないため、
 //   カード内の情報部分（左カラム）だけを Link で包み、操作ボタン（右カラム）は
-//   Link の外に並べる。pending は本文クリックで生成ステータス画面に遷移しつつ、
-//   隣でキャンセルできる。
-const GenerationRow = ({
-  item,
-  onCancel,
-  onRetry,
-  isCancelPending,
-  isRetryPending,
-}: GenerationRowProps) => {
+//   Link の外に並べる。failed 行は本文クリック非リンク + 隣に再試行ボタン。
+const GenerationRow = ({ item, onRetry, isRetryPending }: GenerationRowProps) => {
   const status = STATUS_LABEL[item.status];
   const linkHref = ((): string | null => {
     if (item.status === "completed" && item.producedProblemId) {
@@ -238,18 +225,6 @@ const GenerationRow = ({
 
   const actions = (
     <div className="flex items-center gap-2">
-      {item.status === "pending" ? (
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={isCancelPending}
-          onClick={() => {
-            void onCancel(item.id);
-          }}
-        >
-          キャンセル
-        </Button>
-      ) : null}
       {item.status === "failed" ? (
         <Button
           size="sm"

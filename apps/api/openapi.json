@@ -44,27 +44,6 @@
         "title": "AttemptError",
         "type": "object"
       },
-      "GenerationRequestCancelResponse": {
-        "description": "キャンセル後の最終状態。",
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "status": {
-            "const": "canceled",
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "status"
-        ],
-        "title": "GenerationRequestCancelResponse",
-        "type": "object"
-      },
       "GenerationRequestRetryResponse": {
         "description": "再試行で作られた新規 generation_request の最小情報。",
         "properties": {
@@ -1147,50 +1126,6 @@
           }
         },
         "summary": "List My Generations",
-        "tags": [
-          "me"
-        ]
-      }
-    },
-    "/api/me/generations/{request_id}/cancel": {
-      "post": {
-        "description": "pending のリクエストを canceled に倒す（Worker は state='dead' にして無効化）。\n\n- 他人のリクエスト / 存在しない → 404\n- pending 以外 → 409 Conflict",
-        "operationId": "cancel_my_generation_api_me_generations__request_id__cancel_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "request_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Request Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GenerationRequestCancelResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Cancel My Generation",
         "tags": [
           "me"
         ]

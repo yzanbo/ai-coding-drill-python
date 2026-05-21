@@ -258,6 +258,53 @@ pre-push:
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     # ─────────────────────────────────────────────────────────────────
+    # End-to-End (Playwright) — mise run web:e2e
+    # ─────────────────────────────────────────────────────────────────
+    # CI の web-e2e ジョブと同等のシナリオをローカル push 前にも回す。
+    # CI で初めて E2E 失敗が表面化して revert ラウンドトリップになる事故
+    # （PR #94 retry テストの waitForURL 即マッチ問題が CI でのみ顕在化した等）を
+    # 先回りで潰すためのゲート。
+    #
+    # トリガ条件は CI の web-e2e と揃える：
+    #   apps/web/** / apps/api/** / apps/api/openapi.json / apps/api/job-schemas/**
+    #   （CI 側 `needs.changes.outputs.{web,api,grading,shared}` の現実的近似。
+    #   worker grading の Go 変更は本フックでは拾わず CI に任せる：
+    #   ローカル pre-push で go build + docker + Playwright を全部回すと過重）。
+    #
+    # `mise run web:e2e` を経由する理由：
+    #   - depends で test:up が走り、専用 Postgres / Redis（:5433 / :6380）が立つ
+    #   - test:up が Alembic を適用するため DB schema も揃う
+    #   - これにより local 1 コマンドで CI と同じ流れを再現できる（mise.toml SSoT）
+    #
+    # Playwright ブラウザ未インストール時は失敗するため、fail_text で復旧手順を案内する。
+    # 重い（~1〜2 分）のは承知の上：pre-push は「push 前に CI 失敗を見越して止める」
+    # 性質のため、E2E を含めるのが本来あるべき場所。短縮したい時は
+    # `LEFTHOOK_EXCLUDE=web-e2e git push` で個別 skip 可能。
+    web-e2e:
+      glob: "apps/web/**,apps/api/**,apps/api/openapi.json,apps/api/job-schemas/**"
+      run: mise exec -- mise run web:e2e
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  Playwright E2E が失敗しました（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        失敗の詳細は apps/web/playwright-report/ と test-results/ を確認してください。
+
+        【よくある原因】
+          ・テスト用 Postgres / Redis 未起動 → mise run test:up
+              （web:e2e は depends で自動起動するが Docker 本体が落ちていると失敗する）
+          ・Playwright ブラウザ未インストール
+              → cd apps/web && pnpm exec playwright install --with-deps chromium
+          ・サーバ起動失敗（webServer タイムアウト）→ DATABASE_URL / REDIS_URL の指定確認
+
+        【一時的に skip したい時】
+          push が緊急で E2E が不安定な場合は以下で skip 可能（その時は CI で必ず確認）:
+              LEFTHOOK_EXCLUDE=web-e2e git push
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    # ─────────────────────────────────────────────────────────────────
     # Worker (apps/workers/grading/) — types-gen + go test ./...
     # ─────────────────────────────────────────────────────────────────
     # push 前の動的検証ゲート（pre-commit の静的検査と CI の間のギャップを埋める）。
