@@ -443,6 +443,11 @@ jobs:
       - name: Install Playwright OS deps only (cache hit)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: cd apps/web && pnpm exec playwright install-deps chromium
+      # 採点 Worker のサンドボックス image を先に build（grading-flow.spec.ts が Worker を起動するため、
+      # image 不在だと Worker が fail-fast する。issue #80）。
+      # local の `mise run web:e2e` は depends で同タスクを自動実行するが、CI は webServer を
+      # 直接叩く流儀（test:up を経由しない）なので明示ステップで build する。
+      - run: mise run worker:grading:sandbox-build
       # CI=true で webServer.reuseExistingServer=false / reporter=github / workers=1 /
       # retries=2 が有効になる（playwright.config.ts 参照）。
       - run: cd apps/web && CI=true pnpm exec playwright test

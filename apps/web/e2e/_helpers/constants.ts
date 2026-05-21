@@ -15,6 +15,12 @@ export const MOCK_GITHUB_ORIGIN = `http://127.0.0.1:${MOCK_GITHUB_PORT}`;
 export const API_PORT = 8001;
 export const WEB_PORT = 3001;
 
+// 採点 Worker の /healthz ポート（issue #80）。
+// dev では Worker は HTTP を listen しない（WORKER_HEALTH_ADDR 未設定で無効化）が、
+// E2E では Playwright の webServer.url が起動完了を検出するために有効化する。
+// dev 用 :3000 / :8000 と E2E 用 :3001 / :8001 / :18001 と被らない port を選んだ。
+export const WORKER_HEALTH_PORT = 8091;
+
 // DATABASE_URL / REDIS_URL: 環境変数で上書き可能。CI と dev で同じ config を
 // 使い回せるよう、ハードコードではなく env fallback 構造にしている。
 //

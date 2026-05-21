@@ -290,8 +290,11 @@ description = "Playwright E2E（先に test:up で専用 DB を起動・migratio
 dir = "apps/web"
 # CI では .github/workflows/ci.yml の services が Postgres / Redis を立てるため
 # 本タスクは使わず `pnpm exec playwright test` を直接呼ぶ。
-# ローカル開発者向けに test:up を chain して「mise run web:e2e 一発で立つ」体験を担保する。
-depends = ["test:up"]
+# ローカル開発者向けに test:up + sandbox image を chain して「mise run web:e2e 一発で立つ」
+# 体験を担保する。worker:grading:sandbox-build は採点 Worker が docker run する image を
+# 作る（grading-flow.spec.ts が pending → graded を観測するために Worker を起動するため、
+# image 無しでは Worker が fail-fast する。issue #80）。
+depends = ["test:up", "worker:grading:sandbox-build"]
 run = "pnpm exec playwright test"
 
 # ============================================================================
