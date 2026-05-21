@@ -216,6 +216,34 @@ func TestPgGradingStore_GetProblemForGrading_ReturnsTestCases(t *testing.T) {
 	assert.Equal(t, 5.0, cases[1].Expected, "2 番目の expected は 5")
 }
 
+// TestPgGradingStore_GetProblemForGrading_ParsesSeedHelperShape:
+// seed helper (apps/web/e2e/_mock-github/server.py の /_test/seed-problem や
+// apps/api/tests/integration/*.py の _insert_problem) が作る test_cases JSON を
+// そのままパースできることを pin する regression test。
+//
+// 過去 (issue #82) に seed が input="[1,2,3]" のような文字列で作られており、
+// Worker 側 TestCase (Input []any) と shape が合わずに即 dead に流れていた。
+// この test は seed helper と同じ shape を直接埋めて、JSON unmarshal 経路で
+// "cannot unmarshal string into Go struct field TestCase.input" が出ないことを
+// 確認する。seed helper の shape を再び壊した時にここで気付ける。
+func TestPgGradingStore_GetProblemForGrading_ParsesSeedHelperShape(t *testing.T) {
+	pool := testsupport.StartPostgres(t)
+	ctx := context.Background()
+
+	// shape は apps/web/e2e/_mock-github/server.py の /_test/seed-problem と
+	// apps/api/tests/**/test_*.py の _insert_problem / _make_problem が作るものと
+	// 完全一致させる (solve(a: number[]) → number の引数 1 個ぶんを配列で包む)。
+	problemID := insertTestProblem(t, ctx, pool,
+		`[{"input":[[1,2,3]],"expected":6},{"input":[[]],"expected":0}]`, false)
+
+	store := newPgGradingStore(pool)
+	cases, err := store.GetProblemForGrading(ctx, problemID)
+	require.NoError(t, err, "seed helper shape は TestCase.input ([]any) と互換でなければならない")
+	require.Len(t, cases, 2)
+	assert.Equal(t, 6.0, cases[0].Expected)
+	assert.Equal(t, 0.0, cases[1].Expected)
+}
+
 func TestPgGradingStore_GetProblemForGrading_NotFound(t *testing.T) {
 	pool := testsupport.StartPostgres(t)
 	ctx := context.Background()

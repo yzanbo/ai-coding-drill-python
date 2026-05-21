@@ -78,7 +78,10 @@ def _make_problem(*, problem_id: uuid.UUID | None = None) -> Problem:
         difficulty="easy",
         language="typescript",
         examples=[{"input": "", "output": ""}],
-        test_cases=[{"input": "", "expected": ""}],
+        # test_cases.input は Worker 側の TestCase 契約（[]any）に合わせて配列で入れる。
+        # 文字列を入れると grading Worker が json unmarshal で落ちて即 dead 行きになる。
+        # 契約 SSoT: apps/workers/grading/internal/grading/generation_prompt.go の TestCase
+        test_cases=[{"input": [], "expected": None}],
         reference_solution="",
         judge_scores={},
     )

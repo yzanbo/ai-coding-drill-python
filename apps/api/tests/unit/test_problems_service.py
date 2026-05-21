@@ -64,11 +64,14 @@ def _make_problem(
         language="typescript",
         examples=examples or [{"input": "[1,2,3]", "output": "6"}],
         # test_cases は意図的に複数件用意して、レスポンスに漏れないことを別テストで確認。
+        # input は Worker 側 TestCase 契約（[]any）に合わせて配列で入れる。文字列を入れると
+        # grading Worker が json unmarshal で落ちて即 dead 行きになる。
+        # 契約 SSoT: apps/workers/grading/internal/grading/generation_prompt.go の TestCase
         test_cases=test_cases
         or [
-            {"input": "[1,2,3]", "expected": "6"},
-            {"input": "[]", "expected": "0"},
-            {"input": "[-1,1]", "expected": "0"},
+            {"input": [[1, 2, 3]], "expected": 6},
+            {"input": [[]], "expected": 0},
+            {"input": [[-1, 1]], "expected": 0},
         ],
         reference_solution=reference_solution,
         judge_scores={"correctness": 5, "difficulty_fit": 5},

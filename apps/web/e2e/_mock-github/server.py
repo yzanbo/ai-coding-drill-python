@@ -397,10 +397,15 @@ def _build_app() -> FastAPI:
                 difficulty,
                 "typescript",
                 json.dumps([{"input": "[1,2,3]", "output": "6"}]),
+                # test_cases.input は Worker 側 TestCase 契約（[]any）に合わせる：solve(arg1, arg2, ...)
+                # の各引数を配列で並べる。ここでは solve(a: number[]) を呼ぶので input は引数 1 つの配列を
+                # さらに [] で包んだ `[[1,2,3]]` / `[[]]` になる。文字列を入れると grading Worker が
+                # json unmarshal で落ちて即 dead 行きになる。
+                # 契約 SSoT: apps/workers/grading/internal/grading/generation_prompt.go の TestCase
                 json.dumps(
                     [
-                        {"input": "[1,2,3]", "expected": "6"},
-                        {"input": "[]", "expected": "0"},
+                        {"input": [[1, 2, 3]], "expected": 6},
+                        {"input": [[]], "expected": 0},
                     ]
                 ),
                 "export const solve = (a: number[]) => a.reduce((s, n) => s + n, 0);",
