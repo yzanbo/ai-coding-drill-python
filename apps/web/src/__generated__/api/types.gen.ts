@@ -801,7 +801,7 @@ export type ListProblemsApiProblemsGetData = {
         /**
          * Page Size
          *
-         * 1 ページあたりの件数（上限なし）
+         * 1 ページあたりの件数（上限 1000）
          */
         page_size?: number;
     };

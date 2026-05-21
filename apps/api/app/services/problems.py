@@ -21,7 +21,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ProblemNotFoundError
 from app.repositories.problems import ProblemRepository
 from app.schemas.problems import (
-    PROBLEMS_PAGE_SIZE,
     ProblemCategory,
     ProblemDetailResponse,
     ProblemDifficulty,
@@ -45,7 +44,9 @@ class ProblemService:
         category: ProblemCategory | None,
         difficulty: ProblemDifficulty | None,
         page: int,
-        page_size: int = PROBLEMS_PAGE_SIZE,
+        # page_size: Router の Query(...) 側が既定値（PROBLEMS_PAGE_SIZE）を保持する
+        #   SSoT。Service 側でデフォルトを持つと既定値が 2 箇所に分散するため必須引数。
+        page_size: int,
     ) -> ProblemListResponse:
         """フィルタ + ページングして一覧を返す。
 

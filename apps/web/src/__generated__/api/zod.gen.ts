@@ -469,7 +469,7 @@ export const zListProblemsApiProblemsGetQuery = z.object({
     category: zProblemCategory.nullish(),
     difficulty: zProblemDifficulty.nullish(),
     page: z.int().gte(1).optional().default(1),
-    page_size: z.int().gte(1).optional().default(20)
+    page_size: z.int().gte(1).lte(1000).optional().default(20)
 });
 
 /**

@@ -90,7 +90,9 @@ class TestListProblems:
         # total=45 件 → ceil(45 / 20) = 3 ページ。
         mock_repo.list_paginated.return_value = (problems, 45)
 
-        res = await service.list_problems(category=None, difficulty=None, page=1)
+        res = await service.list_problems(
+            category=None, difficulty=None, page=1, page_size=PROBLEMS_PAGE_SIZE
+        )
 
         mock_repo.list_paginated.assert_called_once_with(
             category=None,
@@ -113,6 +115,7 @@ class TestListProblems:
             category=ProblemCategory.TYPE_PUZZLE,
             difficulty=ProblemDifficulty.HARD,
             page=2,
+            page_size=PROBLEMS_PAGE_SIZE,
         )
 
         mock_repo.list_paginated.assert_called_once_with(
@@ -129,7 +132,9 @@ class TestListProblems:
     ) -> None:
         mock_repo.list_paginated.return_value = ([], 0)
 
-        res = await service.list_problems(category=None, difficulty=None, page=1)
+        res = await service.list_problems(
+            category=None, difficulty=None, page=1, page_size=PROBLEMS_PAGE_SIZE
+        )
 
         assert res.items == []
         assert res.page == 1

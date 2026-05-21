@@ -157,9 +157,11 @@ async def list_problems(
     ] = None,
     page: Annotated[int, Query(ge=1, description="ページ番号（1 始まり）")] = 1,
     # page_size: 1 ページあたりの件数。
-    #   既定 20 / 上限なし（クライアント側で全件取得したい時に大きい値を渡せるように）。
+    #   既定 20 / 上限 1000（FE 側 ALL_FETCH_PAGE_SIZE と一致）。本エンドポイントは
+    #   未認証で叩けるため、上限を外すと 1 リクエストで Postgres を巨大スキャン＋
+    #   巨大 JSON 生成させられる。FE の全件取得用途と同値で閉じて攻撃面を絞る。
     page_size: Annotated[
-        int, Query(ge=1, description="1 ページあたりの件数（上限なし）")
+        int, Query(ge=1, le=1000, description="1 ページあたりの件数（上限 1000）")
     ] = PROBLEMS_PAGE_SIZE,
 ) -> ProblemListResponse:
     """カテゴリ・難易度フィルタ付きで問題一覧を返す。
