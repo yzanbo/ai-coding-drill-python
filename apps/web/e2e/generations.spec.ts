@@ -80,7 +80,10 @@ test.describe("認証ユーザー: 各状態の行が表示される", () => {
     await page.goto("/me/generations");
 
     await expect(page.getByText("失敗").first()).toBeVisible();
-    await expect(page.getByText("judge_below_threshold")).toBeVisible();
+    // 内部タグ（judge_below_threshold）は出さず、丸めた汎用文言を出す。
+    //   要件 §ビジネスルール「内部の失敗種別はユーザーには区別せず表示」に従う。
+    await expect(page.getByText("問題を生成できませんでした")).toBeVisible();
+    await expect(page.getByText("judge_below_threshold")).not.toBeVisible();
     await expect(page.getByRole("button", { name: "再試行" })).toBeVisible();
   });
 

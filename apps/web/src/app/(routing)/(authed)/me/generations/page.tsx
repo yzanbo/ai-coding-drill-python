@@ -6,9 +6,11 @@
 // 設計：
 //   - 認証必須。Client Component + TanStack Query で /api/me/generations を 1 秒ポーリング
 //   - 全件終端なら停止、タブ非アクティブで停止
-//   - 行クリックの遷移は状態別（completed → /problems/:id、pending/running →
+//   - 行クリックの遷移は状態別（completed → /problems/:id、pending →
 //     /problems/generate/:requestId、failed/canceled は遷移なし + インライン表示）
 //   - キャンセル / 再試行ボタンは pending / failed の行にのみ表示
+//   - 失敗理由は Worker の内部タグをそのまま見せず、ユーザー向け短文に丸める
+//     （要件 §ビジネスルール: 「内部の失敗種別はユーザーには区別せず表示」）
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -48,6 +50,9 @@ const formatDate = (iso: string | null | undefined): string => {
 };
 
 // formatDuration: 経過時間（ms）を「12 秒」「3 分 5 秒」表記に丸める。
+//   completedAt が無い（= 進行中）の時は「今この瞬間」までの経過時間を返す。
+//   1 秒ポーリングで再レンダリングされるたびに値が進むので、pending 行はカウンタ
+//   として動いて見える。
 const formatDuration = (createdAt: string, completedAt: string | null | undefined): string => {
   const start = new Date(createdAt).getTime();
   const end = completedAt ? new Date(completedAt).getTime() : Date.now();
@@ -55,6 +60,16 @@ const formatDuration = (createdAt: string, completedAt: string | null | undefine
   const sec = Math.max(0, Math.floor((end - start) / 1000));
   if (sec < 60) return `${sec} 秒`;
   return `${Math.floor(sec / 60)} 分 ${sec % 60} 秒`;
+};
+
+// formatFailureReason: Worker が書き込む内部タグ（"max_attempts_exceeded" /
+//   "judge_below_threshold" / "sandbox_failed" 等）を、ユーザー向けの短文に丸める。
+//   要件 problem-generation.md §ビジネスルール「内部の失敗種別はユーザーには
+//   区別せず『生成に失敗しました』と表示する（情報漏洩防止）」に従い、原則は
+//   汎用文言を返す。タグ別に細かい表示を出す方針に変えた時はここを差し替える。
+const formatFailureReason = (raw: string | null | undefined): string => {
+  if (!raw) return "—";
+  return "問題を生成できませんでした。もう一度お試しください。";
 };
 
 // STATUS_LABEL: 状態文字列 → 表示ラベル + 色トーン。
@@ -215,7 +230,9 @@ const GenerationRow = ({
             {formatDate(item.createdAt)} ／ 所要 {formatDuration(item.createdAt, item.completedAt)}
           </span>
           {item.status === "failed" && item.failureReason ? (
-            <span className="text-xs text-destructive">失敗理由: {item.failureReason}</span>
+            <span className="text-xs text-destructive">
+              失敗理由: {formatFailureReason(item.failureReason)}
+            </span>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
