@@ -126,8 +126,13 @@ test.describe("問題生成 failed 時の再試行", () => {
 
     // ボタン押下で新しい generation_request の生成中画面に遷移する
     //   （/problems/generate/<新 id> に replace、旧 id と異なる）。
+    //   waitForURL に REQUEST_ID_PATTERN だけ渡すと、まだ replace 前で旧 id の URL
+    //   にいる時点で即マッチして抜けてしまい新 id 待ちにならない。コールバック形式で
+    //   「pathname がパターンに合致し、かつ旧 id を含まない」まで待つ。
     await retryButton.click();
-    await page.waitForURL(REQUEST_ID_PATTERN);
+    await page.waitForURL(
+      (url) => REQUEST_ID_PATTERN.test(url.pathname) && !url.pathname.includes(requestId ?? ""),
+    );
     const newRequestId = page.url().match(REQUEST_ID_PATTERN)?.[1];
     expect(newRequestId).toBeDefined();
     expect(newRequestId).not.toBe(requestId);
