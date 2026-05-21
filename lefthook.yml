@@ -241,6 +241,38 @@ pre-push:
       root: apps/web
       run: mise exec -- pnpm exec vitest run
 
+    # Playwright E2E（実 Postgres + Redis + mock-github + Next.js + FastAPI を立てて
+    # ブラウザで叩く）。webServer は playwright.config.ts が自動で起動する。
+    # `mise exec -- mise run web:e2e` 経由で起動する理由：web:e2e タスクが depends で
+    # test:up を呼ぶため、テスト用 Postgres / Redis が未起動でも自動で立てる。
+    # CI 側の web-e2e ジョブとほぼ同じ経路をローカルでも踏ませて、push 前に dead 行きの
+    # grading ジョブ等を観測できるようにする（issue #82 で test_cases seed shape を
+    # Worker 契約に揃えた regression が pre-push でも自動で守られる）。
+    # glob: apps/web 変更 + e2e ヘルパ（apps/web/e2e/**）変更 + API 側 schemas 変更で発火。
+    # apps/api 側の変更でも発火する理由：OpenAPI 経由で web の生成型に伝播するため、
+    # API の breaking change を push する時に E2E を一緒に回したい。
+    web-e2e:
+      glob: "apps/web/**/*.{ts,tsx,css,json},apps/web/e2e/**,apps/api/app/**/*.py"
+      run: mise exec -- mise run web:e2e
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  Playwright E2E が失敗しました（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        失敗の詳細は上の playwright ログを確認してください。
+
+        【よくある原因】
+          ・テスト用 Postgres / Redis 未起動（webServer が DB 接続できない）
+              → mise run test:up してから再 push（web:e2e は depends で自動起動するが
+                 Docker 本体が落ちている時はここで失敗する）
+          ・ブラウザ未インストール（"Executable doesn't exist"）
+              → cd apps/web && pnpm exec playwright install --with-deps chromium
+          ・port 競合（dev サーバが 3000 / 8000 を握ったまま）
+              → mise run dev:restart で kill してから再 push
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     web-next-build:
       glob: "apps/web/**/*.{ts,tsx,css,json}"
       root: apps/web
