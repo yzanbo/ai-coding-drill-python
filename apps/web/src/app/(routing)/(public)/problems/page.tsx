@@ -126,16 +126,10 @@ export default async function ProblemsListPage({ searchParams }: ProblemsPagePro
             解いてみたい問題をカテゴリ・難易度で絞り込めます。
           </p>
         </div>
-        {/* 右側の動線。ヘッダーの「生成履歴」リンクをこちらに集約し、
-            「生成 → 履歴」が同じ場所で完結するようにする。 */}
-        <div className="flex items-center gap-2 sm:self-start">
-          <Button asChild variant="outline" size="sm">
-            <Link href="/me/generations">生成履歴</Link>
-          </Button>
-          <Button asChild size="sm">
-            <Link href="/problems/new">新規問題を生成</Link>
-          </Button>
-        </div>
+        {/* 新規問題を生成: /problems/new への主動線。 */}
+        <Button asChild size="sm" className="sm:self-start">
+          <Link href="/problems/new">新規問題を生成</Link>
+        </Button>
       </header>
 
       <ProblemsFilterForm category={category} difficulty={difficulty} />

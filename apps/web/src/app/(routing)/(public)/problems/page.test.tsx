@@ -82,7 +82,7 @@ describe("ProblemsListPage の認証ガード", () => {
 });
 
 describe("ProblemsListPage のヘッダー導線", () => {
-  it("ヘッダーに /problems/new と /me/generations へのリンクを描画する", async () => {
+  it("ヘッダーに /problems/new への新規問題を生成リンクを描画する", async () => {
     mockListResponse = { items: [], page: 1, totalPages: 0 };
 
     const tree = await ProblemsListPage({
@@ -90,7 +90,6 @@ describe("ProblemsListPage のヘッダー導線", () => {
     });
 
     expect(findHrefInTree(tree, "/problems/new")).toBe(true);
-    expect(findHrefInTree(tree, "/me/generations")).toBe(true);
   });
 });
 

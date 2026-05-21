@@ -22,10 +22,10 @@ import { cn } from "@/lib/utils";
 //   触らずに済む。SSoT は本配列。
 const GLOBAL_NAV_LINKS: { href: string; label: string }[] = [
   { href: "/problems", label: "問題一覧" },
+  { href: "/me/generations", label: "生成履歴" },
   { href: "/me/history", label: "解答履歴" },
   { href: "/me/stats", label: "学習統計" },
   { href: "/me/weakness", label: "弱点" },
-  // 生成履歴は問題一覧ページの右上に動線を集約（生成 → 履歴の流れがそこで完結するため）。
 ];
 
 export const SiteHeader = () => {
