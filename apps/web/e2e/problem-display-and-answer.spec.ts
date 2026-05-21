@@ -66,32 +66,22 @@ test.describe("ゲスト閲覧", () => {
     await expect(page).toHaveURL(new RegExp(`/problems/${problemId}$`));
   });
 
-  test("ゲストでも /problems/:id が 200 で開き、コードエディタが表示される", async ({ page }) => {
-    const problemId = await seedProblem(page.request);
-
-    await page.goto(`/problems/${problemId}`);
-
-    // 問題本文セクションと解答エディタが両方ある。
-    await expect(page.getByRole("heading", { name: /E2E 配列の合計/ })).toBeVisible();
-    await expect(page.getByLabel("解答コードエディタ")).toBeVisible();
-    // 実行ボタンも表示される（ゲストでも押せる UI、押下時に login へ飛ばす設計）。
-    await expect(page.getByRole("button", { name: "実行" })).toBeVisible();
-  });
-
-  test("ゲストが「実行」を押すと /login?next=/problems/:id にリダイレクトされる", async ({
+  test("ゲストが /problems/:id を開くと「ログインが必要です」案内ページが出る", async ({
     page,
   }) => {
     const problemId = await seedProblem(page.request);
+
     await page.goto(`/problems/${problemId}`);
 
-    await page.getByRole("button", { name: "実行" }).click();
-
-    // クエリ含む URL（next エンコード済み）を一致確認。
-    //   /login?next=%2Fproblems%2F<uuid> を末尾一致で検証する。
-    //   URL.pathname + URL.search で組み立ててから endsWith する方が
-    //   regex の二重エスケープ事故を起こさない。
-    const expectedSuffix = `/login?next=${encodeURIComponent(`/problems/${problemId}`)}`;
-    await expect.poll(() => page.url().endsWith(expectedSuffix)).toBe(true);
+    // 認証必須化（R1-6 ユーザー指示）：未ログインは問題本文を見せず案内ページに置き換える。
+    await expect(page.getByRole("heading", { name: "ログインが必要です" })).toBeVisible();
+    // 問題本文 / 解答エディタは表示されない（ガード越し）。
+    await expect(page.getByLabel("解答コードエディタ")).not.toBeVisible();
+    // CTA から next= 付き /login に進める。
+    const loginCta = page.getByRole("link", { name: "GitHub でログイン" });
+    await expect(loginCta).toBeVisible();
+    const href = await loginCta.getAttribute("href");
+    expect(href).toBe(`/login?next=${encodeURIComponent(`/problems/${problemId}`)}`);
   });
 });
 
@@ -102,8 +92,9 @@ test.describe("認証ユーザー：解答送信", () => {
     const problemId = await seedProblem(page.request);
 
     // ログイン → 詳細ページ。
+    //   "/" は /problems にサーバ side redirect されるため、終端着地は /problems。
     await loginViaMockGithub(page);
-    await page.waitForURL("/");
+    await page.waitForURL("/problems");
     await page.goto(`/problems/${problemId}`);
 
     // 認証 me 完了を待つ：ボタンが enabled になるはず。
