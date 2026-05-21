@@ -362,7 +362,7 @@ mise exec -- lefthook run pre-push        # api-pytest exit 1 + fail_text 表示
 
 **設計判断（`api-test` を CI に含める）**：pre-push hook は `--no-verify` でバイパスされ得るため、CI が **最後の砦**として integration テストも回す。hook と CI の二重防御で「ローカル緑 = 全テスト通過」の保証を hook bypass 時にもリモートで再現する。
 
-**Postgres 版数の同期**：CI の services の `image: postgres:<x.y>-alpine` は `docker-compose.yml` / `docker-compose.e2e.yml` と版数を揃える運用とする（手動同期）。R0 時点では片方を更新したらもう 2 箇所も書き換える。後続フェーズで三者を同期する仕組みを検討。
+**Postgres 版数の同期**：CI の services の `image: postgres:<x.y>-alpine` は `docker-compose.yml` / `docker-compose.e2e.yml` と版数を揃える運用とする（手動同期）。R0 時点では 1 箇所を更新したら残りの 2 箇所も書き換える。後続フェーズで三者を同期する仕組みを検討。
 
 **完了確認**：
 - PR を作ると `api-lint` / `api-typecheck` / `api-audit` / `api-deps-check` / `api-test` の 5 ジョブが並列で走る

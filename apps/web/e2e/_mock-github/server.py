@@ -79,7 +79,7 @@ def _ensure_e2e_db_url(db_url: str) -> None:
     if host not in _LOCAL_DB_HOSTS:
         raise HTTPException(
             status_code=403,
-            detail="DATABASE_URL のホストが localhost / 127.0.0.1 以外は拒否",
+            detail="DATABASE_URL のホストが localhost / 127.0.0.1 / ::1 以外は拒否",
         )
     if not db_name.endswith("_e2e"):
         raise HTTPException(
