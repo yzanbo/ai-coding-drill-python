@@ -17,8 +17,8 @@
 //   - status='failed'  → "失敗"（インフラ起因の採点失敗）
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo } from "react";
 
 import type { SubmissionStatus, SubmissionSummary } from "@/__generated__/api/types.gen";
 import { Button } from "@/components/ui/button/button";
@@ -70,9 +70,22 @@ const buildHref = (page: number): string =>
 
 export default function MyHistoryPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const page = useMemo(() => parsePage(searchParams.get("page")), [searchParams]);
 
   const { submissions, isLoading, error } = useGetMySubmissions(page);
+
+  // ?page=999 のように範囲外を踏まれた時は最終ページに寄せる（/problems と同じ挙動）。
+  //   Server Component 側は redirect() で 307 を返せるが、本ページは Client Component
+  //   なので useEffect + router.replace で代替する。fetch 完了後に判定するため
+  //   一瞬 items=0 の表示が出る可能性はあるが、URL とユーザー認識を合わせる方を優先する。
+  //   totalPages=0（履歴ゼロ）の場合は寄せ先が無いので無視（page=1 が空配列を返す）。
+  useEffect(() => {
+    if (!submissions) return;
+    if (submissions.totalPages > 0 && page > submissions.totalPages) {
+      router.replace(buildHref(submissions.totalPages));
+    }
+  }, [submissions, page, router]);
 
   const hasPrev = page > 1;
   const hasNext = submissions ? page < submissions.totalPages : false;
