@@ -69,16 +69,22 @@ jobs:
             generation:
               - 'apps/workers/generation/**'
             # 横断設定 / CI 自身の変更 — 全 job を走らせる安全側のトリガ：
-            #   - mise.toml: tool 版数の変更（全言語の依存）
-            #   - lefthook.yml / dependabot.yml: 共通ガード設定
-            #   - commitlint.config.mjs: scope 一覧 / 型一覧
+            #   - mise.toml: tool 版数の変更（全言語のビルド / テスト結果に影響）
             #   - .github/workflows/**: CI 設定自身の変更（filter の動作確認も含む）
+            #
+            # 含めない（CI 結果に影響しないため）：
+            #   - lefthook.yml: ローカル pre-commit / pre-push の設定のみ。
+            #     CI のテスト・ビルド・lint は mise タスクを直接呼んでおり、
+            #     lefthook.yml の差分は CI の判定結果を一切変えない。
+            #     かつて shared に含めて全 job を trigger していたが、
+            #     lefthook-only PR で web-* / api-* / worker-* が無意味に走る指摘により外した。
+            #   - commitlint.config.mjs: commitlint job のみが読む。
+            #     scope / type の追加は commit メッセージ検証にしか影響しないため、
+            #     コードの lint / test には無関係。
+            #   - .github/dependabot.yml: PR 生成スケジュールの設定のみ。CI 実行内容に無関係。
             shared:
               - 'mise.toml'
-              - 'lefthook.yml'
-              - 'commitlint.config.mjs'
               - '.github/workflows/**'
-              - '.github/dependabot.yml'
 
   # ====================================================================
   # job: commitlint
