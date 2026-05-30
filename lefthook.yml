@@ -65,6 +65,17 @@ pre-commit:
       root: apps/web
       run: mise exec -- pnpm exec knip --no-progress
 
+    # package.json 整合性検証（syncpack lint）
+    # 同一パッケージのバージョン宣言が複数箇所で食い違っていないか・semver の
+    # 表記揺れ（^ / ~ / 固定）が方針通りかを検証する（ADR 0024）。
+    # apps/web/package.json または lockfile 変更時のみ起動し、依存追加・bump 時の
+    # 整合性違反を pre-commit で弾く（従来は CI の web-syncpack でのみ検知）。
+    # glob: 固定パス 2 ファイルのみのため zero-dir 問題は無く、平坦な列挙で済む。
+    web-syncpack:
+      glob: "{apps/web/package.json,apps/web/pnpm-lock.yaml}"
+      root: apps/web
+      run: mise exec -- pnpm exec syncpack lint
+
     # ─────────────────────────────────────────────────────────────────
     # Worker (apps/workers/**) — gofmt + golangci-lint（差分行のみ）
     # ─────────────────────────────────────────────────────────────────
