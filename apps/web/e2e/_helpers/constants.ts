@@ -15,6 +15,12 @@ export const MOCK_GITHUB_ORIGIN = `http://127.0.0.1:${MOCK_GITHUB_PORT}`;
 export const API_PORT = 8001;
 export const WEB_PORT = 3001;
 
+// 採点 Worker の /healthz ポート（issue #80）。
+// dev では Worker は HTTP を listen しない（WORKER_HEALTH_ADDR 未設定で無効化）が、
+// E2E では Playwright の webServer.url が起動完了を検出するために有効化する。
+// dev 用 :3000 / :8000 と E2E 用 :3001 / :8001 / :18001 と被らない port を選んだ。
+export const WORKER_HEALTH_PORT = 8091;
+
 // DATABASE_URL / REDIS_URL: 環境変数で上書き可能。CI と dev で同じ config を
 // 使い回せるよう、ハードコードではなく env fallback 構造にしている。
 //
@@ -29,3 +35,11 @@ export const DATABASE_URL =
   process.env.DATABASE_URL ??
   "postgresql+asyncpg://postgres:postgres@localhost:5433/ai_coding_drill_test";
 export const REDIS_URL = process.env.REDIS_URL ?? "redis://localhost:6380/0";
+
+// 採点 Worker (Go / pgx ドライバ) 用の DSN（issue #80）。
+// DATABASE_URL は SQLAlchemy 互換の `postgresql+asyncpg://...` 形式だが、pgx は
+// `postgresql://...` / `postgres://...` しか解釈できない（dialect 接尾辞を受け付けない）。
+// 文字列操作を本ファイルに閉じることで、playwright.config.ts や spec 側が dialect を
+// 意識せず Worker へ環境変数を渡せる。将来 dialect が `+psycopg` 等に変わっても本箇所だけ
+// 更新すれば足りる。
+export const WORKER_DATABASE_URL = DATABASE_URL.replace(/\+[a-z]+:/, ":");
