@@ -15,6 +15,10 @@ dependencies = [
     "redis[hiredis]>=5.2",
     "slowapi>=0.1.9",
     "sqlalchemy[asyncio]>=2.0.49",
+    # starlette は本来 fastapi の間接依存だが、1.0.0 の脆弱性 (PYSEC-2026-161)
+    # 回避のため最小版を直接指定する。fastapi 側の require が 1.0.1+ に
+    # 上がれば本行は削除してよい。
+    "starlette>=1.0.1",
     "uvicorn[standard]>=0.46.0",
 ]
 
