@@ -89,18 +89,20 @@ pre-commit:
       run: mise exec -- gofmt -w {staged_files}
       stage_fixed: true
 
-    # golangci-lint: 全体走査ではなく `--new-from-rev=HEAD` で「未コミットの差分行のみ」を検査して高速化。
-    # 全体走査は pre-push の go test 経由 + CI の worker-<worker>-lint ジョブで担保する。
+    # golangci-lint: `mise run worker:<worker>:lint` 経由で全体走査（= `golangci-lint run`）。
+    # CI の worker-<worker>-lint ジョブと同じ起動経路・同じ範囲に揃え、
+    # 「ローカル緑 ≒ CI 緑」を構造的に保証する（ローカルで自分の行だけ通っても
+    # 既存コード由来の違反は CI で初めて落ちる、という不一致を解消）。
     # 独立 Go module（ADR 0040）のため Worker ごとに hook を分ける（module 跨ぎで lint 不可）。
+    # 速度懸念：golangci-lint は build cache + analyzer cache が効くため、
+    # 2 回目以降は数秒で完了する（初回のみキャッシュ生成で時間がかかる）。
     worker-grading-golangci-lint:
       glob: "{apps/workers/grading/*.go,apps/workers/grading/**/*.go}"
-      root: apps/workers/grading
-      run: mise exec -- golangci-lint run --new-from-rev=HEAD ./...
+      run: mise exec -- mise run worker:grading:lint
 
     worker-generation-golangci-lint:
       glob: "{apps/workers/generation/*.go,apps/workers/generation/**/*.go}"
-      root: apps/workers/generation
-      run: mise exec -- golangci-lint run --new-from-rev=HEAD ./...
+      run: mise exec -- mise run worker:generation:lint
 
     # ─────────────────────────────────────────────────────────────────
     # Pydantic SSoT → artifact 同期検証（ADR 0006、型同期パイプライン）
