@@ -78,18 +78,20 @@ pre-commit:
       run: mise exec -- gofmt -w {staged_files}
       stage_fixed: true
 
-    # golangci-lint: 全体走査ではなく `--new-from-rev=HEAD` で「未コミットの差分行のみ」を検査して高速化。
-    # 全体走査は pre-push の go test 経由 + CI の worker-<worker>-lint ジョブで担保する。
+    # golangci-lint: `mise run worker:<worker>:lint` 経由で全体走査（= `golangci-lint run`）。
+    # CI の worker-<worker>-lint ジョブと同じ起動経路・同じ範囲に揃え、
+    # 「ローカル緑 ≒ CI 緑」を構造的に保証する（ローカルで自分の行だけ通っても
+    # 既存コード由来の違反は CI で初めて落ちる、という不一致を解消）。
     # 独立 Go module（ADR 0040）のため Worker ごとに hook を分ける（module 跨ぎで lint 不可）。
+    # 速度懸念：golangci-lint は build cache + analyzer cache が効くため、
+    # 2 回目以降は数秒で完了する（初回のみキャッシュ生成で時間がかかる）。
     worker-grading-golangci-lint:
       glob: "{apps/workers/grading/*.go,apps/workers/grading/**/*.go}"
-      root: apps/workers/grading
-      run: mise exec -- golangci-lint run --new-from-rev=HEAD ./...
+      run: mise exec -- mise run worker:grading:lint
 
     worker-generation-golangci-lint:
       glob: "{apps/workers/generation/*.go,apps/workers/generation/**/*.go}"
-      root: apps/workers/generation
-      run: mise exec -- golangci-lint run --new-from-rev=HEAD ./...
+      run: mise exec -- mise run worker:generation:lint
 
     # ─────────────────────────────────────────────────────────────────
     # Pydantic SSoT → artifact 同期検証（ADR 0006、型同期パイプライン）
@@ -221,6 +223,37 @@ pre-push:
         【ネットワーク疎通エラーの場合】
           OSV / PyPI Advisory DB への接続に失敗している可能性。プロキシ環境では
           オフライン bump 後に CI でゲートする運用に切り替える。
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    # Frontend 依存衛生（syncpack lint）
+    # apps/web/package.json のバージョン宣言整合性を検証する（ADR 0024）。
+    # 同一パッケージが複数箇所で違うバージョンになっていないか、semver 記号
+    # （^ / ~ / 固定）の方針が揃っているかを見る。
+    # pre-commit ではなく pre-push に置く理由：他の依存系チェック
+    # （api-audit / api-deptry / worker-*-audit / worker-*-deps-check）と
+    # 同じ「依存ファイル変更時のみ発火」カテゴリのため、配置を揃える。
+    # glob を package.json / pnpm-lock.yaml に限定する理由：syncpack は
+    # 「コード変更」ではなく「依存宣言」を見るため、.ts を 1 行直しただけの
+    # push で走らせるのは無駄。依存追加・bump 時のみ発火させて開発者の
+    # 手を止めるタイミングを最小化する。
+    web-syncpack:
+      glob: "{apps/web/package.json,apps/web/pnpm-lock.yaml}"
+      root: apps/web
+      run: mise exec -- pnpm exec syncpack lint
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  syncpack が apps/web/package.json の不整合を検出（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        上の syncpack ログに従って package.json を修正してください。
+        単純な修正は自動で行える：
+          cd apps/web
+          pnpm exec syncpack fix-mismatches
+          pnpm exec syncpack format
+          pnpm install  # lockfile を再生成
+          git add package.json pnpm-lock.yaml
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
