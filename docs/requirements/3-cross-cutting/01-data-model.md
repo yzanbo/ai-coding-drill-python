@@ -96,9 +96,16 @@ erDiagram
     timestamptz created_at
     timestamptz updated_at
   }
+
+  health_check {
+    uuid id PK
+    timestamptz created_at
+  }
 ```
 
 各テーブルの **カラム単位の最終仕様（型・制約・デフォルト・インデックス）は SQLAlchemy 2.0 model（`Mapped[T]` 方式）が SSoT**。本図は構造の俯瞰用。
+
+> `health_check` は SQLAlchemy + Alembic の疎通確認用テーブル（R0 で追加）。`POST /health` の往復で DB 接続が生きていることを確認する用途で残してある。他テーブルとの FK 関係は無いためドメインモデルとは独立して描画。
 
 ---
 
