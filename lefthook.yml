@@ -100,17 +100,25 @@ pre-commit:
     # ローカルの早期 feedback 用。hook を --no-verify でバイパスされた場合は
     # CI の types-gen-drift ジョブ（後続ステップ）が最終ゲートとして守る。
     schemas-drift:
-      # trigger 対象は「OpenAPI / Job スキーマ artifact に影響する Backend コード」：
-      #   - apps/api/app/schemas/**  : Pydantic モデル（直接 OpenAPI / job-schemas を構成）
-      #   - apps/api/app/routers/**  : path / method / docstring / response_model
-      #                                （docstring は OpenAPI description に出る、
-      #                                 response_model の付け外しは schema 構造に影響）
+      # trigger 対象は「OpenAPI / Job スキーマ artifact に影響する Backend コード
+      # + 生成器側 dep」：
+      #   - apps/api/app/schemas/**     : Pydantic モデル（直接 OpenAPI / job-schemas を構成）
+      #   - apps/api/app/routers/**     : path / method / docstring / response_model
+      #                                   （docstring は OpenAPI description に出る、
+      #                                    response_model の付け外しは schema 構造に影響）
+      #   - apps/web/package.json       : @hey-api/openapi-ts 等の codegen 側 dep。
+      #                                    ジェネレータ bump で生成物（client.gen.ts 等）が
+      #                                    drift する事故（PR #46）に対応。
+      #   - apps/web/pnpm-lock.yaml     : package.json と整合のため一緒に trigger
       # routers/ を追加した経緯：routers/auth.py の docstring 変更で artifact が
       # drift したが schemas/ のみ trigger だったため pre-commit がスキップされ、
       # CI の git diff --exit-code で初めて検知された事故（commit c5c599f → 0caf558）。
+      # apps/web/package.json を追加した経緯：@hey-api/openapi-ts 0.97.2 bump で
+      # client/utils.gen.ts が drift したが OpenAPI 入力は無変更だったため hook が
+      # skip され、CI の types-gen-drift で初めて検知された事故（PR #46）。
       # main.py の include_router 変更は対象外（新規 router ファイル追加時は
       # routers/** 側で trigger される、reorder / 削除は稀なため YAGNI）。
-      glob: "{apps/api/app/{schemas,routers}/*,apps/api/app/{schemas,routers}/**/*}"
+      glob: "{apps/api/app/{schemas,routers}/*,apps/api/app/{schemas,routers}/**/*,apps/web/package.json,apps/web/pnpm-lock.yaml}"
       run: |
         set -e
         mise exec -- mise run api:openapi-export
