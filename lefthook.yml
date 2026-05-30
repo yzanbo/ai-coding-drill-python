@@ -24,14 +24,14 @@ pre-commit:
 
     # lint + format（ruff）
     api-ruff:
-      glob: "apps/api/**/*.py"
+      glob: "{apps/api/*.py,apps/api/**/*.py}"
       root: apps/api
       run: mise exec -- uv run ruff check --fix {staged_files}
       stage_fixed: true
 
     # 型チェック（pyright）
     api-pyright:
-      glob: "apps/api/**/*.py"
+      glob: "{apps/api/*.py,apps/api/**/*.py}"
       root: apps/api
       # pyright は対象ファイル単位の起動より apps/api 全体を見る方が正確
       # （import 解析が他ファイルに依存するため）。stale な誤検知を避ける目的。
@@ -46,7 +46,7 @@ pre-commit:
 
     # lint + format（Biome）— ステージ済の .ts/.tsx/.js/.jsx/.json/.jsonc/.css に適用
     web-biome:
-      glob: "apps/web/**/*.{ts,tsx,js,jsx,json,jsonc,css}"
+      glob: "{apps/web/*.{ts,tsx,js,jsx,json,jsonc,css},apps/web/**/*.{ts,tsx,js,jsx,json,jsonc,css}}"
       root: apps/web
       run: mise exec -- pnpm exec biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
@@ -54,14 +54,14 @@ pre-commit:
     # 型チェック（tsc --noEmit）— 対象ファイル単位ではなく apps/web 全体を見る
     # （TS の import 解析は他ファイルに依存するため、pyright と同じ理由で stale 誤検知を避ける）
     web-typecheck:
-      glob: "apps/web/**/*.{ts,tsx}"
+      glob: "{apps/web/*.{ts,tsx},apps/web/**/*.{ts,tsx}}"
       root: apps/web
       run: mise exec -- pnpm exec tsc --noEmit
 
     # 未使用 export / file / dependency 検出（Knip）
     # 重い場合は CI 専用に切り替える運用余地を残す（現状は pre-commit でも秒オーダーで完了）
     web-knip:
-      glob: "apps/web/**/*.{ts,tsx,json,jsonc}"
+      glob: "{apps/web/*.{ts,tsx,json,jsonc},apps/web/**/*.{ts,tsx,json,jsonc}}"
       root: apps/web
       run: mise exec -- pnpm exec knip --no-progress
 
@@ -74,7 +74,7 @@ pre-commit:
 
     # gofmt: ステージ済 *.go を破壊的に整形して再ステージ。format 違反だけのコミットを発生させない。
     worker-gofmt:
-      glob: "apps/workers/**/*.go"
+      glob: "{apps/workers/*.go,apps/workers/**/*.go}"
       run: mise exec -- gofmt -w {staged_files}
       stage_fixed: true
 
@@ -82,12 +82,12 @@ pre-commit:
     # 全体走査は pre-push の go test 経由 + CI の worker-<worker>-lint ジョブで担保する。
     # 独立 Go module（ADR 0040）のため Worker ごとに hook を分ける（module 跨ぎで lint 不可）。
     worker-grading-golangci-lint:
-      glob: "apps/workers/grading/**/*.go"
+      glob: "{apps/workers/grading/*.go,apps/workers/grading/**/*.go}"
       root: apps/workers/grading
       run: mise exec -- golangci-lint run --new-from-rev=HEAD ./...
 
     worker-generation-golangci-lint:
-      glob: "apps/workers/generation/**/*.go"
+      glob: "{apps/workers/generation/*.go,apps/workers/generation/**/*.go}"
       root: apps/workers/generation
       run: mise exec -- golangci-lint run --new-from-rev=HEAD ./...
 
@@ -110,7 +110,7 @@ pre-commit:
       # CI の git diff --exit-code で初めて検知された事故（commit c5c599f → 0caf558）。
       # main.py の include_router 変更は対象外（新規 router ファイル追加時は
       # routers/** 側で trigger される、reorder / 削除は稀なため YAGNI）。
-      glob: "apps/api/app/{schemas,routers}/**"
+      glob: "{apps/api/app/{schemas,routers}/*,apps/api/app/{schemas,routers}/**/*}"
       run: |
         set -e
         mise exec -- mise run api:openapi-export
@@ -147,7 +147,7 @@ pre-push:
     #   直接 `uv run pytest` を呼ぶと .env の dev DSN がそのまま使われて作業データが消える
     #   事故が起きるため、必ずタスク経由で起動する。
     api-pytest:
-      glob: "apps/api/**/*.py"
+      glob: "{apps/api/*.py,apps/api/**/*.py}"
       # skip: push 対象のコミット差分に .py 変更が一切無ければスキップする。
       #   lefthook 1.7 系の pre-push は `glob:` 単体だと filter として効かず、
       #   .py 差分ゼロの push でも api-pytest が発火して並行 worktree との Docker
@@ -222,12 +222,8 @@ pre-push:
     # pre-commit ではなく pre-push に置く理由：repo 全体スキャンで pre-commit ではやや重く、
     # かつ依存変更は commit 単位より push 単位で確認すれば CI 失敗を十分先回りできるため。
     # pyproject.toml も trigger 対象に含める（依存追加・例外追加時に発火させるため）。
-    # glob: lefthook (v1.7) の `**` は **1 階層以上のディレクトリ**を要求する仕様で、
-    # 直下ファイル（`apps/api/pyproject.toml` 等）は `apps/api/**/*.toml` にマッチせず
-    # silent skip される（PR #120 で実際に踏んだ）。直下と任意階層を OR で並べて両方を
-    # 拾うため、外側ブレース `{...,...}` で 2 パターンを列挙する。同型の罠は他フックの
-    # `apps/X/**/...` glob にも残っている可能性が高いが、副作用を避けて本 PR では
-    # api-deptry のみ修正、横断 sweep は別 PR とする。
+    # glob: `**` の zero-dir バグ回避で `{直下,任意階層}` を OR で並べる
+    # （詳細は本ファイル下部 web-e2e のコメントブロック参照、PR #120 で踏んだ罠）。
     api-deptry:
       glob: "{apps/api/*.{py,toml},apps/api/**/*.{py,toml}}"
       root: apps/api
@@ -256,7 +252,7 @@ pre-push:
     # エラーを先回り検出する。glob で apps/web 変更時のみ発火し、Backend / docs のみの push では
     # 起動しない。`mise exec --` 経由は他フックと同じ理由（shims 解決）。
     web-vitest:
-      glob: "apps/web/**/*.{ts,tsx}"
+      glob: "{apps/web/*.{ts,tsx},apps/web/**/*.{ts,tsx}}"
       root: apps/web
       run: mise exec -- pnpm exec vitest run
 
@@ -274,8 +270,12 @@ pre-push:
     # 展開される。**トップレベルのカンマ区切りはサポートされず**、リテラル `,` として扱われて
     # 何にもマッチしない silent skip になる（過去に他フックでこのバグを踏んだ）。
     # 複数パターンを OR したい時は外側のブレースで包んで `{p1,p2,p3}` の形にする。
+    # 加えて、`**` は **1 階層以上のディレクトリを要求** する仕様で、`apps/X/**/*.ext` は
+    # `apps/X/` 直下のファイルにマッチしない（PR #120 で `apps/api/pyproject.toml` を
+    # 踏んだ）。直下ファイルも捕捉する hook では `{apps/X/*.ext,apps/X/**/*.ext}` のように
+    # 「直下」と「任意階層」を OR で並べる。本ファイル中の全 hook はこの形に揃えてある。
     web-e2e:
-      glob: "{apps/web/**/*.ts,apps/web/**/*.tsx,apps/web/**/*.css,apps/web/**/*.json,apps/web/e2e/**/*,apps/api/app/**/*.py}"
+      glob: "{apps/web/*.{ts,tsx,css,json},apps/web/**/*.ts,apps/web/**/*.tsx,apps/web/**/*.css,apps/web/**/*.json,apps/web/e2e/*,apps/web/e2e/**/*,apps/api/app/*.py,apps/api/app/**/*.py}"
       run: mise exec -- mise run web:e2e
       fail_text: |
 
@@ -297,7 +297,7 @@ pre-push:
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     web-next-build:
-      glob: "apps/web/**/*.{ts,tsx,css,json}"
+      glob: "{apps/web/*.{ts,tsx,css,json},apps/web/**/*.{ts,tsx,css,json}}"
       root: apps/web
       run: mise exec -- pnpm exec next build
       fail_text: |
