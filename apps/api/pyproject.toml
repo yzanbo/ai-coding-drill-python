@@ -108,5 +108,8 @@ extend_exclude = ["alembic/versions"]
 # - uvicorn：ASGI サーバ CLI。`uv run fastapi dev` 経由で起動し import 文には出てこないが必須。
 # - fastapi-cli：`fastapi dev` / `fastapi run` コマンドを提供する CLI。コードからは import せず
 #   `mise run api:dev` 経由で実行するため deptry には未使用に見えるが、開発サーバ起動に必須。
+# - starlette：fastapi の間接依存。本来 import しないが、1.0.0 の脆弱性 (PYSEC-2026-161)
+#   回避のため direct dep に格上げして >=1.0.1 を強制している。fastapi 側 require が
+#   追いついて pyproject の direct dep を消せるようになったら、本リストからも外す。
 [tool.deptry.per_rule_ignores]
-DEP002 = ["asyncpg", "uvicorn", "fastapi-cli"]
+DEP002 = ["asyncpg", "uvicorn", "fastapi-cli", "starlette"]

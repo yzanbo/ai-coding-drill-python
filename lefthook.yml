@@ -222,8 +222,14 @@ pre-push:
     # pre-commit ではなく pre-push に置く理由：repo 全体スキャンで pre-commit ではやや重く、
     # かつ依存変更は commit 単位より push 単位で確認すれば CI 失敗を十分先回りできるため。
     # pyproject.toml も trigger 対象に含める（依存追加・例外追加時に発火させるため）。
+    # glob: lefthook (v1.7) の `**` は **1 階層以上のディレクトリ**を要求する仕様で、
+    # 直下ファイル（`apps/api/pyproject.toml` 等）は `apps/api/**/*.toml` にマッチせず
+    # silent skip される（PR #120 で実際に踏んだ）。直下と任意階層を OR で並べて両方を
+    # 拾うため、外側ブレース `{...,...}` で 2 パターンを列挙する。同型の罠は他フックの
+    # `apps/X/**/...` glob にも残っている可能性が高いが、副作用を避けて本 PR では
+    # api-deptry のみ修正、横断 sweep は別 PR とする。
     api-deptry:
-      glob: "apps/api/**/*.{py,toml}"
+      glob: "{apps/api/*.{py,toml},apps/api/**/*.{py,toml}}"
       root: apps/api
       run: mise exec -- uv run deptry .
       fail_text: |
