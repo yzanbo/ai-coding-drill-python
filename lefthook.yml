@@ -65,17 +65,6 @@ pre-commit:
       root: apps/web
       run: mise exec -- pnpm exec knip --no-progress
 
-    # package.json 整合性検証（syncpack lint）
-    # 同一パッケージのバージョン宣言が複数箇所で食い違っていないか・semver の
-    # 表記揺れ（^ / ~ / 固定）が方針通りかを検証する（ADR 0024）。
-    # apps/web/package.json または lockfile 変更時のみ起動し、依存追加・bump 時の
-    # 整合性違反を pre-commit で弾く（従来は CI の web-syncpack でのみ検知）。
-    # glob: 固定パス 2 ファイルのみのため zero-dir 問題は無く、平坦な列挙で済む。
-    web-syncpack:
-      glob: "{apps/web/package.json,apps/web/pnpm-lock.yaml}"
-      root: apps/web
-      run: mise exec -- pnpm exec syncpack lint
-
     # ─────────────────────────────────────────────────────────────────
     # Worker (apps/workers/**) — gofmt + golangci-lint（差分行のみ）
     # ─────────────────────────────────────────────────────────────────
@@ -234,6 +223,37 @@ pre-push:
         【ネットワーク疎通エラーの場合】
           OSV / PyPI Advisory DB への接続に失敗している可能性。プロキシ環境では
           オフライン bump 後に CI でゲートする運用に切り替える。
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    # Frontend 依存衛生（syncpack lint）
+    # apps/web/package.json のバージョン宣言整合性を検証する（ADR 0024）。
+    # 同一パッケージが複数箇所で違うバージョンになっていないか、semver 記号
+    # （^ / ~ / 固定）の方針が揃っているかを見る。
+    # pre-commit ではなく pre-push に置く理由：他の依存系チェック
+    # （api-audit / api-deptry / worker-*-audit / worker-*-deps-check）と
+    # 同じ「依存ファイル変更時のみ発火」カテゴリのため、配置を揃える。
+    # glob を package.json / pnpm-lock.yaml に限定する理由：syncpack は
+    # 「コード変更」ではなく「依存宣言」を見るため、.ts を 1 行直しただけの
+    # push で走らせるのは無駄。依存追加・bump 時のみ発火させて開発者の
+    # 手を止めるタイミングを最小化する。
+    web-syncpack:
+      glob: "{apps/web/package.json,apps/web/pnpm-lock.yaml}"
+      root: apps/web
+      run: mise exec -- pnpm exec syncpack lint
+      fail_text: |
+
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        ⚠️  syncpack が apps/web/package.json の不整合を検出（push をブロック）
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        上の syncpack ログに従って package.json を修正してください。
+        単純な修正は自動で行える：
+          cd apps/web
+          pnpm exec syncpack fix-mismatches
+          pnpm exec syncpack format
+          pnpm install  # lockfile を再生成
+          git add package.json pnpm-lock.yaml
 
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
