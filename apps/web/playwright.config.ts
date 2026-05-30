@@ -9,6 +9,8 @@ import {
   MOCK_GITHUB_PORT,
   REDIS_URL,
   WEB_PORT,
+  WORKER_DATABASE_URL,
+  WORKER_HEALTH_PORT,
 } from "./e2e/_helpers/constants";
 
 // 機密値は含まないため (E2E 用 dummy CLIENT_ID / SECRET + dev 接続情報) 本ファイル
@@ -41,6 +43,22 @@ const _MOCK_GITHUB_ENV = {
   DATABASE_URL: DATABASE_URL,
   REDIS_URL: REDIS_URL,
   E2E_RESET_ENABLED: "true",
+};
+
+// 採点 Worker を E2E 向け env で起動する（issue #80）。
+// - DATABASE_URL: pgx ドライバ用に dialect 接尾辞を除いた形式（WORKER_DATABASE_URL の
+//   コメント参照、constants.ts が SSoT）。
+// - WORKER_HEALTH_ADDR: /healthz を listen させる。dev では未設定で無効化される機能を
+//   E2E でのみ有効化することで、dev / E2E の Worker プロセスが port 衝突しないようにする。
+// - GOOGLE_API_KEY: provider 初期化時に空文字を弾くため dummy を渡す。grading-flow.spec.ts は
+//   採点ジョブしか積まないので実際に LLM は呼ばれない（採点ロジックは sandbox のみ使用）。
+// - SANDBOX_TMP_DIR: macOS Docker Desktop で $TMPDIR (/var/folders/...) が File Sharing
+//   許可外の環境に当たることがあるため /tmp を明示。CI Linux runner では /tmp が常に共有可。
+const _WORKER_ENV = {
+  DATABASE_URL: WORKER_DATABASE_URL,
+  WORKER_HEALTH_ADDR: `:${WORKER_HEALTH_PORT}`,
+  GOOGLE_API_KEY: "e2e-dummy-key",
+  SANDBOX_TMP_DIR: "/tmp",
 };
 
 export default defineConfig({
@@ -115,6 +133,19 @@ export default defineConfig({
         // NEXT_DIST_DIR: dev:all の `next dev` (.next/ にロック) と並行起動するため別 distDir。
         NEXT_DIST_DIR: ".next-e2e",
       },
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+    {
+      // 採点 Worker (Go): grading-flow.spec.ts が pending → graded を観測するために起動 (issue #80)。
+      //   `go run` 初回は ~30s コンパイルが入るので timeout を長めに取る。
+      //   サンドボックス image (ai-coding-drill-sandbox:latest) は test:up と並ぶ mise depends で
+      //   先に build される (mise.toml の web:e2e 参照)。
+      command: "cd ../workers/grading && go run ./cmd/grading",
+      url: `http://localhost:${WORKER_HEALTH_PORT}/healthz`,
+      timeout: 180_000,
+      reuseExistingServer: !process.env.CI,
+      env: _WORKER_ENV,
       stdout: "pipe",
       stderr: "pipe",
     },

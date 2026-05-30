@@ -482,4 +482,5 @@ docker build -t ai-coding-drill-sandbox:latest apps/workers/grading/sandbox
 
 > 数値項目の **「> 0 必須」** は `internal/config/config.go` の `validateRanges` が SSoT。違反時は `ErrInvalidRange` を wrap して `Load()` が起動を fail-fast させる（後段の goroutine spawn 0 個 / context.WithTimeout(0) で undefined behavior になるのを防ぐ）。
 - `LLM_CONFIG_PATH` — LLM プロバイダ・モデル割り当て YAML のパス（既定 `llm.yaml`、apps/workers/grading/llm.yaml が SSoT。Worker 再ビルド不要で切替可能、→ [ADR 0007](../../docs/adr/0007-llm-provider-abstraction.md) / [ADR 0049](../../docs/adr/0049-initial-llm-model-selection.md)）
+- `WORKER_HEALTH_ADDR` — `/healthz` を listen する net/http アドレス（例 `:8091`、既定は空文字で HTTP 起動しない）。dev / production では未設定。Playwright E2E（issue #80）が webServer.url で Worker 起動完了を検出するために E2E 専用で `:8091` を渡す。`apps/web/e2e/_helpers/constants.ts` の `WORKER_HEALTH_PORT` が port 値の SSoT
 - `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` — provider 別 API キー（YAML に書かず環境変数経由で渡す。Worker は使う provider 分だけ設定すれば足りる）

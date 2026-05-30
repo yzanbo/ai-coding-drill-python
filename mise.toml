@@ -290,8 +290,14 @@ description = "Playwright E2E（先に test:up で専用 DB を起動・migratio
 dir = "apps/web"
 # CI では .github/workflows/ci.yml の services が Postgres / Redis を立てるため
 # 本タスクは使わず `pnpm exec playwright test` を直接呼ぶ。
-# ローカル開発者向けに test:up を chain して「mise run web:e2e 一発で立つ」体験を担保する。
-depends = ["test:up"]
+# ローカル開発者向けに test:up + types-gen + sandbox image を chain して「mise run web:e2e
+# 一発で立つ」体験を担保する。
+#   - worker:grading:types-gen: internal/jobtypes/*.go は gitignore 対象で fresh clone では
+#     存在しない。これが無いと採点 Worker の go build が失敗するため事前に生成が必須（issue #80）。
+#   - worker:grading:sandbox-build: 採点 Worker が docker run する image を作る。
+#     grading-flow.spec.ts が pending → graded を観測するため Worker 起動が必要だが、
+#     image 無しでは Worker が fail-fast する（issue #80）。
+depends = ["test:up", "worker:grading:types-gen", "worker:grading:sandbox-build"]
 run = "pnpm exec playwright test"
 
 # ============================================================================
