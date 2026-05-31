@@ -103,6 +103,19 @@ test.describe("next= パラメータの外部 URL 拒否", () => {
     await loginViaMockGithub(page);
     await expect(page).toHaveURL("/problems");
   });
+
+  test("/login?next=<2048 文字超> でログインしても /problems に遷移する", async ({ page }) => {
+    // authentication.md §2.5: 異常に長い next URL は拒否してホームへフォールバックする
+    // (ストレージ・ログ汚染やヘッダ肥大化への防御)。最終的に "/" → /problems に着地する。
+    // "/a" の繰り返しで 2050 文字を作る (2048 文字超条件を確実に踏む)。
+    const longPath = `/${"a".repeat(2049)}`;
+    expect(longPath.length).toBeGreaterThan(2048);
+    await page.goto(`/login?next=${encodeURIComponent(longPath)}`);
+    await expect(page.getByRole("link", { name: "GitHub でログイン" })).toBeVisible();
+
+    await loginViaMockGithub(page);
+    await expect(page).toHaveURL("/problems");
+  });
 });
 
 test.describe("Cancel フロー", () => {

@@ -89,11 +89,17 @@
 
 - 保存先：**Redis**（→ [ADR 0047](../../adr/0047-session-store-on-redis.md)）、TTL 7 日
 - クライアント：Cookie に `session_id` を `HttpOnly` + `Secure` + `SameSite=Lax` で発行
-- 延長ポリシー：ユーザー操作のたびに TTL リセット（rolling session）
+- 延長ポリシー：rolling session（最終アクセスから 30 分以上経過したリクエストで TTL を 7 日に再設定）。毎リクエスト EXPIRE による Redis 負荷の線形増加を避けるための間引きで、ユーザー体験は「7 日放置でログアウト」と等価（→ [ADR 0047](../../adr/0047-session-store-on-redis.md) §やらないこと）
 - **ログイン時の旧セッション無効化**：OAuth コールバックでセッションを発行する直前に、リクエストに付いている旧 `session_id` Cookie に対応する Redis セッションを破棄してから新規 `sid` を発行する。再ログイン（別アカウントへの切替等、ログアウトを挟まない遷移）で旧セッションが TTL 切れまで Redis に残り、共有端末や Cookie 漏洩経路で乗っ取りに使われる余地を縮めるための防御。新しい `sid` は CSPRNG で都度生成し、リクエストに付いていた古い値は受け継がない（セッション ID の再発行）
+- **期限切れセッションの自動掃除**：認証必須エンドポイントが 401 を返す時、サーバはレスポンスで `session_id` Cookie を削除する。ブラウザに残った無効な Cookie をそのままにすると、`/login` 画面とログイン後画面の間で無限リダイレクトループが起きる可能性があるため、サーバ側で確実に片付ける
 - CSRF 対策（OAuth フロー）：状態を持つフローでは `state` パラメータを Redis に事前格納してコールバックで照合（具体的な扱いは §2 のプロバイダごとに定義）
 - `state` トークン運用：**TTL 10 分 + 1 回使い切り**（照合成功時に Redis から即削除、リプレイ攻撃防止）。ユーザーが GitHub 認可画面で時間を要する可能性に余裕を持たせつつ、放置されたトークンを長く残さない
+- **ログイン後の戻り先 URL（`next`）の保管場所**：`state` トークンと同じ Redis レコードに同梱して保存する。コールバック時に `state` 照合と同時に戻り先 URL を取り出すため、`state` の有効期限（10 分）と戻り先 URL の生存期間が常に一致し、片方だけ生き残る不整合（戻り先 URL だけ残って攻撃に利用される等）が起きない
 - CSRF 対策（状態変更 API 全般）：ログイン後の POST / PUT / DELETE / PATCH（本ドメインでは `/auth/logout`）には double submit cookie 方式で `X-CSRF-Token` ヘッダーを検証する。仕様の SSoT は [3-cross-cutting/02-api-conventions.md: CSRF 対策](../3-cross-cutting/02-api-conventions.md#csrf-対策double-submit-cookie)
+- **CSRF 検証失敗時の応答コードの区別**：状況に応じて 401 と 403 を意図的に使い分ける。フロントエンドが「ログイン画面に戻すべきか / その場でエラー表示すべきか」を判断できるようにするため
+  - **401**（再ログイン要求）：そもそもログインしていない / セッションが期限切れ / Cookie が壊れている場合。「あなたはまだ誰か分かりません」という意味
+  - **403**（リクエスト拒否）：ログインは有効だが CSRF トークンが欠落 / 不一致の場合。「あなたが誰かは分かるが、この操作は受け付けません」という意味
+- **CSRF 検証の対象外パス**：認証不要な公開エンドポイント（ヘルスチェック `/healthz` / `/probes/*`、OAuth コールバック `/auth/github/callback`）は CSRF 検証から除外する。これらはセッション Cookie を持たない前提で動くため、検証しても意味が無い
 
 ### §1.4 共通 API
 
@@ -157,6 +163,8 @@
 1. ログアウトボタンを押下 — 全画面共通ヘッダー
 2. `POST /auth/logout` を送信し、Redis 上のセッション削除・Cookie クリアが行われる — Backend
 3. ホーム `/` にリダイレクトされ、未認証状態に戻る — 画面遷移（`/` は未ログインでもアクセスできるランディング画面で、サービス概要 + 再ログイン CTA が見える）
+
+- **遷移の責務分担**：`POST /auth/logout` は「セッション破棄完了」を表す 204 を返すだけで、画面遷移の指示（302）は出さない。ホーム `/` への遷移は Frontend がログアウト成功を受けて行う。理由は、ログアウト後の遷移先は「ホーム」「ログイン画面」「現在見ている公開ページに留まる」など UI 文脈で変わりうるため、振り先を API に固定させない設計にしている
 
 ---
 
@@ -243,7 +251,7 @@ sequenceDiagram
   - `code`（GitHub が発行した認可コード）
   - `state`（CSRF 対策トークン、Redis 上の事前発行値と照合）
 - レスポンス：常に 302 リダイレクト（成功時 / 失敗時とも）
-  - 成功時：ホーム `/` または `?next=` 指定先（同一オリジン相対パスのみ、それ以外はホーム）へ。`Set-Cookie: session_id=...; HttpOnly; Secure; SameSite=Lax` と `Set-Cookie: csrf_token=...; Secure; SameSite=Lax`（HttpOnly なし）を併発
+  - 成功時：ホーム `/` または `?next=` 指定先（同一オリジン相対パスのみ、それ以外はホーム）へ。Frontend と Backend は別オリジンで動く構成のため、リダイレクト先は Frontend の絶対 URL（環境設定で指定）として組み立てる。`Set-Cookie: session_id=...; HttpOnly; Secure; SameSite=Lax` と `Set-Cookie: csrf_token=...; Secure; SameSite=Lax`（HttpOnly なし）を併発（**ローカル開発の HTTP 環境では `Secure` を外す。本番の HTTPS では必ず付与**）
   - `state` 不一致 / TTL 切れ / 再利用時：`/login?auth_error=state_invalid` へ 302（新規セッションは作られない、Frontend がトースト表示）
   - GitHub から `?error=access_denied` 等が返った時：`/login?auth_error=oauth_canceled` へ 302
   - GitHub からの code 交換失敗等：`/login?auth_error=oauth_failed` へ 302
@@ -256,7 +264,7 @@ sequenceDiagram
 |---|---|---|
 | `code` | 取得失敗・改ざん時は再ログインへ誘導 | UX 方針として無効な認可コードでセッションを作らせない。「認証情報が不正です。再度ログインしてください」 |
 | `state` | Redis 上の事前発行値と一致しなければ拒否 | CSRF 対策（攻撃者が偽コールバックでセッションを乗っ取るのを防ぐ）。「認証セッションが無効です。再度ログインしてください」 |
-| `next` | `/` で始まる相対パスのみ許容、それ以外（`//evil.com` / `http(s)://...` 等）はホーム `/` へフォールバック。**URL エンコード経由（例：`/%2F%2Fevil.com`）でデコード後に `//` で始まる値も同様に拒否する** | オープンリダイレクト対策（攻撃者が `/login?next=https://evil.com` や `/login?next=/%2F%2Fevil.com` 形式で偽サイトへ誘導するのを防ぐ）。拒否時はエラー表示せず黙ってホームへ送る |
+| `next` | `/` で始まる相対パスのみ許容、それ以外（`//evil.com` / `http(s)://...` 等）はホーム `/` へフォールバック。**URL エンコード経由（例：`/%2F%2Fevil.com`）でデコード後に `//` で始まる値も同様に拒否する**。また、**異常に長い値（2048 文字超）も拒否しホームへ** | オープンリダイレクト対策（攻撃者が `/login?next=https://evil.com` や `/login?next=/%2F%2Fevil.com` 形式で偽サイトへ誘導するのを防ぐ）+ 長すぎる戻り先 URL によるストレージ・ログ汚染やヘッダ肥大化への防御。拒否時はエラー表示せず黙ってホームへ送る |
 | `error` | GitHub から `?error=...` が返ったらセッションを作らず `/login?auth_error=<種別>` へリダイレクト | ユーザーが認可をキャンセルした / GitHub 側障害等の正常系。Frontend はクエリを読んでトーストで通知 |
 
 ---
@@ -294,6 +302,13 @@ sequenceDiagram
 - [x] ログアウトを挟まずに同じブラウザで再ログインした時、ログイン直前まで使っていた旧 `session_id` で `GET /auth/me` を叩くと 401 が返る（旧セッションは Redis から破棄される）
 - [x] GitHub プロフィールの `name` を変更してから再ログインすると、`GET /auth/me` の `displayName` が新しい値で返る（DB が最新値で上書きされる）
 - [x] `POST /auth/logout` を `X-CSRF-Token` ヘッダーなしで送ると 403 が返る（double submit cookie 検証）
+- [x] 未ログイン状態で状態変更 API（`POST /auth/logout` 等）に CSRF トークンなしでアクセスすると **401** が返る（ログインしていない方が優先判定されるため）
+- [x] セッション期限切れ後に認証必須エンドポイントを叩くと、レスポンスで `session_id` Cookie が削除される（次回アクセスからは「未ログインの新規訪問者」として扱われ、無限リダイレクトが起きない）
+- [x] `/login?next=` に 2048 文字を超える URL を指定してログインしてもホーム `/` に遷移する（過大入力は拒否）
+- [x] ヘルスチェック等の認証不要 POST エンドポイントは CSRF トークンなしでもアクセスできる（公開エンドポイントは検証対象外）
+- [x] ログイン成功時、リダイレクト先は Frontend の絶対 URL に向く（Backend と Frontend が別オリジンで動く構成でも正しく遷移する）
+- [x] `POST /auth/logout` の応答は 204 No Content であり、リダイレクト指示（302）を含まない（遷移は Frontend が制御）
+- [x] `GET /auth/github` および `GET /auth/github/callback` を同一 IP から 1 分間に 10 回超アクセスすると 429 が返る（brute-force / mock ログイン経路の悪用抑止、→ [02-api-conventions.md §レート制限](../3-cross-cutting/02-api-conventions.md#レート制限)）
 
 ## ステータス
 
