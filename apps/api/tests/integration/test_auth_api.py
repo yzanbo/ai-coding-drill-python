@@ -220,6 +220,30 @@ class TestAuthGithubCallbackSuccess:
         assert len(sessions) == 1
 
     @respx.mock
+    async def test_正常系_callbackのリダイレクト先はFrontendの絶対URL(
+        self, client: AsyncClient
+    ) -> None:
+        """authentication.md §2.4: Backend と Frontend は別オリジンで動く構成のため、
+        callback の Location ヘッダは Frontend オリジンを含む absolute URL でなければ
+        ならない。相対パスを返してしまうとブラウザは Backend オリジンに解決してしまい、
+        別オリジン構成では正しい画面に遷移できない。
+        """
+        stub_github_success(gh_id=555, name="Abs", login="abs", email=None)
+
+        start = await client.get("/auth/github")
+        state_token = start.headers["location"].split("state=")[1].split("&")[0]
+        res = await client.get(f"/auth/github/callback?code=ok&state={state_token}")
+
+        assert res.status_code == 302
+        location = res.headers["location"]
+        # frontend_base_url を起点にした絶対 URL であること。
+        # 相対パス（"/" 単独 等）を返していた場合はこの assert で落ちる。
+        frontend_base = get_settings().frontend_base_url.rstrip("/")
+        assert location.startswith(frontend_base + "/"), (
+            f"Location must be absolute Frontend URL, got: {location}"
+        )
+
+    @respx.mock
     async def test_正常系_同じprovider_idで再ログインしてもusersは1件のまま(
         self, client: AsyncClient
     ) -> None:
@@ -368,6 +392,9 @@ class TestAuthMeAndLogout:
         # ログアウト：X-CSRF-Token を載せて POST。
         res = await client.post("/auth/logout", headers={"X-CSRF-Token": csrf})
         assert res.status_code == 204
+        # authentication.md §1.6: API は 204 のみ返し、リダイレクト指示（302）は含まない
+        # （遷移は Frontend が制御するため、Location ヘッダは付けない契約）。
+        assert "location" not in res.headers
 
         # Redis 上のセッションが消えている。
         from app.core.cookies import unsign_sid
