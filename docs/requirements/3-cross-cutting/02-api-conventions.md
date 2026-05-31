@@ -114,7 +114,10 @@
 |---|---|
 | `POST /problems/generate`（[問題生成](../4-features/problem-generation.md)） | 1 ユーザー / 1 分 / 5 回 |
 | `POST /submissions`（[自動採点](../4-features/grading.md)） | 1 ユーザー / 1 分 / 20 回 |
+| `GET /auth/github`, `GET /auth/github/callback`（[ログイン認可フロー](../4-features/authentication.md)） | 1 IP / 1 分 / 10 回 |
 | `GET /*`（読み取り全般） | 1 IP / 1 分 / 300 回 |
+
+ログイン認可フロー（`/auth/github*`）は brute-force による state 乱発・GitHub API 過呼び出し・mock ログイン経路の悪用を抑止する目的で、汎用読み取り枠より厳しい専用閾値を持つ。閾値は運用データを見て調整可能。
 
 超過時は 429 + RFC 7807 形式で `detail` にリトライ可能時刻を含める。閾値は運用データを見て調整可能。
 

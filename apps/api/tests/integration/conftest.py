@@ -21,6 +21,7 @@ from sqlalchemy import delete
 from app.core import redis as redis_module
 from app.core.http_client import close_http_client, open_http_client
 from app.db.session import AsyncSessionLocal
+from app.deps.rate_limit import limiter
 from app.main import app
 from app.models.auth_providers import AuthProvider
 from app.models.users import User
@@ -35,6 +36,15 @@ async def reset_auth_tables() -> AsyncIterator[None]:
         await session.execute(delete(User))
         await session.commit()
     yield
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter() -> None:
+    """各テスト前に slowapi カウンタを reset する。
+    /auth/github* には 10/分の IP ベース制限があり、同一 IP の連続呼び出しで
+    後続テストが 429 を受けるのを防ぐ。
+    """
+    limiter.reset()
 
 
 @pytest.fixture

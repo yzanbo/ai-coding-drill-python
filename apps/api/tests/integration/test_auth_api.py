@@ -133,6 +133,21 @@ class TestAuthGithub:
         stored = await fake_redis.get(f"state:{state_token}")
         assert stored == "/problems"
 
+    async def test_異常系_GET_auth_githubは1IP1分10回までで11回目は429(
+        self, client: AsyncClient
+    ) -> None:
+        """02-api-conventions.md §レート制限：
+        ログイン認可フローは brute-force / mock ログイン経路の悪用抑止のため
+        1 IP 1 分 10 回までに制限する。
+        """
+        # 10 回までは 302（成功）。
+        for _ in range(10):
+            res = await client.get("/auth/github")
+            assert res.status_code == 302
+        # 11 回目は 429。
+        res = await client.get("/auth/github")
+        assert res.status_code == 429
+
     async def test_正常系_next_が外部URLなら空文字に正規化される(
         self, client: AsyncClient, fake_redis: fakeredis.aioredis.FakeRedis
     ) -> None:

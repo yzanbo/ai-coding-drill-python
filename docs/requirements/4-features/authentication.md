@@ -308,6 +308,7 @@ sequenceDiagram
 - [x] ヘルスチェック等の認証不要 POST エンドポイントは CSRF トークンなしでもアクセスできる（公開エンドポイントは検証対象外）
 - [x] ログイン成功時、リダイレクト先は Frontend の絶対 URL に向く（Backend と Frontend が別オリジンで動く構成でも正しく遷移する）
 - [x] `POST /auth/logout` の応答は 204 No Content であり、リダイレクト指示（302）を含まない（遷移は Frontend が制御）
+- [x] `GET /auth/github` および `GET /auth/github/callback` を同一 IP から 1 分間に 10 回超アクセスすると 429 が返る（brute-force / mock ログイン経路の悪用抑止、→ [02-api-conventions.md §レート制限](../3-cross-cutting/02-api-conventions.md#レート制限)）
 
 ## ステータス
 

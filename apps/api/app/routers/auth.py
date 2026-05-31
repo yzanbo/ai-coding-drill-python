@@ -24,6 +24,7 @@ from app.core.redis import get_redis
 from app.core.session import Session
 from app.db.session import get_async_session
 from app.deps.auth import get_current_session, get_current_user
+from app.deps.rate_limit import limiter
 from app.models.users import User
 from app.schemas.auth import AuthErrorKind, UserResponse
 from app.services.auth import AuthService
@@ -146,7 +147,14 @@ async def _invalidate_previous_session(request: Request, redis: Redis) -> None:
     # RedirectResponse は body を持たないため response_model を付けるとスキーマ不一致になる。
     responses={302: {"description": "GitHub 認可画面へリダイレクト"}},
 )
+# @limiter.limit: 1 IP 1 分あたり 10 回まで（02-api-conventions.md §レート制限）。
+#   ログイン認可フローは未認証で叩かれるため、get_rate_limit_key は ip:<addr> に倒れる。
+#   state 乱発・mock ログイン経路の悪用・GitHub 側 API 過呼び出しを抑止する。
+#   request / response 引数は slowapi の key 関数とヘッダ書き込みのため必須。
+@limiter.limit("10/minute")
 async def start_github_oauth(
+    request: Request,
+    response: Response,
     redis: RedisDep,
     next_: Annotated[str | None, Query(alias="next")] = None,
 ) -> RedirectResponse:
@@ -180,8 +188,13 @@ async def start_github_oauth(
     status_code=status.HTTP_302_FOUND,
     responses={302: {"description": "ログイン成功はホーム /、失敗は /login へリダイレクト"}},
 )
+# @limiter.limit: 1 IP 1 分あたり 10 回まで（02-api-conventions.md §レート制限）。
+#   start_github_oauth と同じ閾値で、callback だけ叩かれて GitHub API を消費する
+#   経路の悪用も抑止する。
+@limiter.limit("10/minute")
 async def github_callback(
     request: Request,
+    response: Response,
     db_session: DbDep,
     redis: RedisDep,
     code: Annotated[str | None, Query()] = None,
