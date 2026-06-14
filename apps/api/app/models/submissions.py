@@ -51,59 +51,12 @@ class Submission(Base):
 
     __tablename__ = "submissions"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        server_default=text("gen_random_uuid()"),
-    )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    problem_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("problems.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    code: Mapped[str] = mapped_column(String, nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(16),
-        nullable=False,
-        server_default="pending",
-    )
-    # result / score: R1-5 で Worker が UPDATE する。本 PR では INSERT 時には None。
-    result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=False,
-        server_default=text("NOW()"),
-    )
-    graded_at: Mapped[datetime | None] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=True,
-    )
-    deleted_at: Mapped[datetime | None] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=True,
-    )
-
-    # problem: 解答が紐づく問題への関連。
-    #   一覧 API（GET /api/submissions）で problem_title を併記するため、
-    #   Repository 側で JOIN + contains_eager で事前読み込みする契約。
-    # lazy="raise_on_sql": 関連を後追いで自動 SELECT させない安全弁。
-    #   async セッションでの暗黙ロードは MissingGreenlet を引き起こすため、
-    #   呼び出し側に「明示的に eager load せよ」を強制する。
-    problem: Mapped[Problem] = relationship(lazy="raise_on_sql")
-
-    # __table_args__: 解答一覧クエリ用の部分インデックス 2 種。
-    #   どちらもソフトデリート行を除外する deleted_at IS NULL の部分インデックス。
-    #
-    # 1. (user_id, created_at DESC): 自分の解答履歴一覧（GET /api/submissions）
-    # 2. (user_id, problem_id, created_at DESC): ある問題に対する自分の直近解答取得
-    #    + 弱点分析・問題別正答率の集計クエリ。先頭カラムが user_id なので
-    #    「自分のリソースに限定したクエリ」全般に効く。
+    # __table_args__:
+    #   - info["label"]: テーブルの論理名（/dev/erd が表示）。
+    #   - 解答一覧用の部分インデックス 2 種（どちらも deleted_at IS NULL の部分索引）：
+    #     1. (user_id, created_at DESC): 自分の解答履歴一覧（GET /api/submissions）
+    #     2. (user_id, problem_id, created_at DESC): ある問題への自分の直近解答取得
+    #        + 弱点分析・正答率集計。先頭が user_id なので自分リソース限定クエリ全般に効く。
     __table_args__ = (
         Index(
             "ix_submissions_user_id_created_at_active",
@@ -118,4 +71,58 @@ class Submission(Base):
             text("created_at DESC"),
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        {"info": {"label": "解答送信"}},
     )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+        info={"label": "ID"},
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        info={"label": "送信ユーザーID"},
+    )
+    problem_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("problems.id", ondelete="CASCADE"),
+        nullable=False,
+        info={"label": "問題ID"},
+    )
+    code: Mapped[str] = mapped_column(String, nullable=False, info={"label": "解答コード"})
+    status: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        server_default="pending",
+        info={"label": "ステータス"},
+    )
+    # result / score: R1-5 で Worker が UPDATE する。本 PR では INSERT 時には None。
+    result: Mapped[dict | None] = mapped_column(JSONB, nullable=True, info={"label": "採点結果"})
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True, info={"label": "スコア"})
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text("NOW()"),
+        info={"label": "作成日時"},
+    )
+    graded_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        info={"label": "採点完了日時"},
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        info={"label": "削除日時"},
+    )
+
+    # problem: 解答が紐づく問題への関連。
+    #   一覧 API（GET /api/submissions）で problem_title を併記するため、
+    #   Repository 側で JOIN + contains_eager で事前読み込みする契約。
+    # lazy="raise_on_sql": 関連を後追いで自動 SELECT させない安全弁。
+    #   async セッションでの暗黙ロードは MissingGreenlet を引き起こすため、
+    #   呼び出し側に「明示的に eager load せよ」を強制する。
+    problem: Mapped[Problem] = relationship(lazy="raise_on_sql")

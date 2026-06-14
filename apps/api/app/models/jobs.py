@@ -49,35 +49,52 @@ class Job(Base):
 
     __tablename__ = "jobs"
 
+    # __table_args__:
+    #   - info["label"]: テーブルの論理名（/dev/erd が表示）。
+    #   - (queue, state, run_at) index: Worker の取得クエリを高速化。
+    __table_args__ = (
+        Index("ix_jobs_queue_state_run_at", "queue", "state", "run_at"),
+        {"info": {"label": "ジョブ（処理待ち行列）"}},
+    )
+
     id: Mapped[int] = mapped_column(
         BigInteger,
         primary_key=True,
         autoincrement=True,
+        info={"label": "ID"},
     )
-    queue: Mapped[str] = mapped_column(String(64), nullable=False)
-    type: Mapped[str] = mapped_column(String(64), nullable=False)
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    queue: Mapped[str] = mapped_column(String(64), nullable=False, info={"label": "キュー名"})
+    type: Mapped[str] = mapped_column(String(64), nullable=False, info={"label": "ジョブ種別"})
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, info={"label": "ペイロード"})
     state: Mapped[str] = mapped_column(
         String(16),
         nullable=False,
         server_default="queued",
+        info={"label": "状態"},
     )
     attempts: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         server_default="0",
+        info={"label": "試行回数"},
     )
     run_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+        info={"label": "実行予定日時"},
     )
     locked_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
+        info={"label": "ロック取得日時"},
     )
-    locked_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    last_error: Mapped[str | None] = mapped_column(String, nullable=True)
+    locked_by: Mapped[str | None] = mapped_column(
+        String(128), nullable=True, info={"label": "ロック取得ワーカー"}
+    )
+    last_error: Mapped[str | None] = mapped_column(
+        String, nullable=True, info={"label": "最終エラー"}
+    )
     # attempt_errors: 各試行のエラー履歴を JSONB array で保持（R1-7-3）。
     #   Worker が MarkFailed / MarkDead のたびに 1 要素 append する：
     #     {"attempt": int, "failureReason": str, "message": str, "failedAt": str}
@@ -88,20 +105,18 @@ class Job(Base):
         JSONB,
         nullable=False,
         server_default=text("'[]'::jsonb"),
+        info={"label": "試行エラー履歴"},
     )
-    result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    result: Mapped[dict | None] = mapped_column(JSONB, nullable=True, info={"label": "処理結果"})
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+        info={"label": "作成日時"},
     )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
-    )
-
-    __table_args__ = (
-        # Worker の取得クエリ（queue + state + run_at で WHERE する）を高速化。
-        Index("ix_jobs_queue_state_run_at", "queue", "state", "run_at"),
+        info={"label": "更新日時"},
     )

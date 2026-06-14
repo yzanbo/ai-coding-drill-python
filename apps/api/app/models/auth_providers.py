@@ -42,30 +42,39 @@ class AuthProvider(Base):
 
     __tablename__ = "auth_providers"
 
-    # provider: "github" / "google" / "email" 等のプロバイダ識別子。
-    #   現状は文字列だが、長さは安全側で 32 文字に頭打ち（実値は 10 文字以下）。
-    provider: Mapped[str] = mapped_column(String(32), primary_key=True)
-    # provider_id: プロバイダ側のユーザー ID 文字列（GitHub なら数値 id を str 化）。
-    #   どのプロバイダでも数値 / 短い文字列のため 255 文字あれば十分。
-    provider_id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=False,
-        server_default=text("NOW()"),
-    )
-
-    # UNIQUE (provider, user_id): 1 user × 1 provider = 1 アカウントを DB で強制。
-    #   同じユーザーが同じ provider で複数の外部アカウントを紐付けることを禁止する。
+    # __table_args__:
+    #   - info["label"]: テーブルの論理名（/dev/erd が表示）。
+    #   - UNIQUE (provider, user_id): 1 user × 1 provider = 1 アカウントを DB で強制
+    #     （同じユーザーが同じ provider で複数の外部アカウントを紐付けるのを禁止）。
     __table_args__ = (
         UniqueConstraint(
             "provider",
             "user_id",
             name="uq_auth_providers_provider_user_id",
         ),
+        {"info": {"label": "認証プロバイダ連携"}},
+    )
+
+    # provider: "github" / "google" / "email" 等のプロバイダ識別子。
+    #   現状は文字列だが、長さは安全側で 32 文字に頭打ち（実値は 10 文字以下）。
+    provider: Mapped[str] = mapped_column(
+        String(32), primary_key=True, info={"label": "プロバイダ種別"}
+    )
+    # provider_id: プロバイダ側のユーザー ID 文字列（GitHub なら数値 id を str 化）。
+    #   どのプロバイダでも数値 / 短い文字列のため 255 文字あれば十分。
+    provider_id: Mapped[str] = mapped_column(
+        String(255), primary_key=True, info={"label": "プロバイダ側ユーザーID"}
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        info={"label": "ユーザーID"},
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text("NOW()"),
+        info={"label": "作成日時"},
     )

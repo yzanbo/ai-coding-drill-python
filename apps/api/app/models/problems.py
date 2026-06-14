@@ -47,42 +47,11 @@ class Problem(Base):
 
     __tablename__ = "problems"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        server_default=text("gen_random_uuid()"),
-    )
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str] = mapped_column(String, nullable=False)
-    category: Mapped[str] = mapped_column(String(32), nullable=False)
-    difficulty: Mapped[str] = mapped_column(String(16), nullable=False)
-    language: Mapped[str] = mapped_column(String(32), nullable=False)
-    examples: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
-    test_cases: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
-    reference_solution: Mapped[str] = mapped_column(String, nullable=False)
-    judge_scores: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=False,
-        server_default=text("NOW()"),
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=False,
-        server_default=text("NOW()"),
-    )
-    # deleted_at: NULL = 生きている / 非 NULL = 削除済（ADR 0048 のソフトデリート）。
-    #   クエリ側で WHERE deleted_at IS NULL を明示的に書く（暗黙フィルタは使わない）。
-    deleted_at: Mapped[datetime | None] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=True,
-    )
-
-    # __table_args__: 一覧クエリ用の部分インデックス（R1-4 で追加）。
-    #   list_paginated は WHERE deleted_at IS NULL + 任意 category / difficulty
-    #   フィルタ + ORDER BY created_at DESC で引くため、未削除行のみを
-    #   (category, difficulty, created_at DESC) で索引化する。
-    #   postgresql_where: PostgreSQL 固有の部分インデックス WHERE。
+    # __table_args__:
+    #   - info["label"]: テーブルの論理名（/dev/erd が表示）。
+    #   - 一覧クエリ用の部分インデックス（R1-4）。list_paginated が WHERE deleted_at IS NULL
+    #     + 任意 category/difficulty + ORDER BY created_at DESC で引くため、未削除行のみを
+    #     (category, difficulty, created_at DESC) で索引化。
     __table_args__ = (
         Index(
             "ix_problems_category_difficulty_created_at_active",
@@ -91,4 +60,46 @@ class Problem(Base):
             text("created_at DESC"),
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        {"info": {"label": "問題"}},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+        info={"label": "ID"},
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False, info={"label": "タイトル"})
+    description: Mapped[str] = mapped_column(String, nullable=False, info={"label": "問題文"})
+    category: Mapped[str] = mapped_column(String(32), nullable=False, info={"label": "カテゴリ"})
+    difficulty: Mapped[str] = mapped_column(String(16), nullable=False, info={"label": "難易度"})
+    language: Mapped[str] = mapped_column(String(32), nullable=False, info={"label": "言語"})
+    examples: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, info={"label": "入出力例"})
+    test_cases: Mapped[list[dict]] = mapped_column(
+        JSONB, nullable=False, info={"label": "テストケース"}
+    )
+    reference_solution: Mapped[str] = mapped_column(
+        String, nullable=False, info={"label": "模範解答"}
+    )
+    judge_scores: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, info={"label": "品質評価スコア"}
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text("NOW()"),
+        info={"label": "作成日時"},
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text("NOW()"),
+        info={"label": "更新日時"},
+    )
+    # deleted_at: NULL = 生きている / 非 NULL = 削除済（ADR 0048 のソフトデリート）。
+    #   クエリ側で WHERE deleted_at IS NULL を明示的に書く（暗黙フィルタは使わない）。
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        info={"label": "削除日時"},
     )
