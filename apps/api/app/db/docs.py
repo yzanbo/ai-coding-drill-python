@@ -54,6 +54,62 @@ _COLUMN_CHOICES: dict[tuple[str, str], tuple[str, ...]] = {
     ("jobs", "queue"): _enum_values(JobQueue),
 }
 
+# _CHOICE_LABELS: 選択肢の値 → 日本語の短い説明（/dev/erd で「値（説明）」と出す）。
+#   表示専用ラベル。値そのものの SSoT は各 enum / Literal。ここは ER 図を読む人向けの注釈。
+#   値を増やしたらここにも 1 行足す（未登録なら値だけ表示され、壊れはしない）。
+_CHOICE_LABELS: dict[str, str] = {
+    # provider
+    "github": "GitHub",
+    # problems.category
+    "string": "文字列",
+    "array": "配列",
+    "recursion": "再帰",
+    "async": "非同期",
+    "type-puzzle": "型パズル",
+    # difficulty
+    "easy": "初級",
+    "medium": "中級",
+    "hard": "上級",
+    # submission / generation status
+    "pending": "処理待ち",
+    "graded": "採点済み",
+    "completed": "完了",
+    "failed": "失敗",
+    "canceled": "キャンセル（旧仕様）",
+    # generation_requests.failure_reason
+    "llm_unauthorized": "LLM 認証エラー",
+    "llm_cost_exceeded": "コスト上限超過",
+    "judge_below_threshold": "品質スコア不足",
+    "sandbox_failed": "サンドボックス検証失敗",
+    "sandbox_infrastructure": "サンドボックス基盤エラー",
+    "llm_invalid_output": "LLM 出力不正",
+    "llm_rate_limit": "LLM レート制限",
+    "llm_timeout": "LLM タイムアウト",
+    "llm_schema_invalid": "LLM スキーマ違反",
+    "max_attempts_exceeded": "試行上限超過",
+    # generation_requests.progress_step
+    "llm_generating": "問題生成中",
+    "sandbox_verifying": "模範解答の検証中",
+    "judging": "品質評価中",
+    "persisting": "保存中",
+    # jobs.state
+    "queued": "投入待ち",
+    "running": "処理中",
+    "succeeded": "成功",
+    # jobs.type
+    "submission.grade": "解答の採点",
+    "problem.generate": "問題の生成",
+    # jobs.queue
+    "grading": "採点ワーカー向け",
+    "generation": "生成ワーカー向け",
+}
+
+
+def _format_choice(value: str) -> str:
+    """選択肢を「値（日本語説明）」に整形。説明が無ければ値のみ。"""
+    label = _CHOICE_LABELS.get(value)
+    return f"{value}（{label}）" if label else value
+
 
 def _logical_name(column: Column) -> str:
     """論理名（人が読む短い日本語名）。mapped_column(info={"label": ...}) が SSoT。"""
@@ -211,7 +267,9 @@ def _column_rows(table: Table) -> list[dict[str, str]]:
                 "comment": column.comment or "",
                 # choices: 取りうる固定値（enum / Literal が決まっている列のみ）。
                 #   用途欄に「選択肢: a / b / c」として出す。無ければ空文字。
-                "choices": " / ".join(_COLUMN_CHOICES.get((table.name, column.name), ())),
+                "choices": " / ".join(
+                    _format_choice(v) for v in _COLUMN_CHOICES.get((table.name, column.name), ())
+                ),
             }
         )
     return rows
