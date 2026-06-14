@@ -12,12 +12,10 @@
 | ファイル | 内容 | 関連する正式仕様 |
 |---|---|---|
 | [login.md](login.md) | GitHub OAuth ログインのしくみ（state トークン / セッション / CSRF / レート制限） | [../docs/requirements/4-features/authentication.md](../docs/requirements/4-features/authentication.md) |
-
-今後追加予定（例）：
-
-- `grading.md` — 自動採点のしくみ（LLM + サンドボックス）
-- `problem-generation.md` — 問題生成のしくみ
-- `data-storage.md` — どこに何を保存しているか（Postgres / Redis / S3）
+| [problem-generation.md](problem-generation.md) | 問題生成のしくみ（生成 LLM → Sandbox 検証 → Judge 評価の 2 段階品質ゲート） | [../docs/requirements/4-features/problem-generation.md](../docs/requirements/4-features/problem-generation.md) |
+| [grading.md](grading.md) | 自動採点のしくみ（解答送信 → サンドボックスで実行 → 機械的に合否判定、AI は使わない） | [../docs/requirements/4-features/grading.md](../docs/requirements/4-features/grading.md) |
+| [data-storage.md](data-storage.md) | どこに何を保存しているか（ずっと残す Postgres / 一時的な Redis の 2 本立て、S3 は現状未使用） | [../docs/requirements/3-cross-cutting/01-data-model.md](../docs/requirements/3-cross-cutting/01-data-model.md) |
+| [polling.md](polling.md) | 「生成中…」「採点中…」の待ち方（ポーリング）。離脱→再訪で続きから見える理由・タブ非アクティブ時の停止も含む | [../docs/requirements/4-features/problem-generation.md](../docs/requirements/4-features/problem-generation.md) |
 
 ## 書き方の方針
 
