@@ -192,14 +192,7 @@
             "title": "Retryof"
           },
           "status": {
-            "enum": [
-              "pending",
-              "completed",
-              "failed",
-              "canceled"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/GenerationStatus"
           }
         },
         "required": [
@@ -217,7 +210,8 @@
         "enum": [
           "pending",
           "completed",
-          "failed"
+          "failed",
+          "canceled"
         ],
         "title": "GenerationStatus",
         "type": "string"

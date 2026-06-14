@@ -18,10 +18,15 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
-# 生成ステータス画面で使う enum を履歴側 schema から再利用する。
-#   FailureReasonTag / ProgressStep は schemas/me_generations.py が SSoT
-#   （Worker classifyFailureReason / progress_step UPDATE と 1:1 対応）。
-from app.schemas.me_generations import AttemptError, FailureReasonTag, ProgressStep
+# 生成ステータス関連で使う enum を履歴側 schema から再利用する（SSoT は me_generations.py）。
+#   GenerationStatus = generation_requests.status の許可値。
+#   FailureReasonTag / ProgressStep = Worker の分類・進捗ステップと 1:1 対応。
+from app.schemas.me_generations import (
+    AttemptError,
+    FailureReasonTag,
+    GenerationStatus,
+    ProgressStep,
+)
 
 
 # ProblemCategory: 問題のカテゴリ。
@@ -41,14 +46,6 @@ class ProblemDifficulty(StrEnum):
     EASY = "easy"
     MEDIUM = "medium"
     HARD = "hard"
-
-
-# GenerationStatus: 生成リクエストの状態。
-#   ユーザー視点の遷移（pending → completed / failed）。マシン的な jobs.state とは別概念。
-class GenerationStatus(StrEnum):
-    PENDING = "pending"
-    COMPLETED = "completed"
-    FAILED = "failed"
 
 
 # CamelModel: snake_case 属性を camelCase JSON で入出力するための共通基底。

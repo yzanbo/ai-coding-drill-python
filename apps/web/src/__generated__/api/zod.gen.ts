@@ -37,6 +37,16 @@ export const zGenerationRequestRetryResponse = z.object({
 });
 
 /**
+ * GenerationStatus
+ */
+export const zGenerationStatus = z.enum([
+    'pending',
+    'completed',
+    'failed',
+    'canceled'
+]);
+
+/**
  * GenerationRequestSummary
  *
  * 生成リクエスト履歴の 1 行分。
@@ -70,22 +80,8 @@ export const zGenerationRequestSummary = z.object({
     promptVersion: z.string().nullish(),
     retryCount: z.int().gte(0),
     retryOf: z.uuid().nullish(),
-    status: z.enum([
-        'pending',
-        'completed',
-        'failed',
-        'canceled'
-    ])
+    status: zGenerationStatus
 });
-
-/**
- * GenerationStatus
- */
-export const zGenerationStatus = z.enum([
-    'pending',
-    'completed',
-    'failed'
-]);
 
 /**
  * HealthCheckResponse
