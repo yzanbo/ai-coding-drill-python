@@ -14,7 +14,7 @@ metadata から毎リクエスト生成するので、モデルを変えれば /
 
 import html
 
-from sqlalchemy import Column, Table
+from sqlalchemy import Column, Index, Table, UniqueConstraint
 
 # app.models を import すると全モデルが Base.metadata に登録される
 # （models/__init__.py が全テーブルを re-export しているため）。
@@ -51,6 +51,68 @@ def _server_default(column: Column) -> str:
         return ""
     arg = getattr(default, "arg", default)
     return str(getattr(arg, "text", arg))
+
+
+def _index_columns(index: Index) -> list[str]:
+    """インデックスの対象を定義順で返す（"created_at DESC" のような式は文字列のまま）。"""
+    names = []
+    for expr in index.expressions:
+        name = getattr(expr, "name", None)
+        names.append(str(name) if name else str(expr))
+    return names
+
+
+def _partial_where(index: Index) -> str:
+    """部分インデックスの WHERE 条件（postgresql_where）。無ければ空。"""
+    try:
+        where = index.dialect_options["postgresql"]["where"]
+    except (KeyError, AttributeError):
+        return ""
+    return str(where) if where is not None else ""
+
+
+def _table_indexes(table: Table) -> list[dict[str, str]]:
+    """テーブルのインデックス + UNIQUE 制約（名前・対象カラム・UNIQUE・部分条件）。"""
+    rows = []
+    # Index オブジェクト（Index(...) や mapped_column(index=True) 由来）。
+    for idx in sorted(table.indexes, key=lambda i: i.name or ""):
+        rows.append(
+            {
+                "name": idx.name or "",
+                "columns": ", ".join(_index_columns(idx)),
+                "unique": "✓" if idx.unique else "",
+                "where": _partial_where(idx),
+            }
+        )
+    # UNIQUE 制約も一意インデックスとして効くので併記（PK はキー列で表示済みのため除外）。
+    for constraint in table.constraints:
+        if isinstance(constraint, UniqueConstraint) and constraint.name:
+            rows.append(
+                {
+                    "name": constraint.name,
+                    "columns": ", ".join(col.name for col in constraint.columns),
+                    "unique": "✓",
+                    "where": "",
+                }
+            )
+    return rows
+
+
+def _indexed_column_names(table: Table) -> set[str]:
+    """いずれかのインデックス / UNIQUE 制約に含まれるカラム名の集合（カラム表の索引✓ 判定用）。"""
+    colnames = {c.name for c in table.columns}
+    names: set[str] = set()
+    for idx in table.indexes:
+        for part in _index_columns(idx):
+            # "created_at DESC" のような式は先頭トークンをカラム名として拾う。
+            token = part.split()[0] if part else ""
+            if token in colnames:
+                names.add(token)
+    for constraint in table.constraints:
+        if isinstance(constraint, UniqueConstraint):
+            for col in constraint.columns:
+                names.add(col.name)
+    return names
 
 
 def _table_logical(table: Table) -> str:
@@ -98,7 +160,8 @@ def build_mermaid(tables: list[Table]) -> str:
 
 
 def _column_rows(table: Table) -> list[dict[str, str]]:
-    """1 テーブルのカラム行（物理名・論理名・型・NULL・デフォルト・キー・用途）。"""
+    """1 テーブルのカラム行（物理名・論理名・型・NULL・デフォルト・キー・索引・用途）。"""
+    indexed = _indexed_column_names(table)
     rows = []
     for column in table.columns:
         rows.append(
@@ -109,6 +172,9 @@ def _column_rows(table: Table) -> list[dict[str, str]]:
                 "nullable": "可" if column.nullable else "—",
                 "default": _server_default(column),
                 "key": _key_marker(column),
+                # 索引: いずれかのインデックス / UNIQUE 制約に含まれるカラムに ✓。
+                #   複合インデックスの順序・部分条件はテーブル下の「インデックス」一覧で確認する。
+                "indexed": "✓" if column.name in indexed else "",
                 "comment": column.comment or "",
             }
         )
@@ -116,10 +182,10 @@ def _column_rows(table: Table) -> list[dict[str, str]]:
 
 
 def _table_html(table: Table) -> str:
-    """1 テーブル分の HTML（見出し + カラム表）。"""
+    """1 テーブル分の HTML（見出し + カラム表 + インデックス一覧）。"""
     head = (
-        "<tr><th>物理名</th><th>論理名</th><th>型</th>"
-        "<th>NULL</th><th>デフォルト</th><th>キー</th><th>用途</th></tr>"
+        "<tr><th>物理名</th><th>論理名</th><th>型</th><th>NULL</th>"
+        "<th>デフォルト</th><th>キー</th><th>索引</th><th>用途</th></tr>"
     )
     body_rows = []
     for r in _column_rows(table):
@@ -132,17 +198,44 @@ def _table_html(table: Table) -> str:
             f"<td>{r['nullable']}</td>"
             f"<td>{default}</td>"
             f"<td>{html.escape(r['key'])}</td>"
+            f"<td>{r['indexed']}</td>"
             f"<td>{html.escape(r['comment'])}</td>"
             "</tr>"
         )
+
     # 見出しは「物理名（論理名）」。論理名が無ければ物理名のみ。
     logical = _table_logical(table)
     heading = html.escape(table.name)
     if logical:
         heading += f"（{html.escape(logical)}）"
+
+    # インデックス一覧：複合の順序・UNIQUE・部分条件（WHERE）まで正確に出す。
+    index_html = ""
+    idx_rows = _table_indexes(table)
+    if idx_rows:
+        idx_head = (
+            "<tr><th>索引名</th><th>対象カラム</th><th>UNIQUE</th><th>部分条件</th></tr>"
+        )
+        idx_body = []
+        for r in idx_rows:
+            where = f"<code>{html.escape(r['where'])}</code>" if r["where"] else ""
+            idx_body.append(
+                "<tr>"
+                f"<td><code>{html.escape(r['name'])}</code></td>"
+                f"<td>{html.escape(r['columns'])}</td>"
+                f"<td>{r['unique']}</td>"
+                f"<td>{where}</td>"
+                "</tr>"
+            )
+        index_html = (
+            '<p class="idx-label">インデックス</p>'
+            f"<table>{idx_head}{''.join(idx_body)}</table>"
+        )
+
     return (
         f'<h3 id="{html.escape(table.name)}">{heading}</h3>'
         f"<table>{head}{''.join(body_rows)}</table>"
+        f"{index_html}"
     )
 
 
@@ -185,6 +278,7 @@ def render_html() -> str:
   h3 {{ margin-top: 2rem; color: #38bdf8; }}
   .note {{ color: #94a3b8; font-size: .9rem; }}
   .toc {{ color: #94a3b8; font-size: .85rem; line-height: 1.9; }}
+  .idx-label {{ color: #94a3b8; font-size: .85rem; margin: .2rem 0; }}
   .toc a, a {{ color: #7dd3fc; text-decoration: none; }}
   .mermaid {{ background: #0b1220; border: 1px solid #1e293b; border-radius: 10px;
     padding: 1rem; overflow-x: auto; }}
