@@ -222,7 +222,7 @@ docker compose exec postgres psql -U postgres ai_coding_drill -c "\dt"   # healt
 docker compose up -d
 cd apps/api && mise exec -- uv run alembic upgrade head
 mise exec -- uv run pytest -m integration              # health の往復テストがパス
-mise exec -- uv run fastapi dev &                      # サーバ起動（mise run api:dev と等価）
+mise run api:dev &                                     # サーバ起動（uvicorn 直叩き、§9 の教訓参照）
 curl -X POST http://localhost:8000/health              # 200 OK + {"id": "...", "created_at": "..."}
 open http://localhost:8000/docs                        # Swagger UI に POST/GET /health が表示
 ```
@@ -252,7 +252,7 @@ open http://localhost:8000/docs                        # Swagger UI に POST/GET
 ```bash
 cd apps/api && mise exec -- uv run pytest tests/test_health.py::test_healthz_liveness_probe   # pass
 mise run api:lint && mise run api:typecheck                                                    # 緑
-mise exec -- uv run fastapi dev &
+mise run api:dev &                   # uvicorn 直叩き（§9 の教訓参照）
 curl http://localhost:8000/healthz   # {"status": "ok"} + 200 OK
 open http://localhost:8000/docs      # Swagger UI の "probes" タグに /healthz、"health" タグに POST/GET /health
 ```
@@ -268,7 +268,7 @@ open http://localhost:8000/docs      # Swagger UI の "probes" タグに /health
 **目的**：[foundation.md](./foundation.md) で mise.toml に**先回りで定義済み**の `api:*` タスク群が、apps/api の実体（pyproject.toml + uv.lock + app/）が揃ったこの時点で正しく動作することを確認する。
 
 **前提済の登録タスク**（[mise.toml](../../../../mise.toml) の `[tasks."api:*"]`、本 step では追記しない）：
-- `api:dev` — FastAPI 開発サーバ（`uv run fastapi dev`）
+- `api:dev` — FastAPI 開発サーバ（`uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload`、後述の教訓参照）
 - `api:test` — `uv run pytest`
 - `api:lint` / `api:lint-fix` — `uv run ruff check [.|--fix]`
 - `api:format` — `uv run ruff format`
@@ -277,6 +277,8 @@ open http://localhost:8000/docs      # Swagger UI の "probes" タグに /health
 - `api:deps-check` — `uv run deptry .`
 - `api:db-migrate` / `api:db-revision` — Alembic 操作
 - `api:openapi-export` / `api:job-schemas-export` — 型同期パイプライン用（R0 時点ではスクリプト未実装、step 11 以降で整備）
+
+> **教訓（他プロジェクトの立ち上げでも適用）**：開発サーバを `mise run dev:all` のように**複数タスクで同じ端末に並行起動**する構成では、起動コマンドに**端末を装飾的に制御する CLI を避ける**。`fastapi dev` は内部の rich 製 CLI が端末の状態（サイズ・カーソル等）を問い合わせるため、前面プロセスでない側がそれを行うと OS に `SIGTTOU` で一時停止され、「起動ログは出るが直後に固まって応答しない」状態になる（プロセスの STAT が `T`）。ログ出力しかしない素のサーバ（`uvicorn app.main:app --reload` 直叩き）を使う。**単体起動では再現せず並行起動でだけ出る**ため原因特定が難しい。同じ理由で、Node 等の開発サーバでも「装飾 CLI ラッパよりログ直出力の起動経路」を選ぶ。
 
 **作業内容**：
 1. `mise tasks | grep ^api:` で全 `api:*` タスクが list されることを確認
@@ -375,6 +377,8 @@ mise exec -- lefthook run pre-push        # api-pytest exit 1 + fail_text 表示
 **完了確認**：
 - PR を作ると `api-lint` / `api-typecheck` / `api-audit` / `api-deps-check` / `api-test` の 5 ジョブが並列で走る
 - いずれかが失敗すると `ci-success` も赤になり、Branch protection で merge がブロックされる
+
+> **教訓（他プロジェクトの立ち上げでも適用）**：`api-audit`（pip-audit）は**間接依存**（ツールが内部で引き込む依存。直接 `pyproject.toml` に書いていないもの。例：pip 自身）の脆弱性でも落ちる。対処は依存全体の更新ではなく、**該当 1 パッケージだけをロックファイルでピンポイント更新**する：`cd apps/api && uv lock --upgrade-package <名>` → `uv run pip-audit` がクリーン（`No known vulnerabilities found`）になるのを確認 → `uv.lock` をコミット。本フェーズ後段の Dependabot 運用補足と同じ操作で、Dependabot PR 起因でも pip-audit 失敗起因でも手順は共通。
 
 **前提**：本ファイルの「9. mise.toml の Python タスク稼働確認」+「10. lefthook.yml に Python 用 pre-commit 追加」+「11. lefthook.yml に Python 用 pre-push 追加」（CI ジョブは `mise run api:*` を呼ぶため、ローカルでタスクが動くことが必須）
 

@@ -32,6 +32,8 @@ Next.js ランタイム（Node.js + pnpm）取得から apps/web を品質ゲー
 3. `mise.toml` と `README.md` の Node 版数表記を更新
 4. `mise install` で実体化、`node --version` / `pnpm --version` で確認
 
+> **教訓（他プロジェクトの立ち上げでも適用）**：pnpm 等のパッケージマネージャは `mise.toml` で**固定版に pin する**（`latest` で浮かせない）。`latest` だと新版が出るたびに勝手に上がり、`node_modules` を作った版とずれると pnpm が「`node_modules` を作り直していいか」の確認を出す。`mise run dev:all` のような**複数タスクの並行起動**や CI では、この確認に応答する手段（対話端末）が無いため install が `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` で中断し、dev サーバごと落ちる。言語ランタイム（Node 等）は minor だけ pin（patch は mise が解決）でよいが、パッケージマネージャは patch まで固定して「いつの間にか上がっていた」を防ぐ。
+
 **前提**：[foundation.md: 3. mise 導入](./foundation.md#3-mise-導入-)（mise CLI が動作）
 
 **関連 ADR**：[ADR 0039](../../../adr/0039-mise-for-task-runner-and-tool-versions.md)

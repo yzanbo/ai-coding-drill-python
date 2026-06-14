@@ -158,6 +158,8 @@ mise run worker:grading:dev    # 採点 Worker
 | Alembic マイグレーション失敗 | `docker compose ps` で DB 起動確認、ローカル限定で `dropdb`/`createdb` で初期化 |
 | API が GitHub OAuth で 500 を返す | `.env` の `GITHUB_CLIENT_*` と `SESSION_SECRET` を確認 |
 | 採点 Worker が Docker に接続できない | `docker.sock` の権限と Docker Desktop の起動を確認 |
+| `mise run dev:all` で web が `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` で落ちる | pnpm の版数が `node_modules` を作った版とずれ、作り直しの確認が出ているが並行起動では応答できない状態。[mise.toml](mise.toml) の `pnpm` を固定版に pin（`"latest"` は使わない。新版が出るたびにずれて再発するため）し、`cd apps/web && pnpm install` で入れ直す |
+| `mise run api:audit`（CI の api-audit）が脆弱性検出で落ちる | pip-audit が依存パッケージ（間接依存含む）の脆弱性を検出した状態。`cd apps/api && uv lock --upgrade-package <パッケージ名>` で該当パッケージだけ修正版に上げ、`uv run pip-audit` が `No known vulnerabilities found` を返すことを確認して `uv.lock` をコミット |
 
 ---
 
