@@ -60,7 +60,7 @@
 
 **確定済の固定版数**：具体版数の SSoT は [mise.toml](../../../../mise.toml)（Python / Node.js / Go、更新時はそこ 1 箇所を変える）。
 - uv（latest）
-- pnpm（latest）
+- pnpm（**固定版で pin**。`latest` で浮かせない。理由は [frontend.md](./frontend.md) の pnpm pin の教訓を参照）
 - lefthook（latest）
 - `npm:@commitlint/cli`（latest）
 
