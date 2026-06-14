@@ -57,18 +57,24 @@ class AuthProvider(Base):
 
     # provider: "github" / "google" / "email" 等のプロバイダ識別子。
     #   現状は文字列だが、長さは安全側で 32 文字に頭打ち（実値は 10 文字以下）。
-    provider: Mapped[str] = mapped_column(String(32), primary_key=True)
+    provider: Mapped[str] = mapped_column(
+        String(32), primary_key=True, info={"label": "プロバイダ種別"}
+    )
     # provider_id: プロバイダ側のユーザー ID 文字列（GitHub なら数値 id を str 化）。
     #   どのプロバイダでも数値 / 短い文字列のため 255 文字あれば十分。
-    provider_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    provider_id: Mapped[str] = mapped_column(
+        String(255), primary_key=True, info={"label": "プロバイダ側ユーザーID"}
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
+        info={"label": "ユーザーID"},
     )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+        info={"label": "作成日時"},
     )

@@ -78,38 +78,45 @@ class Submission(Base):
         UUID(as_uuid=True),
         primary_key=True,
         server_default=text("gen_random_uuid()"),
+        info={"label": "ID"},
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        info={"label": "送信ユーザーID"},
     )
     problem_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("problems.id", ondelete="CASCADE"),
         nullable=False,
+        info={"label": "問題ID"},
     )
-    code: Mapped[str] = mapped_column(String, nullable=False)
+    code: Mapped[str] = mapped_column(String, nullable=False, info={"label": "解答コード"})
     status: Mapped[str] = mapped_column(
         String(16),
         nullable=False,
         server_default="pending",
+        info={"label": "ステータス"},
     )
     # result / score: R1-5 で Worker が UPDATE する。本 PR では INSERT 時には None。
-    result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    result: Mapped[dict | None] = mapped_column(JSONB, nullable=True, info={"label": "採点結果"})
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True, info={"label": "スコア"})
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+        info={"label": "作成日時"},
     )
     graded_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
+        info={"label": "採点完了日時"},
     )
     deleted_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
+        info={"label": "削除日時"},
     )
 
     # problem: 解答が紐づく問題への関連。

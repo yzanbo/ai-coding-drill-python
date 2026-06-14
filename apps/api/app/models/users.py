@@ -42,26 +42,32 @@ class User(Base):
         UUID(as_uuid=True),
         primary_key=True,
         server_default=text("gen_random_uuid()"),
+        info={"label": "ID"},
     )
     # email: RFC 5321 で SMTP 経路の上限は 320 文字（local 64 + @ + domain 255）。
     #   それ以上は受信側で拒否されるので保存しても無駄になるため上限を 320 にする。
-    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    email: Mapped[str | None] = mapped_column(
+        String(320), nullable=True, info={"label": "メールアドレス"}
+    )
     # display_name: 表示用名前。極端に長い値（数 KB）を弾くために 255 で頭打ち。
     #   GitHub の name は 255 を超えないため実害なし。
-    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False, info={"label": "表示名"})
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+        info={"label": "作成日時"},
     )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+        info={"label": "更新日時"},
     )
     # deleted_at: NULL = 生きている / 非 NULL = 削除済（ADR 0048 のソフトデリート）。
     #   クエリ側で WHERE deleted_at IS NULL を明示的に書く（暗黙フィルタは使わない）。
     deleted_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
+        info={"label": "削除日時"},
     )

@@ -24,9 +24,11 @@ class HealthCheck(Base):
         UUID(as_uuid=True),
         primary_key=True,
         server_default=text("gen_random_uuid()"),
+        info={"label": "ID"},
     )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+        info={"label": "作成日時"},
     )

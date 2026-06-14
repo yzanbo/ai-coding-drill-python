@@ -67,29 +67,39 @@ class Problem(Base):
         UUID(as_uuid=True),
         primary_key=True,
         server_default=text("gen_random_uuid()"),
+        info={"label": "ID"},
     )
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str] = mapped_column(String, nullable=False)
-    category: Mapped[str] = mapped_column(String(32), nullable=False)
-    difficulty: Mapped[str] = mapped_column(String(16), nullable=False)
-    language: Mapped[str] = mapped_column(String(32), nullable=False)
-    examples: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
-    test_cases: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
-    reference_solution: Mapped[str] = mapped_column(String, nullable=False)
-    judge_scores: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False, info={"label": "タイトル"})
+    description: Mapped[str] = mapped_column(String, nullable=False, info={"label": "問題文"})
+    category: Mapped[str] = mapped_column(String(32), nullable=False, info={"label": "カテゴリ"})
+    difficulty: Mapped[str] = mapped_column(String(16), nullable=False, info={"label": "難易度"})
+    language: Mapped[str] = mapped_column(String(32), nullable=False, info={"label": "言語"})
+    examples: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, info={"label": "入出力例"})
+    test_cases: Mapped[list[dict]] = mapped_column(
+        JSONB, nullable=False, info={"label": "テストケース"}
+    )
+    reference_solution: Mapped[str] = mapped_column(
+        String, nullable=False, info={"label": "模範解答"}
+    )
+    judge_scores: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, info={"label": "品質評価スコア"}
+    )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+        info={"label": "作成日時"},
     )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+        info={"label": "更新日時"},
     )
     # deleted_at: NULL = 生きている / 非 NULL = 削除済（ADR 0048 のソフトデリート）。
     #   クエリ側で WHERE deleted_at IS NULL を明示的に書く（暗黙フィルタは使わない）。
     deleted_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
+        info={"label": "削除日時"},
     )

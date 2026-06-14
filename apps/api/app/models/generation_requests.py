@@ -66,23 +66,27 @@ class GenerationRequest(Base):
         UUID(as_uuid=True),
         primary_key=True,
         server_default=text("gen_random_uuid()"),
+        info={"label": "ID"},
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        info={"label": "ユーザーID"},
     )
-    category: Mapped[str] = mapped_column(String(32), nullable=False)
-    difficulty: Mapped[str] = mapped_column(String(16), nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False, info={"label": "カテゴリ"})
+    difficulty: Mapped[str] = mapped_column(String(16), nullable=False, info={"label": "難易度"})
     status: Mapped[str] = mapped_column(
         String(16),
         nullable=False,
         server_default="pending",
+        info={"label": "ステータス"},
     )
     produced_problem_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("problems.id", ondelete="SET NULL"),
         nullable=True,
+        info={"label": "生成された問題ID"},
     )
     # retry_of: 再試行時に元 ID を指す自己参照 FK。ON DELETE SET NULL で
     #   親が物理削除された時も子を残す（履歴の不完全性は許容、UI 側で「元行不明」表示）。
@@ -90,28 +94,36 @@ class GenerationRequest(Base):
         UUID(as_uuid=True),
         ForeignKey("generation_requests.id", ondelete="SET NULL"),
         nullable=True,
+        info={"label": "再試行元ID"},
     )
     # failure_reason: Worker が failed 遷移時に書く短い文字列（例: "judge_below_threshold"
     #   / "sandbox_failed" / "llm_invalid_output"）。ユーザー UI には丸めて表示する。
-    failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(
+        Text, nullable=True, info={"label": "失敗理由"}
+    )
     # progress_step: Worker が pending 中の現在ステップを書く文字列。
     #   "llm_generating" / "sandbox_verifying" / "judging" / "persisting"
     #   の 4 値（schemas/me_generations.py の ProgressStep Literal が SSoT）。
     #   terminal 遷移時は NULL（status を見れば終了状態が分かるため）。
-    progress_step: Mapped[str | None] = mapped_column(Text, nullable=True)
+    progress_step: Mapped[str | None] = mapped_column(
+        Text, nullable=True, info={"label": "進捗ステップ"}
+    )
     # completed_at: completed / failed / canceled 遷移時の確定時刻。
     #   履歴画面の「所要時間」表示と SLA 集計に使う。pending / running 中は NULL。
     completed_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
+        info={"label": "完了日時"},
     )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+        info={"label": "作成日時"},
     )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
+        info={"label": "更新日時"},
     )
