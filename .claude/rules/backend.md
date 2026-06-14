@@ -17,6 +17,7 @@ apps/api/app/
 ├── core/                    # 設定 / セキュリティ / 例外ハンドラ等の横断ユーティリティ
 │   ├── config.py            # pydantic-settings ベース
 │   ├── security.py          # セッション・OAuth ユーティリティ
+│   ├── enums.py             # DB 文字列カラムの固定値 StrEnum（JobState / JobType / JobQueue / Provider）
 │   └── exceptions.py        # 共通例外 + handler
 ├── db/                      # SQLAlchemy エンジン / セッション / シード
 ├── models/                  # SQLAlchemy モデル（機能別ファイル）
@@ -152,6 +153,16 @@ from app.models.problems import Problem              # NG（from_attributes は�
 - 全テーブルに `created_at`。`updated_at` は値が後から書き換わるテーブルにのみ付与（`users` / `problems` / `generation_requests` / `jobs`）
 - **削除方針はソフトデリート**：`users` / `problems` / `submissions` に `deleted_at` を持たせ、`auth_providers` / `generation_requests` / `jobs` はハードデリート。クエリで `WHERE deleted_at IS NULL` を**明示的に書く**（暗黙フィルタは使わない、統計クエリは意図的にフィルタを外す）。退会では `deleted_at` セット + PII NULL クリアを併用（採用根拠は ADR 0048）
 - スキーマ定義 / クエリパターン / Alembic 運用の詳細は [.claude/rules/alembic-sqlalchemy.md](./alembic-sqlalchemy.md) と [01-data-model.md](../../docs/requirements/3-cross-cutting/01-data-model.md)
+
+### 固定値カラムは StrEnum 化（マジック文字列禁止）
+
+- `state` / `type` / `provider` のような**取りうる値が決まった文字列カラム**は、`"queued"` 等をコードに直書きせず **StrEnum を SSoT** とする
+- 置き場所：**models から参照する値は `app/core/enums.py`**（models は core だけ import 可）、**API レスポンスに出る値は `app/schemas/`**（Pydantic が OpenAPI / Go 型へ展開、ADR 0006）。同じ値を両方に重複定義しない
+- `/dev/erd`（`app/db/docs.py`）は列の「選択肢」をこの enum / Literal から表示する。固定値カラムを増やしたら `docs.py` の `_COLUMN_CHOICES` に `(テーブル名, カラム名) → enum` を 1 行足す
+
+### 論理名（/dev/erd 表示用）
+
+- テーブルの論理名は `__table_args__` の `info={"label": "..."}`、カラムの論理名は `mapped_column(info={"label": "..."})` に持たせる（表示専用メタ、DB スキーマには影響しない）
 
 ### where 条件の必須ルール
 

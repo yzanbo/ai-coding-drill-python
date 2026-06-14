@@ -15,6 +15,7 @@ from sqlalchemy import BigInteger, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.enums import JobState
 from app.db.base import Base
 
 
@@ -69,7 +70,7 @@ class Job(Base):
     state: Mapped[str] = mapped_column(
         String(16),
         nullable=False,
-        server_default="queued",
+        server_default=JobState.QUEUED.value,
         info={"label": "状態"},
     )
     attempts: Mapped[int] = mapped_column(

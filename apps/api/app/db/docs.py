@@ -13,13 +13,46 @@ metadata から毎リクエスト生成するので、モデルを変えれば /
 """
 
 import html
+from enum import StrEnum
+from typing import get_args
 
 from sqlalchemy import Column, Index, Table, UniqueConstraint
 
 # app.models を import すると全モデルが Base.metadata に登録される
 # （models/__init__.py が全テーブルを re-export しているため）。
 import app.models  # noqa: F401  (副作用 import：metadata 登録のため)
+
+# 列の「取りうる値（選択肢）」を表示するため、その SSoT である enum / Literal を読み込む。
+#   docs.py は本来 DB 層だが、ER 図を描く dev ツールなので schemas を参照する例外とする
+#   （/dev/erd が本番非公開・読み取り専用なのと同じ位置づけ）。
+from app.core.enums import JobQueue, JobState, JobType, Provider
 from app.db.base import Base
+from app.schemas.me_generations import FailureReasonTag, ProgressStep
+from app.schemas.problems import GenerationStatus, ProblemCategory, ProblemDifficulty
+from app.schemas.submissions import SubmissionStatus
+
+
+def _enum_values(enum_cls: type[StrEnum]) -> tuple[str, ...]:
+    """StrEnum のメンバ値を定義順のタプルで返す。"""
+    return tuple(str(member.value) for member in enum_cls)
+
+
+# _COLUMN_CHOICES: (テーブル名, カラム名) → 取りうる値のタプル。
+#   値の SSoT は各 enum / Literal（ここで重複定義はしない）。/dev/erd の用途欄に出す。
+_COLUMN_CHOICES: dict[tuple[str, str], tuple[str, ...]] = {
+    ("auth_providers", "provider"): _enum_values(Provider),
+    ("problems", "category"): _enum_values(ProblemCategory),
+    ("problems", "difficulty"): _enum_values(ProblemDifficulty),
+    ("submissions", "status"): _enum_values(SubmissionStatus),
+    ("generation_requests", "category"): _enum_values(ProblemCategory),
+    ("generation_requests", "difficulty"): _enum_values(ProblemDifficulty),
+    ("generation_requests", "status"): _enum_values(GenerationStatus),
+    ("generation_requests", "failure_reason"): get_args(FailureReasonTag),
+    ("generation_requests", "progress_step"): get_args(ProgressStep),
+    ("jobs", "state"): _enum_values(JobState),
+    ("jobs", "type"): _enum_values(JobType),
+    ("jobs", "queue"): _enum_values(JobQueue),
+}
 
 
 def _logical_name(column: Column) -> str:
@@ -66,7 +99,7 @@ def _partial_where(index: Index) -> str:
     """部分インデックスの WHERE 条件（postgresql_where）。無ければ空。"""
     try:
         where = index.dialect_options["postgresql"]["where"]
-    except (KeyError, AttributeError):
+    except KeyError, AttributeError:
         return ""
     return str(where) if where is not None else ""
 
@@ -176,6 +209,9 @@ def _column_rows(table: Table) -> list[dict[str, str]]:
                 #   複合インデックスの順序・部分条件はテーブル下の「インデックス」一覧で確認する。
                 "indexed": "✓" if column.name in indexed else "",
                 "comment": column.comment or "",
+                # choices: 取りうる固定値（enum / Literal が決まっている列のみ）。
+                #   用途欄に「選択肢: a / b / c」として出す。無ければ空文字。
+                "choices": " / ".join(_COLUMN_CHOICES.get((table.name, column.name), ())),
             }
         )
     return rows
@@ -196,6 +232,10 @@ def _table_html(table: Table) -> str:
     body_rows = []
     for r in _column_rows(table):
         default = f"<code>{html.escape(r['default'])}</code>" if r["default"] else ""
+        # 用途セル = コメント + 選択肢（取りうる固定値がある列のみ）。
+        use_cell = html.escape(r["comment"])
+        if r["choices"]:
+            use_cell += f'<div class="choices">選択肢: {html.escape(r["choices"])}</div>'
         body_rows.append(
             "<tr>"
             f"<td><code>{html.escape(r['physical'])}</code></td>"
@@ -205,7 +245,7 @@ def _table_html(table: Table) -> str:
             f"<td>{default}</td>"
             f"<td>{html.escape(r['key'])}</td>"
             f"<td>{r['indexed']}</td>"
-            f"<td>{html.escape(r['comment'])}</td>"
+            f"<td>{use_cell}</td>"
             "</tr>"
         )
 
@@ -223,9 +263,7 @@ def _table_html(table: Table) -> str:
             '<colgroup><col style="width:32%"><col style="width:34%">'
             '<col style="width:10%"><col style="width:24%"></colgroup>'
         )
-        idx_head = (
-            "<tr><th>索引名</th><th>対象カラム</th><th>UNIQUE</th><th>部分条件</th></tr>"
-        )
+        idx_head = "<tr><th>索引名</th><th>対象カラム</th><th>UNIQUE</th><th>部分条件</th></tr>"
         idx_body = []
         for r in idx_rows:
             where = f"<code>{html.escape(r['where'])}</code>" if r["where"] else ""
@@ -291,6 +329,7 @@ def render_html() -> str:
   .toc {{ color: #94a3b8; font-size: .85rem; line-height: 1.9; }}
   /* インデックス表は補助情報。主表（青系）と差をつける：紫アクセント + 小さめ + 淡い背景。 */
   .idx-label {{ color: #a78bfa; font-size: .8rem; margin: .2rem 0 .1rem; font-weight: 600; }}
+  .choices {{ color: #94a3b8; font-size: .8rem; margin-top: .25rem; }}
   .idx-table {{ font-size: .8rem; width: 92%; margin-left: auto;
     background: rgba(167,139,250,.05); }}
   .idx-table th {{ background: #2a2440; color: #a78bfa; }}

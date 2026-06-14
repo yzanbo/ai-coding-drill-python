@@ -274,7 +274,7 @@ apps/api/app/
 | 3 | Cookie 署名の道具と秘密鍵（`security.py`、予定）| session_id 改ざん検知のための `itsdangerous` 署名器と秘密鍵を 1 箇所に集める。署名は services 側が利用、検証は deps 側 | [ADR 0011](../../../adr/0011-github-oauth-with-extensible-design.md) |
 | 4 | OAuth クライアントの設定（`oauth.py` or `security.py`、予定）| GitHub OAuth の client_id / secret / redirect_uri / scope を集中管理。将来 Google OAuth 追加時もファイル 1 つ増えるだけ | [ADR 0011](../../../adr/0011-github-oauth-with-extensible-design.md) |
 | 5 | 共通レスポンス型（`schemas/common/` or `core/responses.py`、予定）| `Page[T]` / `PaginationMeta` / `ErrorResponse` のような全 API 共通の応答形を 1 度だけ定義 | — |
-| 6 | 共通定数（`constants.py`、予定）| ジョブ状態名（"queued" / "running" / "completed"）等のマジック文字列を排除 | — |
+| 6 | 共通の固定値 enum（`enums.py`、配置済）| ジョブ状態名（"queued" / "running" / "succeeded" / "failed"）等のマジック文字列を StrEnum（`JobState` / `JobType` / `JobQueue` / `Provider`）で排除。`/dev/erd` の選択肢表示にも使う | backend.md §固定値カラムは StrEnum 化 |
 | 7 | タイムゾーン定義（`timezones.py` or `config.py` 内、予定）| 「DB は UTC、表示は JST」を 1 箇所で固定（`JST = ZoneInfo("Asia/Tokyo")`）| — |
 
 🔴 不採用（このプロジェクトでは出番が無いパターン）：
