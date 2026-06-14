@@ -51,6 +51,29 @@ class Submission(Base):
 
     __tablename__ = "submissions"
 
+    # __table_args__:
+    #   - info["label"]: テーブルの論理名（/dev/erd が表示）。
+    #   - 解答一覧用の部分インデックス 2 種（どちらも deleted_at IS NULL の部分索引）：
+    #     1. (user_id, created_at DESC): 自分の解答履歴一覧（GET /api/submissions）
+    #     2. (user_id, problem_id, created_at DESC): ある問題への自分の直近解答取得
+    #        + 弱点分析・正答率集計。先頭が user_id なので自分リソース限定クエリ全般に効く。
+    __table_args__ = (
+        Index(
+            "ix_submissions_user_id_created_at_active",
+            "user_id",
+            text("created_at DESC"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_submissions_user_id_problem_id_created_at_active",
+            "user_id",
+            "problem_id",
+            text("created_at DESC"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        {"info": {"label": "解答送信"}},
+    )
+
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
@@ -96,26 +119,3 @@ class Submission(Base):
     #   async セッションでの暗黙ロードは MissingGreenlet を引き起こすため、
     #   呼び出し側に「明示的に eager load せよ」を強制する。
     problem: Mapped[Problem] = relationship(lazy="raise_on_sql")
-
-    # __table_args__: 解答一覧クエリ用の部分インデックス 2 種。
-    #   どちらもソフトデリート行を除外する deleted_at IS NULL の部分インデックス。
-    #
-    # 1. (user_id, created_at DESC): 自分の解答履歴一覧（GET /api/submissions）
-    # 2. (user_id, problem_id, created_at DESC): ある問題に対する自分の直近解答取得
-    #    + 弱点分析・問題別正答率の集計クエリ。先頭カラムが user_id なので
-    #    「自分のリソースに限定したクエリ」全般に効く。
-    __table_args__ = (
-        Index(
-            "ix_submissions_user_id_created_at_active",
-            "user_id",
-            text("created_at DESC"),
-            postgresql_where=text("deleted_at IS NULL"),
-        ),
-        Index(
-            "ix_submissions_user_id_problem_id_created_at_active",
-            "user_id",
-            "problem_id",
-            text("created_at DESC"),
-            postgresql_where=text("deleted_at IS NULL"),
-        ),
-    )

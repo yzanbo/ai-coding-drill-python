@@ -42,6 +42,19 @@ class AuthProvider(Base):
 
     __tablename__ = "auth_providers"
 
+    # __table_args__:
+    #   - info["label"]: テーブルの論理名（/dev/erd が表示）。
+    #   - UNIQUE (provider, user_id): 1 user × 1 provider = 1 アカウントを DB で強制
+    #     （同じユーザーが同じ provider で複数の外部アカウントを紐付けるのを禁止）。
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "user_id",
+            name="uq_auth_providers_provider_user_id",
+        ),
+        {"info": {"label": "認証プロバイダ連携"}},
+    )
+
     # provider: "github" / "google" / "email" 等のプロバイダ識別子。
     #   現状は文字列だが、長さは安全側で 32 文字に頭打ち（実値は 10 文字以下）。
     provider: Mapped[str] = mapped_column(String(32), primary_key=True)
@@ -58,14 +71,4 @@ class AuthProvider(Base):
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
-    )
-
-    # UNIQUE (provider, user_id): 1 user × 1 provider = 1 アカウントを DB で強制。
-    #   同じユーザーが同じ provider で複数の外部アカウントを紐付けることを禁止する。
-    __table_args__ = (
-        UniqueConstraint(
-            "provider",
-            "user_id",
-            name="uq_auth_providers_provider_user_id",
-        ),
     )

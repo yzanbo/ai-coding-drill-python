@@ -53,6 +53,12 @@ def _server_default(column: Column) -> str:
     return str(getattr(arg, "text", arg))
 
 
+def _table_logical(table: Table) -> str:
+    """テーブルの論理名（人が読む名前）。__table_args__ の info["label"] が SSoT。"""
+    label = table.info.get("label", "")
+    return str(label) if label else ""
+
+
 def _sorted_tables() -> list[Table]:
     """外部キー依存順（親→子）に並んだ全テーブル。"""
     return list(Base.metadata.sorted_tables)
@@ -129,16 +135,39 @@ def _table_html(table: Table) -> str:
             f"<td>{html.escape(r['comment'])}</td>"
             "</tr>"
         )
+    # 見出しは「物理名（論理名）」。論理名が無ければ物理名のみ。
+    logical = _table_logical(table)
+    heading = html.escape(table.name)
+    if logical:
+        heading += f"（{html.escape(logical)}）"
     return (
-        f'<h3 id="{html.escape(table.name)}">{html.escape(table.name)}</h3>'
+        f'<h3 id="{html.escape(table.name)}">{heading}</h3>'
         f"<table>{head}{''.join(body_rows)}</table>"
     )
+
+
+def _table_summary_html(tables: list[Table]) -> str:
+    """テーブル一覧（物理名 / 論理名）のサマリ表。
+
+    Mermaid の箱には論理名を出せない仕様のため、ER 図の近くにこの対応表を置いて補う。
+    """
+    head = "<tr><th>物理名</th><th>論理名</th></tr>"
+    rows = []
+    for t in tables:
+        rows.append(
+            "<tr>"
+            f'<td><a href="#{html.escape(t.name)}"><code>{html.escape(t.name)}</code></a></td>'
+            f"<td>{html.escape(_table_logical(t))}</td>"
+            "</tr>"
+        )
+    return f"<table>{head}{''.join(rows)}</table>"
 
 
 def render_html() -> str:
     """GET /dev/erd が返す HTML 全文。Mermaid.js（CDN）で ER 図を描画する。"""
     tables = _sorted_tables()
     mermaid_src = html.escape(build_mermaid(tables))
+    summary_html = _table_summary_html(tables)
     tables_html = "".join(_table_html(t) for t in tables)
     # 目次（テーブル名のアンカーリンク）。
     toc = " · ".join(f'<a href="#{html.escape(t.name)}">{html.escape(t.name)}</a>' for t in tables)
@@ -168,6 +197,8 @@ def render_html() -> str:
 <body>
   <h1>DB スキーマ（ER 図 + 物理名 / 論理名）</h1>
   <p class="note">SQLAlchemy モデル（SSoT）から自動生成。モデルを変えれば即更新。</p>
+  <h2>テーブル一覧（物理名 / 論理名）</h2>
+  {summary_html}
   <h2>ER 図</h2>
   <pre class="mermaid">{mermaid_src}</pre>
   <h2>テーブル別カラム一覧</h2>

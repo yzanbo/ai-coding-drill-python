@@ -47,6 +47,22 @@ class Problem(Base):
 
     __tablename__ = "problems"
 
+    # __table_args__:
+    #   - info["label"]: テーブルの論理名（/dev/erd が表示）。
+    #   - 一覧クエリ用の部分インデックス（R1-4）。list_paginated が WHERE deleted_at IS NULL
+    #     + 任意 category/difficulty + ORDER BY created_at DESC で引くため、未削除行のみを
+    #     (category, difficulty, created_at DESC) で索引化。
+    __table_args__ = (
+        Index(
+            "ix_problems_category_difficulty_created_at_active",
+            "category",
+            "difficulty",
+            text("created_at DESC"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        {"info": {"label": "問題"}},
+    )
+
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
@@ -76,19 +92,4 @@ class Problem(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
-    )
-
-    # __table_args__: 一覧クエリ用の部分インデックス（R1-4 で追加）。
-    #   list_paginated は WHERE deleted_at IS NULL + 任意 category / difficulty
-    #   フィルタ + ORDER BY created_at DESC で引くため、未削除行のみを
-    #   (category, difficulty, created_at DESC) で索引化する。
-    #   postgresql_where: PostgreSQL 固有の部分インデックス WHERE。
-    __table_args__ = (
-        Index(
-            "ix_problems_category_difficulty_created_at_active",
-            "category",
-            "difficulty",
-            text("created_at DESC"),
-            postgresql_where=text("deleted_at IS NULL"),
-        ),
     )

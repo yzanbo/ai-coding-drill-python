@@ -53,6 +53,15 @@ class GenerationRequest(Base):
 
     __tablename__ = "generation_requests"
 
+    # __table_args__:
+    #   - info["label"]: テーブルの論理名（/dev/erd が表示）。
+    #   - (user_id, created_at) index: 自分の最近のリクエスト一覧用。created_at DESC は desc()
+    #     指定だと Alembic 出力に乗らないため通常 index で済ませる（順序はプランナが吸収）。
+    __table_args__ = (
+        Index("ix_generation_requests_user_id_created_at", "user_id", "created_at"),
+        {"info": {"label": "問題生成リクエスト"}},
+    )
+
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
@@ -105,11 +114,4 @@ class GenerationRequest(Base):
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
-    )
-
-    # 自分の最近のリクエストを並べる用。
-    # `created_at DESC` は SQLAlchemy 側で desc() 指定すると Alembic 出力に乗らないため、
-    # 通常 index で済ませる（プランナが順序を吸収する）。
-    __table_args__ = (
-        Index("ix_generation_requests_user_id_created_at", "user_id", "created_at"),
     )

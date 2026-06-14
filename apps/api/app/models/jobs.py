@@ -49,6 +49,14 @@ class Job(Base):
 
     __tablename__ = "jobs"
 
+    # __table_args__:
+    #   - info["label"]: テーブルの論理名（/dev/erd が表示）。
+    #   - (queue, state, run_at) index: Worker の取得クエリを高速化。
+    __table_args__ = (
+        Index("ix_jobs_queue_state_run_at", "queue", "state", "run_at"),
+        {"info": {"label": "ジョブ（処理待ち行列）"}},
+    )
+
     id: Mapped[int] = mapped_column(
         BigInteger,
         primary_key=True,
@@ -99,9 +107,4 @@ class Job(Base):
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=text("NOW()"),
-    )
-
-    __table_args__ = (
-        # Worker の取得クエリ（queue + state + run_at で WHERE する）を高速化。
-        Index("ix_jobs_queue_state_run_at", "queue", "state", "run_at"),
     )
