@@ -102,16 +102,13 @@ export type GenerationRequestSummary = {
      * Retryof
      */
     retryOf?: string | null;
-    /**
-     * Status
-     */
-    status: 'pending' | 'completed' | 'failed' | 'canceled';
+    status: GenerationStatus;
 };
 
 /**
  * GenerationStatus
  */
-export type GenerationStatus = 'pending' | 'completed' | 'failed';
+export type GenerationStatus = 'pending' | 'completed' | 'failed' | 'canceled';
 
 /**
  * HTTPValidationError

@@ -12,6 +12,7 @@
 
 import logging
 from datetime import datetime
+from enum import StrEnum
 from typing import Literal
 from uuid import UUID
 
@@ -20,10 +21,15 @@ from pydantic.alias_generators import to_camel
 
 logger = logging.getLogger(__name__)
 
-# GenerationStatus: generation_requests.status の許可値。
-#   DB CHECK 制約は無いので、Pydantic Literal が唯一の SSoT。
-#   既存 3 値 (pending / completed / failed) に R1-7 で canceled を追加した。
-GenerationStatus = Literal["pending", "completed", "failed", "canceled"]
+# GenerationStatus: generation_requests.status の許可値（この列の唯一の SSoT）。
+#   ユーザー視点の状態。DB CHECK 制約は無いので本 enum が許可値の正。
+#   生成ステータス取得（problems.py）と履歴一覧（本ファイル）の両方がこれを使う。
+#   canceled は旧仕様の残存データ用（新規には作らないが、読み取り API は受け取れる必要がある）。
+class GenerationStatus(StrEnum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELED = "canceled"
 
 
 # FailureReasonTag: failed 行で API が返す失敗理由カテゴリ。
