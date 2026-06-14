@@ -183,6 +183,12 @@ def _column_rows(table: Table) -> list[dict[str, str]]:
 
 def _table_html(table: Table) -> str:
     """1 テーブル分の HTML（見出し + カラム表 + インデックス一覧）。"""
+    # colgroup: 列幅を % で固定。画面幅が変わっても比率が一定になり、全テーブルで列が揃う。
+    colgroup = (
+        '<colgroup><col style="width:15%"><col style="width:12%"><col style="width:11%">'
+        '<col style="width:6%"><col style="width:13%"><col style="width:7%">'
+        '<col style="width:6%"><col style="width:30%"></colgroup>'
+    )
     head = (
         "<tr><th>物理名</th><th>論理名</th><th>型</th><th>NULL</th>"
         "<th>デフォルト</th><th>キー</th><th>索引</th><th>用途</th></tr>"
@@ -213,6 +219,10 @@ def _table_html(table: Table) -> str:
     index_html = ""
     idx_rows = _table_indexes(table)
     if idx_rows:
+        idx_colgroup = (
+            '<colgroup><col style="width:32%"><col style="width:34%">'
+            '<col style="width:10%"><col style="width:24%"></colgroup>'
+        )
         idx_head = (
             "<tr><th>索引名</th><th>対象カラム</th><th>UNIQUE</th><th>部分条件</th></tr>"
         )
@@ -229,12 +239,12 @@ def _table_html(table: Table) -> str:
             )
         index_html = (
             '<p class="idx-label">インデックス</p>'
-            f"<table>{idx_head}{''.join(idx_body)}</table>"
+            f'<table class="idx-table">{idx_colgroup}{idx_head}{"".join(idx_body)}</table>'
         )
 
     return (
         f'<h3 id="{html.escape(table.name)}">{heading}</h3>'
-        f"<table>{head}{''.join(body_rows)}</table>"
+        f"<table>{colgroup}{head}{''.join(body_rows)}</table>"
         f"{index_html}"
     )
 
@@ -244,6 +254,7 @@ def _table_summary_html(tables: list[Table]) -> str:
 
     Mermaid の箱には論理名を出せない仕様のため、ER 図の近くにこの対応表を置いて補う。
     """
+    colgroup = '<colgroup><col style="width:28%"><col style="width:72%"></colgroup>'
     head = "<tr><th>物理名</th><th>論理名</th></tr>"
     rows = []
     for t in tables:
@@ -253,7 +264,7 @@ def _table_summary_html(tables: list[Table]) -> str:
             f"<td>{html.escape(_table_logical(t))}</td>"
             "</tr>"
         )
-    return f"<table>{head}{''.join(rows)}</table>"
+    return f"<table>{colgroup}{head}{''.join(rows)}</table>"
 
 
 def render_html() -> str:
@@ -278,12 +289,20 @@ def render_html() -> str:
   h3 {{ margin-top: 2rem; color: #38bdf8; }}
   .note {{ color: #94a3b8; font-size: .9rem; }}
   .toc {{ color: #94a3b8; font-size: .85rem; line-height: 1.9; }}
-  .idx-label {{ color: #94a3b8; font-size: .85rem; margin: .2rem 0; }}
+  /* インデックス表は補助情報。主表（青系）と差をつける：紫アクセント + 小さめ + 淡い背景。 */
+  .idx-label {{ color: #a78bfa; font-size: .8rem; margin: .2rem 0 .1rem; font-weight: 600; }}
+  .idx-table {{ font-size: .8rem; width: 92%; margin-left: auto;
+    background: rgba(167,139,250,.05); }}
+  .idx-table th {{ background: #2a2440; color: #a78bfa; }}
+  .idx-table th, .idx-table td {{ border-color: #3b2f5e; }}
   .toc a, a {{ color: #7dd3fc; text-decoration: none; }}
   .mermaid {{ background: #0b1220; border: 1px solid #1e293b; border-radius: 10px;
     padding: 1rem; overflow-x: auto; }}
-  table {{ border-collapse: collapse; width: 100%; margin: .5rem 0 1.5rem; font-size: .9rem; }}
-  th, td {{ border: 1px solid #1e293b; padding: 6px 10px; text-align: left; vertical-align: top; }}
+  /* table-layout: fixed + colgroup で列幅を固定し、テーブルごとの幅のばらつきをなくす。 */
+  table {{ border-collapse: collapse; width: 100%; margin: .5rem 0 1.5rem; font-size: .9rem;
+    table-layout: fixed; }}
+  th, td {{ border: 1px solid #1e293b; padding: 6px 10px; text-align: left; vertical-align: top;
+    overflow-wrap: anywhere; }}
   th {{ background: #1e293b; color: #38bdf8; }}
   code {{ background: rgba(255,255,255,.08); padding: 1px 6px; border-radius: 5px; }}
 </style>
