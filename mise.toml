@@ -36,7 +36,10 @@ go = "1.26"                                       # apps/workers/*（ADR 0016 / 
 
 # --- パッケージマネージャ ---
 uv = "latest"                                     # Python パッケージ管理（ADR 0035）
-pnpm = "latest"                                   # Frontend パッケージ管理（ADR 0036、apps/web 内で使う）
+# pnpm: 版数を固定する。"latest" だと新版リリースのたびに勝手に上がり、
+# node_modules を作った版と食い違うと pnpm が node_modules の作り直し確認を出す。
+# mise の非対話実行（dev:all 等）では確認できず install が中断して dev が落ちるため、明示的に pin する。
+pnpm = "11.6.0"                                   # Frontend パッケージ管理（ADR 0036、apps/web 内で使う）
 
 # --- root orchestration ツール（root の package.json を不要にする、ADR 0036 拡張）---
 lefthook = "latest"                               # Git フック管理（ADR 0021）。native Go binary
@@ -98,7 +101,12 @@ TEST_REDIS_URL = "redis://localhost:6380/0"
 [tasks."api:dev"]
 description = "FastAPI 開発サーバ起動"
 dir = "apps/api"
-run = "uv run fastapi dev"
+# fastapi dev ではなく uvicorn を直接起動する。
+# fastapi dev は画面装飾用に端末の状態（サイズ・カーソル等）を問い合わせるため、
+# dev:all のように複数タスクを同じ端末で並行起動すると「前面ではない」と判定されて
+# OS にプロセスを一時停止（SIGTTOU）され、:8000 が無反応になる。
+# uvicorn はログ出力だけで端末を問い合わせないので、並行起動でも止まらない。
+run = "uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload"
 
 [tasks."api:test"]
 description = "Backend テスト全部（unit + integration、test:up で DB を自動起動、dev DB 保護、issue #86）"
