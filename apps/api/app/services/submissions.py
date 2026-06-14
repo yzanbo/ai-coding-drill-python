@@ -17,6 +17,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import JobQueue, JobType
 from app.core.exceptions import ProblemNotFoundError, SubmissionNotFoundError
 from app.repositories.jobs import JobRepository
 from app.repositories.problems import ProblemRepository
@@ -38,8 +39,8 @@ logger = logging.getLogger(__name__)
 #   queue : 採点 Worker が LISTEN する論理キュー名（Worker 側の
 #           apps/workers/grading/internal/job/types.go GradingQueue と一致）。
 #   type  : 1 ジョブのスキーマを識別する文字列。Worker 側 switch の case と一致。
-_JOB_QUEUE = "grading"
-_JOB_TYPE = "submission.grade"
+_JOB_QUEUE = JobQueue.GRADING
+_JOB_TYPE = JobType.SUBMISSION_GRADE
 
 
 class SubmissionService:
@@ -165,9 +166,7 @@ class SubmissionService:
 
         # total_count: result.testResults の件数を返す（Worker が書き込んだ
         # テストケース総数）。pending の間や result 未書き込み時は None。
-        total_count = (
-            len(result_payload.test_results) if result_payload is not None else None
-        )
+        total_count = len(result_payload.test_results) if result_payload is not None else None
 
         return SubmissionStatusResponse(
             id=submission.id,

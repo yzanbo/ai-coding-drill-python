@@ -9,6 +9,8 @@
 
 ## ER 図(全体俯瞰)
 
+> 下図は読み手向けに手で整えた俯瞰図。**SQLAlchemy モデルから自動生成される常に最新の ER 図**（物理名 / 論理名 / 型 / 索引 / 取りうる値まで）は開発サーバの `http://localhost:8000/dev/erd` で確認できる（dev 限定・本番非公開）。
+
 ```mermaid
 erDiagram
   users ||--o{ auth_providers : has

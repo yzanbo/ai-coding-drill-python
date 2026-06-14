@@ -16,6 +16,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import JobQueue, JobType
 from app.core.exceptions import GenerationRequestNotFoundError
 from app.repositories.generation_requests import GenerationRequestRepository
 from app.repositories.jobs import JobRepository
@@ -41,8 +42,8 @@ logger = logging.getLogger(__name__)
 #             generation も兼務する想定（ADR 0040）だが、後段で分離する時に
 #             ここを切り替えやすいよう定数化しておく。
 #   type    : 1 ジョブのスキーマを識別する文字列。Worker 側 switch の case と一致させる。
-_JOB_QUEUE = "generation"
-_JOB_TYPE = "problem.generate"
+_JOB_QUEUE = JobQueue.GENERATION
+_JOB_TYPE = JobType.PROBLEM_GENERATE
 
 
 class ProblemGenerationService:
@@ -166,8 +167,7 @@ class ProblemGenerationService:
             status = GenerationStatus(gr.status)
         except ValueError:
             logger.error(
-                "Unknown generation_requests.status detected: "
-                "request_id=%s user_id=%s status=%r",
+                "Unknown generation_requests.status detected: request_id=%s user_id=%s status=%r",
                 gr.id,
                 user_id,
                 gr.status,

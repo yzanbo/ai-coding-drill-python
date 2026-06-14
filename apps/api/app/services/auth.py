@@ -19,14 +19,15 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import session as session_store
+from app.core.enums import Provider
 from app.models.users import User
 from app.repositories.auth_providers import AuthProviderRepository
 from app.repositories.users import UserRepository
 from app.schemas.auth import CreatedSession, UserResponse, UserSyncInput
 
-# プロバイダ識別子。auth_providers.provider に入れる値。
-# 将来 Google を追加するなら "google" 等を別 Service で扱う。
-_PROVIDER_GITHUB = "github"
+# プロバイダ識別子。auth_providers.provider に入れる値（SSoT は core/enums.py の Provider）。
+# 将来 Google を追加するなら Provider に値を足して別 Service で扱う。
+_PROVIDER_GITHUB = Provider.GITHUB
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +76,7 @@ class AuthService:
                 if user is None:
                     # CASCADE 削除と並走した極稀なレース。新規ユーザー作成にフォールバック
                     # するより、明示エラーで再ログインを促す方が後段の振る舞いが読みやすい。
-                    raise RuntimeError(
-                        "User row missing despite auth_providers exists"
-                    )
+                    raise RuntimeError("User row missing despite auth_providers exists")
             else:
                 # 新規ユーザー：users + auth_providers を同じトランザクション内で INSERT。
                 user = await self.users.create(

@@ -13,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import JobType
 from app.models.generation_requests import GenerationRequest
 from app.models.jobs import Job
 
@@ -48,8 +49,12 @@ class MeGenerationsRepository:
 
     async def count_for_user(self, *, user_id: UUID) -> int:
         """自分の generation_requests の総件数。totalPages 計算用。"""
-        stmt = select(func.count()).select_from(GenerationRequest).where(
-            GenerationRequest.user_id == user_id,
+        stmt = (
+            select(func.count())
+            .select_from(GenerationRequest)
+            .where(
+                GenerationRequest.user_id == user_id,
+            )
         )
         return await self.session.scalar(stmt) or 0
 
@@ -88,7 +93,7 @@ class MeGenerationsRepository:
                 Job.payload["promptVersion"].astext.label("prompt_version"),
             )
             .where(
-                Job.type == "problem.generate",
+                Job.type == JobType.PROBLEM_GENERATE,
                 gr_id_expr.in_(id_strs),
             )
             .order_by(gr_id_expr, desc(Job.id))
@@ -99,7 +104,7 @@ class MeGenerationsRepository:
         for row in result.all():
             try:
                 key = UUID(row.gr_id)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 continue
             out[key] = row.prompt_version
         return out
@@ -129,7 +134,7 @@ class MeGenerationsRepository:
                 Job.attempt_errors.label("attempt_errors"),
             )
             .where(
-                Job.type == "problem.generate",
+                Job.type == JobType.PROBLEM_GENERATE,
                 gr_id_expr.in_(id_strs),
             )
             .order_by(gr_id_expr, desc(Job.id))
@@ -140,7 +145,7 @@ class MeGenerationsRepository:
         for row in result.all():
             try:
                 key = UUID(row.gr_id)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 continue
             # JSONB は SQLAlchemy が Python list/dict にして返す。
             out[key] = row.attempt_errors or []
@@ -198,9 +203,7 @@ class MeGenerationsRepository:
              GROUP BY id
             """
         )
-        result = await self.session.execute(
-            sql, {"user_id": user_id, "ids": list(request_ids)}
-        )
+        result = await self.session.execute(sql, {"user_id": user_id, "ids": list(request_ids)})
         out: dict[UUID, int] = {rid: 0 for rid in request_ids}
         for row in result.all():
             out[row.id] = int(row.depth)
